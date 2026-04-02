@@ -5,7 +5,12 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-// Add page imports here
+import AppLayout from './components/layout/AppLayout';
+import Dashboard from './pages/Dashboard';
+import Employees from './pages/Employees';
+import EmployeeForm from './pages/EmployeeForm';
+import EmployeeDetail from './pages/EmployeeDetail';
+import PassTracker from './pages/PassTracker';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -33,7 +38,14 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      {/* Add your page Route elements here */}
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/employees" element={<Employees />} />
+        <Route path="/employees/new" element={<EmployeeForm />} />
+        <Route path="/employees/:id" element={<EmployeeDetail />} />
+        <Route path="/employees/:id/edit" element={<EmployeeForm />} />
+        <Route path="/pass-tracker" element={<PassTracker />} />
+      </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

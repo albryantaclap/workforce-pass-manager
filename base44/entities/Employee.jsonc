@@ -1,0 +1,136 @@
+{
+  "name": "Employee",
+  "type": "object",
+  "properties": {
+    "sl_no": {
+      "type": "number",
+      "description": "Serial number"
+    },
+    "name": {
+      "type": "string",
+      "description": "Full name of employee"
+    },
+    "position_application": {
+      "type": "string",
+      "description": "Position as per application"
+    },
+    "designation_org_chart": {
+      "type": "string",
+      "description": "Designation as per organizational chart"
+    },
+    "company": {
+      "type": "string",
+      "enum": [
+        "GSOQ",
+        "LMV",
+        "WENMA",
+        "ENERTEC"
+      ],
+      "description": "Company"
+    },
+    "nationality": {
+      "type": "string",
+      "description": "Nationality"
+    },
+    "current_location": {
+      "type": "string",
+      "enum": [
+        "QATAR",
+        "COMO CAMP"
+      ],
+      "description": "Current location"
+    },
+    "dir_indir": {
+      "type": "string",
+      "enum": [
+        "DIR",
+        "INDIR"
+      ],
+      "description": "Direct or Indirect"
+    },
+    "qid_expiry": {
+      "type": "string",
+      "format": "date",
+      "description": "QID expiration date"
+    },
+    "pp_no": {
+      "type": "string",
+      "description": "Passport number"
+    },
+    "ftw_qid_pp": {
+      "type": "string",
+      "description": "QID/PP number for FTW"
+    },
+    "ftw_date_applied": {
+      "type": "string",
+      "format": "date",
+      "description": "FTW date applied"
+    },
+    "ftw_result": {
+      "type": "string",
+      "enum": [
+        "ACCEPTED",
+        "REJECTED",
+        "PENDING"
+      ],
+      "description": "FTW result"
+    },
+    "gate_pass_issue_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Gate pass issue date"
+    },
+    "gate_pass_received_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Gate pass received date"
+    },
+    "gate_pass_expiry": {
+      "type": "string",
+      "format": "date",
+      "description": "Gate pass expiry date"
+    },
+    "staff_no": {
+      "type": "string",
+      "description": "Staff number / RLIC number"
+    },
+    "rlic_status": {
+      "type": "string",
+      "enum": [
+        "VALID RLIC PASS",
+        "EXPIRED RLIC PASS",
+        "SOON TO EXPIRE",
+        "NO RLIC PASS"
+      ],
+      "description": "RLIC pass status"
+    },
+    "pid_issue_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Project ID issue date"
+    },
+    "pid_expiry": {
+      "type": "string",
+      "format": "date",
+      "description": "Project ID expiry date"
+    },
+    "pid": {
+      "type": "string",
+      "description": "Project ID number"
+    },
+    "pid_status": {
+      "type": "string",
+      "enum": [
+        "VALID PID PASS",
+        "EXPIRED PID PASS",
+        "SOON TO EXPIRE",
+        "NO PID PASS"
+      ],
+      "description": "Project ID status"
+    }
+  },
+  "required": [
+    "name",
+    "company"
+  ]
+}
