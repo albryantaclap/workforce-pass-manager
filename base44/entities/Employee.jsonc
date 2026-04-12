@@ -10,6 +10,10 @@
       "type": "string",
       "description": "Full name of employee"
     },
+    "photo_url": {
+      "type": "string",
+      "description": "Profile photo URL"
+    },
     "position_application": {
       "type": "string",
       "description": "Position as per application"
