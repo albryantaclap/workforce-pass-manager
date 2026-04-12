@@ -149,6 +149,9 @@ export default function MedicalImport() {
     let updated = 0;
     const notFound = [];
     const total = records.length;
+    const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+    const BATCH_SIZE = 5;
+    const DELAY_MS = 300;
 
     for (let i = 0; i < records.length; i++) {
       const rec = records[i];
@@ -176,12 +179,14 @@ export default function MedicalImport() {
       if (Object.keys(update).length > 0) {
         await base44.entities.Employee.update(emp.id, update);
         updated++;
+        if (updated % BATCH_SIZE === 0) await sleep(DELAY_MS);
       }
-      setProgress(40 + Math.floor((i / total) * 50));
+      setProgress(40 + Math.floor((i / total) * 48));
     }
 
-    for (const id of dupesToDelete) {
-      await base44.entities.Employee.delete(id);
+    for (let i = 0; i < dupesToDelete.length; i++) {
+      await base44.entities.Employee.delete(dupesToDelete[i]);
+      if ((i + 1) % BATCH_SIZE === 0) await sleep(DELAY_MS);
     }
 
     setProgress(100);
