@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Download, Stethoscope } from 'lucide-react';
+import { Search, Download, Stethoscope, Upload } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { COMPANIES, FTW_RESULTS, exportToCSV, formatDate } from '@/utils/constants';
@@ -74,7 +75,10 @@ export default function MedicalTracker() {
             <p className="text-sm text-muted-foreground">FTW / Medical tracking</p>
           </div>
         </div>
-        <Button variant="outline" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> Export</Button>
+        <div className="flex gap-2">
+          <Link to="/medical/import"><Button variant="outline"><Upload className="w-4 h-4 mr-2" /> Import Medical Data</Button></Link>
+          <Button variant="outline" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> Export</Button>
+        </div>
       </div>
 
       <Tabs defaultValue="list">
