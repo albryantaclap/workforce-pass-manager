@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus } from 'lucide-react';
+import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { label: 'Gate Pass (RLIC)', path: '/gatepass', icon: ShieldCheck },
   { label: 'Project ID', path: '/project-id', icon: BadgeCheck },
   { label: 'Training', path: '/training', icon: GraduationCap },
+  { label: 'Admin Panel', path: '/admin', icon: Shield },
 ];
 
 export default function Sidebar() {

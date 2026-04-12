@@ -1,20 +1,39 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
-import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, Building2 } from 'lucide-react';
+import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
+import MultiSelect from '@/components/common/MultiSelect';
 import { COMPANIES } from '@/utils/constants';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
 
 export default function Dashboard() {
+  const [companyFilter, setCompanyFilter] = useState([]);
+  const [positionFilter, setPositionFilter] = useState([]);
+
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
     queryFn: () => base44.entities.Employee.list('-created_date', 2000),
   });
+
+  const positions = useMemo(() => {
+    return [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort();
+  }, [employees]);
+
+  const filtered = useMemo(() => {
+    return employees.filter(e => {
+      const matchCo = companyFilter.length === 0 || companyFilter.includes(e.company);
+      const matchPos = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
+      return matchCo && matchPos;
+    });
+  }, [employees, companyFilter, positionFilter]);
+
+  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0;
 
   if (isLoading) {
     return (
@@ -23,84 +42,68 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-36 rounded-xl" />)}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Skeleton className="h-72 rounded-xl" />
-          <Skeleton className="h-72 rounded-xl" />
-        </div>
       </div>
     );
   }
 
-  const total = employees.length;
-  const validRlic = employees.filter(e => e.rlic_status === 'VALID RLIC PASS').length;
-  const expiredRlic = employees.filter(e => e.rlic_status === 'EXPIRED RLIC PASS').length;
-  const validPid = employees.filter(e => e.pid_status === 'VALID PID PASS').length;
-  const expiredPid = employees.filter(e => e.pid_status === 'EXPIRED PID PASS').length;
-  const medicalAccepted = employees.filter(e => e.ftw_result === 'ACCEPTED').length;
-  const trainingDone = employees.filter(e => e.training_status === 'DONE').length;
+  const total = filtered.length;
+  const validRlic = filtered.filter(e => e.rlic_status === 'VALID RLIC PASS').length;
+  const expiredRlic = filtered.filter(e => e.rlic_status === 'EXPIRED RLIC PASS').length;
+  const validPid = filtered.filter(e => e.pid_status === 'VALID PID PASS').length;
+  const expiredPid = filtered.filter(e => e.pid_status === 'EXPIRED PID PASS').length;
+  const medicalAccepted = filtered.filter(e => e.ftw_result === 'ACCEPTED').length;
+  const trainingDone = filtered.filter(e => e.training_status === 'DONE').length;
 
   const companyCounts = COMPANIES.map(c => ({
     name: c.label,
-    count: employees.filter(e => e.company === c.value).length,
+    count: filtered.filter(e => e.company === c.value).length,
   })).filter(c => c.count > 0);
 
   const categoryCards = [
     {
-      title: 'Medical Data',
-      icon: Stethoscope,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
-      path: '/medical',
+      title: 'Medical Data', icon: Stethoscope, color: 'text-blue-600', bg: 'bg-blue-50', path: '/medical',
       stats: [
         { label: 'Accepted', value: medicalAccepted, color: 'text-green-600' },
-        { label: 'Pending', value: employees.filter(e => e.ftw_result === 'PENDING').length, color: 'text-amber-600' },
-        { label: 'Rejected', value: employees.filter(e => e.ftw_result === 'REJECTED').length, color: 'text-red-600' },
+        { label: 'Pending', value: filtered.filter(e => e.ftw_result === 'PENDING').length, color: 'text-amber-600' },
+        { label: 'Rejected', value: filtered.filter(e => e.ftw_result === 'REJECTED').length, color: 'text-red-600' },
       ],
     },
     {
-      title: 'Gate Pass (RLIC)',
-      icon: ShieldCheck,
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-50',
-      path: '/gatepass',
+      title: 'Gate Pass (RLIC)', icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50', path: '/gatepass',
       stats: [
         { label: 'Valid', value: validRlic, color: 'text-green-600' },
         { label: 'Expired', value: expiredRlic, color: 'text-red-600' },
-        { label: 'Soon', value: employees.filter(e => e.rlic_status === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
+        { label: 'Soon', value: filtered.filter(e => e.rlic_status === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
       ],
     },
     {
-      title: 'Project ID',
-      icon: BadgeCheck,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50',
-      path: '/project-id',
+      title: 'Project ID', icon: BadgeCheck, color: 'text-purple-600', bg: 'bg-purple-50', path: '/project-id',
       stats: [
         { label: 'Valid', value: validPid, color: 'text-green-600' },
         { label: 'Expired', value: expiredPid, color: 'text-red-600' },
-        { label: 'Soon', value: employees.filter(e => e.pid_status === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
+        { label: 'Soon', value: filtered.filter(e => e.pid_status === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
       ],
     },
     {
-      title: 'Training',
-      icon: GraduationCap,
-      color: 'text-orange-600',
-      bg: 'bg-orange-50',
-      path: '/training',
+      title: 'Training', icon: GraduationCap, color: 'text-orange-600', bg: 'bg-orange-50', path: '/training',
       stats: [
         { label: 'Done', value: trainingDone, color: 'text-green-600' },
-        { label: 'Pending', value: employees.filter(e => e.training_status === 'PENDING').length, color: 'text-amber-600' },
-        { label: 'N/A', value: employees.filter(e => e.training_status === 'NOT REQUIRED').length, color: 'text-slate-500' },
+        { label: 'Pending', value: filtered.filter(e => e.training_status === 'PENDING').length, color: 'text-amber-600' },
+        { label: 'N/A', value: filtered.filter(e => e.training_status === 'NOT REQUIRED').length, color: 'text-slate-500' },
       ],
     },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-sm text-muted-foreground mt-1">GSO Qatar Workforce Overview — {total} Total Personnel</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            GSO Qatar Workforce Overview
+            {hasFilter && <span className="ml-2 text-primary font-medium">— Filtered: {total} personnel</span>}
+            {!hasFilter && <span className="ml-1">— {total} Total Personnel</span>}
+          </p>
         </div>
         <div className="flex items-center gap-2 bg-primary/10 text-primary rounded-lg px-4 py-2">
           <Users className="w-4 h-4" />
@@ -108,6 +111,40 @@ export default function Dashboard() {
           <span className="text-sm">Personnel</span>
         </div>
       </div>
+
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Company</p>
+            <MultiSelect
+              options={COMPANIES.map(c => ({ value: c.value, label: c.label }))}
+              value={companyFilter}
+              onChange={setCompanyFilter}
+              placeholder="All companies..."
+            />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Position / Designation</p>
+            <MultiSelect
+              options={positions}
+              value={positionFilter}
+              onChange={setPositionFilter}
+              placeholder="All positions..."
+            />
+          </div>
+          {hasFilter && (
+            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); }}>
+              <X className="w-4 h-4 mr-1" /> Clear Filters
+            </Button>
+          )}
+        </div>
+        {hasFilter && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Showing stats for <strong>{total}</strong> of <strong>{employees.length}</strong> personnel
+          </p>
+        )}
+      </Card>
 
       {/* Category Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -142,35 +179,40 @@ export default function Dashboard() {
         <Card>
           <CardHeader><CardTitle className="text-sm">Personnel by Company</CardTitle></CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie data={companyCounts} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, count }) => count > 0 ? `${name.substring(0, 10)}: ${count}` : ''} labelLine={false}>
-                  {companyCounts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {companyCounts.length === 0 ? (
+              <p className="text-center text-muted-foreground py-10 text-sm">No data for selected filters</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={companyCounts} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={90}
+                    label={({ name, count }) => `${name.substring(0, 10)}: ${count}`} labelLine={false}>
+                    {companyCounts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-sm">Pass Status Overview</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Pass & Status Overview</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={[
-                { category: 'RLIC Valid', count: validRlic, fill: '#10b981' },
-                { category: 'RLIC Expired', count: expiredRlic, fill: '#ef4444' },
-                { category: 'PID Valid', count: validPid, fill: '#3b82f6' },
-                { category: 'PID Expired', count: expiredPid, fill: '#f97316' },
-                { category: 'Medical OK', count: medicalAccepted, fill: '#8b5cf6' },
-                { category: 'Training Done', count: trainingDone, fill: '#06b6d4' },
+                { category: 'RLIC Valid', count: validRlic },
+                { category: 'RLIC Expired', count: expiredRlic },
+                { category: 'PID Valid', count: validPid },
+                { category: 'PID Expired', count: expiredPid },
+                { category: 'Medical OK', count: medicalAccepted },
+                { category: 'Training Done', count: trainingDone },
               ]} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                 <XAxis dataKey="category" tick={{ fontSize: 9 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {[validRlic, expiredRlic, validPid, expiredPid, medicalAccepted, trainingDone].map((_, i) => (
-                    <Cell key={i} fill={['#10b981','#ef4444','#3b82f6','#f97316','#8b5cf6','#06b6d4'][i]} />
+                  {['#10b981','#ef4444','#3b82f6','#f97316','#8b5cf6','#06b6d4'].map((c, i) => (
+                    <Cell key={i} fill={c} />
                   ))}
                 </Bar>
               </BarChart>

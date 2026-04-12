@@ -7,12 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Upload, User } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, FTW_RESULTS, TRAINING_STATUSES, LOCATIONS } from '@/utils/constants';
 
 const emptyForm = {
-  sl_no: '', name: '', position_application: '', designation_org_chart: '',
+  sl_no: '', name: '', photo_url: '', position_application: '', designation_org_chart: '',
   company: '', company_type: '', nationality: '', religion: '', current_location: '', dir_indir: '',
   contact_details: '', sponsor: '', remarks: '',
   qid_no: '', qid_expiry: '', pp_no: '', pp_expiry: '',
@@ -33,6 +33,7 @@ export default function EmployeeForm() {
   const empId = isEdit ? pathParts[pathParts.indexOf('edit') - 1] : null;
   const { toast } = useToast();
   const [form, setForm] = useState(emptyForm);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const { data: existingEmp } = useQuery({
     queryKey: ['employee', empId],
@@ -62,6 +63,16 @@ export default function EmployeeForm() {
 
   const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
   const handleSubmit = (e) => { e.preventDefault(); saveMutation.mutate(form); };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    handleChange('photo_url', file_url);
+    setUploadingPhoto(false);
+    toast({ title: 'Photo uploaded' });
+  };
 
   const Field = ({ label, children }) => (
     <div className="space-y-1.5">{label && <Label className="text-xs">{label}</Label>}{children}</div>
@@ -103,6 +114,26 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Personal Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Photo Upload */}
+            <div className="md:col-span-3 flex items-center gap-4">
+              <div className="w-20 h-20 rounded-full border-2 border-dashed border-border overflow-hidden flex items-center justify-center bg-muted flex-shrink-0">
+                {form.photo_url ? (
+                  <img src={form.photo_url} alt="Photo" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+              <div>
+                <Label className="text-xs block mb-1.5">Profile Photo (2×2)</Label>
+                <label className="cursor-pointer">
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                  <Button type="button" variant="outline" size="sm" disabled={uploadingPhoto} asChild>
+                    <span><Upload className="w-3.5 h-3.5 mr-2" />{uploadingPhoto ? 'Uploading...' : 'Upload Photo'}</span>
+                  </Button>
+                </label>
+                <p className="text-[11px] text-muted-foreground mt-1">Recommended: 2×2 passport-size photo</p>
+              </div>
+            </div>
             <TextInput field="sl_no" label="SL No" type="number" />
             <div className="md:col-span-2"><TextInput field="name" label="Full Name *" required /></div>
             <TextInput field="position_application" label="Position (Application)" />
@@ -146,8 +177,8 @@ export default function EmployeeForm() {
           <h3 className="text-sm font-semibold mb-4 text-primary">Medical / FTW</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <TextInput field="ftw_medical_date" label="Medical Date" type="date" />
-            <TextInput field="ftw_received_date" label="Received from Al-Safa" type="date" />
-            <TextInput field="ftw_approval_request_date" label="TR FTW Approval Request" type="date" />
+            <TextInput field="ftw_received_date" label="Date Received from Al-Safa" type="date" />
+            <TextInput field="ftw_approval_request_date" label="TR FTW Approval Date Request" type="date" />
             <TextInput field="ftw_count_days" label="Count Days" type="number" />
             <TextInput field="ftw_approved_date" label="TR Date Approved" type="date" />
             <SelectInput field="ftw_result" label="Result" options={FTW_RESULTS} />

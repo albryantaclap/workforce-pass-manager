@@ -14,6 +14,7 @@ import MedicalTracker from './pages/MedicalTracker';
 import GatepassTracker from './pages/GatepassTracker';
 import ProjectIDTracker from './pages/ProjectIDTracker';
 import TrainingTracker from './pages/TrainingTracker';
+import AdminPanel from './pages/AdminPanel';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -51,6 +52,7 @@ const AuthenticatedApp = () => {
         <Route path="/gatepass" element={<GatepassTracker />} />
         <Route path="/project-id" element={<ProjectIDTracker />} />
         <Route path="/training" element={<TrainingTracker />} />
+        <Route path="/admin" element={<AdminPanel />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
