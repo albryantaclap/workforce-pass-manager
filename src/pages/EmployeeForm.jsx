@@ -25,6 +25,31 @@ const emptyForm = {
   training_date: '', training_status: '',
 };
 
+const Field = ({ label, children }) => (
+  <div className="space-y-1.5">{label && <Label className="text-xs">{label}</Label>}{children}</div>
+);
+
+const TextInput = ({ field, label, type = 'text', required, form, onChange }) => (
+  <Field label={label}>
+    <Input type={type} required={required} value={form[field] || ''} onChange={e => onChange(field, e.target.value)} />
+  </Field>
+);
+
+const SelectInput = ({ field, label, options, placeholder = 'Select', form, onChange }) => (
+  <Field label={label}>
+    <Select value={form[field] || ''} onValueChange={v => onChange(field, v)}>
+      <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectContent>
+        {options.map(opt => (
+          typeof opt === 'string'
+            ? <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+            : <SelectItem key={opt.value} value={opt.value}>{opt.label || opt.value}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </Field>
+);
+
 export default function EmployeeForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -64,6 +89,8 @@ export default function EmployeeForm() {
   const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
   const handleSubmit = (e) => { e.preventDefault(); saveMutation.mutate(form); };
 
+  const tf = { form, onChange: handleChange };
+
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -73,29 +100,6 @@ export default function EmployeeForm() {
     setUploadingPhoto(false);
     toast({ title: 'Photo uploaded' });
   };
-
-  const Field = ({ label, children }) => (
-    <div className="space-y-1.5">{label && <Label className="text-xs">{label}</Label>}{children}</div>
-  );
-  const TextInput = ({ field, label, type = 'text', required }) => (
-    <Field label={label}>
-      <Input type={type} required={required} value={form[field] || ''} onChange={e => handleChange(field, e.target.value)} />
-    </Field>
-  );
-  const SelectInput = ({ field, label, options, placeholder = 'Select' }) => (
-    <Field label={label}>
-      <Select value={form[field] || ''} onValueChange={v => handleChange(field, v)}>
-        <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
-        <SelectContent>
-          {options.map(opt => (
-            typeof opt === 'string'
-              ? <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-              : <SelectItem key={opt.value} value={opt.value}>{opt.label || opt.value}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Field>
-  );
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -134,15 +138,15 @@ export default function EmployeeForm() {
                 <p className="text-[11px] text-muted-foreground mt-1">Recommended: 2×2 passport-size photo</p>
               </div>
             </div>
-            <TextInput field="sl_no" label="SL No" type="number" />
-            <div className="md:col-span-2"><TextInput field="name" label="Full Name *" required /></div>
-            <TextInput field="position_application" label="Position (Application)" />
-            <TextInput field="designation_org_chart" label="Designation (Org Chart)" />
-            <TextInput field="nationality" label="Nationality" />
-            <TextInput field="religion" label="Religion" />
-            <TextInput field="contact_details" label="Contact Details" />
-            <TextInput field="sponsor" label="Sponsor" />
-            <TextInput field="remarks" label="Remarks" />
+            <TextInput field="sl_no" label="SL No" type="number" {...tf} />
+            <div className="md:col-span-2"><TextInput field="name" label="Full Name *" required {...tf} /></div>
+            <TextInput field="position_application" label="Position (Application)" {...tf} />
+            <TextInput field="designation_org_chart" label="Designation (Org Chart)" {...tf} />
+            <TextInput field="nationality" label="Nationality" {...tf} />
+            <TextInput field="religion" label="Religion" {...tf} />
+            <TextInput field="contact_details" label="Contact Details" {...tf} />
+            <TextInput field="sponsor" label="Sponsor" {...tf} />
+            <TextInput field="remarks" label="Remarks" {...tf} />
           </div>
         </Card>
 
@@ -150,11 +154,11 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Work Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <SelectInput field="company" label="Company *" options={COMPANIES} />
-            <SelectInput field="company_type" label="Company Type" options={['Main', 'Sub-contractor', 'GSO Supervision']} />
-            <SelectInput field="current_location" label="Location" options={LOCATIONS} />
-            <SelectInput field="dir_indir" label="DIR / INDIR" options={['DIR', 'INDIR']} />
-            <TextInput field="staff_no" label="Staff No / RLIC No" />
+            <SelectInput field="company" label="Company *" options={COMPANIES} {...tf} />
+            <SelectInput field="company_type" label="Company Type" options={['Main', 'Sub-contractor', 'GSO Supervision']} {...tf} />
+            <SelectInput field="current_location" label="Location" options={LOCATIONS} {...tf} />
+            <SelectInput field="dir_indir" label="DIR / INDIR" options={['DIR', 'INDIR']} {...tf} />
+            <TextInput field="staff_no" label="Staff No / RLIC No" {...tf} />
           </div>
         </Card>
 
@@ -162,13 +166,13 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">QID, Visa & Passport</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <TextInput field="qid_no" label="QID No" />
-            <TextInput field="qid_expiry" label="QID Expiry" type="date" />
-            <TextInput field="pp_no" label="Passport No" />
-            <TextInput field="pp_expiry" label="Passport Expiry" type="date" />
-            <TextInput field="visa_date_applied" label="Visa Date Applied" type="date" />
-            <TextInput field="visa_date_received" label="Visa Date Received" type="date" />
-            <TextInput field="visa_expiry" label="Visa Expiry" type="date" />
+            <TextInput field="qid_no" label="QID No" {...tf} />
+            <TextInput field="qid_expiry" label="QID Expiry" type="date" {...tf} />
+            <TextInput field="pp_no" label="Passport No" {...tf} />
+            <TextInput field="pp_expiry" label="Passport Expiry" type="date" {...tf} />
+            <TextInput field="visa_date_applied" label="Visa Date Applied" type="date" {...tf} />
+            <TextInput field="visa_date_received" label="Visa Date Received" type="date" {...tf} />
+            <TextInput field="visa_expiry" label="Visa Expiry" type="date" {...tf} />
           </div>
         </Card>
 
@@ -176,14 +180,14 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Medical / FTW</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <TextInput field="ftw_medical_date" label="Medical Date" type="date" />
-            <TextInput field="ftw_received_date" label="Date Received from Al-Safa" type="date" />
-            <TextInput field="ftw_approval_request_date" label="TR FTW Approval Date Request" type="date" />
-            <TextInput field="ftw_count_days" label="Count Days" type="number" />
-            <TextInput field="ftw_approved_date" label="TR Date Approved" type="date" />
-            <SelectInput field="ftw_result" label="Result" options={FTW_RESULTS} />
-            <TextInput field="ftw_doctor" label="Doctor Name" />
-            <TextInput field="ftw_mobile" label="Mobile Number" />
+            <TextInput field="ftw_medical_date" label="Medical Date" type="date" {...tf} />
+            <TextInput field="ftw_received_date" label="Date Received from Al-Safa" type="date" {...tf} />
+            <TextInput field="ftw_approval_request_date" label="TR FTW Approval Date Request" type="date" {...tf} />
+            <TextInput field="ftw_count_days" label="Count Days" type="number" {...tf} />
+            <TextInput field="ftw_approved_date" label="TR Date Approved" type="date" {...tf} />
+            <SelectInput field="ftw_result" label="Result" options={FTW_RESULTS} {...tf} />
+            <TextInput field="ftw_doctor" label="Doctor Name" {...tf} />
+            <TextInput field="ftw_mobile" label="Mobile Number" {...tf} />
           </div>
         </Card>
 
@@ -191,10 +195,10 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Gate Pass (RLIC)</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <TextInput field="gate_pass_issue_date" label="Issue Date" type="date" />
-            <TextInput field="gate_pass_received_date" label="Received Date" type="date" />
-            <TextInput field="gate_pass_expiry" label="Expiry Date" type="date" />
-            <SelectInput field="rlic_status" label="RLIC Status" options={RLIC_STATUSES} />
+            <TextInput field="gate_pass_issue_date" label="Issue Date" type="date" {...tf} />
+            <TextInput field="gate_pass_received_date" label="Received Date" type="date" {...tf} />
+            <TextInput field="gate_pass_expiry" label="Expiry Date" type="date" {...tf} />
+            <SelectInput field="rlic_status" label="RLIC Status" options={RLIC_STATUSES} {...tf} />
           </div>
         </Card>
 
@@ -202,11 +206,11 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Project ID</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <TextInput field="pid" label="PID No" />
-            <TextInput field="pid_issue_date" label="Issue Date" type="date" />
-            <TextInput field="pid_expiry" label="Expiry Date" type="date" />
-            <TextInput field="pid_projected_date" label="Projected PID Date" type="date" />
-            <SelectInput field="pid_status" label="PID Status" options={PID_STATUSES} />
+            <TextInput field="pid" label="PID No" {...tf} />
+            <TextInput field="pid_issue_date" label="Issue Date" type="date" {...tf} />
+            <TextInput field="pid_expiry" label="Expiry Date" type="date" {...tf} />
+            <TextInput field="pid_projected_date" label="Projected PID Date" type="date" {...tf} />
+            <SelectInput field="pid_status" label="PID Status" options={PID_STATUSES} {...tf} />
           </div>
         </Card>
 
@@ -214,8 +218,8 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Training</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <TextInput field="training_date" label="Training Date" type="date" />
-            <SelectInput field="training_status" label="Training Status" options={TRAINING_STATUSES} />
+            <TextInput field="training_date" label="Training Date" type="date" {...tf} />
+            <SelectInput field="training_status" label="Training Status" options={TRAINING_STATUSES} {...tf} />
           </div>
         </Card>
 
