@@ -7,10 +7,13 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
-import Employees from './pages/Employees';
+import MasterList from './pages/MasterList';
 import EmployeeForm from './pages/EmployeeForm';
 import EmployeeDetail from './pages/EmployeeDetail';
-import PassTracker from './pages/PassTracker';
+import MedicalTracker from './pages/MedicalTracker';
+import GatepassTracker from './pages/GatepassTracker';
+import ProjectIDTracker from './pages/ProjectIDTracker';
+import TrainingTracker from './pages/TrainingTracker';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -40,11 +43,14 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/employees" element={<Employees />} />
+        <Route path="/master-list" element={<MasterList />} />
         <Route path="/employees/new" element={<EmployeeForm />} />
         <Route path="/employees/:id" element={<EmployeeDetail />} />
         <Route path="/employees/:id/edit" element={<EmployeeForm />} />
-        <Route path="/pass-tracker" element={<PassTracker />} />
+        <Route path="/medical" element={<MedicalTracker />} />
+        <Route path="/gatepass" element={<GatepassTracker />} />
+        <Route path="/project-id" element={<ProjectIDTracker />} />
+        <Route path="/training" element={<TrainingTracker />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

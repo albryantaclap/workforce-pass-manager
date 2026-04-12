@@ -1,0 +1,227 @@
+import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Search, Download, BadgeCheck } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
+import StatusBadge from '../components/common/StatusBadge';
+import { COMPANIES, PID_STATUSES, exportToCSV, formatDate, daysUntil } from '@/utils/constants';
+import { useToast } from '@/components/ui/use-toast';
+
+const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
+
+export default function ProjectIDTracker() {
+  const [search, setSearch] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const { toast } = useToast();
+
+  const { data: employees = [], isLoading } = useQuery({
+    queryKey: ['employees'],
+    queryFn: () => base44.entities.Employee.list('-created_date', 2000),
+  });
+
+  const filtered = useMemo(() => employees.filter(e => {
+    const matchesSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.pid?.includes(search) || e.qid_no?.includes(search);
+    const matchesCompany = companyFilter === 'all' || e.company === companyFilter;
+    const matchesStatus = statusFilter === 'all' || e.pid_status === statusFilter;
+    return matchesSearch && matchesCompany && matchesStatus;
+  }), [employees, search, companyFilter, statusFilter]);
+
+  const stats = useMemo(() => PID_STATUSES.map((s, i) => ({
+    name: s.label,
+    count: employees.filter(e => e.pid_status === s.value).length,
+  })), [employees]);
+
+  const companyStats = useMemo(() => {
+    return COMPANIES.filter(c => employees.some(e => e.company === c.value)).map(c => ({
+      name: c.label.substring(0, 12),
+      valid: employees.filter(e => e.company === c.value && e.pid_status === 'VALID PID PASS').length,
+      expired: employees.filter(e => e.company === c.value && e.pid_status === 'EXPIRED PID PASS').length,
+      soon: employees.filter(e => e.company === c.value && e.pid_status === 'SOON TO EXPIRE').length,
+    })).filter(c => c.valid + c.expired + c.soon > 0);
+  }, [employees]);
+
+  const handleExport = () => {
+    const data = filtered.map(e => ({
+      Name: e.name, Company: e.company, QID_No: e.qid_no, PID: e.pid,
+      PID_Issue_Date: e.pid_issue_date, PID_Expiry: e.pid_expiry, PID_Status: e.pid_status,
+      Projected_Date: e.pid_projected_date,
+    }));
+    exportToCSV(data, 'project_id_data.csv');
+    toast({ title: `Exported ${data.length} records` });
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center">
+            <BadgeCheck className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Project ID</h2>
+            <p className="text-sm text-muted-foreground">PID tracking & status</p>
+          </div>
+        </div>
+        <Button variant="outline" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> Export</Button>
+      </div>
+
+      <Tabs defaultValue="list">
+        <TabsList>
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="list">List</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-4 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {stats.map((s, i) => (
+              <Card key={s.name}>
+                <CardContent className="pt-4">
+                  <div className="text-3xl font-bold" style={{ color: COLORS[i] }}>{s.count}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{s.name}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader><CardTitle className="text-sm">PID Status Distribution</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={stats.filter(s => s.count > 0)} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, count }) => `${name}: ${count}`} labelLine={false}>
+                      {stats.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="text-sm">By Company</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={companyStats} margin={{ left: -20 }}>
+                    <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Bar dataKey="valid" fill="#10b981" stackId="a" name="Valid" />
+                    <Bar dataKey="soon" fill="#f59e0b" stackId="a" name="Soon" />
+                    <Bar dataKey="expired" fill="#ef4444" stackId="a" name="Expired" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Expiring Within 90 Days</CardTitle></CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {employees
+                  .filter(e => { const d = daysUntil(e.pid_expiry); return d !== null && d <= 90; })
+                  .sort((a, b) => daysUntil(a.pid_expiry) - daysUntil(b.pid_expiry))
+                  .slice(0, 10)
+                  .map(emp => {
+                    const days = daysUntil(emp.pid_expiry);
+                    return (
+                      <div key={emp.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                        <div>
+                          <p className="text-sm font-medium">{emp.name}</p>
+                          <p className="text-xs text-muted-foreground">{emp.company} — {emp.pid} — {formatDate(emp.pid_expiry)}</p>
+                        </div>
+                        <span className={`text-xs font-bold px-2 py-1 rounded ${days <= 0 ? 'bg-red-100 text-red-700' : days <= 30 ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {days <= 0 ? 'EXPIRED' : `${days}d`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                {employees.filter(e => { const d = daysUntil(e.pid_expiry); return d !== null && d <= 90; }).length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No PIDs expiring within 90 days</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="list" className="space-y-4 mt-4">
+          <Card className="p-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="Name, PID, QID..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+              </div>
+              <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Company" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Companies</SelectItem>
+                  {COMPANIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="PID Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  {PID_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="text-xs">Name</TableHead>
+                    <TableHead className="text-xs">Company</TableHead>
+                    <TableHead className="text-xs">QID No</TableHead>
+                    <TableHead className="text-xs">PID No</TableHead>
+                    <TableHead className="text-xs">Issue Date</TableHead>
+                    <TableHead className="text-xs">Expiry</TableHead>
+                    <TableHead className="text-xs">Projected Date</TableHead>
+                    <TableHead className="text-xs">Days Left</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(9).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
+                  ) : filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
+                  ) : filtered.map(emp => {
+                    const days = daysUntil(emp.pid_expiry);
+                    return (
+                      <TableRow key={emp.id} className="hover:bg-muted/30">
+                        <TableCell className="text-xs font-medium">{emp.name}</TableCell>
+                        <TableCell className="text-xs">{emp.company}</TableCell>
+                        <TableCell className="text-xs font-mono">{emp.qid_no}</TableCell>
+                        <TableCell className="text-xs font-mono">{emp.pid}</TableCell>
+                        <TableCell className="text-xs">{formatDate(emp.pid_issue_date)}</TableCell>
+                        <TableCell className="text-xs">{formatDate(emp.pid_expiry)}</TableCell>
+                        <TableCell className="text-xs">{formatDate(emp.pid_projected_date)}</TableCell>
+                        <TableCell>
+                          {days !== null ? (
+                            <span className={`text-xs font-bold ${days <= 0 ? 'text-red-600' : days <= 30 ? 'text-amber-600' : 'text-green-600'}`}>
+                              {days <= 0 ? 'Expired' : `${days}d`}
+                            </span>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell><StatusBadge status={emp.pid_status} short /></TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

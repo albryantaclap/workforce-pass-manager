@@ -1,13 +1,16 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, UserPlus, Shield, HardHat } from 'lucide-react';
+import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { label: 'Employees', path: '/employees', icon: Users },
-  { label: 'Add Employee', path: '/employees/new', icon: UserPlus },
-  { label: 'Pass Tracker', path: '/pass-tracker', icon: Shield },
+  { label: 'Master List', path: '/master-list', icon: List },
+  { label: 'Add Personnel', path: '/employees/new', icon: Plus },
+  { label: 'Medical', path: '/medical', icon: Stethoscope },
+  { label: 'Gate Pass (RLIC)', path: '/gatepass', icon: ShieldCheck },
+  { label: 'Project ID', path: '/project-id', icon: BadgeCheck },
+  { label: 'Training', path: '/training', icon: GraduationCap },
 ];
 
 export default function Sidebar() {
@@ -20,8 +23,8 @@ export default function Sidebar() {
           <HardHat className="w-5 h-5 text-sidebar-primary-foreground" />
         </div>
         <div>
-          <h1 className="font-bold text-sm tracking-wide">WORKFORCE</h1>
-          <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest">Pass Management</p>
+          <h1 className="font-bold text-sm tracking-wide">GSO QATAR</h1>
+          <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest">Workforce Management</p>
         </div>
       </div>
 
