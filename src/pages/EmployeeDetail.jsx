@@ -76,11 +76,18 @@ export default function EmployeeDetail() {
           <User className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-semibold">Personal Information</h3>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <InfoRow label="SL No" value={emp.sl_no} />
-          <InfoRow label="Full Name" value={emp.name} />
-          <InfoRow label="Nationality" value={emp.nationality} />
-          <InfoRow label="Passport No" value={emp.pp_no} />
+        <div className="flex gap-6">
+          {emp.photo_url && (
+            <div className="flex-shrink-0">
+              <img src={emp.photo_url} alt={emp.name} className="w-24 h-24 rounded-xl object-cover border border-border" />
+            </div>
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
+            <InfoRow label="SL No" value={emp.sl_no} />
+            <InfoRow label="Full Name" value={emp.name} />
+            <InfoRow label="Nationality" value={emp.nationality} />
+            <InfoRow label="Passport No" value={emp.pp_no} />
+          </div>
         </div>
       </Card>
 
