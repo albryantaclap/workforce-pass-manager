@@ -169,7 +169,7 @@ export default function MedicalImport() {
         <div>
           <p className="text-sm font-medium mb-2">Step 1: Upload Medical Data File (xlsx)</p>
           <label className="cursor-pointer">
-            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} disabled={status !== 'idle'} />
+            <input type="file" accept=".xlsx,.xls,.csv,.txt,.tsv" className="hidden" onChange={handleFileChange} disabled={status !== 'idle'} />
             <Button type="button" variant="outline" disabled={uploading || status !== 'idle'} asChild>
               <span><Upload className="w-4 h-4 mr-2" />{uploading ? 'Uploading...' : fileUrl ? '✓ File Ready' : 'Choose File'}</span>
             </Button>

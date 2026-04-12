@@ -172,6 +172,7 @@ export default function MedicalTracker() {
                     <TableHead className="text-xs">Medical Date</TableHead>
                     <TableHead className="text-xs">Date Received from ALSAFA</TableHead>
                     <TableHead className="text-xs">TR FTW Approval Date Request</TableHead>
+                    <TableHead className="text-xs">TR Date Approved</TableHead>
                     <TableHead className="text-xs">Result</TableHead>
                     <TableHead className="text-xs">Doctor</TableHead>
                     <TableHead className="text-xs">Mobile</TableHead>
@@ -179,9 +180,9 @@ export default function MedicalTracker() {
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(10).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
+                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(11).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
                   ) : filtered.map(emp => (
                     <TableRow key={emp.id} className="hover:bg-muted/30">
                       <TableCell className="text-xs font-medium">{emp.name}</TableCell>
@@ -190,6 +191,7 @@ export default function MedicalTracker() {
                       <TableCell className="text-xs font-mono">{emp.pp_no}</TableCell>
                       <TableCell className="text-xs">{formatDate(emp.ftw_medical_date)}</TableCell>
                       <TableCell className="text-xs">{formatDate(emp.ftw_received_date)}</TableCell>
+                      <TableCell className="text-xs">{formatDate(emp.ftw_approval_request_date)}</TableCell>
                       <TableCell className="text-xs">{formatDate(emp.ftw_approved_date)}</TableCell>
                       <TableCell>
                         {emp.ftw_result ? (
