@@ -21,6 +21,7 @@ export const COMPANIES = [
   { value: 'SIGEL (GSO)', label: 'Sigel (GSO)', type: 'GSO Supervision' },
   { value: 'AL-RAMSHA (GSO)', label: 'Al-Ramsha (GSO)', type: 'GSO Supervision' },
   { value: 'ALTHAF (GSO)', label: 'Althaf (GSO)', type: 'GSO Supervision' },
+  { value: 'ZEAL-IT', label: 'Zeal-IT', type: 'Sub-contractor' },
 ];
 
 export const RLIC_STATUSES = [

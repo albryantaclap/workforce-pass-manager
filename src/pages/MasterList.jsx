@@ -16,14 +16,15 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, LOCATIONS, exportToCSV, formatDate } from '@/utils/constants';
+import MultiSelect from '../components/common/MultiSelect';
 
 export default function MasterList() {
   const [search, setSearch] = useState('');
-  const [companyFilter, setCompanyFilter] = useState('all');
+  const [companyFilter, setCompanyFilter] = useState([]);
   const [rlicFilter, setRlicFilter] = useState('all');
   const [locationFilter, setLocationFilter] = useState('all');
   const [dirFilter, setDirFilter] = useState('all');
-  const [positionFilter, setPositionFilter] = useState('');
+  const [positionFilter, setPositionFilter] = useState([]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -40,6 +41,16 @@ export default function MasterList() {
     },
   });
 
+  const uniqueCompanies = useMemo(() => {
+    const vals = [...new Set(employees.map(e => e.company).filter(Boolean))].sort();
+    return vals.map(v => { const c = COMPANIES.find(x => x.value === v); return { value: v, label: c ? c.label : v }; });
+  }, [employees]);
+
+  const positions = useMemo(() => {
+    const pos = [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort();
+    return pos.map(p => ({ value: p, label: p }));
+  }, [employees]);
+
   const filtered = useMemo(() => {
     return employees.filter((emp) => {
       const matchesSearch = !search ||
@@ -49,13 +60,11 @@ export default function MasterList() {
         emp.pid?.includes(search) ||
         emp.staff_no?.toLowerCase().includes(search.toLowerCase()) ||
         emp.nationality?.toLowerCase().includes(search.toLowerCase());
-      const matchesCompany = companyFilter === 'all' || emp.company === companyFilter;
+      const matchesCompany = companyFilter.length === 0 || companyFilter.includes(emp.company);
       const matchesRlic = rlicFilter === 'all' || emp.rlic_status === rlicFilter;
       const matchesLocation = locationFilter === 'all' || emp.current_location === locationFilter;
       const matchesDir = dirFilter === 'all' || emp.dir_indir === dirFilter;
-      const matchesPosition = !positionFilter ||
-        emp.position_application?.toLowerCase().includes(positionFilter.toLowerCase()) ||
-        emp.designation_org_chart?.toLowerCase().includes(positionFilter.toLowerCase());
+      const matchesPosition = positionFilter.length === 0 || positionFilter.includes(emp.designation_org_chart);
       return matchesSearch && matchesCompany && matchesRlic && matchesLocation && matchesDir && matchesPosition;
     });
   }, [employees, search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter]);
@@ -72,11 +81,6 @@ export default function MasterList() {
     exportToCSV(data, 'master_list.csv');
     toast({ title: `Exported ${data.length} records` });
   };
-
-  const positions = useMemo(() => {
-    const pos = [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort();
-    return pos;
-  }, [employees]);
 
   return (
     <div className="space-y-5">
@@ -102,14 +106,8 @@ export default function MasterList() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input placeholder="Name, QID, PP, PID..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
-          <Select value={companyFilter} onValueChange={setCompanyFilter}>
-            <SelectTrigger><SelectValue placeholder="Company" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Companies</SelectItem>
-              {COMPANIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Input placeholder="Filter by position..." value={positionFilter} onChange={e => setPositionFilter(e.target.value)} />
+          <MultiSelect options={uniqueCompanies} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" />
+          <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="Filter by position" />
           <Select value={rlicFilter} onValueChange={setRlicFilter}>
             <SelectTrigger><SelectValue placeholder="RLIC Status" /></SelectTrigger>
             <SelectContent>
@@ -139,24 +137,24 @@ export default function MasterList() {
 
       {/* Table */}
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-10">
               <TableRow className="bg-muted/50">
-                <TableHead className="text-xs">SL</TableHead>
-                <TableHead className="text-xs">Name</TableHead>
-                <TableHead className="text-xs">Designation</TableHead>
-                <TableHead className="text-xs">Company</TableHead>
-                <TableHead className="text-xs">Nationality</TableHead>
-                <TableHead className="text-xs">Location</TableHead>
-                <TableHead className="text-xs">Type</TableHead>
-                <TableHead className="text-xs">QID No</TableHead>
-                <TableHead className="text-xs">QID Expiry</TableHead>
-                <TableHead className="text-xs">RLIC</TableHead>
-                <TableHead className="text-xs">PID</TableHead>
-                <TableHead className="text-xs">Medical</TableHead>
-                <TableHead className="text-xs">Training</TableHead>
-                <TableHead className="text-xs text-right">Actions</TableHead>
+                <TableHead className="text-xs bg-muted/50">SL</TableHead>
+                <TableHead className="text-xs bg-muted/50">Name</TableHead>
+                <TableHead className="text-xs bg-muted/50">Designation</TableHead>
+                <TableHead className="text-xs bg-muted/50">Company</TableHead>
+                <TableHead className="text-xs bg-muted/50">Nationality</TableHead>
+                <TableHead className="text-xs bg-muted/50">Location</TableHead>
+                <TableHead className="text-xs bg-muted/50">Type</TableHead>
+                <TableHead className="text-xs bg-muted/50">QID No</TableHead>
+                <TableHead className="text-xs bg-muted/50">QID Expiry</TableHead>
+                <TableHead className="text-xs bg-muted/50">RLIC</TableHead>
+                <TableHead className="text-xs bg-muted/50">PID</TableHead>
+                <TableHead className="text-xs bg-muted/50">Medical</TableHead>
+                <TableHead className="text-xs bg-muted/50">Training</TableHead>
+                <TableHead className="text-xs text-right bg-muted/50">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

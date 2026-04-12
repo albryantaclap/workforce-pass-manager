@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Users, Trash2, UserPlus, AlertTriangle } from 'lucide-react';
+import { Shield, Users, Trash2, UserPlus, AlertTriangle, List } from 'lucide-react';
+import LookupsManager from '../components/admin/LookupsManager';
 import { useToast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -85,6 +86,7 @@ export default function AdminPanel() {
         <TabsList>
           <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Users</TabsTrigger>
           <TabsTrigger value="dedup"><AlertTriangle className="w-4 h-4 mr-2" />Duplicates {duplicates.length > 0 && <span className="ml-1 bg-red-100 text-red-700 text-xs px-1.5 rounded-full">{duplicates.length}</span>}</TabsTrigger>
+          <TabsTrigger value="lookups"><List className="w-4 h-4 mr-2" />Lookups</TabsTrigger>
         </TabsList>
 
         {/* Users Tab */}
@@ -211,6 +213,9 @@ export default function AdminPanel() {
               </div>
             )}
           </Card>
+        </TabsContent>
+        <TabsContent value="lookups" className="mt-4">
+          <LookupsManager />
         </TabsContent>
       </Tabs>
     </div>
