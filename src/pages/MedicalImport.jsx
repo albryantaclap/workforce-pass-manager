@@ -1,28 +1,61 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, CheckCircle2, AlertCircle, Upload, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
-import { formatDate } from '@/utils/constants';
 
-function toDateStr(val) {
+function parseTsv(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  const rawHeaders = lines[0].split('\t').map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const cols = line.split('\t');
+    const obj = {};
+    rawHeaders.forEach((h, i) => { obj[h.toUpperCase().trim()] = (cols[i] || '').trim(); });
+    return {
+      qid_no: obj['QID'] || '',
+      ftw_medical_date: obj['MEDICAL DATE'] || obj['MEDICAL DATE '] || '',
+      ftw_received_date: obj['DATE RECEIVED FROM ALSAFA'] || '',
+      ftw_approval_request_date: obj['TR FTW APPROVAL DATE REQUEST'] || '',
+      ftw_approved_date: obj['TR DATE APPROVED'] || '',
+      ftw_result: obj['RESULT'] || '',
+      ftw_doctor: obj['DOCTOR NAME'] || '',
+      ftw_mobile: obj['MOBILE NUMBER'] || '',
+    };
+  }).filter(r => r.qid_no && r.qid_no.trim());
+}
+
+function parseDate(val) {
   if (!val) return null;
-  if (typeof val === 'string' && val.includes('-') && !val.includes('ASSESS') && !val.includes('ACCEPT')) {
-    return val.split('T')[0].split(' ')[0];
-  }
+  const skip = ['ALSAFA', 'HOLD', 'ON LEAVE', 'RECALLED', 'APPLIED', 'REJECTED', 'ON-HOLD', 'HOLD', 'LEAVE'];
+  const up = val.toUpperCase();
+  if (skip.some(s => up.includes(s)) || up.includes('ASSESS') || up.includes('MEDICAL') || up.includes('WAITING') || up.includes('DIDN')) return null;
+  try {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+  } catch {}
+  return null;
+}
+
+function normalizeResult(val) {
+  if (!val) return null;
+  const v = val.toUpperCase();
+  if (v === 'ACCEPTED' || v === 'FIT') return 'ACCEPTED';
+  if (v === 'REJECTED') return 'REJECTED';
+  if (v === 'PENDING') return 'PENDING';
+  if (v === 'RE-ASSESS' || v.includes('RAHA') || v.includes('REPEAT') || v.includes('NEED') || v.includes('ASSESS')) return 'RE-ASSESS';
   return null;
 }
 
 export default function MedicalImport() {
-  const [status, setStatus] = useState('idle'); // idle | extracting | matching | updating | done
+  const [status, setStatus] = useState('idle');
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState({ updated: 0, notFound: [], dupsRemoved: 0 });
-  const [fileUrl, setFileUrl] = useState('');
+  const [fileReady, setFileReady] = useState(false);
+  const [parsedRecords, setParsedRecords] = useState([]);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -36,79 +69,82 @@ export default function MedicalImport() {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setFileUrl(file_url);
+
+    const isTxtOrTsv = file.name.endsWith('.txt') || file.name.endsWith('.tsv');
+    if (isTxtOrTsv) {
+      const text = await file.text();
+      const records = parseTsv(text);
+      setParsedRecords(records);
+      setFileReady(true);
+      toast({ title: `Parsed ${records.length} records from file` });
+    } else {
+      // xlsx/csv — upload to server
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setParsedRecords([{ __file_url__: file_url }]); // sentinel
+      setFileReady(true);
+      toast({ title: 'File uploaded, ready to import' });
+    }
     setUploading(false);
-    toast({ title: 'File uploaded, ready to import' });
   };
 
   const runImport = async () => {
-    if (!fileUrl) return;
+    if (!fileReady) return;
     setStatus('extracting');
     setProgress(10);
 
-    const extracted = await base44.integrations.Core.ExtractDataFromUploadedFile({
-      file_url: fileUrl,
-      json_schema: {
-        type: 'object',
-        properties: {
-          records: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string' },
-                qid_no: { type: 'string', description: 'QID / VISA number' },
-                pp_no: { type: 'string', description: 'Passport number' },
-                pp_expiry: { type: 'string', description: 'Passport expiry date' },
-                qid_expiry: { type: 'string', description: 'QID / DATE EXPIRATION' },
-                nationality: { type: 'string' },
-                religion: { type: 'string' },
-                current_location: { type: 'string' },
-                dir_indir: { type: 'string' },
-                ftw_medical_date: { type: 'string', description: 'MEDICAL DATE' },
-                ftw_received_date: { type: 'string', description: 'DATE RECEIVED FROM ALSAFA' },
-                ftw_approval_request_date: { type: 'string', description: 'TR FTW APPROVAL DATE REQUEST' },
-                ftw_count_days: { type: 'number', description: 'COUNT DAYS' },
-                ftw_approved_date: { type: 'string', description: 'TR DATE APPROVED' },
-                ftw_result: { type: 'string', description: 'RESULT' },
-                ftw_doctor: { type: 'string', description: 'DOCTOR NAME' },
-                ftw_mobile: { type: 'string', description: 'MOBILE NUMBER' },
+    let records = parsedRecords;
+
+    // If xlsx/csv uploaded to server, extract via AI
+    if (records.length === 1 && records[0].__file_url__) {
+      const fileUrl = records[0].__file_url__;
+      const extracted = await base44.integrations.Core.ExtractDataFromUploadedFile({
+        file_url: fileUrl,
+        json_schema: {
+          type: 'object',
+          properties: {
+            records: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  qid_no: { type: 'string' },
+                  ftw_medical_date: { type: 'string' },
+                  ftw_received_date: { type: 'string' },
+                  ftw_approval_request_date: { type: 'string' },
+                  ftw_approved_date: { type: 'string' },
+                  ftw_result: { type: 'string' },
+                  ftw_doctor: { type: 'string' },
+                  ftw_mobile: { type: 'string' },
+                }
               }
             }
           }
         }
+      });
+      if (extracted.status !== 'success') {
+        toast({ title: 'Extraction failed', variant: 'destructive' });
+        setStatus('idle');
+        return;
       }
-    });
-
-    if (extracted.status !== 'success') {
-      toast({ title: 'Extraction failed', variant: 'destructive' });
-      setStatus('idle');
-      return;
+      records = extracted.output?.records || [];
     }
 
-    const records = extracted.output?.records || [];
     setStatus('matching');
-    setProgress(40);
+    setProgress(30);
 
-    // Build QID map from existing employees
+    // Build QID map
     const qidMap = new Map();
-    employees.forEach(emp => {
-      if (emp.qid_no) qidMap.set(String(emp.qid_no).trim(), emp);
-    });
-
-    // Dedup employees by QID (keep first, collect dupes)
     const seen = new Set();
     const dupesToDelete = [];
     employees.forEach(emp => {
       if (!emp.qid_no) return;
       const key = String(emp.qid_no).trim();
       if (seen.has(key)) dupesToDelete.push(emp.id);
-      else seen.add(key);
+      else { seen.add(key); qidMap.set(key, emp); }
     });
 
     setStatus('updating');
-    setProgress(50);
+    setProgress(40);
 
     let updated = 0;
     const notFound = [];
@@ -116,35 +152,34 @@ export default function MedicalImport() {
 
     for (let i = 0; i < records.length; i++) {
       const rec = records[i];
-      const qid = rec.qid_no ? String(rec.qid_no).trim() : null;
-      if (!qid) { notFound.push(rec.name); continue; }
+      const qid = String(rec.qid_no || '').trim();
+      if (!qid) continue;
 
       const emp = qidMap.get(qid);
-      if (!emp) { notFound.push(`${rec.name} (QID: ${qid})`); continue; }
+      if (!emp) { notFound.push(qid); continue; }
 
       const update = {};
-      if (rec.ftw_medical_date) update.ftw_medical_date = toDateStr(rec.ftw_medical_date) || rec.ftw_medical_date;
-      if (rec.ftw_received_date) update.ftw_received_date = toDateStr(rec.ftw_received_date) || rec.ftw_received_date;
-      if (rec.ftw_approval_request_date) update.ftw_approval_request_date = toDateStr(rec.ftw_approval_request_date) || rec.ftw_approval_request_date;
-      if (rec.ftw_count_days) update.ftw_count_days = rec.ftw_count_days;
-      if (rec.ftw_approved_date && toDateStr(rec.ftw_approved_date)) update.ftw_approved_date = toDateStr(rec.ftw_approved_date);
-      if (rec.ftw_result && ['ACCEPTED','REJECTED','PENDING','RE-ASSESS'].includes(rec.ftw_result)) update.ftw_result = rec.ftw_result;
+      const md = parseDate(rec.ftw_medical_date);
+      const rd = parseDate(rec.ftw_received_date);
+      const ard = parseDate(rec.ftw_approval_request_date);
+      const ad = parseDate(rec.ftw_approved_date);
+      const result = normalizeResult(rec.ftw_result);
+
+      if (md) update.ftw_medical_date = md;
+      if (rd) update.ftw_received_date = rd;
+      if (ard) update.ftw_approval_request_date = ard;
+      if (ad) update.ftw_approved_date = ad;
+      if (result) update.ftw_result = result;
       if (rec.ftw_doctor) update.ftw_doctor = rec.ftw_doctor;
       if (rec.ftw_mobile) update.ftw_mobile = String(rec.ftw_mobile);
-      if (rec.nationality) update.nationality = rec.nationality;
-      if (rec.religion) update.religion = rec.religion;
-      if (rec.pp_no) update.pp_no = rec.pp_no;
-      if (toDateStr(rec.pp_expiry)) update.pp_expiry = toDateStr(rec.pp_expiry);
-      if (toDateStr(rec.qid_expiry)) update.qid_expiry = toDateStr(rec.qid_expiry);
 
       if (Object.keys(update).length > 0) {
         await base44.entities.Employee.update(emp.id, update);
         updated++;
       }
-      setProgress(50 + Math.floor((i / total) * 40));
+      setProgress(40 + Math.floor((i / total) * 50));
     }
 
-    // Remove duplicates
     for (const id of dupesToDelete) {
       await base44.entities.Employee.delete(id);
     }
@@ -165,24 +200,27 @@ export default function MedicalImport() {
         </div>
       </div>
 
-      <Card className="p-6 space-y-4">
+      <Card className="p-6 space-y-5">
         <div>
-          <p className="text-sm font-medium mb-2">Step 1: Upload Medical Data File (xlsx)</p>
+          <p className="text-sm font-medium mb-2">Step 1: Upload Medical Data File</p>
+          <p className="text-xs text-muted-foreground mb-3">Accepted: .txt (tab-separated), .csv, .xlsx</p>
           <label className="cursor-pointer">
             <input type="file" accept=".xlsx,.xls,.csv,.txt,.tsv" className="hidden" onChange={handleFileChange} disabled={status !== 'idle'} />
             <Button type="button" variant="outline" disabled={uploading || status !== 'idle'} asChild>
-              <span><Upload className="w-4 h-4 mr-2" />{uploading ? 'Uploading...' : fileUrl ? '✓ File Ready' : 'Choose File'}</span>
+              <span>
+                <Upload className="w-4 h-4 mr-2" />
+                {uploading ? 'Reading...' : fileReady ? `✓ File Ready (${parsedRecords.length} records parsed)` : 'Choose File'}
+              </span>
             </Button>
           </label>
-          {fileUrl && <p className="text-xs text-green-600 mt-1">File ready for import</p>}
         </div>
 
         <div>
-          <p className="text-sm font-medium mb-2">Step 2: Run Import</p>
+          <p className="text-sm font-medium mb-1">Step 2: Run Import</p>
           <p className="text-xs text-muted-foreground mb-3">
-            This will: (1) match records by QID number, (2) update medical fields, (3) remove duplicate QID records.
+            Matches records by QID, updates medical fields, removes duplicate QID records.
           </p>
-          <Button onClick={runImport} disabled={!fileUrl || status !== 'idle'}>
+          <Button onClick={runImport} disabled={!fileReady || status !== 'idle'}>
             {status === 'idle' ? 'Run Import' : <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>}
           </Button>
         </div>
@@ -190,7 +228,9 @@ export default function MedicalImport() {
         {status !== 'idle' && status !== 'done' && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{status === 'extracting' ? 'Extracting data...' : status === 'matching' ? 'Matching QIDs...' : 'Updating records...'}</span>
+              <span>
+                {status === 'extracting' ? 'Extracting data...' : status === 'matching' ? 'Matching QIDs...' : 'Updating records...'}
+              </span>
               <span>{progress}%</span>
             </div>
             <Progress value={progress} />
@@ -219,9 +259,9 @@ export default function MedicalImport() {
 
             {results.notFound.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-amber-700 mb-2">Records not matched (QID not found in database):</p>
+                <p className="text-xs font-semibold text-amber-700 mb-2">QIDs not found in database:</p>
                 <div className="max-h-40 overflow-auto bg-amber-50 rounded p-2 space-y-1">
-                  {results.notFound.map((n, i) => <p key={i} className="text-xs text-amber-800">{n}</p>)}
+                  {results.notFound.map((n, i) => <p key={i} className="text-xs text-amber-800 font-mono">{n}</p>)}
                 </div>
               </div>
             )}
