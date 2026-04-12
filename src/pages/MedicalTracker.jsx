@@ -171,7 +171,7 @@ export default function MedicalTracker() {
                     <TableHead className="text-xs">PP No</TableHead>
                     <TableHead className="text-xs">Medical Date</TableHead>
                     <TableHead className="text-xs">Date Received from ALSAFA</TableHead>
-                    <TableHead className="text-xs">Approved Date</TableHead>
+                    <TableHead className="text-xs">TR FTW Approval Date Request</TableHead>
                     <TableHead className="text-xs">Result</TableHead>
                     <TableHead className="text-xs">Doctor</TableHead>
                     <TableHead className="text-xs">Mobile</TableHead>
