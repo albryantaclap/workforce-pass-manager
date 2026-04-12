@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Download, BadgeCheck } from 'lucide-react';
+import { Search, Download, BadgeCheck, Eye, Pencil } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import StatusBadge from '../components/common/StatusBadge';
@@ -174,26 +175,27 @@ export default function ProjectIDTracker() {
             </div>
           </Card>
           <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10">
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-xs">Name</TableHead>
-                    <TableHead className="text-xs">Company</TableHead>
-                    <TableHead className="text-xs">QID No</TableHead>
-                    <TableHead className="text-xs">PID No</TableHead>
-                    <TableHead className="text-xs">Issue Date</TableHead>
-                    <TableHead className="text-xs">Expiry</TableHead>
-                    <TableHead className="text-xs">Projected Date</TableHead>
-                    <TableHead className="text-xs">Days Left</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Name</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Company</TableHead>
+                    <TableHead className="text-xs bg-muted/50">QID No</TableHead>
+                    <TableHead className="text-xs bg-muted/50">PID No</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Issue Date</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Expiry</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Projected Date</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Days Left</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Status</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(9).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
+                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(10).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
                   ) : filtered.map(emp => {
                     const days = daysUntil(emp.pid_expiry);
                     return (
@@ -213,6 +215,12 @@ export default function ProjectIDTracker() {
                           ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell><StatusBadge status={emp.pid_status} short /></TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>
+                            <Link to={`/employees/${emp.id}/edit`}><Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button></Link>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}

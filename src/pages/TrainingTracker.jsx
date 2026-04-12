@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Download, GraduationCap } from 'lucide-react';
+import { Search, Download, GraduationCap, Eye, Pencil } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { COMPANIES, TRAINING_STATUSES, exportToCSV, formatDate } from '@/utils/constants';
@@ -144,24 +145,25 @@ export default function TrainingTracker() {
             </div>
           </Card>
           <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10">
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-xs">Name</TableHead>
-                    <TableHead className="text-xs">Company</TableHead>
-                    <TableHead className="text-xs">Nationality</TableHead>
-                    <TableHead className="text-xs">QID No</TableHead>
-                    <TableHead className="text-xs">Position</TableHead>
-                    <TableHead className="text-xs">Training Date</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Name</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Company</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Nationality</TableHead>
+                    <TableHead className="text-xs bg-muted/50">QID No</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Position</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Training Date</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Status</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(7).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
+                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(8).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
                   ) : filtered.map(emp => (
                     <TableRow key={emp.id} className="hover:bg-muted/30">
                       <TableCell className="text-xs font-medium">{emp.name}</TableCell>
@@ -174,6 +176,12 @@ export default function TrainingTracker() {
                         {emp.training_status ? (
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColors[emp.training_status] || 'bg-muted text-muted-foreground'}`}>{emp.training_status}</span>
                         ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>
+                          <Link to={`/employees/${emp.id}/edit`}><Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button></Link>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Download, Stethoscope, Upload } from 'lucide-react';
+import { Search, Download, Stethoscope, Upload, Eye, Pencil } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
@@ -161,28 +161,29 @@ export default function MedicalTracker() {
           </Card>
 
           <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10">
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-xs">Name</TableHead>
-                    <TableHead className="text-xs">Company</TableHead>
-                    <TableHead className="text-xs">QID No</TableHead>
-                    <TableHead className="text-xs">PP No</TableHead>
-                    <TableHead className="text-xs">Medical Date</TableHead>
-                    <TableHead className="text-xs">Date Received from ALSAFA</TableHead>
-                    <TableHead className="text-xs">TR FTW Approval Date Request</TableHead>
-                    <TableHead className="text-xs">TR Date Approved</TableHead>
-                    <TableHead className="text-xs">Result</TableHead>
-                    <TableHead className="text-xs">Doctor</TableHead>
-                    <TableHead className="text-xs">Mobile</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Name</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Company</TableHead>
+                    <TableHead className="text-xs bg-muted/50">QID No</TableHead>
+                    <TableHead className="text-xs bg-muted/50">PP No</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Medical Date</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Date Received from ALSAFA</TableHead>
+                    <TableHead className="text-xs bg-muted/50">TR FTW Approval Date Request</TableHead>
+                    <TableHead className="text-xs bg-muted/50">TR Date Approved</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Result</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Doctor</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Mobile</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(11).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
+                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(12).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={12} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
                   ) : filtered.map(emp => (
                     <TableRow key={emp.id} className="hover:bg-muted/30">
                       <TableCell className="text-xs font-medium">{emp.name}</TableCell>
@@ -200,6 +201,12 @@ export default function MedicalTracker() {
                       </TableCell>
                       <TableCell className="text-xs">{emp.ftw_doctor}</TableCell>
                       <TableCell className="text-xs">{emp.ftw_mobile}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>
+                          <Link to={`/employees/${emp.id}/edit`}><Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button></Link>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
