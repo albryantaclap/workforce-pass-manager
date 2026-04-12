@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 
 export default function MultiSelect({ options, value = [], onChange, placeholder = 'Select...', className }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const ref = useRef(null);
 
   useEffect(() => {
@@ -11,6 +12,11 @@ export default function MultiSelect({ options, value = [], onChange, placeholder
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  const filteredOptions = options.filter(opt => {
+    const label = typeof opt === 'string' ? opt : opt.label;
+    return label.toLowerCase().includes(search.toLowerCase());
+  });
 
   const toggle = (val) => {
     if (value.includes(val)) onChange(value.filter(v => v !== val));
@@ -42,24 +48,37 @@ export default function MultiSelect({ options, value = [], onChange, placeholder
         <ChevronDown className={cn('w-4 h-4 text-muted-foreground ml-auto self-center transition-transform', open && 'rotate-180')} />
       </div>
       {open && (
-        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-md border bg-popover shadow-md">
-          {options.map(opt => {
-            const val = typeof opt === 'string' ? opt : opt.value;
-            const label = typeof opt === 'string' ? opt : opt.label;
-            const selected = value.includes(val);
-            return (
-              <div
-                key={val}
-                className={cn('flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent', selected && 'bg-accent/50')}
-                onClick={() => toggle(val)}
-              >
-                <div className={cn('w-4 h-4 rounded border flex items-center justify-center', selected ? 'bg-primary border-primary' : 'border-input')}>
-                  {selected && <Check className="w-3 h-3 text-white" />}
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
+          <div className="p-2 border-b">
+            <input
+              className="w-full text-sm px-2 py-1 rounded border border-input bg-transparent outline-none"
+              placeholder="Search..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onClick={e => e.stopPropagation()}
+              autoFocus
+            />
+          </div>
+          <div className="max-h-52 overflow-auto">
+            {filteredOptions.length === 0 && <div className="px-3 py-2 text-sm text-muted-foreground">No results</div>}
+            {filteredOptions.map(opt => {
+              const val = typeof opt === 'string' ? opt : opt.value;
+              const label = typeof opt === 'string' ? opt : opt.label;
+              const selected = value.includes(val);
+              return (
+                <div
+                  key={val}
+                  className={cn('flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent', selected && 'bg-accent/50')}
+                  onClick={() => toggle(val)}
+                >
+                  <div className={cn('w-4 h-4 rounded border flex items-center justify-center', selected ? 'bg-primary border-primary' : 'border-input')}>
+                    {selected && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  {label}
                 </div>
-                {label}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Save, Upload, User } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, RLIC_STATUSES, PID_STATUSES, FTW_RESULTS, TRAINING_STATUSES, LOCATIONS } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, PID_STATUSES, FTW_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
 
 const emptyForm = {
-  sl_no: '', name: '', photo_url: '', position_application: '', designation_org_chart: '',
+  sl_no: '', name: '', photo_url: '', position_application: '', designation_org_chart: '', department: '',
   company: '', company_type: '', nationality: '', religion: '', current_location: '', dir_indir: '',
   contact_details: '', sponsor: '', remarks: '',
   qid_no: '', qid_expiry: '', pp_no: '', pp_expiry: '',
@@ -156,6 +156,7 @@ export default function EmployeeForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <SelectInput field="company" label="Company *" options={COMPANIES} {...tf} />
             <SelectInput field="company_type" label="Company Type" options={['Main', 'Sub-contractor', 'GSO Supervision']} {...tf} />
+            <SelectInput field="department" label="Department" options={DEPARTMENTS} {...tf} />
             <SelectInput field="current_location" label="Location" options={LOCATIONS} {...tf} />
             <SelectInput field="dir_indir" label="DIR / INDIR" options={['DIR', 'INDIR']} {...tf} />
             <TextInput field="staff_no" label="Staff No / RLIC No" {...tf} />

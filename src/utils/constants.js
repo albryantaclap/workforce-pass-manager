@@ -38,6 +38,7 @@ export const PID_STATUSES = [
   { value: 'NO PID PASS', label: 'No Pass' },
 ];
 
+export const DEPARTMENTS = ['Electrical', 'Mechanical', 'Civil', 'Services'];
 export const FTW_RESULTS = ['ACCEPTED', 'REJECTED', 'PENDING', 'RE-ASSESS'];
 export const TRAINING_STATUSES = ['DONE', 'PENDING', 'NOT REQUIRED'];
 export const LOCATIONS = ['QATAR', 'COMO CAMP', 'OTHER'];

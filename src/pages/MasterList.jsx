@@ -144,6 +144,7 @@ export default function MasterList() {
                 <TableHead className="text-xs bg-muted/50">SL</TableHead>
                 <TableHead className="text-xs bg-muted/50">Name</TableHead>
                 <TableHead className="text-xs bg-muted/50">Designation</TableHead>
+                <TableHead className="text-xs bg-muted/50">Department</TableHead>
                 <TableHead className="text-xs bg-muted/50">Company</TableHead>
                 <TableHead className="text-xs bg-muted/50">Nationality</TableHead>
                 <TableHead className="text-xs bg-muted/50">Location</TableHead>
@@ -164,7 +165,7 @@ export default function MasterList() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={14} className="text-center py-12 text-muted-foreground">No records found</TableCell>
+                  <TableCell colSpan={15} className="text-center py-12 text-muted-foreground">No records found</TableCell>
                 </TableRow>
               ) : (
                 filtered.map((emp) => (
@@ -172,6 +173,7 @@ export default function MasterList() {
                     <TableCell className="text-xs text-muted-foreground">{emp.sl_no}</TableCell>
                     <TableCell className="text-xs font-medium max-w-[160px] truncate">{emp.name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">{emp.designation_org_chart}</TableCell>
+                    <TableCell className="text-xs">{emp.department || '—'}</TableCell>
                     <TableCell className="text-xs max-w-[120px] truncate">{emp.company}</TableCell>
                     <TableCell className="text-xs">{emp.nationality}</TableCell>
                     <TableCell className="text-xs">{emp.current_location}</TableCell>
