@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, ShieldCheck, Eye, Pencil } from 'lucide-react';
+import { Search, ShieldCheck, Eye, Pencil, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
@@ -35,7 +35,8 @@ export default function GatepassTracker() {
 
   const filtered = useMemo(() => employees.filter(e => {
     const matchesSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.qid_no?.includes(search) || e.staff_no?.toLowerCase().includes(search.toLowerCase());
-    const matchesCompany = companyFilter.length === 0 || companyFilter.includes(e.company);
+    const empCompany = (e.company || '').trim().toUpperCase();
+    const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
     const matchesStatus = statusFilter === 'all' || e.rlic_status === statusFilter;
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus;
@@ -83,7 +84,10 @@ export default function GatepassTracker() {
             <p className="text-sm text-muted-foreground">RLIC pass tracking & status</p>
           </div>
         </div>
-        <ExportButton getData={getExportData} filename="gatepass_data.csv" />
+        <div className="flex gap-2">
+          <Link to="/gatepass/import"><Button variant="outline"><Upload className="w-4 h-4 mr-2" /> Import Gate Pass Data</Button></Link>
+          <ExportButton getData={getExportData} filename="gatepass_data.csv" />
+        </div>
       </div>
 
       {/* Shared Filters */}

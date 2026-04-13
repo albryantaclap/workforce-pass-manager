@@ -35,7 +35,8 @@ export default function ProjectIDTracker() {
 
   const filtered = useMemo(() => employees.filter(e => {
     const matchesSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.pid?.includes(search) || e.qid_no?.includes(search);
-    const matchesCompany = companyFilter.length === 0 || companyFilter.includes(e.company);
+    const empCompany = (e.company || '').trim().toUpperCase();
+    const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
     const matchesStatus = statusFilter === 'all' || e.pid_status === statusFilter;
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus;
