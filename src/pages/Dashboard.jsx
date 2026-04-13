@@ -35,6 +35,16 @@ export default function Dashboard() {
 
   const hasFilter = companyFilter.length > 0 || positionFilter.length > 0;
 
+  const companyCounts = useMemo(() => {
+    const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
+    const staticValues = new Set(COMPANIES.map(c => c.value));
+    const extra = [...allCompanies].filter(v => !staticValues.has(v)).map(v => ({ value: v, label: v }));
+    return [...COMPANIES, ...extra]
+      .map(c => ({ name: c.label, count: filtered.filter(e => e.company === c.value).length }))
+      .filter(c => c.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [filtered]);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -53,17 +63,6 @@ export default function Dashboard() {
   const expiredPid = filtered.filter(e => e.pid_status === 'EXPIRED PID PASS').length;
   const medicalAccepted = filtered.filter(e => e.ftw_result === 'ACCEPTED').length;
   const trainingDone = filtered.filter(e => e.training_status === 'DONE').length;
-
-  const companyCounts = useMemo(() => {
-    // Also include any companies in data not in the static list
-    const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
-    const staticValues = new Set(COMPANIES.map(c => c.value));
-    const extra = [...allCompanies].filter(v => !staticValues.has(v)).map(v => ({ value: v, label: v }));
-    return [...COMPANIES, ...extra]
-      .map(c => ({ name: c.label, count: filtered.filter(e => e.company === c.value).length }))
-      .filter(c => c.count > 0)
-      .sort((a, b) => b.count - a.count);
-  }, [filtered]);
 
   const categoryCards = [
     {
