@@ -6,70 +6,112 @@ import { Card } from '@/components/ui/card';
 import { Upload, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
-// Maps CSV column headers → entity field names
+// Direct CSV column → entity field mapping
 const COL_MAP = {
-  'sl': 'sl_no', 'sl no': 'sl_no',
-  'name': 'name',
-  'position_application': 'position_application', 'position application': 'position_application', 'position (application)': 'position_application',
-  'designation_org_chart': 'designation_org_chart', 'designation org chart': 'designation_org_chart', 'designation (org chart)': 'designation_org_chart',
-  'department': 'department',
-  'company': 'company',
-  'company_type': 'company_type', 'company type': 'company_type',
-  'nationality': 'nationality',
-  'religion': 'religion',
-  'location': 'current_location', 'current_location': 'current_location', 'current location': 'current_location',
-  'dir_indir': 'dir_indir', 'dir/indir': 'dir_indir',
-  'contact': 'contact_details', 'contact_details': 'contact_details', 'contact details': 'contact_details',
-  'sponsor': 'sponsor',
-  'remarks': 'remarks',
-  'qid_no': 'qid_no', 'qid no': 'qid_no', 'qid': 'qid_no',
-  'qid_expiry': 'qid_expiry', 'qid expiry': 'qid_expiry',
-  'passport_no': 'pp_no', 'passport no': 'pp_no', 'pp no': 'pp_no', 'pp_no': 'pp_no',
-  'pp_expiry': 'pp_expiry', 'pp expiry': 'pp_expiry', 'passport expiry': 'pp_expiry',
-  'visa_date_applied': 'visa_date_applied', 'visa date applied': 'visa_date_applied', 'visa applied': 'visa_date_applied',
-  'visa_date_received': 'visa_date_received', 'visa date received': 'visa_date_received', 'visa received': 'visa_date_received',
-  'visa_expiry': 'visa_expiry', 'visa expiry': 'visa_expiry',
-  'medical_date': 'ftw_medical_date', 'ftw medical date': 'ftw_medical_date', 'ftw_medical_date': 'ftw_medical_date',
-  'ftw_received_date': 'ftw_received_date', 'ftw received date': 'ftw_received_date',
-  'ftw_approval_request': 'ftw_approval_request_date', 'ftw approval request': 'ftw_approval_request_date', 'ftw_approval_request_date': 'ftw_approval_request_date',
-  'ftw_count_days': 'ftw_count_days', 'ftw count days': 'ftw_count_days',
-  'ftw_approved_date': 'ftw_approved_date', 'ftw approved date': 'ftw_approved_date',
-  'medical_result': 'ftw_result', 'ftw result': 'ftw_result', 'ftw_result': 'ftw_result',
-  'doctor': 'ftw_doctor',
-  'doctor_mobile': 'ftw_mobile', 'doctor mobile': 'ftw_mobile',
-  'gate_pass_issue': 'gate_pass_issue_date', 'gate pass issue': 'gate_pass_issue_date', 'gate_pass_issue_date': 'gate_pass_issue_date',
-  'gate_pass_received': 'gate_pass_received_date', 'gate pass received': 'gate_pass_received_date', 'gate_pass_received_date': 'gate_pass_received_date',
-  'gate_pass_expiry': 'gate_pass_expiry', 'gate pass expiry': 'gate_pass_expiry',
-  'staff_no': 'staff_no', 'staff no': 'staff_no', 'staff no / rlic': 'staff_no',
-  'rlic_status': 'rlic_status', 'rlic status': 'rlic_status',
-  'pid_no': 'pid', 'pid no': 'pid',
-  'pid_issue_date': 'pid_issue_date', 'pid issue date': 'pid_issue_date', 'pid issue': 'pid_issue_date',
-  'pid_expiry': 'pid_expiry', 'pid expiry': 'pid_expiry',
-  'pid_projected_date': 'pid_projected_date', 'pid projected date': 'pid_projected_date', 'pid projected': 'pid_projected_date',
-  'pid_status': 'pid_status', 'pid status': 'pid_status',
-  'training_date': 'training_date', 'training date': 'training_date',
-  'training_status': 'training_status', 'training status': 'training_status',
+  'SL': 'sl_no',
+  'Name': 'name',
+  'Position_Application': 'position_application',
+  'Designation_Org_Chart': 'designation_org_chart',
+  'Department': 'department',
+  'Company': 'company',
+  'Company_Type': 'company_type',
+  'Nationality': 'nationality',
+  'Religion': 'religion',
+  'Location': 'current_location',
+  'DIR_INDIR': 'dir_indir',
+  'Contact': 'contact_details',
+  'Sponsor': 'sponsor',
+  'Remarks': 'remarks',
+  'QID_No': 'qid_no',
+  'QID_Expiry': 'qid_expiry',
+  'Passport_No': 'pp_no',
+  'PP_Expiry': 'pp_expiry',
+  'Visa_Date_Applied': 'visa_date_applied',
+  'Visa_Date_Received': 'visa_date_received',
+  'Visa_Expiry': 'visa_expiry',
+  'Medical_Date': 'ftw_medical_date',
+  'FTW_Received_Date': 'ftw_received_date',
+  'FTW_Approval_Request': 'ftw_approval_request_date',
+  'FTW_Count_Days': 'ftw_count_days',
+  'FTW_Approved_Date': 'ftw_approved_date',
+  'Medical_Result': 'ftw_result',
+  'Doctor': 'ftw_doctor',
+  'Doctor_Mobile': 'ftw_mobile',
+  'Gate_Pass_Issue': 'gate_pass_issue_date',
+  'Gate_Pass_Received': 'gate_pass_received_date',
+  'Gate_Pass_Expiry': 'gate_pass_expiry',
+  'Staff_No': 'staff_no',
+  'RLIC_Status': 'rlic_status',
+  'PID_No': 'pid',
+  'PID_Issue_Date': 'pid_issue_date',
+  'PID_Expiry': 'pid_expiry',
+  'PID_Projected_Date': 'pid_projected_date',
+  'PID_Status': 'pid_status',
+  'Training_Date': 'training_date',
+  'Training_Status': 'training_status',
+};
+
+// Normalize status values to match entity enums
+const RLIC_MAP = {
+  'no pass': 'NO RLIC PASS',
+  'valid': 'VALID RLIC PASS',
+  'expired': 'EXPIRED RLIC PASS',
+  'soon to expire': 'SOON TO EXPIRE',
+  'valid rlic pass': 'VALID RLIC PASS',
+  'expired rlic pass': 'EXPIRED RLIC PASS',
+  'no rlic pass': 'NO RLIC PASS',
+};
+const PID_MAP = {
+  'no pass': 'NO PID PASS',
+  'valid': 'VALID PID PASS',
+  'expired': 'EXPIRED PID PASS',
+  'soon to expire': 'SOON TO EXPIRE',
+  'valid pid pass': 'VALID PID PASS',
+  'expired pid pass': 'EXPIRED PID PASS',
+  'no pid pass': 'NO PID PASS',
+};
+const MEDICAL_MAP = {
+  'accepted': 'ACCEPTED', 'rejected': 'REJECTED', 'pending': 'PENDING', 're-assess': 'RE-ASSESS',
+};
+const TRAINING_MAP = {
+  'done': 'DONE', 'pending': 'PENDING', 'not required': 'NOT REQUIRED',
 };
 
 function parseCSV(text) {
-  // Remove BOM if present
-  text = text.replace(/^\uFEFF/, '');
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  // Strip BOM
+  const clean = text.replace(/^\uFEFF/, '');
+  const lines = clean.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) return [];
 
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  const mappedHeaders = headers.map(h => COL_MAP[h.toLowerCase()] || null);
+  // Parse header - strip BOM from first header too
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^\uFEFF/, ''));
 
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
-    const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-    const row = {};
-    mappedHeaders.forEach((field, idx) => {
-      if (field && vals[idx] !== undefined && vals[idx] !== '') {
-        row[field] = vals[idx];
+    const values = lines[i].split(',');
+    const obj = {};
+    headers.forEach((h, idx) => {
+      const field = COL_MAP[h];
+      if (!field) return;
+      const raw = (values[idx] || '').trim();
+      if (!raw) return;
+
+      if (field === 'sl_no' || field === 'ftw_count_days') {
+        const n = parseFloat(raw);
+        if (!isNaN(n)) obj[field] = n;
+      } else if (field === 'rlic_status') {
+        obj[field] = RLIC_MAP[raw.toLowerCase()] || raw;
+      } else if (field === 'pid_status') {
+        obj[field] = PID_MAP[raw.toLowerCase()] || raw;
+      } else if (field === 'ftw_result') {
+        obj[field] = MEDICAL_MAP[raw.toLowerCase()] || raw;
+      } else if (field === 'training_status') {
+        obj[field] = TRAINING_MAP[raw.toLowerCase()] || raw;
+      } else {
+        obj[field] = raw;
       }
     });
-    if (row.name) rows.push(row);
+    if (obj.name) rows.push(obj);
   }
   return rows;
 }
@@ -80,17 +122,19 @@ export default function MasterImport() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [progress, setProgress] = useState(0);
 
   const handleImport = async () => {
     if (!file) return;
     setLoading(true);
     setResult(null);
+    setProgress(0);
 
     const text = await file.text();
     const rows = parseCSV(text);
 
     if (rows.length === 0) {
-      setResult({ success: false, message: 'No valid rows found. Make sure the file has a "Name" column.' });
+      setResult({ success: false, message: 'No valid records found. Make sure the file has a "Name" column.' });
       setLoading(false);
       return;
     }
@@ -100,6 +144,7 @@ export default function MasterImport() {
     for (let i = 0; i < rows.length; i += CHUNK) {
       await base44.entities.Employee.bulkCreate(rows.slice(i, i + CHUNK));
       created += Math.min(CHUNK, rows.length - i);
+      setProgress(Math.round((created / rows.length) * 100));
     }
 
     setResult({ success: true, message: `Successfully imported ${created} records.` });
@@ -119,8 +164,8 @@ export default function MasterImport() {
 
       <Card className="p-6 space-y-5">
         <div>
-          <p className="text-sm font-medium mb-1">Accepted format: <span className="text-muted-foreground">.csv</span></p>
-          <p className="text-sm text-muted-foreground">Column headers should match the Master List fields (e.g. Name, Company, QID_No, etc.). New records will be appended to the existing list.</p>
+          <p className="text-sm font-medium mb-1">Expected format: <span className="text-muted-foreground">CSV with headers matching the Master List columns</span></p>
+          <p className="text-xs text-muted-foreground">e.g. Name, Company, QID_No, RLIC_Status, PID_Status, Training_Status…</p>
         </div>
 
         <div
@@ -138,20 +183,29 @@ export default function MasterImport() {
             type="file"
             accept=".csv"
             className="hidden"
-            onChange={(e) => { setFile(e.target.files[0]); setResult(null); }}
+            onChange={(e) => { setFile(e.target.files[0]); setResult(null); setProgress(0); }}
           />
         </div>
 
+        {loading && (
+          <div className="space-y-1">
+            <div className="w-full bg-muted rounded-full h-2">
+              <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="text-xs text-muted-foreground text-center">Importing… {progress}%</p>
+          </div>
+        )}
+
         {result && (
           <div className={`flex items-center gap-3 p-4 rounded-lg ${result.success ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-            {result.success ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            {result.success ? <CheckCircle className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
             <p className="text-sm font-medium">{result.message}</p>
           </div>
         )}
 
         <div className="flex gap-3">
           <Button onClick={handleImport} disabled={!file || loading} className="flex-1">
-            {loading ? 'Importing...' : 'Import Records'}
+            {loading ? `Importing… ${progress}%` : 'Import Records'}
           </Button>
           {result?.success && (
             <Button variant="outline" onClick={() => navigate('/master-list')}>Back to Master List</Button>
