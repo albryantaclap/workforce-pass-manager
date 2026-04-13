@@ -231,6 +231,9 @@ export default function MasterList() {
             </TableBody>
           </Table>
         </div>
+        <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
+          Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> records
+        </div>
       </Card>
     </div>
   );

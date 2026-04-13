@@ -13,13 +13,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import StatusBadge from '../components/common/StatusBadge';
 import { COMPANIES, RLIC_STATUSES, exportToCSV, formatDate, daysUntil } from '@/utils/constants';
+import MultiSelect from '../components/common/MultiSelect';
 import { useToast } from '@/components/ui/use-toast';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
 
 export default function GatepassTracker() {
   const [search, setSearch] = useState('');
-  const [companyFilter, setCompanyFilter] = useState('all');
+  const [companyFilter, setCompanyFilter] = useState([]);
+  const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const { toast } = useToast();
 
@@ -28,26 +30,29 @@ export default function GatepassTracker() {
     queryFn: () => base44.entities.Employee.list('-created_date', 2000),
   });
 
+  const positions = useMemo(() => [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p })), [employees]);
+
   const filtered = useMemo(() => employees.filter(e => {
     const matchesSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.qid_no?.includes(search) || e.staff_no?.toLowerCase().includes(search.toLowerCase());
-    const matchesCompany = companyFilter === 'all' || e.company === companyFilter;
+    const matchesCompany = companyFilter.length === 0 || companyFilter.includes(e.company);
+    const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
     const matchesStatus = statusFilter === 'all' || e.rlic_status === statusFilter;
-    return matchesSearch && matchesCompany && matchesStatus;
-  }), [employees, search, companyFilter, statusFilter]);
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus;
+  }), [employees, search, companyFilter, positionFilter, statusFilter]);
 
   const stats = useMemo(() => RLIC_STATUSES.map((s, i) => ({
     name: s.label,
-    count: employees.filter(e => e.rlic_status === s.value).length,
-  })), [employees]);
+    count: filtered.filter(e => e.rlic_status === s.value).length,
+  })), [filtered]);
 
   const companyStats = useMemo(() => {
-    return COMPANIES.filter(c => employees.some(e => e.company === c.value)).map(c => ({
+    return COMPANIES.filter(c => filtered.some(e => e.company === c.value)).map(c => ({
       name: c.label.substring(0, 12),
-      valid: employees.filter(e => e.company === c.value && e.rlic_status === 'VALID RLIC PASS').length,
-      expired: employees.filter(e => e.company === c.value && e.rlic_status === 'EXPIRED RLIC PASS').length,
-      soon: employees.filter(e => e.company === c.value && e.rlic_status === 'SOON TO EXPIRE').length,
+      valid: filtered.filter(e => e.company === c.value && e.rlic_status === 'VALID RLIC PASS').length,
+      expired: filtered.filter(e => e.company === c.value && e.rlic_status === 'EXPIRED RLIC PASS').length,
+      soon: filtered.filter(e => e.company === c.value && e.rlic_status === 'SOON TO EXPIRE').length,
     })).filter(c => c.valid + c.expired + c.soon > 0);
-  }, [employees]);
+  }, [filtered]);
 
   const handleExport = () => {
     const data = filtered.map(e => ({
@@ -74,6 +79,23 @@ export default function GatepassTracker() {
         </div>
         <Button variant="outline" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> Export</Button>
       </div>
+
+      {/* Shared Filters */}
+      <Card className="p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Filter by Company</p>
+            <MultiSelect options={COMPANIES.map(c => ({ value: c.value, label: c.label }))} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Filter by Position</p>
+            <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="All Positions" />
+          </div>
+        </div>
+        {(companyFilter.length > 0 || positionFilter.length > 0) && (
+          <p className="text-xs text-muted-foreground mt-2">Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> personnel</p>
+        )}
+      </Card>
 
       <Tabs defaultValue="list">
         <TabsList>
@@ -161,13 +183,6 @@ export default function GatepassTracker() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input placeholder="Name, QID, Staff No..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
               </div>
-              <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Company" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Companies</SelectItem>
-                  {COMPANIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
@@ -230,6 +245,9 @@ export default function GatepassTracker() {
                   })}
                 </TableBody>
               </Table>
+            </div>
+            <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
+              Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> records
             </div>
           </Card>
         </TabsContent>

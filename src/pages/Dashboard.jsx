@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import MultiSelect from '@/components/common/MultiSelect';
-import { COMPANIES } from '@/utils/constants';
+import { COMPANIES, DEPARTMENTS } from '@/utils/constants';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
 
@@ -196,7 +196,7 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-sm">Pass & Status Overview</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Pass &amp; Status Overview</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={[
@@ -215,6 +215,42 @@ export default function Dashboard() {
                     <Cell key={i} fill={c} />
                   ))}
                 </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Personnel by Department</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={DEPARTMENTS.map(d => ({ name: d, count: filtered.filter(e => e.department === d).length })).filter(d => d.count > 0)} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  {['#3b82f6','#10b981','#f59e0b','#8b5cf6'].map((c, i) => <Cell key={i} fill={c} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Top Positions / Designations</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart
+                data={Object.entries(
+                  filtered.reduce((acc, e) => { if (e.designation_org_chart) acc[e.designation_org_chart] = (acc[e.designation_org_chart] || 0) + 1; return acc; }, {})
+                ).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => ({ name: name.substring(0, 16), count }))}
+                margin={{ top: 5, right: 10, left: -20, bottom: 40 }}
+                layout="vertical"
+              >
+                <XAxis type="number" tick={{ fontSize: 9 }} />
+                <YAxis dataKey="name" type="category" tick={{ fontSize: 8 }} width={110} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#06b6d4" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

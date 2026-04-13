@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trash2, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, LOCATIONS } from '@/utils/constants';
+import { COMPANIES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
 
 const COMPANY_TYPES = ['Main', 'Sub-contractor', 'GSO Supervision'];
 
@@ -15,6 +15,7 @@ const DEFAULTS = {
   company: COMPANIES.map(c => ({ value: c.value, label: c.label, type: 'company', _static: true })),
   company_type: COMPANY_TYPES.map(t => ({ value: t, label: t, type: 'company_type', _static: true })),
   location: LOCATIONS.map(l => ({ value: l, label: l, type: 'location', _static: true })),
+  department: DEPARTMENTS.map(d => ({ value: d, label: d, type: 'department', _static: true })),
 };
 
 function LookupSection({ type, label }) {
@@ -105,10 +106,12 @@ export default function LookupsManager() {
           <TabsTrigger value="company">Companies</TabsTrigger>
           <TabsTrigger value="company_type">Company Types</TabsTrigger>
           <TabsTrigger value="location">Locations</TabsTrigger>
+          <TabsTrigger value="department">Departments</TabsTrigger>
         </TabsList>
         <TabsContent value="company"><LookupSection type="company" label="Company" /></TabsContent>
         <TabsContent value="company_type"><LookupSection type="company_type" label="Company Type" /></TabsContent>
         <TabsContent value="location"><LookupSection type="location" label="Location" /></TabsContent>
+        <TabsContent value="department"><LookupSection type="department" label="Department" /></TabsContent>
       </Tabs>
     </Card>
   );
