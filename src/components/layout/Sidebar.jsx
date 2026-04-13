@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield } from 'lucide-react';
+import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -17,8 +17,8 @@ const navItems = [
 
 export default function Sidebar() {
   const location = useLocation();
-  const { currentUser } = useAuth();
-  const isAdmin = currentUser?.role === 'admin';
+  const { user, logout } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'owner';
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar text-sidebar-foreground flex flex-col">
@@ -54,10 +54,23 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="px-4 py-4 border-t border-sidebar-border">
-        <p className="text-[10px] text-sidebar-foreground/40 text-center">
-          © 2026 Workforce Manager
-        </p>
+      <div className="px-4 py-4 border-t border-sidebar-border space-y-3">
+        {user && (
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-sidebar-foreground/80 truncate">{user.full_name || user.email}</p>
+              <p className="text-[10px] text-sidebar-foreground/40 capitalize">{user.role}</p>
+            </div>
+            <button
+              onClick={() => logout()}
+              className="ml-2 flex-shrink-0 p-1.5 rounded-md text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+        <p className="text-[10px] text-sidebar-foreground/40 text-center">© 2026 Workforce Manager</p>
       </div>
     </aside>
   );

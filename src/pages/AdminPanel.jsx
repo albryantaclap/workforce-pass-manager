@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function AdminPanel() {
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('user');
   const [inviting, setInviting] = useState(false);
@@ -51,7 +51,7 @@ export default function AdminPanel() {
     return dupes;
   }, [employees]);
 
-  if (currentUser?.role !== 'admin') {
+  if (user?.role !== 'admin' && user?.role !== 'owner') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
         <Shield className="w-12 h-12 text-muted-foreground mb-4" />
