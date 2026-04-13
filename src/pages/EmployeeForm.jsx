@@ -66,6 +66,32 @@ export default function EmployeeForm() {
     enabled: !!empId,
   });
 
+  const { data: lookupCompanies = [] } = useQuery({
+    queryKey: ['lookups', 'company'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'company' }),
+  });
+  const { data: lookupDepartments = [] } = useQuery({
+    queryKey: ['lookups', 'department'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'department' }),
+  });
+  const { data: lookupLocations = [] } = useQuery({
+    queryKey: ['lookups', 'location'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'location' }),
+  });
+
+  const allCompanies = [
+    ...COMPANIES.map(c => ({ value: c.value, label: c.label })),
+    ...lookupCompanies.map(c => ({ value: c.value, label: c.label })),
+  ];
+  const allDepartments = [
+    ...DEPARTMENTS,
+    ...lookupDepartments.map(d => d.value).filter(v => !DEPARTMENTS.includes(v)),
+  ];
+  const allLocations = [
+    ...LOCATIONS,
+    ...lookupLocations.map(l => l.value).filter(v => !LOCATIONS.includes(v)),
+  ];
+
   useEffect(() => {
     if (existingEmp && existingEmp.length > 0) {
       const emp = existingEmp[0];
@@ -154,10 +180,10 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Work Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <SelectInput field="company" label="Company *" options={COMPANIES} {...tf} />
+            <SelectInput field="company" label="Company *" options={allCompanies} {...tf} />
             <SelectInput field="company_type" label="Company Type" options={['Main', 'Sub-contractor', 'GSO Supervision']} {...tf} />
-            <SelectInput field="department" label="Department" options={DEPARTMENTS} {...tf} />
-            <SelectInput field="current_location" label="Location" options={LOCATIONS} {...tf} />
+            <SelectInput field="department" label="Department" options={allDepartments} {...tf} />
+            <SelectInput field="current_location" label="Location" options={allLocations} {...tf} />
             <SelectInput field="dir_indir" label="DIR / INDIR" options={['DIR', 'INDIR']} {...tf} />
             <TextInput field="staff_no" label="Staff No / RLIC No" {...tf} />
           </div>

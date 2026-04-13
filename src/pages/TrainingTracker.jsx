@@ -7,12 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Download, GraduationCap, Eye, Pencil } from 'lucide-react';
+import { Search, GraduationCap, Eye, Pencil } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { COMPANIES, TRAINING_STATUSES, exportToCSV, formatDate } from '@/utils/constants';
+import { COMPANIES, TRAINING_STATUSES, formatDate } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
+import ExportButton from '../components/common/ExportButton';
 import { useToast } from '@/components/ui/use-toast';
 
 const COLORS = ['#10b981', '#f59e0b', '#94a3b8'];
@@ -22,7 +23,7 @@ export default function TrainingTracker() {
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
-  const { toast } = useToast();
+
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
@@ -52,14 +53,10 @@ export default function TrainingTracker() {
     })).filter(c => c.done + c.pending > 0);
   }, [filtered]);
 
-  const handleExport = () => {
-    const data = filtered.map(e => ({
-      Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
-      Training_Date: e.training_date, Training_Status: e.training_status,
-    }));
-    exportToCSV(data, 'training_data.csv');
-    toast({ title: `Exported ${data.length} records` });
-  };
+  const getExportData = () => filtered.map(e => ({
+    Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
+    Training_Date: e.training_date, Training_Status: e.training_status,
+  }));
 
   const statusColors = { DONE: 'bg-emerald-50 text-emerald-700', PENDING: 'bg-amber-50 text-amber-700', 'NOT REQUIRED': 'bg-slate-100 text-slate-600' };
 
@@ -75,7 +72,7 @@ export default function TrainingTracker() {
             <p className="text-sm text-muted-foreground">Training status & tracking</p>
           </div>
         </div>
-        <Button variant="outline" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> Export</Button>
+        <ExportButton getData={getExportData} filename="training_data.csv" />
       </div>
 
       {/* Shared Filters */}

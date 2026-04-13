@@ -7,12 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Download, Stethoscope, Upload, Eye, Pencil } from 'lucide-react';
+import { Search, Stethoscope, Upload, Eye, Pencil } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { COMPANIES, FTW_RESULTS, exportToCSV, formatDate } from '@/utils/constants';
+import { COMPANIES, FTW_RESULTS, formatDate } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
+import ExportButton from '../components/common/ExportButton';
 import { useToast } from '@/components/ui/use-toast';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4'];
@@ -22,7 +23,7 @@ export default function MedicalTracker() {
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
   const [resultFilter, setResultFilter] = useState('all');
-  const { toast } = useToast();
+
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
@@ -54,17 +55,13 @@ export default function MedicalTracker() {
     })).filter(c => c.accepted + c.pending + c.rejected > 0);
   }, [filtered]);
 
-  const handleExport = () => {
-    const data = filtered.map(e => ({
-      Name: e.name, Company: e.company, Nationality: e.nationality,
-      QID_No: e.qid_no, PP_No: e.pp_no, Medical_Date: e.ftw_medical_date,
-      Received_Date: e.ftw_received_date, Approval_Request: e.ftw_approval_request_date,
-      Count_Days: e.ftw_count_days, Approved_Date: e.ftw_approved_date,
-      Result: e.ftw_result, Doctor: e.ftw_doctor, Mobile: e.ftw_mobile,
-    }));
-    exportToCSV(data, 'medical_data.csv');
-    toast({ title: `Exported ${data.length} records` });
-  };
+  const getExportData = () => filtered.map(e => ({
+    Name: e.name, Company: e.company, Nationality: e.nationality,
+    QID_No: e.qid_no, PP_No: e.pp_no, Medical_Date: e.ftw_medical_date,
+    Received_Date: e.ftw_received_date, Approval_Request: e.ftw_approval_request_date,
+    Count_Days: e.ftw_count_days, Approved_Date: e.ftw_approved_date,
+    Result: e.ftw_result, Doctor: e.ftw_doctor, Mobile: e.ftw_mobile,
+  }));
 
   const resultColors = { ACCEPTED: 'bg-emerald-50 text-emerald-700', REJECTED: 'bg-red-50 text-red-700', PENDING: 'bg-amber-50 text-amber-700', 'RE-ASSESS': 'bg-purple-50 text-purple-700' };
 
@@ -82,7 +79,7 @@ export default function MedicalTracker() {
         </div>
         <div className="flex gap-2">
           <Link to="/medical/import"><Button variant="outline"><Upload className="w-4 h-4 mr-2" /> Import Medical Data</Button></Link>
-          <Button variant="outline" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> Export</Button>
+          <ExportButton getData={getExportData} filename="medical_data.csv" />
         </div>
       </div>
 

@@ -7,13 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Download, ShieldCheck, Eye, Pencil } from 'lucide-react';
+import { Search, ShieldCheck, Eye, Pencil } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import StatusBadge from '../components/common/StatusBadge';
-import { COMPANIES, RLIC_STATUSES, exportToCSV, formatDate, daysUntil } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, formatDate, daysUntil } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
+import ExportButton from '../components/common/ExportButton';
 import { useToast } from '@/components/ui/use-toast';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
@@ -23,7 +24,7 @@ export default function GatepassTracker() {
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
-  const { toast } = useToast();
+
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
@@ -54,16 +55,12 @@ export default function GatepassTracker() {
     })).filter(c => c.valid + c.expired + c.soon > 0);
   }, [filtered]);
 
-  const handleExport = () => {
-    const data = filtered.map(e => ({
-      Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
-      Staff_No: e.staff_no, Gate_Pass_Issue: e.gate_pass_issue_date,
-      Gate_Pass_Received: e.gate_pass_received_date, Gate_Pass_Expiry: e.gate_pass_expiry,
-      RLIC_Status: e.rlic_status,
-    }));
-    exportToCSV(data, 'gatepass_data.csv');
-    toast({ title: `Exported ${data.length} records` });
-  };
+  const getExportData = () => filtered.map(e => ({
+    Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
+    Staff_No: e.staff_no, Gate_Pass_Issue: e.gate_pass_issue_date,
+    Gate_Pass_Received: e.gate_pass_received_date, Gate_Pass_Expiry: e.gate_pass_expiry,
+    RLIC_Status: e.rlic_status,
+  }));
 
   return (
     <div className="space-y-5">
@@ -77,7 +74,7 @@ export default function GatepassTracker() {
             <p className="text-sm text-muted-foreground">RLIC pass tracking & status</p>
           </div>
         </div>
-        <Button variant="outline" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> Export</Button>
+        <ExportButton getData={getExportData} filename="gatepass_data.csv" />
       </div>
 
       {/* Shared Filters */}

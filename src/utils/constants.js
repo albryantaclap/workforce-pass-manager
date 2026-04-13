@@ -65,11 +65,48 @@ export function exportToCSV(data, filename) {
     return `"${String(val).replace(/"/g, '""')}"`;
   }).join(','));
   const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export function exportToExcel(data, filename) {
+  if (!data || data.length === 0) return;
+  const headers = Object.keys(data[0]);
+  const headerRow = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+  const dataRows = data.map(row =>
+    `<tr>${headers.map(h => `<td>${row[h] ?? ''}</td>`).join('')}</tr>`
+  ).join('');
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table>${headerRow}${dataRows}</table></body></html>`;
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename.replace(/\.csv$/, '') + '.xls';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function exportToIQY(data, filename) {
+  if (!data || data.length === 0) return;
+  const headers = Object.keys(data[0]);
+  const rows = data.map(row => headers.map(h => String(row[h] ?? '')).join('\t'));
+  const content = [headers.join('\t'), ...rows].join('\n');
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename.replace(/\.csv$/, '') + '.iqy';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function exportData(data, filename, format) {
+  if (format === 'excel') return exportToExcel(data, filename);
+  if (format === 'iqy') return exportToIQY(data, filename);
+  return exportToCSV(data, filename);
 }

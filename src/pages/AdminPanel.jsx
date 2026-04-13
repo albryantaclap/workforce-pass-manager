@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function AdminPanel() {
+  const { currentUser } = useAuth();
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('user');
   const [inviting, setInviting] = useState(false);
@@ -48,6 +50,16 @@ export default function AdminPanel() {
     });
     return dupes;
   }, [employees]);
+
+  if (currentUser?.role !== 'admin') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+        <Shield className="w-12 h-12 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold">Access Restricted</h2>
+        <p className="text-muted-foreground mt-2">This page is only accessible to administrators.</p>
+      </div>
+    );
+  }
 
   const handleInvite = async (e) => {
     e.preventDefault();

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Eye, Pencil, Trash2, Download, Upload } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import StatusBadge from '../components/common/StatusBadge';
 import {
@@ -15,8 +15,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, RLIC_STATUSES, LOCATIONS, exportToCSV, formatDate } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, LOCATIONS, formatDate } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
+import ExportButton from '../components/common/ExportButton';
 
 export default function MasterList() {
   const [search, setSearch] = useState('');
@@ -69,18 +70,24 @@ export default function MasterList() {
     });
   }, [employees, search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter]);
 
-  const handleExport = () => {
-    const data = filtered.map(e => ({
-      SL: e.sl_no, Name: e.name, Position: e.position_application, Designation: e.designation_org_chart,
-      Company: e.company, Nationality: e.nationality, Location: e.current_location, Type: e.dir_indir,
-      QID_No: e.qid_no, QID_Expiry: e.qid_expiry, Passport_No: e.pp_no, PP_Expiry: e.pp_expiry,
-      FTW_Result: e.ftw_result, Gate_Pass_Expiry: e.gate_pass_expiry, RLIC_Status: e.rlic_status,
-      Staff_No: e.staff_no, PID: e.pid, PID_Expiry: e.pid_expiry, PID_Status: e.pid_status,
-      Training_Status: e.training_status,
-    }));
-    exportToCSV(data, 'master_list.csv');
-    toast({ title: `Exported ${data.length} records` });
-  };
+  const getExportData = () => filtered.map(e => ({
+    SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
+    Designation_Org_Chart: e.designation_org_chart, Department: e.department,
+    Company: e.company, Company_Type: e.company_type, Nationality: e.nationality,
+    Religion: e.religion, Location: e.current_location, DIR_INDIR: e.dir_indir,
+    Contact: e.contact_details, Sponsor: e.sponsor, Remarks: e.remarks,
+    QID_No: e.qid_no, QID_Expiry: e.qid_expiry, Passport_No: e.pp_no, PP_Expiry: e.pp_expiry,
+    Visa_Date_Applied: e.visa_date_applied, Visa_Date_Received: e.visa_date_received, Visa_Expiry: e.visa_expiry,
+    Medical_Date: e.ftw_medical_date, FTW_Received_Date: e.ftw_received_date,
+    FTW_Approval_Request: e.ftw_approval_request_date, FTW_Count_Days: e.ftw_count_days,
+    FTW_Approved_Date: e.ftw_approved_date, Medical_Result: e.ftw_result,
+    Doctor: e.ftw_doctor, Doctor_Mobile: e.ftw_mobile,
+    Gate_Pass_Issue: e.gate_pass_issue_date, Gate_Pass_Received: e.gate_pass_received_date,
+    Gate_Pass_Expiry: e.gate_pass_expiry, Staff_No: e.staff_no, RLIC_Status: e.rlic_status,
+    PID_No: e.pid, PID_Issue_Date: e.pid_issue_date, PID_Expiry: e.pid_expiry,
+    PID_Projected_Date: e.pid_projected_date, PID_Status: e.pid_status,
+    Training_Date: e.training_date, Training_Status: e.training_status,
+  }));
 
   return (
     <div className="space-y-5">
@@ -90,9 +97,7 @@ export default function MasterList() {
           <p className="text-sm text-muted-foreground mt-1">{filtered.length} of {employees.length} personnel</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="w-4 h-4 mr-2" /> Export CSV
-          </Button>
+          <ExportButton getData={getExportData} filename="master_list.csv" />
           <Link to="/employees/new">
             <Button><Plus className="w-4 h-4 mr-2" /> Add Personnel</Button>
           </Link>
@@ -141,65 +146,115 @@ export default function MasterList() {
           <Table>
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="bg-muted/50">
-                <TableHead className="text-xs bg-muted/50">SL</TableHead>
-                <TableHead className="text-xs bg-muted/50">Name</TableHead>
-                <TableHead className="text-xs bg-muted/50">Designation</TableHead>
-                <TableHead className="text-xs bg-muted/50">Department</TableHead>
-                <TableHead className="text-xs bg-muted/50">Company</TableHead>
-                <TableHead className="text-xs bg-muted/50">Nationality</TableHead>
-                <TableHead className="text-xs bg-muted/50">Location</TableHead>
-                <TableHead className="text-xs bg-muted/50">Type</TableHead>
-                <TableHead className="text-xs bg-muted/50">QID No</TableHead>
-                <TableHead className="text-xs bg-muted/50">QID Expiry</TableHead>
-                <TableHead className="text-xs bg-muted/50">RLIC</TableHead>
-                <TableHead className="text-xs bg-muted/50">PID</TableHead>
-                <TableHead className="text-xs bg-muted/50">Medical</TableHead>
-                <TableHead className="text-xs bg-muted/50">Training</TableHead>
-                <TableHead className="text-xs text-right bg-muted/50">Actions</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">SL</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Name</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Position (Application)</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Designation (Org Chart)</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Department</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Company</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Company Type</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Nationality</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Religion</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Location</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">DIR/INDIR</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Contact</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Sponsor</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">QID No</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">QID Expiry</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Passport No</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PP Expiry</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Visa Applied</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Visa Received</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Visa Expiry</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Medical Date</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">FTW Received</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">FTW Approval Req</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">FTW Count Days</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">FTW Approved</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Medical Result</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Doctor</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Issue</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Received</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Expiry</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Staff No / RLIC</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">RLIC Status</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID No</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Issue</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Expiry</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Projected</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Status</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Status</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Remarks</TableHead>
+                <TableHead className="text-xs text-right bg-muted/50 whitespace-nowrap">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array(8).fill(0).map((_, i) => (
-                  <TableRow key={i}>{Array(14).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                  <TableRow key={i}>{Array(41).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={15} className="text-center py-12 text-muted-foreground">No records found</TableCell>
+                  <TableCell colSpan={41} className="text-center py-12 text-muted-foreground">No records found</TableCell>
                 </TableRow>
               ) : (
                 filtered.map((emp) => (
                   <TableRow key={emp.id} className="hover:bg-muted/30">
-                    <TableCell className="text-xs text-muted-foreground">{emp.sl_no}</TableCell>
-                    <TableCell className="text-xs font-medium max-w-[160px] truncate">{emp.name}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">{emp.designation_org_chart}</TableCell>
-                    <TableCell className="text-xs">{emp.department || '—'}</TableCell>
-                    <TableCell className="text-xs max-w-[120px] truncate">{emp.company}</TableCell>
-                    <TableCell className="text-xs">{emp.nationality}</TableCell>
-                    <TableCell className="text-xs">{emp.current_location}</TableCell>
-                    <TableCell className="text-xs">{emp.dir_indir}</TableCell>
-                    <TableCell className="text-xs font-mono">{emp.qid_no}</TableCell>
-                    <TableCell className="text-xs">{formatDate(emp.qid_expiry)}</TableCell>
-                    <TableCell><StatusBadge status={emp.rlic_status} short /></TableCell>
-                    <TableCell><StatusBadge status={emp.pid_status} short /></TableCell>
-                    <TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{emp.sl_no}</TableCell>
+                    <TableCell className="text-xs font-medium whitespace-nowrap">{emp.name}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.position_application || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.designation_org_chart || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.department || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.company}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.company_type || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.nationality || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.religion || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.current_location || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.dir_indir || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.contact_details || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.sponsor || '—'}</TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap">{emp.qid_no || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.qid_expiry)}</TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap">{emp.pp_no || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pp_expiry)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.visa_date_applied)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.visa_date_received)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.visa_expiry)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.ftw_medical_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.ftw_received_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.ftw_approval_request_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.ftw_count_days ?? '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.ftw_approved_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
                       {emp.ftw_result ? (
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                           emp.ftw_result === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-700' :
-                          emp.ftw_result === 'REJECTED' ? 'bg-red-50 text-red-700' :
-                          'bg-amber-50 text-amber-700'
+                          emp.ftw_result === 'REJECTED' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
                         }`}>{emp.ftw_result}</span>
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                      ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.ftw_doctor || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_issue_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_received_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_expiry)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.staff_no || '—'}</TableCell>
+                    <TableCell className="whitespace-nowrap"><StatusBadge status={emp.rlic_status} short /></TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap">{emp.pid || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_issue_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_expiry)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_projected_date)}</TableCell>
+                    <TableCell className="whitespace-nowrap"><StatusBadge status={emp.pid_status} short /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
                       {emp.training_status ? (
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                           emp.training_status === 'DONE' ? 'bg-emerald-50 text-emerald-700' :
-                          emp.training_status === 'PENDING' ? 'bg-amber-50 text-amber-700' :
-                          'bg-slate-100 text-slate-600'
+                          emp.training_status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'
                         }`}>{emp.training_status}</span>
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                      ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.remarks || '—'}</TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
                         <Link to={`/employees/${emp.id}`}>

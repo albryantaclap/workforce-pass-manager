@@ -7,13 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Download, BadgeCheck, Eye, Pencil } from 'lucide-react';
+import { Search, BadgeCheck, Eye, Pencil } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import StatusBadge from '../components/common/StatusBadge';
-import { COMPANIES, PID_STATUSES, exportToCSV, formatDate, daysUntil } from '@/utils/constants';
+import { COMPANIES, PID_STATUSES, formatDate, daysUntil } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
+import ExportButton from '../components/common/ExportButton';
 import { useToast } from '@/components/ui/use-toast';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
@@ -23,7 +24,7 @@ export default function ProjectIDTracker() {
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
-  const { toast } = useToast();
+
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
@@ -54,15 +55,11 @@ export default function ProjectIDTracker() {
     })).filter(c => c.valid + c.expired + c.soon > 0);
   }, [filtered]);
 
-  const handleExport = () => {
-    const data = filtered.map(e => ({
-      Name: e.name, Company: e.company, QID_No: e.qid_no, PID: e.pid,
-      PID_Issue_Date: e.pid_issue_date, PID_Expiry: e.pid_expiry, PID_Status: e.pid_status,
-      Projected_Date: e.pid_projected_date,
-    }));
-    exportToCSV(data, 'project_id_data.csv');
-    toast({ title: `Exported ${data.length} records` });
-  };
+  const getExportData = () => filtered.map(e => ({
+    Name: e.name, Company: e.company, QID_No: e.qid_no, PID: e.pid,
+    PID_Issue_Date: e.pid_issue_date, PID_Expiry: e.pid_expiry, PID_Status: e.pid_status,
+    Projected_Date: e.pid_projected_date,
+  }));
 
   return (
     <div className="space-y-5">
@@ -76,7 +73,7 @@ export default function ProjectIDTracker() {
             <p className="text-sm text-muted-foreground">PID tracking & status</p>
           </div>
         </div>
-        <Button variant="outline" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> Export</Button>
+        <ExportButton getData={getExportData} filename="project_id_data.csv" />
       </div>
 
       {/* Shared Filters */}
