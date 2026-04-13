@@ -177,6 +177,8 @@ export default function MasterList() {
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">FTW Approved</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Medical Result</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Doctor</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Re-Assess Date</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Medical Remarks</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Issue</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Received</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Expiry</TableHead>
@@ -239,6 +241,8 @@ export default function MasterList() {
                       ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{emp.ftw_doctor || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.ftw_reassess_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{emp.ftw_remarks || '—'}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_issue_date)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_received_date)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_expiry)}</TableCell>

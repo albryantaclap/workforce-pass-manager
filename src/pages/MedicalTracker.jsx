@@ -71,6 +71,7 @@ export default function MedicalTracker() {
     Received_Date: e.ftw_received_date, Approval_Request: e.ftw_approval_request_date,
     Count_Days: e.ftw_count_days, Approved_Date: e.ftw_approved_date,
     Result: e.ftw_result, Doctor: e.ftw_doctor, Mobile: e.ftw_mobile,
+    ReAssess_Date: e.ftw_reassess_date, Remarks: e.ftw_remarks,
   }));
 
   const resultColors = { ACCEPTED: 'bg-emerald-50 text-emerald-700', REJECTED: 'bg-red-50 text-red-700', PENDING: 'bg-amber-50 text-amber-700', 'RE-ASSESS': 'bg-purple-50 text-purple-700' };
@@ -211,6 +212,8 @@ export default function MedicalTracker() {
                     <TableHead className="text-xs bg-muted/50">Result</TableHead>
                     <TableHead className="text-xs bg-muted/50">Doctor</TableHead>
                     <TableHead className="text-xs bg-muted/50">Mobile</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Re-Assess Date</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Remarks</TableHead>
                     <TableHead className="text-xs bg-muted/50">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -236,6 +239,8 @@ export default function MedicalTracker() {
                       </TableCell>
                       <TableCell className="text-xs">{emp.ftw_doctor}</TableCell>
                       <TableCell className="text-xs">{emp.ftw_mobile}</TableCell>
+                      <TableCell className="text-xs">{formatDate(emp.ftw_reassess_date)}</TableCell>
+                      <TableCell className="text-xs">{emp.ftw_remarks}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>

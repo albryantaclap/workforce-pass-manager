@@ -215,6 +215,8 @@ export default function EmployeeForm() {
             <SelectInput field="ftw_result" label="Result" options={FTW_RESULTS} {...tf} />
             <TextInput field="ftw_doctor" label="Doctor Name" {...tf} />
             <TextInput field="ftw_mobile" label="Mobile Number" {...tf} />
+            <TextInput field="ftw_reassess_date" label="Re-Assess Date" type="date" {...tf} />
+            <TextInput field="ftw_remarks" label="Medical Remarks" {...tf} />
           </div>
         </Card>
 
