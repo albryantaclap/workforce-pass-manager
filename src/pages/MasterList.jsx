@@ -142,7 +142,8 @@ export default function MasterList() {
 
       {/* Table */}
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto overflow-y-auto h-[560px]">
+        <div className="overflow-x-auto">
+        <div className="overflow-y-auto h-[560px]">
           <Table>
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="bg-muted/50">
@@ -186,7 +187,7 @@ export default function MasterList() {
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Status</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Remarks</TableHead>
-                <TableHead className="text-xs text-right bg-muted/50 whitespace-nowrap">Actions</TableHead>
+                <TableHead className="text-xs text-right bg-muted/50 whitespace-nowrap sticky right-0 z-20 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -255,7 +256,7 @@ export default function MasterList() {
                       ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{emp.remarks || '—'}</TableCell>
-                    <TableCell>
+                    <TableCell className="sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">
                       <div className="flex justify-end gap-1">
                         <Link to={`/employees/${emp.id}`}>
                           <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button>
@@ -285,6 +286,7 @@ export default function MasterList() {
               )}
             </TableBody>
           </Table>
+        </div>
         </div>
         <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
           Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> records
