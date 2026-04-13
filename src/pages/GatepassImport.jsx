@@ -39,6 +39,9 @@ function parseCsvOrTsv(text) {
     headers.forEach((h, i) => { obj[h] = (cols[i] || '').trim(); });
     return {
       qid_no: obj['QID_NO'] || obj['QID NO'] || obj['QID'] || '',
+      name: obj['NAME'] || '',
+      company: obj['COMPANY'] || '',
+      nationality: obj['NATIONALITY'] || '',
       staff_no: obj['STAFF_NO'] || obj['STAFF NO'] || obj['RLIC'] || obj['STAFF NO / RLIC'] || '',
       gate_pass_issue_date: obj['GATE_PASS_ISSUE'] || obj['GATE PASS ISSUE'] || obj['ISSUE DATE'] || '',
       gate_pass_received_date: obj['GATE_PASS_RECEIVED'] || obj['GATE PASS RECEIVED'] || obj['RECEIVED'] || '',
@@ -51,7 +54,7 @@ function parseCsvOrTsv(text) {
 export default function GatepassImport() {
   const [status, setStatus] = useState('idle');
   const [progress, setProgress] = useState(0);
-  const [results, setResults] = useState({ updated: 0, notFound: [] });
+  const [results, setResults] = useState({ updated: 0, created: 0, notFound: [] });
   const [fileReady, setFileReady] = useState(false);
   const [parsedRecords, setParsedRecords] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -89,6 +92,7 @@ export default function GatepassImport() {
     setProgress(40);
 
     let updated = 0;
+    let created = 0;
     const notFound = [];
     const total = parsedRecords.length;
     const sleep = (ms) => new Promise(res => setTimeout(res, ms));
@@ -99,30 +103,43 @@ export default function GatepassImport() {
       if (!qid) continue;
 
       const emp = qidMap.get(qid);
-      if (!emp) { notFound.push(qid); continue; }
-
-      const update = {};
-      if (rec.staff_no) update.staff_no = rec.staff_no;
       const issueDate = parseDate(rec.gate_pass_issue_date);
       const receivedDate = parseDate(rec.gate_pass_received_date);
       const expiryDate = parseDate(rec.gate_pass_expiry);
       const rlicStatus = normalizeRlic(rec.rlic_status);
-      if (issueDate) update.gate_pass_issue_date = issueDate;
-      if (receivedDate) update.gate_pass_received_date = receivedDate;
-      if (expiryDate) update.gate_pass_expiry = expiryDate;
-      if (rlicStatus) update.rlic_status = rlicStatus;
 
-      if (Object.keys(update).length > 0) {
-        await base44.entities.Employee.update(emp.id, update);
-        updated++;
-        if (updated % 5 === 0) await sleep(300);
+      if (!emp) {
+        const newEmp = { qid_no: qid };
+        if (rec.name) newEmp.name = rec.name;
+        if (rec.company) newEmp.company = rec.company;
+        if (rec.nationality) newEmp.nationality = rec.nationality;
+        if (rec.staff_no) newEmp.staff_no = rec.staff_no;
+        if (issueDate) newEmp.gate_pass_issue_date = issueDate;
+        if (receivedDate) newEmp.gate_pass_received_date = receivedDate;
+        if (expiryDate) newEmp.gate_pass_expiry = expiryDate;
+        if (rlicStatus) newEmp.rlic_status = rlicStatus;
+        await base44.entities.Employee.create(newEmp);
+        created++;
+        if (created % 5 === 0) await sleep(300);
+      } else {
+        const update = {};
+        if (rec.staff_no) update.staff_no = rec.staff_no;
+        if (issueDate) update.gate_pass_issue_date = issueDate;
+        if (receivedDate) update.gate_pass_received_date = receivedDate;
+        if (expiryDate) update.gate_pass_expiry = expiryDate;
+        if (rlicStatus) update.rlic_status = rlicStatus;
+        if (Object.keys(update).length > 0) {
+          await base44.entities.Employee.update(emp.id, update);
+          updated++;
+          if (updated % 5 === 0) await sleep(300);
+        }
       }
       setProgress(40 + Math.floor((i / total) * 58));
     }
 
     setProgress(100);
     setStatus('done');
-    setResults({ updated, notFound });
+    setResults({ updated, created, notFound });
     queryClient.invalidateQueries({ queryKey: ['employees'] });
   };
 
@@ -171,16 +188,21 @@ export default function GatepassImport() {
 
         {status === 'done' && (
           <div className="space-y-4 pt-2 border-t">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="text-center p-3 bg-green-50 rounded-lg">
                 <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
                 <div className="text-2xl font-bold text-green-700">{results.updated}</div>
                 <div className="text-xs text-muted-foreground">Records Updated</div>
               </div>
+              <div className="text-center p-3 bg-indigo-50 rounded-lg">
+                <CheckCircle2 className="w-5 h-5 text-indigo-600 mx-auto mb-1" />
+                <div className="text-2xl font-bold text-indigo-700">{results.created}</div>
+                <div className="text-xs text-muted-foreground">Records Created</div>
+              </div>
               <div className="text-center p-3 bg-amber-50 rounded-lg">
                 <AlertCircle className="w-5 h-5 text-amber-600 mx-auto mb-1" />
                 <div className="text-2xl font-bold text-amber-700">{results.notFound.length}</div>
-                <div className="text-xs text-muted-foreground">QID Not Matched</div>
+                <div className="text-xs text-muted-foreground">Skipped (No QID)</div>
               </div>
             </div>
             {results.notFound.length > 0 && (

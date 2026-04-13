@@ -21,6 +21,10 @@ function parseFile(text) {
     rawHeaders.forEach((h, i) => { obj[h] = (cols[i] || '').trim(); });
     return {
       qid_no: obj['QID_NO'] || obj['QID NO'] || obj['QID'] || '',
+      name: obj['NAME'] || '',
+      company: obj['COMPANY'] || '',
+      nationality: obj['NATIONALITY'] || '',
+      pp_no: obj['PP_NO'] || obj['PP NO'] || '',
       ftw_medical_date: obj['MEDICAL_DATE'] || obj['MEDICAL DATE'] || obj['MEDICAL DATE '] || '',
       ftw_received_date: obj['RECEIVED_DATE'] || obj['DATE RECEIVED FROM ALSAFA'] || obj['RECEIVED DATE'] || '',
       ftw_approval_request_date: obj['APPROVAL_REQUEST'] || obj['TR FTW APPROVAL DATE REQUEST'] || obj['APPROVAL REQUEST'] || '',
@@ -58,7 +62,7 @@ function normalizeResult(val) {
 export default function MedicalImport() {
   const [status, setStatus] = useState('idle');
   const [progress, setProgress] = useState(0);
-  const [results, setResults] = useState({ updated: 0, notFound: [], dupsRemoved: 0 });
+  const [results, setResults] = useState({ updated: 0, created: 0, notFound: [], dupsRemoved: 0 });
   const [fileReady, setFileReady] = useState(false);
   const [parsedRecords, setParsedRecords] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -107,6 +111,7 @@ export default function MedicalImport() {
     setProgress(40);
 
     let updated = 0;
+    let created = 0;
     const notFound = [];
     const total = records.length;
     const sleep = (ms) => new Promise(res => setTimeout(res, ms));
@@ -119,27 +124,44 @@ export default function MedicalImport() {
       if (!qid) continue;
 
       const emp = qidMap.get(qid);
-      if (!emp) { notFound.push(qid); continue; }
 
-      const update = {};
       const md = parseDate(rec.ftw_medical_date);
       const rd = parseDate(rec.ftw_received_date);
       const ard = parseDate(rec.ftw_approval_request_date);
       const ad = parseDate(rec.ftw_approved_date);
       const result = normalizeResult(rec.ftw_result);
 
-      if (md) update.ftw_medical_date = md;
-      if (rd) update.ftw_received_date = rd;
-      if (ard) update.ftw_approval_request_date = ard;
-      if (ad) update.ftw_approved_date = ad;
-      if (result) update.ftw_result = result;
-      if (rec.ftw_doctor) update.ftw_doctor = rec.ftw_doctor;
-      if (rec.ftw_mobile) update.ftw_mobile = String(rec.ftw_mobile);
-
-      if (Object.keys(update).length > 0) {
-        await base44.entities.Employee.update(emp.id, update);
-        updated++;
-        if (updated % BATCH_SIZE === 0) await sleep(DELAY_MS);
+      if (!emp) {
+        // Create new employee
+        const newEmp = { qid_no: qid };
+        if (rec.name) newEmp.name = rec.name;
+        if (rec.company) newEmp.company = rec.company;
+        if (rec.nationality) newEmp.nationality = rec.nationality;
+        if (rec.pp_no) newEmp.pp_no = rec.pp_no;
+        if (md) newEmp.ftw_medical_date = md;
+        if (rd) newEmp.ftw_received_date = rd;
+        if (ard) newEmp.ftw_approval_request_date = ard;
+        if (ad) newEmp.ftw_approved_date = ad;
+        if (result) newEmp.ftw_result = result;
+        if (rec.ftw_doctor) newEmp.ftw_doctor = rec.ftw_doctor;
+        if (rec.ftw_mobile) newEmp.ftw_mobile = String(rec.ftw_mobile);
+        await base44.entities.Employee.create(newEmp);
+        created++;
+        if (created % BATCH_SIZE === 0) await sleep(DELAY_MS);
+      } else {
+        const update = {};
+        if (md) update.ftw_medical_date = md;
+        if (rd) update.ftw_received_date = rd;
+        if (ard) update.ftw_approval_request_date = ard;
+        if (ad) update.ftw_approved_date = ad;
+        if (result) update.ftw_result = result;
+        if (rec.ftw_doctor) update.ftw_doctor = rec.ftw_doctor;
+        if (rec.ftw_mobile) update.ftw_mobile = String(rec.ftw_mobile);
+        if (Object.keys(update).length > 0) {
+          await base44.entities.Employee.update(emp.id, update);
+          updated++;
+          if (updated % BATCH_SIZE === 0) await sleep(DELAY_MS);
+        }
       }
       setProgress(40 + Math.floor((i / total) * 48));
     }
@@ -151,7 +173,7 @@ export default function MedicalImport() {
 
     setProgress(100);
     setStatus('done');
-    setResults({ updated, notFound, dupsRemoved: dupesToDelete.length });
+    setResults({ updated, created, notFound, dupsRemoved: dupesToDelete.length });
     queryClient.invalidateQueries({ queryKey: ['employees'] });
   };
 
@@ -204,11 +226,16 @@ export default function MedicalImport() {
 
         {status === 'done' && (
           <div className="space-y-4 pt-2 border-t">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div className="text-center p-3 bg-green-50 rounded-lg">
                 <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
                 <div className="text-2xl font-bold text-green-700">{results.updated}</div>
                 <div className="text-xs text-muted-foreground">Records Updated</div>
+              </div>
+              <div className="text-center p-3 bg-indigo-50 rounded-lg">
+                <CheckCircle2 className="w-5 h-5 text-indigo-600 mx-auto mb-1" />
+                <div className="text-2xl font-bold text-indigo-700">{results.created}</div>
+                <div className="text-xs text-muted-foreground">Records Created</div>
               </div>
               <div className="text-center p-3 bg-blue-50 rounded-lg">
                 <CheckCircle2 className="w-5 h-5 text-blue-600 mx-auto mb-1" />
@@ -218,7 +245,7 @@ export default function MedicalImport() {
               <div className="text-center p-3 bg-amber-50 rounded-lg">
                 <AlertCircle className="w-5 h-5 text-amber-600 mx-auto mb-1" />
                 <div className="text-2xl font-bold text-amber-700">{results.notFound.length}</div>
-                <div className="text-xs text-muted-foreground">QID Not Matched</div>
+                <div className="text-xs text-muted-foreground">Skipped (No QID)</div>
               </div>
             </div>
 
