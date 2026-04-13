@@ -142,7 +142,7 @@ export default function MasterList() {
 
       {/* Table */}
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+        <div className="overflow-x-auto overflow-y-auto h-[560px]">
           <Table>
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="bg-muted/50">

@@ -18,7 +18,7 @@ import AdminPanel from './pages/AdminPanel';
 import MedicalImport from './pages/MedicalImport';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -34,10 +34,15 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
       navigateToLogin();
       return null;
     }
+  }
+
+  // Require login for all users
+  if (!isLoadingAuth && !isAuthenticated) {
+    navigateToLogin();
+    return null;
   }
 
   // Render the main app
