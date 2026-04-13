@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Upload } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import StatusBadge from '../components/common/StatusBadge';
 import {
@@ -98,6 +98,9 @@ export default function MasterList() {
         </div>
         <div className="flex gap-2">
           <ExportButton getData={getExportData} filename="master_list.csv" />
+          <Link to="/master-list/import">
+            <Button variant="outline"><Upload className="w-4 h-4 mr-2" /> Import</Button>
+          </Link>
           <Link to="/employees/new">
             <Button><Plus className="w-4 h-4 mr-2" /> Add Personnel</Button>
           </Link>

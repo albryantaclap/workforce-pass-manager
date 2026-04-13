@@ -16,6 +16,7 @@ import ProjectIDTracker from './pages/ProjectIDTracker';
 import TrainingTracker from './pages/TrainingTracker';
 import AdminPanel from './pages/AdminPanel';
 import MedicalImport from './pages/MedicalImport';
+import MasterImport from './pages/MasterImport';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
@@ -60,6 +61,7 @@ const AuthenticatedApp = () => {
         <Route path="/training" element={<TrainingTracker />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/medical/import" element={<MedicalImport />} />
+        <Route path="/master-list/import" element={<MasterImport />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
