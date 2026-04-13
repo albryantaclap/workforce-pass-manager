@@ -46,6 +46,15 @@ export default function GatepassTracker() {
     count: filtered.filter(e => e.rlic_status === s.value).length,
   })), [filtered]);
 
+  const companyHeadcount = useMemo(() => {
+    const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
+    const staticValues = new Set(COMPANIES.map(c => c.value));
+    const extra = [...allCompanies].filter(v => !staticValues.has(v)).map(v => ({ value: v, label: v }));
+    return [...COMPANIES, ...extra]
+      .map(c => ({ name: c.label, count: filtered.filter(e => e.company === c.value).length }))
+      .filter(c => c.count > 0).sort((a, b) => b.count - a.count);
+  }, [filtered]);
+
   const companyStats = useMemo(() => {
     return COMPANIES.filter(c => filtered.some(e => e.company === c.value)).map(c => ({
       name: c.label.substring(0, 12),
@@ -141,6 +150,20 @@ export default function GatepassTracker() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Personnel by Company</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={Math.max(220, companyHeadcount.length * 26)}>
+                <BarChart data={companyHeadcount} layout="vertical" margin={{ top: 4, right: 30, left: 4, bottom: 4 }}>
+                  <XAxis type="number" tick={{ fontSize: 10 }} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 9 }} width={120} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
           {/* Expiry Timeline */}
           <Card>

@@ -22,7 +22,7 @@ export default function Dashboard() {
   });
 
   const positions = useMemo(() => {
-    return [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort();
+    return [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p }));
   }, [employees]);
 
   const filtered = useMemo(() => {
@@ -54,10 +54,16 @@ export default function Dashboard() {
   const medicalAccepted = filtered.filter(e => e.ftw_result === 'ACCEPTED').length;
   const trainingDone = filtered.filter(e => e.training_status === 'DONE').length;
 
-  const companyCounts = COMPANIES.map(c => ({
-    name: c.label,
-    count: filtered.filter(e => e.company === c.value).length,
-  })).filter(c => c.count > 0);
+  const companyCounts = useMemo(() => {
+    // Also include any companies in data not in the static list
+    const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
+    const staticValues = new Set(COMPANIES.map(c => c.value));
+    const extra = [...allCompanies].filter(v => !staticValues.has(v)).map(v => ({ value: v, label: v }));
+    return [...COMPANIES, ...extra]
+      .map(c => ({ name: c.label, count: filtered.filter(e => e.company === c.value).length }))
+      .filter(c => c.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [filtered]);
 
   const categoryCards = [
     {
@@ -182,14 +188,15 @@ export default function Dashboard() {
             {companyCounts.length === 0 ? (
               <p className="text-center text-muted-foreground py-10 text-sm">No data for selected filters</p>
             ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie data={companyCounts} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={90}
-                    label={({ name, count }) => `${name.substring(0, 10)}: ${count}`} labelLine={false}>
-                    {companyCounts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
+              <ResponsiveContainer width="100%" height={Math.max(260, companyCounts.length * 28)}>
+                <BarChart data={companyCounts} layout="vertical" margin={{ top: 4, right: 30, left: 4, bottom: 4 }}>
+                  <XAxis type="number" tick={{ fontSize: 10 }} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 9 }} width={120} />
                   <Tooltip />
-                </PieChart>
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                    {companyCounts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>

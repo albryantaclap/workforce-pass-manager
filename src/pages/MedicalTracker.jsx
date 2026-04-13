@@ -45,15 +45,18 @@ export default function MedicalTracker() {
     count: filtered.filter(e => e.ftw_result === r).length,
   })), [filtered]);
 
+  const companyHeadcount = useMemo(() => {
+    const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
+    const staticValues = new Set(COMPANIES.map(c => c.value));
+    const extra = [...allCompanies].filter(v => !staticValues.has(v)).map(v => ({ value: v, label: v }));
+    return [...COMPANIES, ...extra]
+      .map(c => ({ name: c.label, count: filtered.filter(e => e.company === c.value).length }))
+      .filter(c => c.count > 0).sort((a, b) => b.count - a.count);
+  }, [filtered]);
+
   const companyStats = useMemo(() => {
     const active = COMPANIES.filter(c => filtered.some(e => e.company === c.value));
     return active.map(c => ({
-      name: c.label.substring(0, 12),
-      accepted: filtered.filter(e => e.company === c.value && e.ftw_result === 'ACCEPTED').length,
-      pending: filtered.filter(e => e.company === c.value && e.ftw_result === 'PENDING').length,
-      rejected: filtered.filter(e => e.company === c.value && e.ftw_result === 'REJECTED').length,
-    })).filter(c => c.accepted + c.pending + c.rejected > 0);
-  }, [filtered]);
 
   const getExportData = () => filtered.map(e => ({
     Name: e.name, Company: e.company, Nationality: e.nationality,
@@ -138,7 +141,7 @@ export default function MedicalTracker() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-sm">By Company</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm">Medical Result by Company</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={companyStats} margin={{ left: -20 }}>
@@ -153,6 +156,19 @@ export default function MedicalTracker() {
               </CardContent>
             </Card>
           </div>
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Personnel by Company</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={Math.max(220, companyHeadcount.length * 26)}>
+                <BarChart data={companyHeadcount} layout="vertical" margin={{ top: 4, right: 30, left: 4, bottom: 4 }}>
+                  <XAxis type="number" tick={{ fontSize: 10 }} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 9 }} width={120} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="list" className="space-y-4 mt-4">
