@@ -27,7 +27,8 @@ export default function Dashboard() {
 
   const filtered = useMemo(() => {
     return employees.filter(e => {
-      const matchCo = companyFilter.length === 0 || companyFilter.includes(e.company);
+      const empCompany = (e.company || '').trim().toUpperCase();
+      const matchCo = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
       const matchPos = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
       return matchCo && matchPos;
     });
