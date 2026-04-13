@@ -57,6 +57,12 @@ export default function MedicalTracker() {
   const companyStats = useMemo(() => {
     const active = COMPANIES.filter(c => filtered.some(e => e.company === c.value));
     return active.map(c => ({
+      name: c.label.substring(0, 12),
+      accepted: filtered.filter(e => e.company === c.value && e.ftw_result === 'ACCEPTED').length,
+      pending: filtered.filter(e => e.company === c.value && e.ftw_result === 'PENDING').length,
+      rejected: filtered.filter(e => e.company === c.value && e.ftw_result === 'REJECTED').length,
+    })).filter(c => c.accepted + c.pending + c.rejected > 0);
+  }, [filtered]);
 
   const getExportData = () => filtered.map(e => ({
     Name: e.name, Company: e.company, Nationality: e.nationality,
