@@ -8,22 +8,27 @@ import { Loader2, CheckCircle2, AlertCircle, Upload, ArrowLeft } from 'lucide-re
 import { Link } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 
-function parseTsv(text) {
-  const lines = text.split('\n').filter(l => l.trim());
-  const rawHeaders = lines[0].split('\t').map(h => h.trim());
+function parseFile(text) {
+  const clean = text.replace(/^\uFEFF/, '');
+  const isTsv = clean.includes('\t');
+  const sep = isTsv ? '\t' : ',';
+  const lines = clean.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const rawHeaders = lines[0].split(sep).map(h => h.trim().toUpperCase().replace(/^\uFEFF/, ''));
   return lines.slice(1).map(line => {
-    const cols = line.split('\t');
+    const cols = line.split(sep);
     const obj = {};
-    rawHeaders.forEach((h, i) => { obj[h.toUpperCase().trim()] = (cols[i] || '').trim(); });
+    rawHeaders.forEach((h, i) => { obj[h] = (cols[i] || '').trim(); });
     return {
-      qid_no: obj['QID'] || '',
-      ftw_medical_date: obj['MEDICAL DATE'] || obj['MEDICAL DATE '] || '',
-      ftw_received_date: obj['DATE RECEIVED FROM ALSAFA'] || '',
-      ftw_approval_request_date: obj['TR FTW APPROVAL DATE REQUEST'] || '',
-      ftw_approved_date: obj['TR DATE APPROVED'] || '',
+      qid_no: obj['QID_NO'] || obj['QID NO'] || obj['QID'] || '',
+      ftw_medical_date: obj['MEDICAL_DATE'] || obj['MEDICAL DATE'] || obj['MEDICAL DATE '] || '',
+      ftw_received_date: obj['RECEIVED_DATE'] || obj['DATE RECEIVED FROM ALSAFA'] || obj['RECEIVED DATE'] || '',
+      ftw_approval_request_date: obj['APPROVAL_REQUEST'] || obj['TR FTW APPROVAL DATE REQUEST'] || obj['APPROVAL REQUEST'] || '',
+      ftw_count_days: obj['COUNT_DAYS'] || obj['COUNT DAYS'] || '',
+      ftw_approved_date: obj['APPROVED_DATE'] || obj['TR DATE APPROVED'] || obj['APPROVED DATE'] || '',
       ftw_result: obj['RESULT'] || '',
-      ftw_doctor: obj['DOCTOR NAME'] || '',
-      ftw_mobile: obj['MOBILE NUMBER'] || '',
+      ftw_doctor: obj['DOCTOR'] || obj['DOCTOR NAME'] || '',
+      ftw_mobile: obj['MOBILE'] || obj['MOBILE NUMBER'] || '',
     };
   }).filter(r => r.qid_no && r.qid_no.trim());
 }
@@ -69,21 +74,11 @@ export default function MedicalImport() {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-
-    const isTxtOrTsv = file.name.endsWith('.txt') || file.name.endsWith('.tsv');
-    if (isTxtOrTsv) {
-      const text = await file.text();
-      const records = parseTsv(text);
-      setParsedRecords(records);
-      setFileReady(true);
-      toast({ title: `Parsed ${records.length} records from file` });
-    } else {
-      // xlsx/csv — upload to server
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setParsedRecords([{ __file_url__: file_url }]); // sentinel
-      setFileReady(true);
-      toast({ title: 'File uploaded, ready to import' });
-    }
+    const text = await file.text();
+    const records = parseFile(text);
+    setParsedRecords(records);
+    setFileReady(true);
+    toast({ title: `Parsed ${records.length} records from file` });
     setUploading(false);
   };
 
@@ -93,41 +88,6 @@ export default function MedicalImport() {
     setProgress(10);
 
     let records = parsedRecords;
-
-    // If xlsx/csv uploaded to server, extract via AI
-    if (records.length === 1 && records[0].__file_url__) {
-      const fileUrl = records[0].__file_url__;
-      const extracted = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url: fileUrl,
-        json_schema: {
-          type: 'object',
-          properties: {
-            records: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  qid_no: { type: 'string' },
-                  ftw_medical_date: { type: 'string' },
-                  ftw_received_date: { type: 'string' },
-                  ftw_approval_request_date: { type: 'string' },
-                  ftw_approved_date: { type: 'string' },
-                  ftw_result: { type: 'string' },
-                  ftw_doctor: { type: 'string' },
-                  ftw_mobile: { type: 'string' },
-                }
-              }
-            }
-          }
-        }
-      });
-      if (extracted.status !== 'success') {
-        toast({ title: 'Extraction failed', variant: 'destructive' });
-        setStatus('idle');
-        return;
-      }
-      records = extracted.output?.records || [];
-    }
 
     setStatus('matching');
     setProgress(30);
@@ -208,9 +168,9 @@ export default function MedicalImport() {
       <Card className="p-6 space-y-5">
         <div>
           <p className="text-sm font-medium mb-2">Step 1: Upload Medical Data File</p>
-          <p className="text-xs text-muted-foreground mb-3">Accepted: .txt (tab-separated), .csv, .xlsx</p>
+          <p className="text-xs text-muted-foreground mb-3">Accepted: .csv or .txt (tab-separated). Columns: QID_No, Medical_Date, Received_Date, Approval_Request, Approved_Date, Result, Doctor, Mobile</p>
           <label className="cursor-pointer">
-            <input type="file" accept=".xlsx,.xls,.csv,.txt,.tsv" className="hidden" onChange={handleFileChange} disabled={status !== 'idle'} />
+            <input type="file" accept=".csv,.txt,.tsv" className="hidden" onChange={handleFileChange} disabled={status !== 'idle'} />
             <Button type="button" variant="outline" disabled={uploading || status !== 'idle'} asChild>
               <span>
                 <Upload className="w-4 h-4 mr-2" />
