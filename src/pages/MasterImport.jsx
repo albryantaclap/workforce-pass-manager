@@ -6,6 +6,74 @@ import { Card } from '@/components/ui/card';
 import { Upload, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
+// Maps CSV column headers → entity field names
+const COL_MAP = {
+  'sl': 'sl_no', 'sl no': 'sl_no',
+  'name': 'name',
+  'position_application': 'position_application', 'position application': 'position_application', 'position (application)': 'position_application',
+  'designation_org_chart': 'designation_org_chart', 'designation org chart': 'designation_org_chart', 'designation (org chart)': 'designation_org_chart',
+  'department': 'department',
+  'company': 'company',
+  'company_type': 'company_type', 'company type': 'company_type',
+  'nationality': 'nationality',
+  'religion': 'religion',
+  'location': 'current_location', 'current_location': 'current_location', 'current location': 'current_location',
+  'dir_indir': 'dir_indir', 'dir/indir': 'dir_indir',
+  'contact': 'contact_details', 'contact_details': 'contact_details', 'contact details': 'contact_details',
+  'sponsor': 'sponsor',
+  'remarks': 'remarks',
+  'qid_no': 'qid_no', 'qid no': 'qid_no', 'qid': 'qid_no',
+  'qid_expiry': 'qid_expiry', 'qid expiry': 'qid_expiry',
+  'passport_no': 'pp_no', 'passport no': 'pp_no', 'pp no': 'pp_no', 'pp_no': 'pp_no',
+  'pp_expiry': 'pp_expiry', 'pp expiry': 'pp_expiry', 'passport expiry': 'pp_expiry',
+  'visa_date_applied': 'visa_date_applied', 'visa date applied': 'visa_date_applied', 'visa applied': 'visa_date_applied',
+  'visa_date_received': 'visa_date_received', 'visa date received': 'visa_date_received', 'visa received': 'visa_date_received',
+  'visa_expiry': 'visa_expiry', 'visa expiry': 'visa_expiry',
+  'medical_date': 'ftw_medical_date', 'ftw medical date': 'ftw_medical_date', 'ftw_medical_date': 'ftw_medical_date',
+  'ftw_received_date': 'ftw_received_date', 'ftw received date': 'ftw_received_date',
+  'ftw_approval_request': 'ftw_approval_request_date', 'ftw approval request': 'ftw_approval_request_date', 'ftw_approval_request_date': 'ftw_approval_request_date',
+  'ftw_count_days': 'ftw_count_days', 'ftw count days': 'ftw_count_days',
+  'ftw_approved_date': 'ftw_approved_date', 'ftw approved date': 'ftw_approved_date',
+  'medical_result': 'ftw_result', 'ftw result': 'ftw_result', 'ftw_result': 'ftw_result',
+  'doctor': 'ftw_doctor',
+  'doctor_mobile': 'ftw_mobile', 'doctor mobile': 'ftw_mobile',
+  'gate_pass_issue': 'gate_pass_issue_date', 'gate pass issue': 'gate_pass_issue_date', 'gate_pass_issue_date': 'gate_pass_issue_date',
+  'gate_pass_received': 'gate_pass_received_date', 'gate pass received': 'gate_pass_received_date', 'gate_pass_received_date': 'gate_pass_received_date',
+  'gate_pass_expiry': 'gate_pass_expiry', 'gate pass expiry': 'gate_pass_expiry',
+  'staff_no': 'staff_no', 'staff no': 'staff_no', 'staff no / rlic': 'staff_no',
+  'rlic_status': 'rlic_status', 'rlic status': 'rlic_status',
+  'pid_no': 'pid', 'pid no': 'pid',
+  'pid_issue_date': 'pid_issue_date', 'pid issue date': 'pid_issue_date', 'pid issue': 'pid_issue_date',
+  'pid_expiry': 'pid_expiry', 'pid expiry': 'pid_expiry',
+  'pid_projected_date': 'pid_projected_date', 'pid projected date': 'pid_projected_date', 'pid projected': 'pid_projected_date',
+  'pid_status': 'pid_status', 'pid status': 'pid_status',
+  'training_date': 'training_date', 'training date': 'training_date',
+  'training_status': 'training_status', 'training status': 'training_status',
+};
+
+function parseCSV(text) {
+  // Remove BOM if present
+  text = text.replace(/^\uFEFF/, '');
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  const mappedHeaders = headers.map(h => COL_MAP[h.toLowerCase()] || null);
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    const row = {};
+    mappedHeaders.forEach((field, idx) => {
+      if (field && vals[idx] !== undefined && vals[idx] !== '') {
+        row[field] = vals[idx];
+      }
+    });
+    if (row.name) rows.push(row);
+  }
+  return rows;
+}
+
 export default function MasterImport() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -13,106 +81,25 @@ export default function MasterImport() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
 
-  const FIELD_MAP = {
-    'SL': 'sl_no', 'SL No': 'sl_no', 'Serial': 'sl_no',
-    'Name': 'name', 'Full Name': 'name',
-    'Position (Application)': 'position_application', 'Position_Application': 'position_application', 'Position Application': 'position_application',
-    'Designation (Org Chart)': 'designation_org_chart', 'Designation_Org_Chart': 'designation_org_chart', 'Designation Org Chart': 'designation_org_chart',
-    'Department': 'department',
-    'Company': 'company',
-    'Company Type': 'company_type', 'Company_Type': 'company_type',
-    'Nationality': 'nationality',
-    'Religion': 'religion',
-    'Location': 'current_location', 'Current Location': 'current_location',
-    'DIR/INDIR': 'dir_indir', 'DIR_INDIR': 'dir_indir',
-    'Contact': 'contact_details', 'Contact Details': 'contact_details',
-    'Sponsor': 'sponsor',
-    'Remarks': 'remarks',
-    'QID No': 'qid_no', 'QID_No': 'qid_no', 'QID': 'qid_no',
-    'QID Expiry': 'qid_expiry', 'QID_Expiry': 'qid_expiry',
-    'Passport No': 'pp_no', 'Passport_No': 'pp_no', 'PP No': 'pp_no',
-    'PP Expiry': 'pp_expiry', 'PP_Expiry': 'pp_expiry',
-    'Visa Applied': 'visa_date_applied', 'Visa_Date_Applied': 'visa_date_applied',
-    'Visa Received': 'visa_date_received', 'Visa_Date_Received': 'visa_date_received',
-    'Visa Expiry': 'visa_expiry', 'Visa_Expiry': 'visa_expiry',
-    'Medical Date': 'ftw_medical_date', 'FTW Medical Date': 'ftw_medical_date',
-    'FTW Received': 'ftw_received_date', 'FTW_Received_Date': 'ftw_received_date',
-    'FTW Approval Req': 'ftw_approval_request_date', 'FTW_Approval_Request': 'ftw_approval_request_date',
-    'FTW Count Days': 'ftw_count_days', 'FTW_Count_Days': 'ftw_count_days',
-    'FTW Approved': 'ftw_approved_date', 'FTW_Approved_Date': 'ftw_approved_date',
-    'Medical Result': 'ftw_result', 'FTW Result': 'ftw_result',
-    'Doctor': 'ftw_doctor',
-    'Gate Pass Issue': 'gate_pass_issue_date', 'Gate_Pass_Issue': 'gate_pass_issue_date',
-    'Gate Pass Received': 'gate_pass_received_date', 'Gate_Pass_Received': 'gate_pass_received_date',
-    'Gate Pass Expiry': 'gate_pass_expiry', 'Gate_Pass_Expiry': 'gate_pass_expiry',
-    'Staff No / RLIC': 'staff_no', 'Staff_No': 'staff_no', 'Staff No': 'staff_no',
-    'RLIC Status': 'rlic_status', 'RLIC_Status': 'rlic_status',
-    'PID No': 'pid', 'PID_No': 'pid',
-    'PID Issue': 'pid_issue_date', 'PID_Issue_Date': 'pid_issue_date',
-    'PID Expiry': 'pid_expiry', 'PID_Expiry': 'pid_expiry',
-    'PID Projected': 'pid_projected_date', 'PID_Projected_Date': 'pid_projected_date',
-    'PID Status': 'pid_status', 'PID_Status': 'pid_status',
-    'Training Date': 'training_date', 'Training_Date': 'training_date',
-    'Training Status': 'training_status', 'Training_Status': 'training_status',
-  };
-
   const handleImport = async () => {
     if (!file) return;
     setLoading(true);
     setResult(null);
 
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const text = await file.text();
+    const rows = parseCSV(text);
 
-    const schema = {
-      type: 'object',
-      properties: {
-        rows: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              sl_no: { type: 'number' }, name: { type: 'string' },
-              position_application: { type: 'string' }, designation_org_chart: { type: 'string' },
-              department: { type: 'string' }, company: { type: 'string' },
-              company_type: { type: 'string' }, nationality: { type: 'string' },
-              religion: { type: 'string' }, current_location: { type: 'string' },
-              dir_indir: { type: 'string' }, contact_details: { type: 'string' },
-              sponsor: { type: 'string' }, remarks: { type: 'string' },
-              qid_no: { type: 'string' }, qid_expiry: { type: 'string' },
-              pp_no: { type: 'string' }, pp_expiry: { type: 'string' },
-              visa_date_applied: { type: 'string' }, visa_date_received: { type: 'string' },
-              visa_expiry: { type: 'string' }, ftw_medical_date: { type: 'string' },
-              ftw_received_date: { type: 'string' }, ftw_approval_request_date: { type: 'string' },
-              ftw_count_days: { type: 'number' }, ftw_approved_date: { type: 'string' },
-              ftw_result: { type: 'string' }, ftw_doctor: { type: 'string' },
-              gate_pass_issue_date: { type: 'string' }, gate_pass_received_date: { type: 'string' },
-              gate_pass_expiry: { type: 'string' }, staff_no: { type: 'string' },
-              rlic_status: { type: 'string' }, pid: { type: 'string' },
-              pid_issue_date: { type: 'string' }, pid_expiry: { type: 'string' },
-              pid_projected_date: { type: 'string' }, pid_status: { type: 'string' },
-              training_date: { type: 'string' }, training_status: { type: 'string' },
-            }
-          }
-        }
-      }
-    };
-
-    const extracted = await base44.integrations.Core.ExtractDataFromUploadedFile({ file_url, json_schema: schema });
-
-    if (extracted.status !== 'success') {
-      setResult({ success: false, message: extracted.details || 'Failed to extract data from file.' });
+    if (rows.length === 0) {
+      setResult({ success: false, message: 'No valid rows found. Make sure the file has a "Name" column.' });
       setLoading(false);
       return;
     }
 
-    const rows = extracted.output?.rows || (Array.isArray(extracted.output) ? extracted.output : []);
-    const valid = rows.filter(r => r.name);
-
     const CHUNK = 50;
     let created = 0;
-    for (let i = 0; i < valid.length; i += CHUNK) {
-      await base44.entities.Employee.bulkCreate(valid.slice(i, i + CHUNK));
-      created += Math.min(CHUNK, valid.length - i);
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      await base44.entities.Employee.bulkCreate(rows.slice(i, i + CHUNK));
+      created += Math.min(CHUNK, rows.length - i);
     }
 
     setResult({ success: true, message: `Successfully imported ${created} records.` });
@@ -126,14 +113,14 @@ export default function MasterImport() {
         <Button variant="ghost" size="icon" onClick={() => navigate('/master-list')}><ArrowLeft className="w-4 h-4" /></Button>
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Import Master List</h2>
-          <p className="text-sm text-muted-foreground">Upload a CSV or Excel file to import personnel records</p>
+          <p className="text-sm text-muted-foreground">Upload a CSV file to import personnel records</p>
         </div>
       </div>
 
       <Card className="p-6 space-y-5">
         <div>
-          <p className="text-sm font-medium mb-2">Supported formats: <span className="text-muted-foreground">.csv, .xlsx, .xls</span></p>
-          <p className="text-sm text-muted-foreground">Column headers should match the Master List fields (e.g. Name, Company, QID No, etc.). New records will be added to the existing list.</p>
+          <p className="text-sm font-medium mb-1">Accepted format: <span className="text-muted-foreground">.csv</span></p>
+          <p className="text-sm text-muted-foreground">Column headers should match the Master List fields (e.g. Name, Company, QID_No, etc.). New records will be appended to the existing list.</p>
         </div>
 
         <div
@@ -144,12 +131,12 @@ export default function MasterImport() {
           {file ? (
             <p className="font-medium text-sm">{file.name}</p>
           ) : (
-            <p className="text-sm text-muted-foreground">Click to select a file</p>
+            <p className="text-sm text-muted-foreground">Click to select a CSV file</p>
           )}
           <input
             id="master-file-input"
             type="file"
-            accept=".csv,.xlsx,.xls"
+            accept=".csv"
             className="hidden"
             onChange={(e) => { setFile(e.target.files[0]); setResult(null); }}
           />
