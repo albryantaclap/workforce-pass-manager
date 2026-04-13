@@ -197,7 +197,7 @@ export default function MedicalTracker() {
           </Card>
 
           <Card className="overflow-hidden">
-            <div className="overflow-x-auto overflow-y-auto h-[560px]">
+            <div className="overflow-x-scroll overflow-y-auto h-[560px]">
               <Table>
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow className="bg-muted/50">

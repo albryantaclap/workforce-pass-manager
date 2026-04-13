@@ -145,8 +145,7 @@ export default function MasterList() {
 
       {/* Table */}
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-        <div className="overflow-y-auto h-[560px]">
+        <div className="overflow-x-scroll overflow-y-auto h-[560px]">
           <Table>
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="bg-muted/50">
@@ -189,7 +188,8 @@ export default function MasterList() {
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Expiry</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Projected</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Status</TableHead>
-                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date Started</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date End</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Status</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Remarks</TableHead>
                 <TableHead className="text-xs text-right bg-muted/50 whitespace-nowrap sticky right-0 z-20 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">Actions</TableHead>
@@ -253,7 +253,8 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_expiry)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_projected_date)}</TableCell>
                     <TableCell className="whitespace-nowrap"><StatusBadge status={emp.pid_status} short /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_start)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_end)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">
                       {emp.training_status ? (
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
@@ -293,7 +294,6 @@ export default function MasterList() {
               )}
             </TableBody>
           </Table>
-        </div>
         </div>
         <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
           Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> records

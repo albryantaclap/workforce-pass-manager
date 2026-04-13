@@ -65,7 +65,7 @@ export default function TrainingTracker() {
 
   const getExportData = () => filtered.map(e => ({
     Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
-    Training_Date: e.training_date, Training_Status: e.training_status,
+    Training_Date_Started: e.training_date_start, Training_Date_End: e.training_date_end, Training_Status: e.training_status,
   }));
 
   const statusColors = { DONE: 'bg-emerald-50 text-emerald-700', PENDING: 'bg-amber-50 text-amber-700', 'NOT REQUIRED': 'bg-slate-100 text-slate-600' };
@@ -180,7 +180,7 @@ export default function TrainingTracker() {
             </div>
           </Card>
           <Card className="overflow-hidden">
-            <div className="overflow-x-auto overflow-y-auto h-[560px]">
+            <div className="overflow-x-scroll overflow-y-auto h-[560px]">
               <Table>
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow className="bg-muted/50">
@@ -189,16 +189,17 @@ export default function TrainingTracker() {
                     <TableHead className="text-xs bg-muted/50">Nationality</TableHead>
                     <TableHead className="text-xs bg-muted/50">QID No</TableHead>
                     <TableHead className="text-xs bg-muted/50">Position</TableHead>
-                    <TableHead className="text-xs bg-muted/50">Training Date</TableHead>
-                    <TableHead className="text-xs bg-muted/50">Status</TableHead>
+                    <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date Started</TableHead>
+                    <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date End</TableHead>
+                    <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Status</TableHead>
                     <TableHead className="text-xs bg-muted/50">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(8).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
+                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(9).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
                   ) : filtered.map(emp => (
                     <TableRow key={emp.id} className="hover:bg-muted/30">
                       <TableCell className="text-xs font-medium">{emp.name}</TableCell>
@@ -206,7 +207,8 @@ export default function TrainingTracker() {
                       <TableCell className="text-xs">{emp.nationality}</TableCell>
                       <TableCell className="text-xs font-mono">{emp.qid_no}</TableCell>
                       <TableCell className="text-xs">{emp.designation_org_chart}</TableCell>
-                      <TableCell className="text-xs">{formatDate(emp.training_date)}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_start)}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_end)}</TableCell>
                       <TableCell>
                         {emp.training_status ? (
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColors[emp.training_status] || 'bg-muted text-muted-foreground'}`}>{emp.training_status}</span>

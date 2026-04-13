@@ -220,6 +220,30 @@
       ],
       "description": "RLIC pass status"
     },
+    "training_date_start": {
+      "type": "string",
+      "format": "date",
+      "description": "Training date started"
+    },
+    "training_date_end": {
+      "type": "string",
+      "format": "date",
+      "description": "Training date end"
+    },
+    "training_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Training date (legacy)"
+    },
+    "training_status": {
+      "type": "string",
+      "enum": [
+        "DONE",
+        "PENDING",
+        "NOT REQUIRED"
+      ],
+      "description": "Training status"
+    },
     "pid_issue_date": {
       "type": "string",
       "format": "date",
@@ -248,20 +272,6 @@
       "type": "string",
       "format": "date",
       "description": "Projected PID date"
-    },
-    "training_date": {
-      "type": "string",
-      "format": "date",
-      "description": "Training date"
-    },
-    "training_status": {
-      "type": "string",
-      "enum": [
-        "DONE",
-        "PENDING",
-        "NOT REQUIRED"
-      ],
-      "description": "Training status"
     }
   },
   "required": [

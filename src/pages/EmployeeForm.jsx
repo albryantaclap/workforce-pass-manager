@@ -231,6 +231,16 @@ export default function EmployeeForm() {
           </div>
         </Card>
 
+        {/* Training */}
+        <Card className="p-6">
+          <h3 className="text-sm font-semibold mb-4 text-primary">Training</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <TextInput field="training_date_start" label="Training Date Started" type="date" {...tf} />
+            <TextInput field="training_date_end" label="Training Date End" type="date" {...tf} />
+            <SelectInput field="training_status" label="Training Status" options={TRAINING_STATUSES} {...tf} />
+          </div>
+        </Card>
+
         {/* Project ID */}
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Project ID</h3>
@@ -240,15 +250,6 @@ export default function EmployeeForm() {
             <TextInput field="pid_expiry" label="Expiry Date" type="date" {...tf} />
             <TextInput field="pid_projected_date" label="Projected PID Date" type="date" {...tf} />
             <SelectInput field="pid_status" label="PID Status" options={PID_STATUSES} {...tf} />
-          </div>
-        </Card>
-
-        {/* Training */}
-        <Card className="p-6">
-          <h3 className="text-sm font-semibold mb-4 text-primary">Training</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <TextInput field="training_date" label="Training Date" type="date" {...tf} />
-            <SelectInput field="training_status" label="Training Status" options={TRAINING_STATUSES} {...tf} />
           </div>
         </Card>
 
