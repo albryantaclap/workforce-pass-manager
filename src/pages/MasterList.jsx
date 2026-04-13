@@ -145,7 +145,8 @@ export default function MasterList() {
 
       {/* Table */}
       <Card className="overflow-hidden">
-        <div className="overflow-x-scroll overflow-y-auto h-[560px]">
+        <div className="table-scroll-x">
+          <div className="table-scroll-y h-[560px]">
           <Table>
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="bg-muted/50">
@@ -294,6 +295,7 @@ export default function MasterList() {
               )}
             </TableBody>
           </Table>
+          </div>
         </div>
         <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
           Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> records
