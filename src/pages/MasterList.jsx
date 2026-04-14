@@ -39,8 +39,8 @@ export default function MasterList() {
   const [departmentFilter, setDepartmentFilter] = useState(saved.departmentFilter || 'all');
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter]);
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
