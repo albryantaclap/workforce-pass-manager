@@ -22,8 +22,8 @@ export default function MedicalTracker() {
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
-  const [resultFilter, setResultFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [resultFilter, setResultFilter] = useState('all');
 
 
   const { data: employees = [], isLoading } = useQuery({
@@ -41,7 +41,7 @@ export default function MedicalTracker() {
     const matchesResult = resultFilter === 'all' || e.ftw_result === resultFilter;
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
     return matchesSearch && matchesCompany && matchesPosition && matchesResult && matchesDepartment;
-  }), [employees, search, companyFilter, positionFilter, resultFilter]);
+  }), [employees, search, companyFilter, positionFilter, resultFilter, departmentFilter]);
 
   const stats = useMemo(() => FTW_RESULTS.map(r => ({
     name: r,

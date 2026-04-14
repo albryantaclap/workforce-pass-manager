@@ -84,7 +84,7 @@ export default function MasterList() {
       const matchesDepartment = departmentFilter === 'all' || emp.department === departmentFilter;
       return matchesSearch && matchesCompany && matchesRlic && matchesLocation && matchesDir && matchesPosition && matchesDepartment;
     });
-  }, [employees, search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter]);
+  }, [employees, search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter]);
 
   const getExportData = () => filtered.map(e => ({
     SL: e.sl_no, Name: e.name, Position_Application: e.position_application,

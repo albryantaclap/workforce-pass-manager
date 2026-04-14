@@ -42,7 +42,7 @@ export default function ProjectIDTracker() {
     const matchesStatus = statusFilter === 'all' || e.pid_status === statusFilter;
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment;
-  }), [employees, search, companyFilter, positionFilter, statusFilter]);
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter]);
 
   const stats = useMemo(() => PID_STATUSES.map((s, i) => ({
     name: s.label,

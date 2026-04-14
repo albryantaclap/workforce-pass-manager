@@ -41,7 +41,7 @@ export default function TrainingTracker() {
     const matchesStatus = statusFilter === 'all' || e.training_status === statusFilter;
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment;
-  }), [employees, search, companyFilter, positionFilter, statusFilter]);
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter]);
 
   const stats = useMemo(() => TRAINING_STATUSES.map((s, i) => ({
     name: s,
