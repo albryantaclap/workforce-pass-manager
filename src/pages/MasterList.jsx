@@ -36,6 +36,7 @@ export default function MasterList() {
   const [locationFilter, setLocationFilter] = useState(saved.locationFilter || 'all');
   const [dirFilter, setDirFilter] = useState(saved.dirFilter || 'all');
   const [positionFilter, setPositionFilter] = useState(saved.positionFilter || []);
+  const [departmentFilter, setDepartmentFilter] = useState(saved.departmentFilter || 'all');
 
   useEffect(() => {
     saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter });
