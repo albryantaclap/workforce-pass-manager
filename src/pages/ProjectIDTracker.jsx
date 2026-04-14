@@ -24,6 +24,7 @@ export default function ProjectIDTracker() {
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
 
 
   const { data: employees = [], isLoading } = useQuery({
@@ -39,7 +40,8 @@ export default function ProjectIDTracker() {
     const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
     const matchesStatus = statusFilter === 'all' || e.pid_status === statusFilter;
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus;
+    const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment;
   }), [employees, search, companyFilter, positionFilter, statusFilter]);
 
   const stats = useMemo(() => PID_STATUSES.map((s, i) => ({
@@ -97,8 +99,18 @@ export default function ProjectIDTracker() {
             <p className="text-xs font-medium text-muted-foreground mb-1">Filter by Position</p>
             <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="All Positions" />
           </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Filter by Department</p>
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+              <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        {(companyFilter.length > 0 || positionFilter.length > 0) && (
+        {(companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all') && (
           <p className="text-xs text-muted-foreground mt-2">Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> personnel</p>
         )}
       </Card>

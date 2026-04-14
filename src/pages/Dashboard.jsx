@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import MultiSelect from '@/components/common/MultiSelect';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { COMPANIES, DEPARTMENTS } from '@/utils/constants';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
@@ -15,6 +16,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 export default function Dashboard() {
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
+  const [departmentFilter, setDepartmentFilter] = useState('all');
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
@@ -55,11 +57,12 @@ export default function Dashboard() {
       const empCompany = (e.company || '').trim().toUpperCase();
       const matchCo = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
       const matchPos = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
-      return matchCo && matchPos;
+      const matchDept = departmentFilter === 'all' || e.department === departmentFilter;
+      return matchCo && matchPos && matchDept;
     });
-  }, [employees, companyFilter, positionFilter]);
+  }, [employees, companyFilter, positionFilter, departmentFilter]);
 
-  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0;
+  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all';
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -164,8 +167,18 @@ export default function Dashboard() {
               placeholder="All positions..."
             />
           </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Department</p>
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+              <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           {hasFilter && (
-            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); }}>
+            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all'); }}>
               <X className="w-4 h-4 mr-1" /> Clear Filters
             </Button>
           )}

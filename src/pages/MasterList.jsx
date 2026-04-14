@@ -81,7 +81,8 @@ export default function MasterList() {
       const matchesLocation = locationFilter === 'all' || emp.current_location === locationFilter;
       const matchesDir = dirFilter === 'all' || emp.dir_indir === dirFilter;
       const matchesPosition = positionFilter.length === 0 || positionFilter.includes(emp.designation_org_chart);
-      return matchesSearch && matchesCompany && matchesRlic && matchesLocation && matchesDir && matchesPosition;
+      const matchesDepartment = departmentFilter === 'all' || emp.department === departmentFilter;
+      return matchesSearch && matchesCompany && matchesRlic && matchesLocation && matchesDir && matchesPosition && matchesDepartment;
     });
   }, [employees, search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter]);
 
@@ -131,6 +132,13 @@ export default function MasterList() {
           </div>
           <MultiSelect options={uniqueCompanies} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" />
           <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="Filter by position" />
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger><SelectValue placeholder="Department" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Select value={rlicFilter} onValueChange={setRlicFilter}>
             <SelectTrigger><SelectValue placeholder="RLIC Status" /></SelectTrigger>
             <SelectContent>
@@ -156,9 +164,9 @@ export default function MasterList() {
             </Select>
           </div>
         </div>
-        {(search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all') && (
+        {(search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all') && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
