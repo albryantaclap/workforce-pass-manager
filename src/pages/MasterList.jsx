@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
@@ -19,13 +19,27 @@ import { COMPANIES, RLIC_STATUSES, LOCATIONS, formatDate } from '@/utils/constan
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 
+const STORAGE_KEY = 'masterlist_filters';
+
+function loadFilters() {
+  try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveFilters(f) {
+  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(f)); } catch {}
+}
+
 export default function MasterList() {
-  const [search, setSearch] = useState('');
-  const [companyFilter, setCompanyFilter] = useState([]);
-  const [rlicFilter, setRlicFilter] = useState('all');
-  const [locationFilter, setLocationFilter] = useState('all');
-  const [dirFilter, setDirFilter] = useState('all');
-  const [positionFilter, setPositionFilter] = useState([]);
+  const saved = useMemo(() => loadFilters(), []);
+  const [search, setSearch] = useState(saved.search || '');
+  const [companyFilter, setCompanyFilter] = useState(saved.companyFilter || []);
+  const [rlicFilter, setRlicFilter] = useState(saved.rlicFilter || 'all');
+  const [locationFilter, setLocationFilter] = useState(saved.locationFilter || 'all');
+  const [dirFilter, setDirFilter] = useState(saved.dirFilter || 'all');
+  const [positionFilter, setPositionFilter] = useState(saved.positionFilter || []);
+
+  useEffect(() => {
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 

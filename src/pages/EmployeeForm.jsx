@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -79,10 +79,13 @@ export default function EmployeeForm() {
     queryFn: () => base44.entities.Lookup.filter({ type: 'location' }),
   });
 
-  const allCompanies = [
-    ...COMPANIES.map(c => ({ value: c.value, label: c.label })),
-    ...lookupCompanies.map(c => ({ value: c.value, label: c.label })),
-  ];
+  const allCompanies = useMemo(() => {
+    const staticValues = new Set(COMPANIES.map(c => c.value));
+    const extras = lookupCompanies
+      .filter(c => !staticValues.has(c.value))
+      .map(c => ({ value: c.value, label: c.label }));
+    return [...COMPANIES.map(c => ({ value: c.value, label: c.label })), ...extras];
+  }, [lookupCompanies]);
   const allDepartments = [
     ...DEPARTMENTS,
     ...lookupDepartments.map(d => d.value).filter(v => !DEPARTMENTS.includes(v)),

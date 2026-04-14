@@ -21,6 +21,28 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Employee.list('-created_date', 2000),
   });
 
+  const { data: lookupCompanies = [] } = useQuery({
+    queryKey: ['lookups', 'company'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'company' }),
+  });
+  const { data: lookupDepartments = [] } = useQuery({
+    queryKey: ['lookups', 'department'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'department' }),
+  });
+
+  const allCompanyOptions = useMemo(() => {
+    const staticValues = new Set(COMPANIES.map(c => c.value));
+    const extras = lookupCompanies
+      .filter(c => !staticValues.has(c.value))
+      .map(c => ({ value: c.value, label: c.label }));
+    return [...COMPANIES.map(c => ({ value: c.value, label: c.label })), ...extras];
+  }, [lookupCompanies]);
+
+  const allDepartments = useMemo(() => {
+    const extras = lookupDepartments.map(d => d.value).filter(v => !DEPARTMENTS.includes(v));
+    return [...DEPARTMENTS, ...extras];
+  }, [lookupDepartments]);
+
   const positions = useMemo(() => {
     return [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p }));
   }, [employees]);
@@ -37,14 +59,14 @@ export default function Dashboard() {
   const hasFilter = companyFilter.length > 0 || positionFilter.length > 0;
 
   const companyCounts = useMemo(() => {
-    const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
-    const staticValues = new Set(COMPANIES.map(c => c.value));
-    const extra = [...allCompanies].filter(v => !staticValues.has(v)).map(v => ({ value: v, label: v }));
-    return [...COMPANIES, ...extra]
+    const knownValues = new Set(allCompanyOptions.map(c => c.value));
+    const dataCompanies = [...new Set(filtered.map(e => e.company).filter(Boolean))];
+    const extra = dataCompanies.filter(v => !knownValues.has(v)).map(v => ({ value: v, label: v }));
+    return [...allCompanyOptions, ...extra]
       .map(c => ({ name: c.label, count: filtered.filter(e => e.company === c.value).length }))
       .filter(c => c.count > 0)
       .sort((a, b) => b.count - a.count);
-  }, [filtered]);
+  }, [filtered, allCompanyOptions]);
 
   if (isLoading) {
     return (
@@ -124,7 +146,7 @@ export default function Dashboard() {
           <div className="flex-1">
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Company</p>
             <MultiSelect
-              options={COMPANIES.map(c => ({ value: c.value, label: c.label }))}
+              options={allCompanyOptions}
               value={companyFilter}
               onChange={setCompanyFilter}
               placeholder="All companies..."
@@ -231,7 +253,7 @@ export default function Dashboard() {
           <CardHeader><CardTitle className="text-sm">Personnel by Department</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={DEPARTMENTS.map(d => ({ name: d, count: filtered.filter(e => e.department === d).length })).filter(d => d.count > 0)} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+            <BarChart data={allDepartments.map(d => ({ name: d, count: filtered.filter(e => e.department === d).length })).filter(d => d.count > 0)} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
