@@ -29,9 +29,24 @@ const Field = ({ label, children }) => (
   <div className="space-y-1.5">{label && <Label className="text-xs">{label}</Label>}{children}</div>
 );
 
+function toDateValue(val) {
+  if (!val) return '';
+  // If already YYYY-MM-DD, return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+  // Strip time portion from ISO datetime strings
+  const d = new Date(val);
+  if (isNaN(d)) return '';
+  return d.toISOString().split('T')[0];
+}
+
 const TextInput = ({ field, label, type = 'text', required, form, onChange }) => (
   <Field label={label}>
-    <Input type={type} required={required} value={form[field] || ''} onChange={e => onChange(field, e.target.value)} />
+    <Input
+      type={type}
+      required={required}
+      value={type === 'date' ? toDateValue(form[field]) : (form[field] || '')}
+      onChange={e => onChange(field, e.target.value)}
+    />
   </Field>
 );
 
@@ -80,11 +95,13 @@ export default function EmployeeForm() {
   });
 
   const allCompanies = useMemo(() => {
-    const staticValues = new Set(COMPANIES.map(c => c.value));
-    const extras = lookupCompanies
-      .filter(c => !staticValues.has(c.value))
-      .map(c => ({ value: c.value, label: c.label }));
-    return [...COMPANIES.map(c => ({ value: c.value, label: c.label })), ...extras];
+    const seen = new Set();
+    const result = [];
+    for (const c of [...COMPANIES.map(c => ({ value: c.value, label: c.label })), ...lookupCompanies.map(c => ({ value: c.value, label: c.label }))]) {
+      const key = c.value.trim().toUpperCase();
+      if (!seen.has(key)) { seen.add(key); result.push(c); }
+    }
+    return result;
   }, [lookupCompanies]);
   const allDepartments = [
     ...DEPARTMENTS,

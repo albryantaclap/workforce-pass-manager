@@ -31,11 +31,14 @@ export default function Dashboard() {
   });
 
   const allCompanyOptions = useMemo(() => {
-    const staticValues = new Set(COMPANIES.map(c => c.value));
-    const extras = lookupCompanies
-      .filter(c => !staticValues.has(c.value))
-      .map(c => ({ value: c.value, label: c.label }));
-    return [...COMPANIES.map(c => ({ value: c.value, label: c.label })), ...extras];
+    // Deduplicate by uppercase value to avoid e.g. "GSO QATAR" vs "GSO Qatar" duplicates
+    const seen = new Set();
+    const result = [];
+    for (const c of [...COMPANIES.map(c => ({ value: c.value, label: c.label })), ...lookupCompanies.map(c => ({ value: c.value, label: c.label }))]) {
+      const key = c.value.trim().toUpperCase();
+      if (!seen.has(key)) { seen.add(key); result.push(c); }
+    }
+    return result;
   }, [lookupCompanies]);
 
   const allDepartments = useMemo(() => {

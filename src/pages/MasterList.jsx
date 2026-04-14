@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Eye, Pencil, Trash2, Upload } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Upload, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import StatusBadge from '../components/common/StatusBadge';
 import {
@@ -90,17 +90,17 @@ export default function MasterList() {
     Company: e.company, Company_Type: e.company_type, Nationality: e.nationality,
     Religion: e.religion, Location: e.current_location, DIR_INDIR: e.dir_indir,
     Contact: e.contact_details, Sponsor: e.sponsor, Remarks: e.remarks,
-    QID_No: e.qid_no, QID_Expiry: e.qid_expiry, Passport_No: e.pp_no, PP_Expiry: e.pp_expiry,
-    Visa_Date_Applied: e.visa_date_applied, Visa_Date_Received: e.visa_date_received, Visa_Expiry: e.visa_expiry,
-    Medical_Date: e.ftw_medical_date, FTW_Received_Date: e.ftw_received_date,
-    FTW_Approval_Request: e.ftw_approval_request_date, FTW_Count_Days: e.ftw_count_days,
-    FTW_Approved_Date: e.ftw_approved_date, Medical_Result: e.ftw_result,
+    QID_No: e.qid_no, QID_Expiry: formatDate(e.qid_expiry), Passport_No: e.pp_no, PP_Expiry: formatDate(e.pp_expiry),
+    Visa_Date_Applied: formatDate(e.visa_date_applied), Visa_Date_Received: formatDate(e.visa_date_received), Visa_Expiry: formatDate(e.visa_expiry),
+    Medical_Date: formatDate(e.ftw_medical_date), FTW_Received_Date: formatDate(e.ftw_received_date),
+    FTW_Approval_Request: formatDate(e.ftw_approval_request_date), FTW_Count_Days: e.ftw_count_days,
+    FTW_Approved_Date: formatDate(e.ftw_approved_date), Medical_Result: e.ftw_result,
     Doctor: e.ftw_doctor, Doctor_Mobile: e.ftw_mobile,
-    Gate_Pass_Issue: e.gate_pass_issue_date, Gate_Pass_Received: e.gate_pass_received_date,
-    Gate_Pass_Expiry: e.gate_pass_expiry, Staff_No: e.staff_no, RLIC_Status: e.rlic_status,
-    PID_No: e.pid, PID_Issue_Date: e.pid_issue_date, PID_Expiry: e.pid_expiry,
-    PID_Projected_Date: e.pid_projected_date, PID_Status: e.pid_status,
-    Training_Date: e.training_date, Training_Status: e.training_status,
+    Gate_Pass_Issue: formatDate(e.gate_pass_issue_date), Gate_Pass_Received: formatDate(e.gate_pass_received_date),
+    Gate_Pass_Expiry: formatDate(e.gate_pass_expiry), Staff_No: e.staff_no, RLIC_Status: e.rlic_status,
+    PID_No: e.pid, PID_Issue_Date: formatDate(e.pid_issue_date), PID_Expiry: formatDate(e.pid_expiry),
+    PID_Projected_Date: formatDate(e.pid_projected_date), PID_Status: e.pid_status,
+    Training_Date_Start: formatDate(e.training_date_start), Training_Date_End: formatDate(e.training_date_end), Training_Status: e.training_status,
   }));
 
   return (
@@ -155,6 +155,13 @@ export default function MasterList() {
             </Select>
           </div>
         </div>
+        {(search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all') && (
+          <div className="mt-3 flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); }}>
+              <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
+            </Button>
+          </div>
+        )}
       </Card>
 
       {/* Table */}

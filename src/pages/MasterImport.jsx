@@ -139,16 +139,27 @@ export default function MasterImport() {
       return;
     }
 
-    const CHUNK = 50;
-    let created = 0;
-    for (let i = 0; i < rows.length; i += CHUNK) {
-      await base44.entities.Employee.bulkCreate(rows.slice(i, i + CHUNK));
-      created += Math.min(CHUNK, rows.length - i);
-      setProgress(Math.round((created / rows.length) * 100));
+    // Fetch all existing employees to match by QID No
+    const existing = await base44.entities.Employee.list('-created_date', 5000);
+    const byQid = {};
+    existing.forEach(e => { if (e.qid_no) byQid[e.qid_no.trim()] = e; });
+
+    let created = 0, updated = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const qid = row.qid_no ? row.qid_no.trim() : null;
+      if (qid && byQid[qid]) {
+        await base44.entities.Employee.update(byQid[qid].id, row);
+        updated++;
+      } else {
+        await base44.entities.Employee.create(row);
+        created++;
+      }
+      setProgress(Math.round(((i + 1) / rows.length) * 100));
     }
 
-    setResult({ success: true, message: `Successfully imported ${created} records.` });
-    toast({ title: `Imported ${created} records` });
+    setResult({ success: true, message: `Import complete: ${created} created, ${updated} updated.` });
+    toast({ title: `Import complete: ${created} created, ${updated} updated` });
     setLoading(false);
   };
 
