@@ -32,6 +32,18 @@ export default function GatepassTracker() {
     queryFn: () => base44.entities.Employee.list('-created_date', 2000),
   });
 
+  const { data: customRlicStatuses = [] } = useQuery({
+    queryKey: ['lookups', 'rlic_status'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'rlic_status' }),
+  });
+
+  const allStatusOptions = useMemo(() => {
+    const custom = customRlicStatuses.map(s => ({ value: s.value, label: s.label }));
+    return [...RLIC_STATUSES, ...custom];
+  }, [customRlicStatuses]);
+
+  const getEffectiveRlic = (e) => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+
   const positions = useMemo(() => [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p })), [employees]);
 
   const filtered = useMemo(() => employees.filter(e => {
@@ -39,21 +51,26 @@ export default function GatepassTracker() {
     const empCompany = (e.company || '').trim().toUpperCase();
     const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
-    const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic');
+    const effectiveRlic = getEffectiveRlic(e);
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(effectiveRlic);
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter]);
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customRlicStatuses]);
 
   const stats = useMemo(() => {
-    const getStatus = e => computePassStatus(e.gate_pass_expiry, 'rlic');
+    // Built-in 4 + any custom statuses
+    const customCounts = customRlicStatuses.map(s => ({
+      name: s.label,
+      count: filtered.filter(e => getEffectiveRlic(e) === s.value).length,
+    }));
     return [
-      { name: 'Valid', count: filtered.filter(e => getStatus(e) === 'VALID RLIC PASS').length },
-      { name: 'Expired', count: filtered.filter(e => getStatus(e) === 'EXPIRED RLIC PASS').length },
-      { name: 'Soon', count: filtered.filter(e => getStatus(e) === 'SOON TO EXPIRE').length },
-      { name: 'No Pass', count: filtered.filter(e => getStatus(e) === 'NO RLIC PASS').length },
+      { name: 'Valid', count: filtered.filter(e => getEffectiveRlic(e) === 'VALID RLIC PASS').length },
+      { name: 'Expired', count: filtered.filter(e => getEffectiveRlic(e) === 'EXPIRED RLIC PASS').length },
+      { name: 'Soon', count: filtered.filter(e => getEffectiveRlic(e) === 'SOON TO EXPIRE').length },
+      { name: 'No Pass', count: filtered.filter(e => getEffectiveRlic(e) === 'NO RLIC PASS').length },
+      ...customCounts,
     ];
-  }, [filtered]);
+  }, [filtered, customRlicStatuses]);
 
   const companyHeadcount = useMemo(() => {
     const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
@@ -67,9 +84,9 @@ export default function GatepassTracker() {
   const companyStats = useMemo(() => {
     return COMPANIES.filter(c => filtered.some(e => e.company === c.value)).map(c => ({
       name: c.label.substring(0, 12),
-      valid: filtered.filter(e => e.company === c.value && computePassStatus(e.gate_pass_expiry, 'rlic') === 'VALID RLIC PASS').length,
-      expired: filtered.filter(e => e.company === c.value && computePassStatus(e.gate_pass_expiry, 'rlic') === 'EXPIRED RLIC PASS').length,
-      soon: filtered.filter(e => e.company === c.value && computePassStatus(e.gate_pass_expiry, 'rlic') === 'SOON TO EXPIRE').length,
+      valid: filtered.filter(e => e.company === c.value && getEffectiveRlic(e) === 'VALID RLIC PASS').length,
+      expired: filtered.filter(e => e.company === c.value && getEffectiveRlic(e) === 'EXPIRED RLIC PASS').length,
+      soon: filtered.filter(e => e.company === c.value && getEffectiveRlic(e) === 'SOON TO EXPIRE').length,
     })).filter(c => c.valid + c.expired + c.soon > 0);
   }, [filtered]);
 
@@ -226,7 +243,7 @@ export default function GatepassTracker() {
                 <Input placeholder="Name, QID, Staff No..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
               </div>
               <MultiSelect
-                options={RLIC_STATUSES.map(s => ({ value: s.value, label: s.label }))}
+                options={allStatusOptions}
                 value={statusFilter}
                 onChange={setStatusFilter}
                 placeholder="All Statuses"
@@ -275,7 +292,7 @@ export default function GatepassTracker() {
                             </span>
                           ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
-                        <TableCell><StatusBadge dateStr={emp.gate_pass_expiry} type="rlic" short /></TableCell>
+                        <TableCell><StatusBadge dateStr={emp.gate_pass_expiry} type="rlic" storedStatus={emp.rlic_status} short /></TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>

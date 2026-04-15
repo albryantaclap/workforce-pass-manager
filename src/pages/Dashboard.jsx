@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import MultiSelect from '@/components/common/MultiSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COMPANIES, DEPARTMENTS } from '@/utils/constants';
+import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, computePassStatus } from '@/utils/constants';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
 
@@ -17,6 +17,8 @@ export default function Dashboard() {
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [rlicStatusFilter, setRlicStatusFilter] = useState([]);
+  const [pidStatusFilter, setPidStatusFilter] = useState([]);
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
@@ -30,6 +32,14 @@ export default function Dashboard() {
   const { data: lookupDepartments = [] } = useQuery({
     queryKey: ['lookups', 'department'],
     queryFn: () => base44.entities.Lookup.filter({ type: 'department' }),
+  });
+  const { data: customRlicStatuses = [] } = useQuery({
+    queryKey: ['lookups', 'rlic_status'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'rlic_status' }),
+  });
+  const { data: customPidStatuses = [] } = useQuery({
+    queryKey: ['lookups', 'pid_status'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'pid_status' }),
   });
 
   const allCompanyOptions = useMemo(() => {
@@ -52,17 +62,24 @@ export default function Dashboard() {
     return [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p }));
   }, [employees]);
 
+  const allRlicOptions = useMemo(() => [...RLIC_STATUSES, ...customRlicStatuses.map(s => ({ value: s.value, label: s.label }))], [customRlicStatuses]);
+  const allPidOptions = useMemo(() => [...PID_STATUSES, ...customPidStatuses.map(s => ({ value: s.value, label: s.label }))], [customPidStatuses]);
+
   const filtered = useMemo(() => {
     return employees.filter(e => {
       const empCompany = (e.company || '').trim().toUpperCase();
       const matchCo = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
       const matchPos = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
       const matchDept = departmentFilter === 'all' || e.department === departmentFilter;
-      return matchCo && matchPos && matchDept;
+      const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+      const matchRlic = rlicStatusFilter.length === 0 || rlicStatusFilter.includes(effectiveRlic);
+      const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
+      const matchPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
+      return matchCo && matchPos && matchDept && matchRlic && matchPid;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter]);
+  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, pidStatusFilter, customRlicStatuses, customPidStatuses]);
 
-  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all';
+  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || pidStatusFilter.length > 0;
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -86,10 +103,12 @@ export default function Dashboard() {
   }
 
   const total = filtered.length;
-  const validRlic = filtered.filter(e => e.rlic_status === 'VALID RLIC PASS').length;
-  const expiredRlic = filtered.filter(e => e.rlic_status === 'EXPIRED RLIC PASS').length;
-  const validPid = filtered.filter(e => e.pid_status === 'VALID PID PASS').length;
-  const expiredPid = filtered.filter(e => e.pid_status === 'EXPIRED PID PASS').length;
+  const getRlic = e => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+  const getPid = e => computePassStatus(e.pid_expiry, 'pid', e.pid_status);
+  const validRlic = filtered.filter(e => getRlic(e) === 'VALID RLIC PASS').length;
+  const expiredRlic = filtered.filter(e => getRlic(e) === 'EXPIRED RLIC PASS').length;
+  const validPid = filtered.filter(e => getPid(e) === 'VALID PID PASS').length;
+  const expiredPid = filtered.filter(e => getPid(e) === 'EXPIRED PID PASS').length;
   const medicalAccepted = filtered.filter(e => e.ftw_result === 'ACCEPTED').length;
   const trainingDone = filtered.filter(e => e.training_status === 'DONE').length;
 
@@ -107,7 +126,7 @@ export default function Dashboard() {
       stats: [
         { label: 'Valid', value: validRlic, color: 'text-green-600' },
         { label: 'Expired', value: expiredRlic, color: 'text-red-600' },
-        { label: 'Soon', value: filtered.filter(e => e.rlic_status === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
+        { label: 'Soon', value: filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
       ],
     },
     {
@@ -115,7 +134,7 @@ export default function Dashboard() {
       stats: [
         { label: 'Valid', value: validPid, color: 'text-green-600' },
         { label: 'Expired', value: expiredPid, color: 'text-red-600' },
-        { label: 'Soon', value: filtered.filter(e => e.pid_status === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
+        { label: 'Soon', value: filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
       ],
     },
     {
@@ -178,10 +197,30 @@ export default function Dashboard() {
             </Select>
           </div>
           {hasFilter && (
-            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all'); }}>
+            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all'); setRlicStatusFilter([]); setPidStatusFilter([]); }}>
               <X className="w-4 h-4 mr-1" /> Clear Filters
             </Button>
           )}
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 mt-3">
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Gate Pass Status</p>
+            <MultiSelect
+              options={allRlicOptions}
+              value={rlicStatusFilter}
+              onChange={setRlicStatusFilter}
+              placeholder="All Gate Pass Statuses..."
+            />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Project ID Status</p>
+            <MultiSelect
+              options={allPidOptions}
+              value={pidStatusFilter}
+              onChange={setPidStatusFilter}
+              placeholder="All Project ID Statuses..."
+            />
+          </div>
         </div>
         {hasFilter && (
           <p className="text-xs text-muted-foreground mt-2">
@@ -250,7 +289,7 @@ export default function Dashboard() {
                 { category: 'PID Valid', count: validPid },
                 { category: 'PID Expired', count: expiredPid },
                 { category: 'Medical OK', count: medicalAccepted },
-                { category: 'Training Done', count: trainingDone },
+                { category: 'Training', count: trainingDone },
               ]} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                 <XAxis dataKey="category" tick={{ fontSize: 9 }} />
                 <YAxis tick={{ fontSize: 10 }} />

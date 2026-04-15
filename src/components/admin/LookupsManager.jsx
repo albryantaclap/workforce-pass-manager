@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trash2, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
+import { COMPANIES, LOCATIONS, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES } from '@/utils/constants';
 
 const COMPANY_TYPES = ['Main', 'Sub-contractor', 'GSO Supervision'];
 
@@ -16,9 +16,11 @@ const DEFAULTS = {
   company_type: COMPANY_TYPES.map(t => ({ value: t, label: t, type: 'company_type', _static: true })),
   location: LOCATIONS.map(l => ({ value: l, label: l, type: 'location', _static: true })),
   department: DEPARTMENTS.map(d => ({ value: d, label: d, type: 'department', _static: true })),
+  rlic_status: RLIC_STATUSES.map(s => ({ value: s.value, label: s.label, type: 'rlic_status', _static: true })),
+  pid_status: PID_STATUSES.map(s => ({ value: s.value, label: s.label, type: 'pid_status', _static: true })),
 };
 
-function LookupSection({ type, label }) {
+function LookupSection({ type, label, hint }) {
   const [newValue, setNewValue] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const { toast } = useToast();
@@ -57,6 +59,7 @@ function LookupSection({ type, label }) {
 
   return (
     <div className="space-y-4">
+      {hint && <p className="text-xs text-blue-600 bg-blue-50 rounded px-3 py-2">{hint}</p>}
       <form onSubmit={handleAdd} className="flex gap-2">
         <Input placeholder="Value (e.g. ACME CORP)" value={newValue} onChange={e => setNewValue(e.target.value)} className="flex-1" />
         <Input placeholder="Display label (optional)" value={newLabel} onChange={e => setNewLabel(e.target.value)} className="flex-1" />
@@ -102,16 +105,24 @@ export default function LookupsManager() {
         Manage reference lists used in the personnel form. Built-in entries cannot be removed. Custom entries are added on top.
       </p>
       <Tabs defaultValue="company">
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 flex-wrap h-auto gap-1">
           <TabsTrigger value="company">Companies</TabsTrigger>
           <TabsTrigger value="company_type">Company Types</TabsTrigger>
           <TabsTrigger value="location">Locations</TabsTrigger>
           <TabsTrigger value="department">Departments</TabsTrigger>
+          <TabsTrigger value="rlic_status">Gate Pass Status</TabsTrigger>
+          <TabsTrigger value="pid_status">Project ID Status</TabsTrigger>
         </TabsList>
         <TabsContent value="company"><LookupSection type="company" label="Company" /></TabsContent>
         <TabsContent value="company_type"><LookupSection type="company_type" label="Company Type" /></TabsContent>
         <TabsContent value="location"><LookupSection type="location" label="Location" /></TabsContent>
         <TabsContent value="department"><LookupSection type="department" label="Department" /></TabsContent>
+        <TabsContent value="rlic_status">
+          <LookupSection type="rlic_status" label="Gate Pass Status" hint="Add custom statuses (e.g. UNDER PROCESS). These will appear as filter options in Gate Pass dashboards." />
+        </TabsContent>
+        <TabsContent value="pid_status">
+          <LookupSection type="pid_status" label="Project ID Status" hint="Add custom statuses (e.g. UNDER PROCESS). These will appear as filter options in Project ID dashboards." />
+        </TabsContent>
       </Tabs>
     </Card>
   );

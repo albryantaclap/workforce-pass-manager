@@ -8,7 +8,9 @@
         "company",
         "company_type",
         "location",
-        "department"
+        "department",
+        "rlic_status",
+        "pid_status"
       ],
       "description": "Lookup category"
     },

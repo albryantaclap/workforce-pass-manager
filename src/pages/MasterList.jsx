@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, formatDate, computePassStatus } from '@/utils/constants';
+
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 
@@ -83,7 +84,7 @@ export default function MasterList() {
       const matchesDir = dirFilter === 'all' || emp.dir_indir === dirFilter;
       const matchesPosition = positionFilter.length === 0 || positionFilter.includes(emp.designation_org_chart);
       const matchesDepartment = departmentFilter === 'all' || emp.department === departmentFilter;
-      const effectivePid = computePassStatus(emp.pid_expiry, 'pid');
+      const effectivePid = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
       const matchesPidStatus = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
       return matchesSearch && matchesCompany && matchesRlic && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus;
     });
@@ -287,12 +288,12 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_received_date)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_expiry)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{emp.staff_no || '—'}</TableCell>
-                    <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.gate_pass_expiry} type="rlic" short /></TableCell>
+                    <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.gate_pass_expiry} type="rlic" storedStatus={emp.rlic_status} short /></TableCell>
                     <TableCell className="text-xs font-mono whitespace-nowrap">{emp.pid || '—'}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_issue_date)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_expiry)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_projected_date)}</TableCell>
-                    <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.pid_expiry} type="pid" short /></TableCell>
+                    <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.pid_expiry} type="pid" storedStatus={emp.pid_status} short /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_start)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_end)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">

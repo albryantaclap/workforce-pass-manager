@@ -23,15 +23,21 @@ const shortLabels = {
   'NO PID PASS': 'No Pass',
 };
 
-// If dateStr + type provided, status is computed from date (authoritative).
+// If dateStr + type provided, status is computed from date (authoritative), with storedStatus for custom overrides.
 // Otherwise falls back to the stored status value.
-export default function StatusBadge({ status, dateStr, type, short = false }) {
-  const resolved = dateStr && type ? computePassStatus(dateStr, type) : status;
+export default function StatusBadge({ status, dateStr, type, storedStatus, short = false }) {
+  const resolved = dateStr && type
+    ? computePassStatus(dateStr, type, storedStatus)
+    : (storedStatus || status);
+
   if (!resolved) return <span className="text-xs text-muted-foreground">—</span>;
 
+  const style = statusStyles[resolved] || 'bg-blue-50 text-blue-700 border-blue-200';
+  const label = short ? (shortLabels[resolved] || resolved) : resolved;
+
   return (
-    <Badge variant="outline" className={cn('text-[10px] font-semibold border', statusStyles[resolved] || 'bg-muted text-muted-foreground')}>
-      {short ? shortLabels[resolved] || resolved : resolved}
+    <Badge variant="outline" className={cn('text-[10px] font-semibold border', style)}>
+      {label}
     </Badge>
   );
 }

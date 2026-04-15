@@ -32,6 +32,18 @@ export default function ProjectIDTracker() {
     queryFn: () => base44.entities.Employee.list('-created_date', 2000),
   });
 
+  const { data: customPidStatuses = [] } = useQuery({
+    queryKey: ['lookups', 'pid_status'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'pid_status' }),
+  });
+
+  const allStatusOptions = useMemo(() => {
+    const custom = customPidStatuses.map(s => ({ value: s.value, label: s.label }));
+    return [...PID_STATUSES, ...custom];
+  }, [customPidStatuses]);
+
+  const getEffectivePid = (e) => computePassStatus(e.pid_expiry, 'pid', e.pid_status);
+
   const positions = useMemo(() => [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p })), [employees]);
 
   const filtered = useMemo(() => employees.filter(e => {
@@ -39,21 +51,25 @@ export default function ProjectIDTracker() {
     const empCompany = (e.company || '').trim().toUpperCase();
     const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
-    const effectivePid = computePassStatus(e.pid_expiry, 'pid');
+    const effectivePid = getEffectivePid(e);
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(effectivePid);
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter]);
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customPidStatuses]);
 
   const stats = useMemo(() => {
-    const getStatus = e => computePassStatus(e.pid_expiry, 'pid');
+    const customCounts = customPidStatuses.map(s => ({
+      name: s.label,
+      count: filtered.filter(e => getEffectivePid(e) === s.value).length,
+    }));
     return [
-      { name: 'Valid', count: filtered.filter(e => getStatus(e) === 'VALID PID PASS').length },
-      { name: 'Expired', count: filtered.filter(e => getStatus(e) === 'EXPIRED PID PASS').length },
-      { name: 'Soon', count: filtered.filter(e => getStatus(e) === 'SOON TO EXPIRE').length },
-      { name: 'No Pass', count: filtered.filter(e => getStatus(e) === 'NO PID PASS').length },
+      { name: 'Valid', count: filtered.filter(e => getEffectivePid(e) === 'VALID PID PASS').length },
+      { name: 'Expired', count: filtered.filter(e => getEffectivePid(e) === 'EXPIRED PID PASS').length },
+      { name: 'Soon', count: filtered.filter(e => getEffectivePid(e) === 'SOON TO EXPIRE').length },
+      { name: 'No Pass', count: filtered.filter(e => getEffectivePid(e) === 'NO PID PASS').length },
+      ...customCounts,
     ];
-  }, [filtered]);
+  }, [filtered, customPidStatuses]);
 
   const companyHeadcount = useMemo(() => {
     const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
@@ -67,9 +83,9 @@ export default function ProjectIDTracker() {
   const companyStats = useMemo(() => {
     return COMPANIES.filter(c => filtered.some(e => e.company === c.value)).map(c => ({
       name: c.label.substring(0, 12),
-      valid: filtered.filter(e => e.company === c.value && computePassStatus(e.pid_expiry, 'pid') === 'VALID PID PASS').length,
-      expired: filtered.filter(e => e.company === c.value && computePassStatus(e.pid_expiry, 'pid') === 'EXPIRED PID PASS').length,
-      soon: filtered.filter(e => e.company === c.value && computePassStatus(e.pid_expiry, 'pid') === 'SOON TO EXPIRE').length,
+      valid: filtered.filter(e => e.company === c.value && getEffectivePid(e) === 'VALID PID PASS').length,
+      expired: filtered.filter(e => e.company === c.value && getEffectivePid(e) === 'EXPIRED PID PASS').length,
+      soon: filtered.filter(e => e.company === c.value && getEffectivePid(e) === 'SOON TO EXPIRE').length,
     })).filter(c => c.valid + c.expired + c.soon > 0);
   }, [filtered]);
 
@@ -219,7 +235,7 @@ export default function ProjectIDTracker() {
                 <Input placeholder="Name, PID, QID..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
               </div>
               <MultiSelect
-                options={PID_STATUSES.map(s => ({ value: s.value, label: s.label }))}
+                options={allStatusOptions}
                 value={statusFilter}
                 onChange={setStatusFilter}
                 placeholder="All Statuses"
@@ -267,7 +283,7 @@ export default function ProjectIDTracker() {
                             </span>
                           ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
-                        <TableCell><StatusBadge dateStr={emp.pid_expiry} type="pid" short /></TableCell>
+                        <TableCell><StatusBadge dateStr={emp.pid_expiry} type="pid" storedStatus={emp.pid_status} short /></TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>

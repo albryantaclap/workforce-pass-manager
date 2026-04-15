@@ -60,9 +60,23 @@ export function daysUntil(dateStr) {
   return Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
 }
 
-// Compute pass status purely from expiry date
+// Built-in status values that are date-derivable — these should NOT be used as custom overrides
+const BUILT_IN_RLIC = new Set(['VALID RLIC PASS', 'EXPIRED RLIC PASS', 'SOON TO EXPIRE', 'NO RLIC PASS']);
+const BUILT_IN_PID = new Set(['VALID PID PASS', 'EXPIRED PID PASS', 'SOON TO EXPIRE', 'NO PID PASS']);
+
+// Compute effective status for an employee record.
+// If the employee has a custom stored status (not date-derivable), it takes priority.
+// Otherwise status is derived from the expiry date.
+// storedStatus: e.rlic_status or e.pid_status
+// dateStr: e.gate_pass_expiry or e.pid_expiry
 // type: 'rlic' | 'pid'
-export function computePassStatus(dateStr, type) {
+export function computePassStatus(dateStr, type, storedStatus) {
+  const builtIn = type === 'rlic' ? BUILT_IN_RLIC : BUILT_IN_PID;
+
+  // If stored status is a custom (non-built-in) value, respect it
+  if (storedStatus && !builtIn.has(storedStatus)) return storedStatus;
+
+  // Otherwise derive from expiry date
   if (!dateStr) return type === 'rlic' ? 'NO RLIC PASS' : 'NO PID PASS';
   const days = daysUntil(dateStr);
   if (days === null) return type === 'rlic' ? 'NO RLIC PASS' : 'NO PID PASS';
