@@ -77,6 +77,53 @@ const TRAINING_MAP = {
   'done': 'DONE', 'pending': 'PENDING', 'not required': 'NOT REQUIRED',
 };
 
+// Month name abbreviation map for formats like "05-Oct-26"
+const MONTH_MAP = {
+  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+};
+
+function parseImportDate(raw) {
+  if (!raw) return null;
+  const s = raw.trim();
+
+  // Already ISO: 2026-02-23
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // dd/mm/yyyy or dd-mm-yyyy
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{2})[\/\-](\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+
+  // 05-Oct-26 or 05-Oct-2026
+  const dmonY = s.match(/^(\d{1,2})[\/\-]([a-zA-Z]{3})[\/\-](\d{2,4})$/);
+  if (dmonY) {
+    const mon = MONTH_MAP[dmonY[2].toLowerCase()];
+    if (mon) {
+      let year = parseInt(dmonY[3]);
+      if (year < 100) year += year >= 50 ? 1900 : 2000;
+      return `${year}-${mon}-${dmonY[1].padStart(2,'0')}`;
+    }
+  }
+
+  // Fallback: try native Date parse
+  const d = new Date(s);
+  if (!isNaN(d)) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return null;
+}
+
+// Date field names (entity keys)
+const DATE_FIELDS = new Set([
+  'qid_expiry','pp_expiry','visa_date_applied','visa_date_received','visa_expiry',
+  'ftw_medical_date','ftw_received_date','ftw_approval_request_date','ftw_approved_date',
+  'ftw_reassess_date','gate_pass_issue_date','gate_pass_received_date','gate_pass_expiry',
+  'pid_issue_date','pid_expiry','pid_projected_date','training_date_start','training_date_end','training_date',
+]);
+
 function parseCSV(text) {
   // Strip BOM
   const clean = text.replace(/^\uFEFF/, '');
@@ -88,30 +135,37 @@ function parseCSV(text) {
 
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',');
-    const obj = {};
-    headers.forEach((h, idx) => {
-      const field = COL_MAP[h];
-      if (!field) return;
-      const raw = (values[idx] || '').trim();
-      if (!raw) return;
+    try {
+      const values = lines[i].split(',');
+      const obj = {};
+      headers.forEach((h, idx) => {
+        const field = COL_MAP[h];
+        if (!field) return;
+        const raw = (values[idx] || '').trim();
+        if (!raw) return;
 
-      if (field === 'sl_no' || field === 'ftw_count_days') {
-        const n = parseFloat(raw);
-        if (!isNaN(n)) obj[field] = n;
-      } else if (field === 'rlic_status') {
-        obj[field] = RLIC_MAP[raw.toLowerCase()] || raw;
-      } else if (field === 'pid_status') {
-        obj[field] = PID_MAP[raw.toLowerCase()] || raw;
-      } else if (field === 'ftw_result') {
-        obj[field] = MEDICAL_MAP[raw.toLowerCase()] || raw;
-      } else if (field === 'training_status') {
-        obj[field] = TRAINING_MAP[raw.toLowerCase()] || raw;
-      } else {
-        obj[field] = raw;
-      }
-    });
-    if (obj.name) rows.push(obj);
+        if (field === 'sl_no' || field === 'ftw_count_days') {
+          const n = parseFloat(raw);
+          if (!isNaN(n)) obj[field] = n;
+        } else if (field === 'rlic_status') {
+          obj[field] = RLIC_MAP[raw.toLowerCase()] || raw;
+        } else if (field === 'pid_status') {
+          obj[field] = PID_MAP[raw.toLowerCase()] || raw;
+        } else if (field === 'ftw_result') {
+          obj[field] = MEDICAL_MAP[raw.toLowerCase()] || raw;
+        } else if (field === 'training_status') {
+          obj[field] = TRAINING_MAP[raw.toLowerCase()] || raw;
+        } else if (DATE_FIELDS.has(field)) {
+          const parsed = parseImportDate(raw);
+          if (parsed) obj[field] = parsed;
+        } else {
+          obj[field] = raw;
+        }
+      });
+      if (obj.name) rows.push(obj);
+    } catch (e) {
+      // Skip bad rows, never stop
+    }
   }
   return rows;
 }
@@ -144,22 +198,26 @@ export default function MasterImport() {
     const byQid = {};
     existing.forEach(e => { if (e.qid_no) byQid[e.qid_no.trim()] = e; });
 
-    let created = 0, updated = 0;
+    let created = 0, updated = 0, failed = 0;
     for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const qid = row.qid_no ? row.qid_no.trim() : null;
-      if (qid && byQid[qid]) {
-        await base44.entities.Employee.update(byQid[qid].id, row);
-        updated++;
-      } else {
-        await base44.entities.Employee.create(row);
-        created++;
+      try {
+        const row = rows[i];
+        const qid = row.qid_no ? row.qid_no.trim() : null;
+        if (qid && byQid[qid]) {
+          await base44.entities.Employee.update(byQid[qid].id, row);
+          updated++;
+        } else {
+          await base44.entities.Employee.create(row);
+          created++;
+        }
+      } catch (e) {
+        failed++;
       }
       setProgress(Math.round(((i + 1) / rows.length) * 100));
     }
 
-    setResult({ success: true, message: `Import complete: ${created} created, ${updated} updated.` });
-    toast({ title: `Import complete: ${created} created, ${updated} updated` });
+    setResult({ success: true, message: `Import complete: ${created} created, ${updated} updated${failed > 0 ? `, ${failed} failed` : ''}.` });
+    toast({ title: `Import complete: ${created} created, ${updated} updated${failed > 0 ? `, ${failed} failed` : ''}` });
     setLoading(false);
   };
 

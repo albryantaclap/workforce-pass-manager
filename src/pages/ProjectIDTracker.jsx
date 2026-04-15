@@ -44,10 +44,15 @@ export default function ProjectIDTracker() {
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment;
   }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter]);
 
-  const stats = useMemo(() => PID_STATUSES.map((s, i) => ({
-    name: s.label,
-    count: filtered.filter(e => e.pid_status === s.value).length,
-  })), [filtered]);
+  const stats = useMemo(() => {
+    const soonCount = filtered.filter(e => e.pid_status === 'SOON TO EXPIRE' || e.pid_status === 'SOON').length;
+    return [
+      { name: 'Valid', count: filtered.filter(e => e.pid_status === 'VALID PID PASS').length },
+      { name: 'Expired', count: filtered.filter(e => e.pid_status === 'EXPIRED PID PASS').length },
+      { name: 'Soon', count: soonCount },
+      { name: 'No Pass', count: filtered.filter(e => e.pid_status === 'NO PID PASS').length },
+    ];
+  }, [filtered]);
 
   const companyHeadcount = useMemo(() => {
     const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
@@ -63,7 +68,7 @@ export default function ProjectIDTracker() {
       name: c.label.substring(0, 12),
       valid: filtered.filter(e => e.company === c.value && e.pid_status === 'VALID PID PASS').length,
       expired: filtered.filter(e => e.company === c.value && e.pid_status === 'EXPIRED PID PASS').length,
-      soon: filtered.filter(e => e.company === c.value && e.pid_status === 'SOON TO EXPIRE').length,
+      soon: filtered.filter(e => e.company === c.value && (e.pid_status === 'SOON TO EXPIRE' || e.pid_status === 'SOON')).length,
     })).filter(c => c.valid + c.expired + c.soon > 0);
   }, [filtered]);
 

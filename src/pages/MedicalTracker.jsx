@@ -130,7 +130,7 @@ export default function MedicalTracker() {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4 mt-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {stats.map((s, i) => (
               <Card key={s.name}>
                 <CardContent className="pt-4">
@@ -141,7 +141,13 @@ export default function MedicalTracker() {
             ))}
             <Card>
               <CardContent className="pt-4">
-                <div className="text-3xl font-bold text-slate-500">{employees.filter(e => !e.ftw_result).length}</div>
+                <div className="text-3xl font-bold text-slate-400">{filtered.filter(e => e.ftw_result === 'NO PASS').length}</div>
+                <div className="text-xs text-muted-foreground mt-1">No Pass</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-3xl font-bold text-slate-500">{filtered.filter(e => !e.ftw_result).length}</div>
                 <div className="text-xs text-muted-foreground mt-1">No Data</div>
               </CardContent>
             </Card>
