@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Eye, Pencil, Trash2, Upload, X } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import StatusBadge from '../components/common/StatusBadge';
 import {
@@ -15,10 +15,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, formatDate, computePassStatus } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, FTW_RESULTS, TRAINING_STATUSES, formatDate, computePassStatus } from '@/utils/constants';
 
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
+import InlineEditCell from '../components/common/InlineEditCell';
+import BulkEditBar from '../components/common/BulkEditBar';
 
 const STORAGE_KEY = 'masterlist_filters';
 
@@ -30,6 +32,7 @@ function saveFilters(f) {
 }
 
 export default function MasterList() {
+  const [editMode, setEditMode] = useState(false);
   const saved = useMemo(() => loadFilters(), []);
   const [search, setSearch] = useState(saved.search || '');
   const [companyFilter, setCompanyFilter] = useState(saved.companyFilter || []);
@@ -50,6 +53,31 @@ export default function MasterList() {
     queryKey: ['employees'],
     queryFn: () => base44.entities.Employee.list('-created_date', 2000),
   });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
+    onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
+  });
+
+  const handleCellSave = (id, field, value) => {
+    updateMutation.mutate({ id, data: { [field]: value } });
+  };
+
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0;
+
+  const masterBulkFields = [
+    { key: 'ftw_result', label: 'Medical Result', type: 'select', options: FTW_RESULTS.map(r => ({ value: r, label: r })) },
+    { key: 'training_status', label: 'Training Status', type: 'select', options: TRAINING_STATUSES.map(s => ({ value: s, label: s })) },
+    { key: 'rlic_status', label: 'RLIC Status', type: 'select', options: RLIC_STATUSES.map(s => ({ value: s.value, label: s.label })) },
+    { key: 'current_location', label: 'Location', type: 'select', options: LOCATIONS.map(l => ({ value: l, label: l })) },
+  ];
+
+  const handleBulkApply = async (field, value) => {
+    await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
+    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    toast({ title: `Updated ${filtered.length} records` });
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Employee.delete(id),
@@ -116,7 +144,10 @@ export default function MasterList() {
           <h2 className="text-2xl font-bold tracking-tight">Master List</h2>
           <p className="text-sm text-muted-foreground mt-1">{filtered.length} of {employees.length} personnel</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant={editMode ? 'default' : 'outline'} onClick={() => setEditMode(v => !v)}>
+            {editMode ? <><X className="w-4 h-4 mr-2" /> Exit Edit Mode</> : <><PencilLine className="w-4 h-4 mr-2" /> Edit in Grid</>}
+          </Button>
           <ExportButton getData={getExportData} filename="master_list.csv" />
           <Link to="/master-list/import">
             <Button variant="outline"><Upload className="w-4 h-4 mr-2" /> Import</Button>
@@ -182,6 +213,10 @@ export default function MasterList() {
           </div>
         )}
       </Card>
+
+      {editMode && hasActiveFilters && filtered.length > 0 && (
+        <BulkEditBar fields={masterBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
+      )}
 
       {/* Table */}
       <Card className="overflow-hidden">
@@ -249,62 +284,52 @@ export default function MasterList() {
                 filtered.map((emp) => (
                   <TableRow key={emp.id} className="hover:bg-muted/30">
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{emp.sl_no}</TableCell>
-                    <TableCell className="text-xs font-medium whitespace-nowrap">{emp.name}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.position_application || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.designation_org_chart || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.department || '—'}</TableCell>
+                    <TableCell className="text-xs font-medium whitespace-nowrap"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.position_application} field="position_application" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.designation_org_chart} field="designation_org_chart" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.department} field="department" empId={emp.id} type="select" options={['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d=>({value:d,label:d}))} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{emp.company}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{emp.company_type || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.nationality || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.religion || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.current_location || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.dir_indir || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.contact_details || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.sponsor || '—'}</TableCell>
-                    <TableCell className="text-xs font-mono whitespace-nowrap">{emp.qid_no || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.qid_expiry)}</TableCell>
-                    <TableCell className="text-xs font-mono whitespace-nowrap">{emp.pp_no || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pp_expiry)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.visa_date_applied)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.visa_date_received)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.visa_expiry)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.ftw_medical_date)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.ftw_received_date)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.ftw_approval_request_date)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.ftw_count_days ?? '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.ftw_approved_date)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.nationality} field="nationality" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.religion} field="religion" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.current_location} field="current_location" empId={emp.id} type="select" options={LOCATIONS.map(l=>({value:l,label:l}))} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.dir_indir} field="dir_indir" empId={emp.id} type="select" options={[{value:'DIR',label:'DIR'},{value:'INDIR',label:'INDIR'}]} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.contact_details} field="contact_details" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.sponsor} field="sponsor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.qid_expiry} field="qid_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} className="font-mono" /></TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap"><InlineEditCell value={emp.pp_no} field="pp_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pp_expiry} field="pp_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.visa_date_applied} field="visa_date_applied" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.visa_date_received} field="visa_date_received" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.visa_expiry} field="visa_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_medical_date} field="ftw_medical_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_received_date} field="ftw_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_approval_request_date} field="ftw_approval_request_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_count_days} field="ftw_count_days" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_approved_date} field="ftw_approved_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap">
-                      {emp.ftw_result ? (
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                          emp.ftw_result === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-700' :
-                          emp.ftw_result === 'REJECTED' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-                        }`}>{emp.ftw_result}</span>
-                      ) : <span className="text-muted-foreground">—</span>}
+                      <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={emp.id} type="select" options={FTW_RESULTS.map(r=>({value:r,label:r}))} onSave={handleCellSave} editMode={editMode} />
                     </TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.ftw_doctor || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.ftw_reassess_date)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.ftw_remarks || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_issue_date)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_received_date)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_expiry)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.staff_no || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_doctor} field="ftw_doctor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_reassess_date} field="ftw_reassess_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_remarks} field="ftw_remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.gate_pass_issue_date} field="gate_pass_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.gate_pass_received_date} field="gate_pass_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.gate_pass_expiry} field="gate_pass_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.staff_no} field="staff_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.gate_pass_expiry} type="rlic" storedStatus={emp.rlic_status} short /></TableCell>
-                    <TableCell className="text-xs font-mono whitespace-nowrap">{emp.pid || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_issue_date)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_expiry)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_projected_date)}</TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap"><InlineEditCell value={emp.pid} field="pid" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_issue_date} field="pid_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_expiry} field="pid_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_projected_date} field="pid_projected_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.pid_expiry} type="pid" storedStatus={emp.pid_status} short /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_start)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_end)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.training_date_start} field="training_date_start" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.training_date_end} field="training_date_end" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap">
-                      {emp.training_status ? (
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                          emp.training_status === 'DONE' ? 'bg-emerald-50 text-emerald-700' :
-                          emp.training_status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'
-                        }`}>{emp.training_status}</span>
-                      ) : <span className="text-muted-foreground">—</span>}
+                      <InlineEditCell value={emp.training_status} field="training_status" empId={emp.id} type="select" options={TRAINING_STATUSES.map(s=>({value:s,label:s}))} onSave={handleCellSave} editMode={editMode} />
                     </TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.remarks || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.remarks} field="remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">
                       <div className="flex justify-end gap-1">
                         <Link to={`/employees/${emp.id}`}>

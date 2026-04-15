@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, BadgeCheck, Eye, Pencil } from 'lucide-react';
+import { Search, BadgeCheck, Eye, Pencil, PencilLine, X as XIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
@@ -15,6 +15,8 @@ import StatusBadge from '../components/common/StatusBadge';
 import { COMPANIES, PID_STATUSES, formatDate, daysUntil, computePassStatus } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
+import InlineEditCell from '../components/common/InlineEditCell';
+import BulkEditBar from '../components/common/BulkEditBar';
 import { useToast } from '@/components/ui/use-toast';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
@@ -25,6 +27,10 @@ export default function ProjectIDTracker() {
   const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [editMode, setEditMode] = useState(false);
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
 
   const { data: employees = [], isLoading } = useQuery({
@@ -89,6 +95,29 @@ export default function ProjectIDTracker() {
     })).filter(c => c.valid + c.expired + c.soon > 0);
   }, [filtered]);
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
+    onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
+  });
+
+  const handleCellSave = (id, field, value) => updateMutation.mutate({ id, data: { [field]: value } });
+
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all';
+
+  const pidBulkFields = [
+    { key: 'pid_status', label: 'PID Status', type: 'select', options: allStatusOptions },
+    { key: 'pid_expiry', label: 'PID Expiry', type: 'date' },
+    { key: 'pid_issue_date', label: 'PID Issue Date', type: 'date' },
+    { key: 'pid_projected_date', label: 'Projected Date', type: 'date' },
+  ];
+
+  const handleBulkApply = async (field, value) => {
+    await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
+    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    toast({ title: `Updated ${filtered.length} records` });
+  };
+
   const getExportData = () => filtered.map(e => ({
     Name: e.name, Company: e.company, QID_No: e.qid_no, PID: e.pid,
     PID_Issue_Date: e.pid_issue_date, PID_Expiry: e.pid_expiry, PID_Status: e.pid_status,
@@ -107,7 +136,12 @@ export default function ProjectIDTracker() {
             <p className="text-sm text-muted-foreground">PID tracking & status</p>
           </div>
         </div>
-        <ExportButton getData={getExportData} filename="project_id_data.csv" />
+        <div className="flex gap-2 flex-wrap">
+          <Button variant={editMode ? 'default' : 'outline'} onClick={() => setEditMode(v => !v)}>
+            {editMode ? <><XIcon className="w-4 h-4 mr-2" /> Exit Edit Mode</> : <><PencilLine className="w-4 h-4 mr-2" /> Edit in Grid</>}
+          </Button>
+          <ExportButton getData={getExportData} filename="project_id_data.csv" />
+        </div>
       </div>
 
       {/* Shared Filters */}
@@ -242,6 +276,9 @@ export default function ProjectIDTracker() {
               />
             </div>
           </Card>
+          {editMode && hasActiveFilters && filtered.length > 0 && (
+            <BulkEditBar fields={pidBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
+          )}
           <Card className="overflow-hidden">
             <div className="table-scroll-x">
               <div className="table-scroll-y h-[560px]">
@@ -269,13 +306,13 @@ export default function ProjectIDTracker() {
                     const days = daysUntil(emp.pid_expiry);
                     return (
                       <TableRow key={emp.id} className="hover:bg-muted/30">
-                        <TableCell className="text-xs font-medium">{emp.name}</TableCell>
-                        <TableCell className="text-xs">{emp.company}</TableCell>
-                        <TableCell className="text-xs font-mono">{emp.qid_no}</TableCell>
-                        <TableCell className="text-xs font-mono">{emp.pid}</TableCell>
-                        <TableCell className="text-xs">{formatDate(emp.pid_issue_date)}</TableCell>
-                        <TableCell className="text-xs">{formatDate(emp.pid_expiry)}</TableCell>
-                        <TableCell className="text-xs">{formatDate(emp.pid_projected_date)}</TableCell>
+                       <TableCell className="text-xs font-medium"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                       <TableCell className="text-xs">{emp.company}</TableCell>
+                       <TableCell className="text-xs font-mono"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                       <TableCell className="text-xs font-mono"><InlineEditCell value={emp.pid} field="pid" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                       <TableCell className="text-xs"><InlineEditCell value={emp.pid_issue_date} field="pid_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                       <TableCell className="text-xs"><InlineEditCell value={emp.pid_expiry} field="pid_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                       <TableCell className="text-xs"><InlineEditCell value={emp.pid_projected_date} field="pid_projected_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                         <TableCell>
                           {days !== null ? (
                             <span className={`text-xs font-bold ${days <= 0 ? 'text-red-600' : days <= 30 ? 'text-amber-600' : 'text-green-600'}`}>
@@ -283,7 +320,13 @@ export default function ProjectIDTracker() {
                             </span>
                           ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
-                        <TableCell><StatusBadge dateStr={emp.pid_expiry} type="pid" storedStatus={emp.pid_status} short /></TableCell>
+                        <TableCell>
+                          {editMode ? (
+                            <InlineEditCell value={emp.pid_status} field="pid_status" empId={emp.id} type="select" options={allStatusOptions} onSave={handleCellSave} editMode={editMode} />
+                          ) : (
+                            <StatusBadge dateStr={emp.pid_expiry} type="pid" storedStatus={emp.pid_status} short />
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>

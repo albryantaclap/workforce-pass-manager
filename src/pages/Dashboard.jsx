@@ -112,6 +112,14 @@ export default function Dashboard() {
   const medicalAccepted = filtered.filter(e => e.ftw_result === 'ACCEPTED').length;
   const trainingDone = filtered.filter(e => e.training_status === 'DONE').length;
 
+  const medicalReAssess = filtered.filter(e => e.ftw_result === 'RE-ASSESS').length;
+  // Custom RLIC statuses (e.g. "Under Process") — count all non-built-in rlic statuses
+  const customRlicCounts = customRlicStatuses.map(s => ({
+    label: s.label,
+    value: filtered.filter(e => getRlic(e) === s.value).length,
+    color: 'text-blue-600',
+  }));
+
   const categoryCards = [
     {
       title: 'Medical Data', icon: Stethoscope, color: 'text-blue-600', bg: 'bg-blue-50', path: '/medical',
@@ -119,6 +127,7 @@ export default function Dashboard() {
         { label: 'Accepted', value: medicalAccepted, color: 'text-green-600' },
         { label: 'Pending', value: filtered.filter(e => e.ftw_result === 'PENDING').length, color: 'text-amber-600' },
         { label: 'Rejected', value: filtered.filter(e => e.ftw_result === 'REJECTED').length, color: 'text-red-600' },
+        { label: 'Re-Assess', value: medicalReAssess, color: 'text-purple-600' },
       ],
     },
     {
@@ -127,6 +136,7 @@ export default function Dashboard() {
         { label: 'Valid', value: validRlic, color: 'text-green-600' },
         { label: 'Expired', value: expiredRlic, color: 'text-red-600' },
         { label: 'Soon', value: filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
+        ...customRlicCounts,
       ],
     },
     {
@@ -243,7 +253,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-2">
+                <div className={`grid gap-2 ${card.stats.length > 3 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                   {card.stats.map(s => (
                     <div key={s.label} className="text-center">
                       <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>

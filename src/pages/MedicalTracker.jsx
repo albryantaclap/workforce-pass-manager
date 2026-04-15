@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Stethoscope, Upload, Eye, Pencil } from 'lucide-react';
+import { Search, Stethoscope, Upload, Eye, Pencil, PencilLine, X as XIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { COMPANIES, FTW_RESULTS, formatDate } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
+import InlineEditCell from '../components/common/InlineEditCell';
+import BulkEditBar from '../components/common/BulkEditBar';
 import { useToast } from '@/components/ui/use-toast';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4'];
@@ -24,12 +26,37 @@ export default function MedicalTracker() {
   const [positionFilter, setPositionFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [resultFilter, setResultFilter] = useState('all');
+  const [editMode, setEditMode] = useState(false);
 
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
     queryFn: () => base44.entities.Employee.list('-created_date', 2000),
   });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
+    onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
+  });
+
+  const handleCellSave = (id, field, value) => updateMutation.mutate({ id, data: { [field]: value } });
+
+  const hasActiveFilters = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || resultFilter !== 'all' || !!search;
+
+  const medicalBulkFields = [
+    { key: 'ftw_result', label: 'Medical Result', type: 'select', options: FTW_RESULTS.map(r => ({ value: r, label: r })) },
+    { key: 'ftw_medical_date', label: 'Medical Date', type: 'date' },
+    { key: 'ftw_approved_date', label: 'TR Date Approved', type: 'date' },
+  ];
+
+  const handleBulkApply = async (field, value) => {
+    await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
+    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    toast({ title: `Updated ${filtered.length} records` });
+  };
 
   const positions = useMemo(() => [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p })), [employees]);
 
@@ -90,7 +117,10 @@ export default function MedicalTracker() {
             <p className="text-sm text-muted-foreground">FTW / Medical tracking</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant={editMode ? 'default' : 'outline'} onClick={() => setEditMode(v => !v)}>
+            {editMode ? <><XIcon className="w-4 h-4 mr-2" /> Exit Edit Mode</> : <><PencilLine className="w-4 h-4 mr-2" /> Edit in Grid</>}
+          </Button>
           <Link to="/medical/import"><Button variant="outline"><Upload className="w-4 h-4 mr-2" /> Import Medical Data</Button></Link>
           <ExportButton getData={getExportData} filename="medical_data.csv" />
         </div>
@@ -213,6 +243,9 @@ export default function MedicalTracker() {
               </Select>
             </div>
           </Card>
+          {editMode && hasActiveFilters && filtered.length > 0 && (
+            <BulkEditBar fields={medicalBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
+          )}
 
           <Card className="overflow-hidden">
             <div className="table-scroll-x">
@@ -243,23 +276,21 @@ export default function MedicalTracker() {
                     <TableRow><TableCell colSpan={12} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
                   ) : filtered.map(emp => (
                     <TableRow key={emp.id} className="hover:bg-muted/30">
-                      <TableCell className="text-xs font-medium">{emp.name}</TableCell>
+                      <TableCell className="text-xs font-medium"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                       <TableCell className="text-xs">{emp.company}</TableCell>
-                      <TableCell className="text-xs font-mono">{emp.qid_no}</TableCell>
-                      <TableCell className="text-xs font-mono">{emp.pp_no}</TableCell>
-                      <TableCell className="text-xs">{formatDate(emp.ftw_medical_date)}</TableCell>
-                      <TableCell className="text-xs">{formatDate(emp.ftw_received_date)}</TableCell>
-                      <TableCell className="text-xs">{formatDate(emp.ftw_approval_request_date)}</TableCell>
-                      <TableCell className="text-xs">{formatDate(emp.ftw_approved_date)}</TableCell>
+                      <TableCell className="text-xs font-mono"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs font-mono"><InlineEditCell value={emp.pp_no} field="pp_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_medical_date} field="ftw_medical_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_received_date} field="ftw_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_approval_request_date} field="ftw_approval_request_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_approved_date} field="ftw_approved_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                       <TableCell>
-                        {emp.ftw_result ? (
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${resultColors[emp.ftw_result] || 'bg-muted text-muted-foreground'}`}>{emp.ftw_result}</span>
-                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                        <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={emp.id} type="select" options={FTW_RESULTS.map(r=>({value:r,label:r}))} onSave={handleCellSave} editMode={editMode} />
                       </TableCell>
-                      <TableCell className="text-xs">{emp.ftw_doctor}</TableCell>
-                      <TableCell className="text-xs">{emp.ftw_mobile}</TableCell>
-                      <TableCell className="text-xs">{formatDate(emp.ftw_reassess_date)}</TableCell>
-                      <TableCell className="text-xs">{emp.ftw_remarks}</TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_doctor} field="ftw_doctor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_mobile} field="ftw_mobile" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_reassess_date} field="ftw_reassess_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_remarks} field="ftw_remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>
