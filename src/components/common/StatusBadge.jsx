@@ -1,6 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { computePassStatus } from '@/utils/constants';
 
 const statusStyles = {
   'VALID RLIC PASS': 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -22,12 +23,15 @@ const shortLabels = {
   'NO PID PASS': 'No Pass',
 };
 
-export default function StatusBadge({ status, short = false }) {
-  if (!status) return <span className="text-xs text-muted-foreground">—</span>;
-  
+// If dateStr + type provided, status is computed from date (authoritative).
+// Otherwise falls back to the stored status value.
+export default function StatusBadge({ status, dateStr, type, short = false }) {
+  const resolved = dateStr && type ? computePassStatus(dateStr, type) : status;
+  if (!resolved) return <span className="text-xs text-muted-foreground">—</span>;
+
   return (
-    <Badge variant="outline" className={cn('text-[10px] font-semibold border', statusStyles[status] || 'bg-muted text-muted-foreground')}>
-      {short ? shortLabels[status] || status : status}
+    <Badge variant="outline" className={cn('text-[10px] font-semibold border', statusStyles[resolved] || 'bg-muted text-muted-foreground')}>
+      {short ? shortLabels[resolved] || resolved : resolved}
     </Badge>
   );
 }

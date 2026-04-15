@@ -60,6 +60,17 @@ export function daysUntil(dateStr) {
   return Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
 }
 
+// Compute pass status purely from expiry date
+// type: 'rlic' | 'pid'
+export function computePassStatus(dateStr, type) {
+  if (!dateStr) return type === 'rlic' ? 'NO RLIC PASS' : 'NO PID PASS';
+  const days = daysUntil(dateStr);
+  if (days === null) return type === 'rlic' ? 'NO RLIC PASS' : 'NO PID PASS';
+  if (days < 0) return type === 'rlic' ? 'EXPIRED RLIC PASS' : 'EXPIRED PID PASS';
+  if (days <= 90) return 'SOON TO EXPIRE';
+  return type === 'rlic' ? 'VALID RLIC PASS' : 'VALID PID PASS';
+}
+
 export function exportToCSV(data, filename) {
   if (!data || data.length === 0) return;
   const headers = Object.keys(data[0]);

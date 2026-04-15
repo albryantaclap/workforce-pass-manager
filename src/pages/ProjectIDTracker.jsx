@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import StatusBadge from '../components/common/StatusBadge';
-import { COMPANIES, PID_STATUSES, formatDate, daysUntil } from '@/utils/constants';
+import { COMPANIES, PID_STATUSES, formatDate, daysUntil, computePassStatus } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import { useToast } from '@/components/ui/use-toast';
@@ -23,7 +23,7 @@ export default function ProjectIDTracker() {
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState('all');
 
 
@@ -39,18 +39,19 @@ export default function ProjectIDTracker() {
     const empCompany = (e.company || '').trim().toUpperCase();
     const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
-    const matchesStatus = statusFilter === 'all' || e.pid_status === statusFilter;
+    const effectivePid = computePassStatus(e.pid_expiry, 'pid');
+    const matchesStatus = statusFilter.length === 0 || statusFilter.includes(effectivePid);
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment;
   }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter]);
 
   const stats = useMemo(() => {
-    const soonCount = filtered.filter(e => e.pid_status === 'SOON TO EXPIRE' || e.pid_status === 'SOON').length;
+    const getStatus = e => computePassStatus(e.pid_expiry, 'pid');
     return [
-      { name: 'Valid', count: filtered.filter(e => e.pid_status === 'VALID PID PASS').length },
-      { name: 'Expired', count: filtered.filter(e => e.pid_status === 'EXPIRED PID PASS').length },
-      { name: 'Soon', count: soonCount },
-      { name: 'No Pass', count: filtered.filter(e => e.pid_status === 'NO PID PASS').length },
+      { name: 'Valid', count: filtered.filter(e => getStatus(e) === 'VALID PID PASS').length },
+      { name: 'Expired', count: filtered.filter(e => getStatus(e) === 'EXPIRED PID PASS').length },
+      { name: 'Soon', count: filtered.filter(e => getStatus(e) === 'SOON TO EXPIRE').length },
+      { name: 'No Pass', count: filtered.filter(e => getStatus(e) === 'NO PID PASS').length },
     ];
   }, [filtered]);
 
@@ -66,9 +67,9 @@ export default function ProjectIDTracker() {
   const companyStats = useMemo(() => {
     return COMPANIES.filter(c => filtered.some(e => e.company === c.value)).map(c => ({
       name: c.label.substring(0, 12),
-      valid: filtered.filter(e => e.company === c.value && e.pid_status === 'VALID PID PASS').length,
-      expired: filtered.filter(e => e.company === c.value && e.pid_status === 'EXPIRED PID PASS').length,
-      soon: filtered.filter(e => e.company === c.value && (e.pid_status === 'SOON TO EXPIRE' || e.pid_status === 'SOON')).length,
+      valid: filtered.filter(e => e.company === c.value && computePassStatus(e.pid_expiry, 'pid') === 'VALID PID PASS').length,
+      expired: filtered.filter(e => e.company === c.value && computePassStatus(e.pid_expiry, 'pid') === 'EXPIRED PID PASS').length,
+      soon: filtered.filter(e => e.company === c.value && computePassStatus(e.pid_expiry, 'pid') === 'SOON TO EXPIRE').length,
     })).filter(c => c.valid + c.expired + c.soon > 0);
   }, [filtered]);
 
@@ -217,13 +218,12 @@ export default function ProjectIDTracker() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input placeholder="Name, PID, QID..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="PID Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  {PID_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <MultiSelect
+                options={PID_STATUSES.map(s => ({ value: s.value, label: s.label }))}
+                value={statusFilter}
+                onChange={setStatusFilter}
+                placeholder="All Statuses"
+              />
             </div>
           </Card>
           <Card className="overflow-hidden">
@@ -267,7 +267,7 @@ export default function ProjectIDTracker() {
                             </span>
                           ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
-                        <TableCell><StatusBadge status={emp.pid_status} short /></TableCell>
+                        <TableCell><StatusBadge dateStr={emp.pid_expiry} type="pid" short /></TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>

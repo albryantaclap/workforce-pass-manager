@@ -15,7 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, RLIC_STATUSES, LOCATIONS, formatDate } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, formatDate, computePassStatus } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 
@@ -37,10 +37,11 @@ export default function MasterList() {
   const [dirFilter, setDirFilter] = useState(saved.dirFilter || 'all');
   const [positionFilter, setPositionFilter] = useState(saved.positionFilter || []);
   const [departmentFilter, setDepartmentFilter] = useState(saved.departmentFilter || 'all');
+  const [pidStatusFilter, setPidStatusFilter] = useState(saved.pidStatusFilter || []);
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter]);
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -82,9 +83,11 @@ export default function MasterList() {
       const matchesDir = dirFilter === 'all' || emp.dir_indir === dirFilter;
       const matchesPosition = positionFilter.length === 0 || positionFilter.includes(emp.designation_org_chart);
       const matchesDepartment = departmentFilter === 'all' || emp.department === departmentFilter;
-      return matchesSearch && matchesCompany && matchesRlic && matchesLocation && matchesDir && matchesPosition && matchesDepartment;
+      const effectivePid = computePassStatus(emp.pid_expiry, 'pid');
+      const matchesPidStatus = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
+      return matchesSearch && matchesCompany && matchesRlic && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus;
     });
-  }, [employees, search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter]);
+  }, [employees, search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter]);
 
   const getExportData = () => filtered.map(e => ({
     SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
@@ -146,6 +149,12 @@ export default function MasterList() {
               {RLIC_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
+          <MultiSelect
+            options={PID_STATUSES.map(s => ({ value: s.value, label: s.label }))}
+            value={pidStatusFilter}
+            onChange={setPidStatusFilter}
+            placeholder="PID Status"
+          />
           <div className="flex gap-2">
             <Select value={locationFilter} onValueChange={setLocationFilter}>
               <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
@@ -164,9 +173,9 @@ export default function MasterList() {
             </Select>
           </div>
         </div>
-        {(search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all') && (
+        {(search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0) && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
@@ -278,12 +287,12 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_received_date)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.gate_pass_expiry)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{emp.staff_no || '—'}</TableCell>
-                    <TableCell className="whitespace-nowrap"><StatusBadge status={emp.rlic_status} short /></TableCell>
+                    <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.gate_pass_expiry} type="rlic" short /></TableCell>
                     <TableCell className="text-xs font-mono whitespace-nowrap">{emp.pid || '—'}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_issue_date)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_expiry)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.pid_projected_date)}</TableCell>
-                    <TableCell className="whitespace-nowrap"><StatusBadge status={emp.pid_status} short /></TableCell>
+                    <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.pid_expiry} type="pid" short /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_start)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_end)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">
