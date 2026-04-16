@@ -42,12 +42,25 @@ export default function MasterList() {
   const [positionFilter, setPositionFilter] = useState(saved.positionFilter || []);
   const [departmentFilter, setDepartmentFilter] = useState(saved.departmentFilter || 'all');
   const [pidStatusFilter, setPidStatusFilter] = useState(saved.pidStatusFilter || []);
+  const [gpStatusFilter, setGpStatusFilter] = useState(saved.gpStatusFilter || []);
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter]);
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const { data: customRlicStatuses = [] } = useQuery({
+    queryKey: ['lookups', 'rlic_status'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'rlic_status' }),
+  });
+
+  const allGpStatusOptions = useMemo(() => {
+    const custom = customRlicStatuses.map(s => ({ value: s.value, label: s.label }));
+    return [...RLIC_STATUSES, ...custom];
+  }, [customRlicStatuses]);
+
+  const getEffectiveRlic = (e) => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
@@ -64,7 +77,7 @@ export default function MasterList() {
     updateMutation.mutate({ id, data: { [field]: value } });
   };
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0;
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0;
 
   const masterBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: FTW_RESULTS.map(r => ({ value: r, label: r })) },
@@ -107,16 +120,18 @@ export default function MasterList() {
         emp.staff_no?.toLowerCase().includes(search.toLowerCase()) ||
         emp.nationality?.toLowerCase().includes(search.toLowerCase());
       const matchesCompany = companyFilter.length === 0 || companyFilter.includes(emp.company);
-      const matchesRlic = rlicFilter === 'all' || emp.rlic_status === rlicFilter;
+      const effectiveRlic = getEffectiveRlic(emp);
+      const matchesRlic = rlicFilter === 'all' || effectiveRlic === rlicFilter;
+      const matchesGpStatus = gpStatusFilter.length === 0 || gpStatusFilter.includes(effectiveRlic);
       const matchesLocation = locationFilter === 'all' || emp.current_location === locationFilter;
       const matchesDir = dirFilter === 'all' || emp.dir_indir === dirFilter;
       const matchesPosition = positionFilter.length === 0 || positionFilter.includes(emp.designation_org_chart);
       const matchesDepartment = departmentFilter === 'all' || emp.department === departmentFilter;
       const effectivePid = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
       const matchesPidStatus = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
-      return matchesSearch && matchesCompany && matchesRlic && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus;
+      return matchesSearch && matchesCompany && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus;
     });
-  }, [employees, search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter]);
+  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, customRlicStatuses]);
 
   const getExportData = () => filtered.map(e => ({
     SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
@@ -187,6 +202,12 @@ export default function MasterList() {
             onChange={setPidStatusFilter}
             placeholder="PID Status"
           />
+          <MultiSelect
+            options={allGpStatusOptions}
+            value={gpStatusFilter}
+            onChange={setGpStatusFilter}
+            placeholder="GP Statuses"
+          />
           <div className="flex gap-2">
             <Select value={locationFilter} onValueChange={setLocationFilter}>
               <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
@@ -205,9 +226,9 @@ export default function MasterList() {
             </Select>
           </div>
         </div>
-        {(search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0) && (
+        {(search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0) && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); setGpStatusFilter([]); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
