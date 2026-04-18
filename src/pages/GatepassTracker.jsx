@@ -27,6 +27,8 @@ export default function GatepassTracker() {
   const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [receivedFrom, setReceivedFrom] = useState('');
+  const [receivedTo, setReceivedTo] = useState('');
   const [editMode, setEditMode] = useState(false);
 
   const queryClient = useQueryClient();
@@ -60,8 +62,11 @@ export default function GatepassTracker() {
     const effectiveRlic = getEffectiveRlic(e);
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(effectiveRlic);
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customRlicStatuses]);
+    const receivedDate = e.gate_pass_received_date || '';
+    const matchesReceivedFrom = !receivedFrom || receivedDate >= receivedFrom;
+    const matchesReceivedTo = !receivedTo || receivedDate <= receivedTo;
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesReceivedFrom && matchesReceivedTo;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customRlicStatuses, receivedFrom, receivedTo]);
 
   const stats = useMemo(() => {
     // Built-in 4 + any custom statuses
@@ -104,7 +109,13 @@ export default function GatepassTracker() {
 
   const handleCellSave = (id, field, value) => updateMutation.mutate({ id, data: { [field]: value } });
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all';
+  const handleFillDown = async (field, value) => {
+    await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
+    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    toast({ title: `Filled "${field}" for ${filtered.length} rows` });
+  };
+
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all' || !!receivedFrom || !!receivedTo;
 
   const gateBulkFields = [
     { key: 'rlic_status', label: 'RLIC Status', type: 'select', options: allStatusOptions },
@@ -281,6 +292,19 @@ export default function GatepassTracker() {
                 placeholder="All Statuses"
               />
             </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-3 items-end">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Received Date — From</p>
+                <Input type="date" value={receivedFrom} onChange={e => setReceivedFrom(e.target.value)} className="text-xs" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Received Date — To</p>
+                <Input type="date" value={receivedTo} onChange={e => setReceivedTo(e.target.value)} className="text-xs" />
+              </div>
+              {(receivedFrom || receivedTo) && (
+                <Button variant="ghost" size="sm" onClick={() => { setReceivedFrom(''); setReceivedTo(''); }} className="text-xs">Clear Dates</Button>
+              )}
+            </div>
           </Card>
 
           {editMode && hasActiveFilters && filtered.length > 0 && (
@@ -313,13 +337,13 @@ export default function GatepassTracker() {
                     const days = daysUntil(emp.gate_pass_expiry);
                     return (
                       <TableRow key={emp.id} className="hover:bg-muted/30">
-                       <TableCell className="text-xs font-medium"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                       <TableCell className="text-xs font-medium"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                        <TableCell className="text-xs">{emp.company}</TableCell>
-                       <TableCell className="text-xs font-mono"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                       <TableCell className="text-xs"><InlineEditCell value={emp.staff_no} field="staff_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                       <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_issue_date} field="gate_pass_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
-                       <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_received_date} field="gate_pass_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
-                       <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_expiry} field="gate_pass_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                       <TableCell className="text-xs font-mono"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                       <TableCell className="text-xs"><InlineEditCell value={emp.staff_no} field="staff_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                       <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_issue_date} field="gate_pass_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                       <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_received_date} field="gate_pass_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                       <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_expiry} field="gate_pass_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                         <TableCell>
                           {days !== null ? (
                             <span className={`text-xs font-bold ${days <= 0 ? 'text-red-600' : days <= 30 ? 'text-amber-600' : 'text-green-600'}`}>

@@ -1,23 +1,39 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Check, X } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Check, X, Copy } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 /**
- * Renders a cell value that becomes editable on click when editMode is true.
- * type: 'text' | 'date' | 'select'
- * options: [{ value, label }] for select type
+ * Excel-like inline edit cell.
+ * - Click to edit (when editMode=true)
+ * - Enter / Tab to save and move to next cell
+ * - Escape to cancel
+ * - Ctrl+D or right-click → "Fill Down" to copy this value to all filtered rows (via onFillDown)
+ * Props:
+ *   value, field, empId, type ('text'|'date'|'select'), options, onSave, editMode, className
+ *   onFillDown(field, value) — optional, called when user wants to fill the value down
  */
-export default function InlineEditCell({ value, field, empId, type = 'text', options = [], onSave, editMode, className = '' }) {
+export default function InlineEditCell({ value, field, empId, type = 'text', options = [], onSave, editMode, className = '', onFillDown }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? '');
+  const [showMenu, setShowMenu] = useState(false);
   const inputRef = useRef(null);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     if (editing && inputRef.current) inputRef.current.focus();
   }, [editing]);
 
-  // Reset draft if value changes externally
   useEffect(() => { setDraft(value ?? ''); }, [value]);
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMenu]);
 
   const handleClick = () => {
     if (!editMode) return;
@@ -25,10 +41,10 @@ export default function InlineEditCell({ value, field, empId, type = 'text', opt
     setEditing(true);
   };
 
-  const save = () => {
+  const save = useCallback(() => {
     setEditing(false);
     if (draft !== (value ?? '')) onSave(empId, field, draft || null);
-  };
+  }, [draft, value, empId, field, onSave]);
 
   const cancel = () => {
     setEditing(false);
@@ -36,19 +52,62 @@ export default function InlineEditCell({ value, field, empId, type = 'text', opt
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') save();
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      save();
+    }
     if (e.key === 'Escape') cancel();
+    // Ctrl+D = fill down
+    if (e.key === 'd' && (e.ctrlKey || e.metaKey) && onFillDown) {
+      e.preventDefault();
+      save();
+      onFillDown(field, draft || null);
+    }
   };
+
+  const handleContextMenu = (e) => {
+    if (!editMode) return;
+    e.preventDefault();
+    setShowMenu(true);
+  };
+
+  const handleFillDown = () => {
+    setShowMenu(false);
+    if (onFillDown) onFillDown(field, value ?? null);
+  };
+
+  const displayValue = value || <span className="text-muted-foreground">—</span>;
 
   if (!editing) {
     return (
-      <span
-        onClick={handleClick}
-        className={`${editMode ? 'cursor-pointer hover:bg-blue-50 hover:text-blue-700 rounded px-1 -mx-1 transition-colors' : ''} ${className}`}
-        title={editMode ? 'Click to edit' : undefined}
-      >
-        {value || <span className="text-muted-foreground">—</span>}
-      </span>
+      <div className="relative inline-block w-full">
+        <span
+          onClick={handleClick}
+          onContextMenu={handleContextMenu}
+          className={`block w-full ${editMode ? 'cursor-pointer hover:bg-blue-50 hover:text-blue-700 rounded px-1 -mx-1 transition-colors' : ''} ${className}`}
+          title={editMode ? 'Click to edit  |  Right-click for more options' : undefined}
+        >
+          {displayValue}
+        </span>
+        {showMenu && (
+          <div ref={menuRef} className="absolute left-0 top-full z-50 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[150px]">
+            {onFillDown && (
+              <button
+                className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center gap-2"
+                onClick={handleFillDown}
+              >
+                <Copy className="w-3 h-3" /> Fill Down (all rows)
+              </button>
+            )}
+            <button
+              className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50"
+              onClick={() => { setShowMenu(false); handleClick(); }}
+            >
+              ✏️ Edit this cell
+            </button>
+          </div>
+        )}
+      </div>
     );
   }
 

@@ -1,15 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
-import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, X } from 'lucide-react';
+import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, X, Printer, FileDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import MultiSelect from '@/components/common/MultiSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, computePassStatus } from '@/utils/constants';
+import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, computePassStatus, formatDate } from '@/utils/constants';
+import DashboardReport from '@/components/dashboard/DashboardReport';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
 
@@ -19,6 +21,13 @@ export default function Dashboard() {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [rlicStatusFilter, setRlicStatusFilter] = useState([]);
   const [pidStatusFilter, setPidStatusFilter] = useState([]);
+  const [trApprovedFrom, setTrApprovedFrom] = useState('');
+  const [trApprovedTo, setTrApprovedTo] = useState('');
+  const [gpReceivedFrom, setGpReceivedFrom] = useState('');
+  const [gpReceivedTo, setGpReceivedTo] = useState('');
+  const [pidIssueFrom, setPidIssueFrom] = useState('');
+  const [pidIssueTo, setPidIssueTo] = useState('');
+  const [showReport, setShowReport] = useState(false);
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
@@ -75,11 +84,20 @@ export default function Dashboard() {
       const matchRlic = rlicStatusFilter.length === 0 || rlicStatusFilter.includes(effectiveRlic);
       const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
       const matchPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
-      return matchCo && matchPos && matchDept && matchRlic && matchPid;
+      const trDate = e.ftw_approved_date || '';
+      const matchTrFrom = !trApprovedFrom || trDate >= trApprovedFrom;
+      const matchTrTo = !trApprovedTo || trDate <= trApprovedTo;
+      const gpDate = e.gate_pass_received_date || '';
+      const matchGpFrom = !gpReceivedFrom || gpDate >= gpReceivedFrom;
+      const matchGpTo = !gpReceivedTo || gpDate <= gpReceivedTo;
+      const pidDate = e.pid_issue_date || '';
+      const matchPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
+      const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
+      return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTrFrom && matchTrTo && matchGpFrom && matchGpTo && matchPidFrom && matchPidTo;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, pidStatusFilter, customRlicStatuses, customPidStatuses]);
+  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, pidStatusFilter, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
-  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || pidStatusFilter.length > 0;
+  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || pidStatusFilter.length > 0 || !!trApprovedFrom || !!trApprovedTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -168,10 +186,15 @@ export default function Dashboard() {
             {!hasFilter && <span className="ml-1">— {total} Total Personnel</span>}
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-primary/10 text-primary rounded-lg px-4 py-2">
-          <Users className="w-4 h-4" />
-          <span className="font-bold text-lg">{total}</span>
-          <span className="text-sm">Personnel</span>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => setShowReport(true)}>
+            <Printer className="w-4 h-4 mr-1.5" /> Print / PDF Report
+          </Button>
+          <div className="flex items-center gap-2 bg-primary/10 text-primary rounded-lg px-4 py-2">
+            <Users className="w-4 h-4" />
+            <span className="font-bold text-lg">{total}</span>
+            <span className="text-sm">Personnel</span>
+          </div>
         </div>
       </div>
 
@@ -207,7 +230,7 @@ export default function Dashboard() {
             </Select>
           </div>
           {hasFilter && (
-            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all'); setRlicStatusFilter([]); setPidStatusFilter([]); }}>
+            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all'); setRlicStatusFilter([]); setPidStatusFilter([]); setTrApprovedFrom(''); setTrApprovedTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); }}>
               <X className="w-4 h-4 mr-1" /> Clear Filters
             </Button>
           )}
@@ -230,6 +253,29 @@ export default function Dashboard() {
               onChange={setPidStatusFilter}
               placeholder="All Project ID Statuses..."
             />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">TR Date Approved</p>
+            <div className="flex gap-2">
+              <Input type="date" value={trApprovedFrom} onChange={e => setTrApprovedFrom(e.target.value)} className="text-xs" placeholder="From" />
+              <Input type="date" value={trApprovedTo} onChange={e => setTrApprovedTo(e.target.value)} className="text-xs" placeholder="To" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Received Date</p>
+            <div className="flex gap-2">
+              <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs" placeholder="From" />
+              <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs" placeholder="To" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Issue Date</p>
+            <div className="flex gap-2">
+              <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs" placeholder="From" />
+              <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs" placeholder="To" />
+            </div>
           </div>
         </div>
         {hasFilter && (
@@ -350,6 +396,16 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {showReport && (
+        <DashboardReport
+          filtered={filtered}
+          categoryCards={categoryCards}
+          companyCounts={companyCounts}
+          allDepartments={allDepartments}
+          onClose={() => setShowReport(false)}
+        />
+      )}
     </div>
   );
 }

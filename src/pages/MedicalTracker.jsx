@@ -26,6 +26,8 @@ export default function MedicalTracker() {
   const [positionFilter, setPositionFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [resultFilter, setResultFilter] = useState('all');
+  const [trApprovedFrom, setTrApprovedFrom] = useState('');
+  const [trApprovedTo, setTrApprovedTo] = useState('');
   const [editMode, setEditMode] = useState(false);
 
   const queryClient = useQueryClient();
@@ -44,7 +46,13 @@ export default function MedicalTracker() {
 
   const handleCellSave = (id, field, value) => updateMutation.mutate({ id, data: { [field]: value } });
 
-  const hasActiveFilters = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || resultFilter !== 'all' || !!search;
+  const handleFillDown = async (field, value) => {
+    await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
+    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    toast({ title: `Filled "${field}" for ${filtered.length} rows` });
+  };
+
+  const hasActiveFilters = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || resultFilter !== 'all' || !!search || !!trApprovedFrom || !!trApprovedTo;
 
   const medicalBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: FTW_RESULTS.map(r => ({ value: r, label: r })) },
@@ -67,8 +75,11 @@ export default function MedicalTracker() {
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
     const matchesResult = resultFilter === 'all' || e.ftw_result === resultFilter;
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
-    return matchesSearch && matchesCompany && matchesPosition && matchesResult && matchesDepartment;
-  }), [employees, search, companyFilter, positionFilter, resultFilter, departmentFilter]);
+    const approvedDate = e.ftw_approved_date || '';
+    const matchesTrFrom = !trApprovedFrom || approvedDate >= trApprovedFrom;
+    const matchesTrTo = !trApprovedTo || approvedDate <= trApprovedTo;
+    return matchesSearch && matchesCompany && matchesPosition && matchesResult && matchesDepartment && matchesTrFrom && matchesTrTo;
+  }), [employees, search, companyFilter, positionFilter, resultFilter, departmentFilter, trApprovedFrom, trApprovedTo]);
 
   const stats = useMemo(() => FTW_RESULTS.map(r => ({
     name: r,
@@ -242,6 +253,19 @@ export default function MedicalTracker() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-3 items-end">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">TR Date Approved — From</p>
+                <Input type="date" value={trApprovedFrom} onChange={e => setTrApprovedFrom(e.target.value)} className="text-xs" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">TR Date Approved — To</p>
+                <Input type="date" value={trApprovedTo} onChange={e => setTrApprovedTo(e.target.value)} className="text-xs" />
+              </div>
+              {(trApprovedFrom || trApprovedTo) && (
+                <Button variant="ghost" size="sm" onClick={() => { setTrApprovedFrom(''); setTrApprovedTo(''); }} className="text-xs">Clear Dates</Button>
+              )}
+            </div>
           </Card>
           {editMode && hasActiveFilters && filtered.length > 0 && (
             <BulkEditBar fields={medicalBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
@@ -276,21 +300,21 @@ export default function MedicalTracker() {
                     <TableRow><TableCell colSpan={12} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
                   ) : filtered.map(emp => (
                     <TableRow key={emp.id} className="hover:bg-muted/30">
-                      <TableCell className="text-xs font-medium"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs font-medium"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                       <TableCell className="text-xs">{emp.company}</TableCell>
-                      <TableCell className="text-xs font-mono"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                      <TableCell className="text-xs font-mono"><InlineEditCell value={emp.pp_no} field="pp_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_medical_date} field="ftw_medical_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
-                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_received_date} field="ftw_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
-                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_approval_request_date} field="ftw_approval_request_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
-                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_approved_date} field="ftw_approved_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs font-mono"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                      <TableCell className="text-xs font-mono"><InlineEditCell value={emp.pp_no} field="pp_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_medical_date} field="ftw_medical_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_received_date} field="ftw_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_approval_request_date} field="ftw_approval_request_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_approved_date} field="ftw_approved_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                       <TableCell>
-                        <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={emp.id} type="select" options={FTW_RESULTS.map(r=>({value:r,label:r}))} onSave={handleCellSave} editMode={editMode} />
+                        <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={emp.id} type="select" options={FTW_RESULTS.map(r=>({value:r,label:r}))} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} />
                       </TableCell>
-                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_doctor} field="ftw_doctor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_mobile} field="ftw_mobile" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_reassess_date} field="ftw_reassess_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
-                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_remarks} field="ftw_remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_doctor} field="ftw_doctor" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_mobile} field="ftw_mobile" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_reassess_date} field="ftw_reassess_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                      <TableCell className="text-xs"><InlineEditCell value={emp.ftw_remarks} field="ftw_remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>

@@ -27,6 +27,8 @@ export default function ProjectIDTracker() {
   const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [pidIssueFrom, setPidIssueFrom] = useState('');
+  const [pidIssueTo, setPidIssueTo] = useState('');
   const [editMode, setEditMode] = useState(false);
 
   const queryClient = useQueryClient();
@@ -60,8 +62,11 @@ export default function ProjectIDTracker() {
     const effectivePid = getEffectivePid(e);
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(effectivePid);
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customPidStatuses]);
+    const issueDate = e.pid_issue_date || '';
+    const matchesIssueFrom = !pidIssueFrom || issueDate >= pidIssueFrom;
+    const matchesIssueTo = !pidIssueTo || issueDate <= pidIssueTo;
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customPidStatuses, pidIssueFrom, pidIssueTo]);
 
   const stats = useMemo(() => {
     const customCounts = customPidStatuses.map(s => ({
@@ -103,7 +108,13 @@ export default function ProjectIDTracker() {
 
   const handleCellSave = (id, field, value) => updateMutation.mutate({ id, data: { [field]: value } });
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all';
+  const handleFillDown = async (field, value) => {
+    await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
+    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    toast({ title: `Filled "${field}" for ${filtered.length} rows` });
+  };
+
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all' || !!pidIssueFrom || !!pidIssueTo;
 
   const pidBulkFields = [
     { key: 'pid_status', label: 'PID Status', type: 'select', options: allStatusOptions },
@@ -275,6 +286,19 @@ export default function ProjectIDTracker() {
                 placeholder="All Statuses"
               />
             </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-3 items-end">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">PID Issue Date — From</p>
+                <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">PID Issue Date — To</p>
+                <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs" />
+              </div>
+              {(pidIssueFrom || pidIssueTo) && (
+                <Button variant="ghost" size="sm" onClick={() => { setPidIssueFrom(''); setPidIssueTo(''); }} className="text-xs">Clear Dates</Button>
+              )}
+            </div>
           </Card>
           {editMode && hasActiveFilters && filtered.length > 0 && (
             <BulkEditBar fields={pidBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
@@ -306,13 +330,13 @@ export default function ProjectIDTracker() {
                     const days = daysUntil(emp.pid_expiry);
                     return (
                       <TableRow key={emp.id} className="hover:bg-muted/30">
-                       <TableCell className="text-xs font-medium"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                       <TableCell className="text-xs font-medium"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                        <TableCell className="text-xs">{emp.company}</TableCell>
-                       <TableCell className="text-xs font-mono"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                       <TableCell className="text-xs font-mono"><InlineEditCell value={emp.pid} field="pid" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                       <TableCell className="text-xs"><InlineEditCell value={emp.pid_issue_date} field="pid_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
-                       <TableCell className="text-xs"><InlineEditCell value={emp.pid_expiry} field="pid_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
-                       <TableCell className="text-xs"><InlineEditCell value={emp.pid_projected_date} field="pid_projected_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                       <TableCell className="text-xs font-mono"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                       <TableCell className="text-xs font-mono"><InlineEditCell value={emp.pid} field="pid" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                       <TableCell className="text-xs"><InlineEditCell value={emp.pid_issue_date} field="pid_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                       <TableCell className="text-xs"><InlineEditCell value={emp.pid_expiry} field="pid_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                       <TableCell className="text-xs"><InlineEditCell value={emp.pid_projected_date} field="pid_projected_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                         <TableCell>
                           {days !== null ? (
                             <span className={`text-xs font-bold ${days <= 0 ? 'text-red-600' : days <= 30 ? 'text-amber-600' : 'text-green-600'}`}>
