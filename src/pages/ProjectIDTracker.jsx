@@ -197,7 +197,7 @@ export default function ProjectIDTracker() {
               <Card className="border-purple-200 bg-purple-50/60">
                 <CardContent className="pt-4 pb-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-purple-700">Active Project IDs (Valid + Soon to Expire)</p>
+                    <p className="text-sm font-semibold text-purple-700">Total Valid Project IDs</p>
                     <p className="text-xs text-purple-600 mt-0.5">{validCount} Valid &nbsp;+&nbsp; {soonCount} Soon to Expire</p>
                   </div>
                   <span className="text-5xl font-extrabold text-purple-600">{validCount + soonCount}</span>

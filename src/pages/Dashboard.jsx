@@ -151,7 +151,7 @@ export default function Dashboard() {
     {
       title: 'Gate Pass (RLIC)', icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50', path: '/gatepass',
       combined: validRlic + filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length,
-      combinedLabel: 'Valid + Soon',
+      combinedLabel: 'Total Valid',
       stats: [
         { label: 'Valid', value: validRlic, color: 'text-green-600' },
         { label: 'Soon', value: filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
@@ -162,7 +162,7 @@ export default function Dashboard() {
     {
       title: 'Project ID', icon: BadgeCheck, color: 'text-purple-600', bg: 'bg-purple-50', path: '/project-id',
       combined: validPid + filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length,
-      combinedLabel: 'Valid + Soon',
+      combinedLabel: 'Total Valid',
       stats: [
         { label: 'Valid', value: validPid, color: 'text-green-600' },
         { label: 'Soon', value: filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },

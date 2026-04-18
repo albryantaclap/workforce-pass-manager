@@ -200,7 +200,7 @@ export default function GatepassTracker() {
               <Card className="border-emerald-200 bg-emerald-50/60">
                 <CardContent className="pt-4 pb-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-emerald-700">Active Gate Passes (Valid + Soon to Expire)</p>
+                    <p className="text-sm font-semibold text-emerald-700">Total Valid Gate Passes</p>
                     <p className="text-xs text-emerald-600 mt-0.5">{validCount} Valid &nbsp;+&nbsp; {soonCount} Soon to Expire</p>
                   </div>
                   <span className="text-5xl font-extrabold text-emerald-600">{validCount + soonCount}</span>
