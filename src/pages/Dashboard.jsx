@@ -185,7 +185,7 @@ export default function Dashboard() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            GSO Qatar Workforce Overview
+            Onboarding
             {hasFilter && <span className="ml-2 text-primary font-medium">— Filtered: {total} personnel</span>}
             {!hasFilter && <span className="ml-1">— {total} Total Personnel</span>}
           </p>
