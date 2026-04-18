@@ -150,19 +150,23 @@ export default function Dashboard() {
     },
     {
       title: 'Gate Pass (RLIC)', icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50', path: '/gatepass',
+      combined: validRlic + filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length,
+      combinedLabel: 'Valid + Soon',
       stats: [
         { label: 'Valid', value: validRlic, color: 'text-green-600' },
-        { label: 'Expired', value: expiredRlic, color: 'text-red-600' },
         { label: 'Soon', value: filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
+        { label: 'Expired', value: expiredRlic, color: 'text-red-600' },
         ...customRlicCounts,
       ],
     },
     {
       title: 'Project ID', icon: BadgeCheck, color: 'text-purple-600', bg: 'bg-purple-50', path: '/project-id',
+      combined: validPid + filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length,
+      combinedLabel: 'Valid + Soon',
       stats: [
         { label: 'Valid', value: validPid, color: 'text-green-600' },
-        { label: 'Expired', value: expiredPid, color: 'text-red-600' },
         { label: 'Soon', value: filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
+        { label: 'Expired', value: expiredPid, color: 'text-red-600' },
       ],
     },
     {
@@ -291,11 +295,19 @@ export default function Dashboard() {
           <Link key={card.title} to={card.path}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-transparent hover:border-l-primary">
               <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <div className={`w-8 h-8 rounded-lg ${card.bg} flex items-center justify-center`}>
-                    <card.icon className={`w-4 h-4 ${card.color}`} />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-8 h-8 rounded-lg ${card.bg} flex items-center justify-center`}>
+                      <card.icon className={`w-4 h-4 ${card.color}`} />
+                    </div>
+                    <CardTitle className="text-sm font-semibold">{card.title}</CardTitle>
                   </div>
-                  <CardTitle className="text-sm font-semibold">{card.title}</CardTitle>
+                  {card.combined !== undefined && (
+                    <div className="flex flex-col items-end">
+                      <span className={`text-2xl font-extrabold ${card.color}`}>{card.combined}</span>
+                      <span className="text-[10px] text-muted-foreground leading-tight">{card.combinedLabel}</span>
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>

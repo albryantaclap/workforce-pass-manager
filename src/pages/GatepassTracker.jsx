@@ -192,6 +192,22 @@ export default function GatepassTracker() {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4 mt-4">
+          {/* Combined Valid + Soon banner */}
+          {(() => {
+            const validCount = stats.find(s => s.name === 'Valid')?.count ?? 0;
+            const soonCount = stats.find(s => s.name === 'Soon')?.count ?? 0;
+            return (
+              <Card className="border-emerald-200 bg-emerald-50/60">
+                <CardContent className="pt-4 pb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-emerald-700">Active Gate Passes (Valid + Soon to Expire)</p>
+                    <p className="text-xs text-emerald-600 mt-0.5">{validCount} Valid &nbsp;+&nbsp; {soonCount} Soon to Expire</p>
+                  </div>
+                  <span className="text-5xl font-extrabold text-emerald-600">{validCount + soonCount}</span>
+                </CardContent>
+              </Card>
+            );
+          })()}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {stats.map((s, i) => (
               <Card key={s.name}>

@@ -189,6 +189,22 @@ export default function ProjectIDTracker() {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4 mt-4">
+          {/* Combined Valid + Soon banner */}
+          {(() => {
+            const validCount = stats.find(s => s.name === 'Valid')?.count ?? 0;
+            const soonCount = stats.find(s => s.name === 'Soon')?.count ?? 0;
+            return (
+              <Card className="border-purple-200 bg-purple-50/60">
+                <CardContent className="pt-4 pb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-purple-700">Active Project IDs (Valid + Soon to Expire)</p>
+                    <p className="text-xs text-purple-600 mt-0.5">{validCount} Valid &nbsp;+&nbsp; {soonCount} Soon to Expire</p>
+                  </div>
+                  <span className="text-5xl font-extrabold text-purple-600">{validCount + soonCount}</span>
+                </CardContent>
+              </Card>
+            );
+          })()}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {stats.map((s, i) => (
               <Card key={s.name}>
