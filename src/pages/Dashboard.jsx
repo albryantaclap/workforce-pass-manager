@@ -413,8 +413,6 @@ export default function Dashboard() {
         <DashboardReport
           filtered={filtered}
           categoryCards={categoryCards}
-          companyCounts={companyCounts}
-          allDepartments={allDepartments}
           onClose={() => setShowReport(false)}
         />
       )}

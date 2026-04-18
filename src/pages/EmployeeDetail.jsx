@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Pencil, User, Briefcase, FileText, Shield } from 'lucide-react';
@@ -24,6 +24,7 @@ function formatDate(dateStr) {
 }
 
 export default function EmployeeDetail() {
+  const navigate = useNavigate();
   const pathParts = window.location.pathname.split('/');
   const empId = pathParts[pathParts.length - 1];
 
@@ -57,9 +58,7 @@ export default function EmployeeDetail() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/employees">
-            <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-          </Link>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4" /></Button>
           <div>
             <h2 className="text-2xl font-bold tracking-tight">{emp.name}</h2>
             <p className="text-sm text-muted-foreground">{emp.designation_org_chart} · {emp.company}</p>

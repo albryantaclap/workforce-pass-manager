@@ -128,7 +128,7 @@ export default function EmployeeForm() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       toast({ title: isEdit ? 'Record updated' : 'Record created' });
-      navigate('/master-list');
+      navigate(-1);
     },
   });
 
@@ -150,9 +150,7 @@ export default function EmployeeForm() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-4">
-        <Link to="/master-list">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4" /></Button>
         <div>
           <h2 className="text-2xl font-bold tracking-tight">{isEdit ? 'Edit Personnel' : 'Add Personnel'}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Fill in details below</p>
@@ -274,7 +272,7 @@ export default function EmployeeForm() {
         </Card>
 
         <div className="flex justify-end gap-3">
-          <Link to="/master-list"><Button variant="outline">Cancel</Button></Link>
+          <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
           <Button type="submit" disabled={saveMutation.isPending}>
             <Save className="w-4 h-4 mr-2" />
             {saveMutation.isPending ? 'Saving...' : isEdit ? 'Update' : 'Create'}
