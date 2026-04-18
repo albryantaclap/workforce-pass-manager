@@ -93,6 +93,10 @@ export default function EmployeeForm() {
     queryKey: ['lookups', 'location'],
     queryFn: () => base44.entities.Lookup.filter({ type: 'location' }),
   });
+  const { data: lookupRlicStatuses = [] } = useQuery({
+    queryKey: ['lookups', 'rlic_status'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'rlic_status' }),
+  });
 
   const allCompanies = useMemo(() => {
     const seen = new Set();
@@ -111,6 +115,12 @@ export default function EmployeeForm() {
     ...LOCATIONS,
     ...lookupLocations.map(l => l.value).filter(v => !LOCATIONS.includes(v)),
   ];
+  const allRlicStatuses = useMemo(() => {
+    const base = RLIC_STATUSES.map(s => typeof s === 'string' ? { value: s, label: s } : s);
+    const customVals = new Set(base.map(s => s.value));
+    const custom = lookupRlicStatuses.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }));
+    return [...base, ...custom];
+  }, [lookupRlicStatuses]);
 
   useEffect(() => {
     if (existingEmp && existingEmp.length > 0) {
@@ -245,7 +255,7 @@ export default function EmployeeForm() {
             <TextInput field="gate_pass_issue_date" label="Issue Date" type="date" {...tf} />
             <TextInput field="gate_pass_received_date" label="Received Date" type="date" {...tf} />
             <TextInput field="gate_pass_expiry" label="Expiry Date" type="date" {...tf} />
-            <SelectInput field="rlic_status" label="RLIC Status" options={RLIC_STATUSES} {...tf} />
+            <SelectInput field="rlic_status" label="RLIC Status" options={allRlicStatuses} {...tf} />
           </div>
         </Card>
 

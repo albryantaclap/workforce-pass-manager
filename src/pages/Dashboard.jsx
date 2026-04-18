@@ -376,12 +376,12 @@ export default function Dashboard() {
           <CardHeader><CardTitle className="text-sm">Personnel by Department</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={allDepartments.map(d => ({ name: d, count: filtered.filter(e => e.department === d).length })).filter(d => d.count > 0)} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+            <BarChart data={allDepartments.map((d, i) => ({ name: d, count: filtered.filter(e => e.department === d).length, colorIdx: i })).filter(d => d.count > 0)} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {['#3b82f6','#10b981','#f59e0b','#8b5cf6'].map((c, i) => <Cell key={i} fill={c} />)}
+                  {allDepartments.map((d, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
