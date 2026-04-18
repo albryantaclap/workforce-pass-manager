@@ -12,6 +12,25 @@ function groupBy(arr, key) {
   }, {});
 }
 
+const PALETTE = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16','#ec4899','#14b8a6'];
+const STATUS_COLORS = { 'Valid': '#10b981', 'Soon': '#f59e0b', 'Expired': '#ef4444', 'No Pass': '#94a3b8', 'Accepted': '#10b981', 'Pending': '#f59e0b', 'Rejected': '#ef4444', 'Re-Assess': '#8b5cf6', 'Done': '#10b981', 'N/A': '#94a3b8' };
+
+function buildBarChartHTML(items, maxCount, colorFn) {
+  if (!items.length) return '<p style="color:#94a3b8;font-size:10px">No data</p>';
+  return items.map((item, i) => {
+    const pct = maxCount > 0 ? Math.max(2, Math.round((item.count / maxCount) * 100)) : 2;
+    const color = colorFn ? colorFn(item.label || item.name, i) : PALETTE[i % PALETTE.length];
+    return `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+        <div style="width:130px;font-size:9px;color:#475569;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${item.label || item.name}">${item.label || item.name}</div>
+        <div style="flex:1;background:#f1f5f9;border-radius:3px;height:14px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;min-width:2px"></div>
+        </div>
+        <div style="width:28px;font-size:9px;font-weight:700;color:#1e293b;text-align:left;flex-shrink:0">${item.count}</div>
+      </div>`;
+  }).join('');
+}
+
 const CSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; background: white; }
@@ -25,16 +44,23 @@ const CSS = `
   td { padding: 4px 7px; border: 1px solid #cbd5e1; font-size: 10px; }
   tr:nth-child(even) td { background: #f8fafc; }
   .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
-  .summary-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; }
-  .card-title { font-size: 10px; font-weight: 700; color: #475569; margin-bottom: 6px; }
-  .stat-row { display: flex; justify-content: space-between; font-size: 10px; padding: 2px 0; }
-  .stat-val { font-weight: 700; }
-  .pos-count-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+  .summary-card { border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+  .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .card-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .card-title { font-size: 10px; font-weight: 700; color: #475569; }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; padding: 3px 0; border-bottom: 1px solid #f1f5f9; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-val { font-weight: 700; font-size: 12px; }
+  .charts-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .chart-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+  .chart-title { font-size: 11px; font-weight: 700; color: #334155; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     h2 { page-break-before: auto; }
     table { page-break-inside: auto; }
     tr { page-break-inside: avoid; }
+    .chart-box { break-inside: avoid; }
+    .summary-card { break-inside: avoid; }
   }
 `;
 
@@ -42,28 +68,81 @@ function buildReportHTML(filtered, categoryCards, today) {
   const byCompany = groupBy(filtered, 'company');
   const byDepartment = groupBy(filtered, 'department');
 
-  // Counts by Position
+  // Company counts
+  const companyCounts = Object.entries(byCompany)
+    .map(([name, rows]) => ({ name, count: rows.length }))
+    .sort((a, b) => b.count - a.count);
+
+  // Department counts
+  const deptCounts = Object.entries(byDepartment)
+    .map(([name, rows]) => ({ name, count: rows.length }))
+    .sort((a, b) => b.count - a.count);
+
+  // Position counts
   const positionCounts = Object.entries(
     filtered.reduce((acc, e) => {
       const pos = e.designation_org_chart || 'Unknown';
       acc[pos] = (acc[pos] || 0) + 1;
       return acc;
     }, {})
-  ).sort((a, b) => b[1] - a[1]);
+  ).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
 
-  const summaryCardsHTML = categoryCards.map(card => `
-    <div class="summary-card">
-      <div class="card-title">${card.title}</div>
-      ${card.stats.map(s => `<div class="stat-row"><span>${s.label}</span><span class="stat-val">${s.value}</span></div>`).join('')}
-    </div>
-  `).join('');
+  // Status overview
+  const getRlic = e => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+  const getPid = e => computePassStatus(e.pid_expiry, 'pid', e.pid_status);
+  const statusOverview = [
+    { label: 'RLIC Valid', count: filtered.filter(e => getRlic(e) === 'VALID RLIC PASS').length },
+    { label: 'RLIC Expired', count: filtered.filter(e => getRlic(e) === 'EXPIRED RLIC PASS').length },
+    { label: 'PID Valid', count: filtered.filter(e => getPid(e) === 'VALID PID PASS').length },
+    { label: 'PID Expired', count: filtered.filter(e => getPid(e) === 'EXPIRED PID PASS').length },
+    { label: 'Medical OK', count: filtered.filter(e => e.ftw_result === 'ACCEPTED').length },
+    { label: 'Training Done', count: filtered.filter(e => e.training_status === 'DONE').length },
+  ];
 
-  const positionCountsHTML = positionCounts.map(([pos, count], i) => `
-    <tr>
-      <td style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'}">${pos}</td>
-      <td style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'};text-align:right;font-weight:600">${count}</td>
-    </tr>
-  `).join('');
+  const cardIconEmojis = { 'Medical Data': '🩺', 'Gate Pass (RLIC)': '🛡️', 'Project ID': '🪪', 'Training': '🎓' };
+  const cardBorderColors = { 'Medical Data': '#3b82f6', 'Gate Pass (RLIC)': '#10b981', 'Project ID': '#8b5cf6', 'Training': '#f97316' };
+  const cardBgColors = { 'Medical Data': '#eff6ff', 'Gate Pass (RLIC)': '#ecfdf5', 'Project ID': '#f5f3ff', 'Training': '#fff7ed' };
+  const statColorMap = { 'text-green-600': '#16a34a', 'text-amber-600': '#d97706', 'text-red-600': '#dc2626', 'text-purple-600': '#9333ea', 'text-blue-600': '#2563eb', 'text-slate-500': '#64748b' };
+
+  const summaryCardsHTML = categoryCards.map(card => {
+    const border = cardBorderColors[card.title] || '#e2e8f0';
+    const bg = cardBgColors[card.title] || '#f8fafc';
+    const emoji = cardIconEmojis[card.title] || '📋';
+    const statsHTML = card.stats.map(s => {
+      const color = statColorMap[s.color] || '#1e293b';
+      return `<div class="stat-row"><span style="color:#64748b">${s.label}</span><span class="stat-val" style="color:${color}">${s.value}</span></div>`;
+    }).join('');
+    const combinedHTML = card.combined !== undefined ? `
+      <div style="text-align:right;margin-bottom:8px">
+        <div style="font-size:22px;font-weight:800;color:${border}">${card.combined}</div>
+        <div style="font-size:9px;color:#94a3b8">${card.combinedLabel}</div>
+      </div>` : '';
+    return `
+      <div class="summary-card" style="border-color:${border}">
+        <div class="card-header">
+          <div class="card-icon" style="background:${bg}">${emoji}</div>
+          <span class="card-title">${card.title}</span>
+        </div>
+        ${combinedHTML}
+        ${statsHTML}
+      </div>`;
+  }).join('');
+
+  // Bar chart helpers
+  const maxCompany = Math.max(...companyCounts.map(c => c.count), 1);
+  const maxDept = Math.max(...deptCounts.map(c => c.count), 1);
+  const maxPos = Math.max(...positionCounts.map(c => c.count), 1);
+  const maxStatus = Math.max(...statusOverview.map(c => c.count), 1);
+  const statusColorFn = (label) => {
+    if (label.includes('Valid') || label.includes('Medical OK') || label.includes('Training Done')) return '#10b981';
+    if (label.includes('Expired')) return '#ef4444';
+    return '#f59e0b';
+  };
+
+  const companyBarHTML = buildBarChartHTML(companyCounts, maxCompany, null);
+  const deptBarHTML = buildBarChartHTML(deptCounts, maxDept, null);
+  const posBarHTML = buildBarChartHTML(positionCounts, maxPos, null);
+  const statusBarHTML = buildBarChartHTML(statusOverview, maxStatus, (label) => statusColorFn(label));
 
   const personnelTableRows = (rows) => rows.map((e, i) => {
     const rlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
@@ -71,14 +150,16 @@ function buildReportHTML(filtered, categoryCards, today) {
     const rlicShort = rlic === 'VALID RLIC PASS' ? 'Valid' : rlic === 'EXPIRED RLIC PASS' ? 'Expired' : rlic === 'SOON TO EXPIRE' ? 'Soon' : rlic === 'NO RLIC PASS' ? 'No Pass' : rlic || '—';
     const pidShort = pid === 'VALID PID PASS' ? 'Valid' : pid === 'EXPIRED PID PASS' ? 'Expired' : pid === 'SOON TO EXPIRE' ? 'Soon' : pid === 'NO PID PASS' ? 'No Pass' : pid || '—';
     const bg = i % 2 === 0 ? '#fff' : '#f8fafc';
+    const rlicColor = rlicShort === 'Valid' ? '#16a34a' : rlicShort === 'Expired' ? '#dc2626' : rlicShort === 'Soon' ? '#d97706' : '#94a3b8';
+    const pidColor = pidShort === 'Valid' ? '#16a34a' : pidShort === 'Expired' ? '#dc2626' : pidShort === 'Soon' ? '#d97706' : '#94a3b8';
     return `<tr>
       <td style="background:${bg}">${e.name}</td>
       <td style="background:${bg}">${e.company || '—'}</td>
       <td style="background:${bg}">${e.designation_org_chart || '—'}</td>
-      <td style="background:${bg}">${e.ftw_result || '—'}</td>
-      <td style="background:${bg}">${rlicShort}</td>
-      <td style="background:${bg}">${pidShort}</td>
-      <td style="background:${bg}">${e.training_status || '—'}</td>
+      <td style="background:${bg};color:${e.ftw_result === 'ACCEPTED' ? '#16a34a' : e.ftw_result === 'REJECTED' ? '#dc2626' : '#1e293b'}">${e.ftw_result || '—'}</td>
+      <td style="background:${bg};color:${rlicColor};font-weight:600">${rlicShort}</td>
+      <td style="background:${bg};color:${pidColor};font-weight:600">${pidShort}</td>
+      <td style="background:${bg};color:${e.training_status === 'DONE' ? '#16a34a' : '#1e293b'}">${e.training_status || '—'}</td>
     </tr>`;
   }).join('');
 
@@ -86,12 +167,12 @@ function buildReportHTML(filtered, categoryCards, today) {
     <th>Name</th><th>Company</th><th>Position</th><th>Medical</th><th>RLIC</th><th>PID</th><th>Training</th>
   </tr></thead>`;
 
-  const byCompanyHTML = Object.entries(byCompany).sort((a,b) => b[1].length - a[1].length).map(([company, rows]) => `
+  const byCompanyHTML = Object.entries(byCompany).sort((a, b) => b[1].length - a[1].length).map(([company, rows]) => `
     <h3>${company} (${rows.length})</h3>
     <table>${tableHeader}<tbody>${personnelTableRows(rows)}</tbody></table>
   `).join('');
 
-  const byDeptHTML = Object.entries(byDepartment).sort((a,b) => b[1].length - a[1].length).map(([dept, rows]) => `
+  const byDeptHTML = Object.entries(byDepartment).sort((a, b) => b[1].length - a[1].length).map(([dept, rows]) => `
     <h3>${dept} (${rows.length})</h3>
     <table>${tableHeader}<tbody>${personnelTableRows(rows)}</tbody></table>
   `).join('');
@@ -104,11 +185,25 @@ function buildReportHTML(filtered, categoryCards, today) {
       <h2>Dashboard Summary</h2>
       <div class="summary-grid">${summaryCardsHTML}</div>
 
-      <h2>Counts by Position</h2>
-      <table>
-        <thead><tr><th>Position / Designation</th><th style="text-align:right">Count</th></tr></thead>
-        <tbody>${positionCountsHTML}</tbody>
-      </table>
+      <h2>Visual Overview</h2>
+      <div class="charts-2col">
+        <div class="chart-box">
+          <div class="chart-title">📊 Headcount by Company</div>
+          ${companyBarHTML}
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">📈 Pass &amp; Status Overview</div>
+          ${statusBarHTML}
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">🏗️ Personnel by Department</div>
+          ${deptBarHTML}
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">👤 Counts by Position</div>
+          ${posBarHTML}
+        </div>
+      </div>
 
       <h2>Personnel by Company</h2>
       ${byCompanyHTML}
@@ -143,7 +238,7 @@ export default function DashboardReport({ filtered, categoryCards, onClose }) {
           </div>
         </div>
 
-        {/* Preview — uses same HTML as print */}
+        {/* Preview — uses same HTML/CSS as print, guaranteed identical */}
         <div className="overflow-auto p-2">
           <style>{CSS}</style>
           <div dangerouslySetInnerHTML={{ __html: reportHTML }} />
