@@ -420,6 +420,7 @@ export default function Dashboard() {
           filtered={filtered}
           categoryCards={categoryCards}
           onClose={() => setShowReport(false)}
+          companyFilter={companyFilter}
         />
       )}
     </div>

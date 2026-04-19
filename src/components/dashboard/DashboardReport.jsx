@@ -64,7 +64,7 @@ const CSS = `
   }
 `;
 
-function buildReportHTML(filtered, categoryCards, today) {
+function buildReportHTML(filtered, categoryCards, today, companyFilter) {
   const byCompany = groupBy(filtered, 'company');
   const byDepartment = groupBy(filtered, 'department');
 
@@ -182,7 +182,7 @@ function buildReportHTML(filtered, categoryCards, today) {
       <h1>GSO Qatar — Workforce Status Report</h1>
       <div class="meta">Generated: ${today} &nbsp;|&nbsp; Total Personnel: <strong>${filtered.length}</strong></div>
 
-      <h2>Dashboard Summary</h2>
+      <h2>Dashboard Summary ${companyFilter && companyFilter.length > 0 ? `<span style="font-size:16px;font-weight:800;color:#7c3aed;margin-left:10px">(${companyFilter.join(', ')})</span>` : ''}</h2>
       <div class="summary-grid">${summaryCardsHTML}</div>
 
       <h2>Visual Overview</h2>
@@ -214,9 +214,9 @@ function buildReportHTML(filtered, categoryCards, today) {
   `;
 }
 
-export default function DashboardReport({ filtered, categoryCards, onClose }) {
+export default function DashboardReport({ filtered, categoryCards, onClose, companyFilter }) {
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const reportHTML = buildReportHTML(filtered, categoryCards, today);
+  const reportHTML = buildReportHTML(filtered, categoryCards, today, companyFilter);
 
   const handlePrint = () => {
     const win = window.open('', '_blank', 'width=1100,height=800');
