@@ -141,9 +141,11 @@ export default function Dashboard() {
   const categoryCards = [
     {
       title: 'Medical Data', icon: Stethoscope, color: 'text-blue-600', bg: 'bg-blue-50', path: '/medical',
+      combined: medicalAccepted,
+      combinedLabel: 'Accepted Total',
       stats: [
-        { label: 'Accepted', value: medicalAccepted, color: 'text-green-600' },
-        { label: 'Pending', value: filtered.filter(e => e.ftw_result === 'PENDING').length, color: 'text-amber-600' },
+        { label: 'New', value: filtered.filter(e => !e.ftw_result).length, color: 'text-blue-600' },
+        { label: 'Waiting TR', value: filtered.filter(e => e.ftw_result === 'PENDING').length, color: 'text-amber-600' },
         { label: 'Rejected', value: filtered.filter(e => e.ftw_result === 'REJECTED').length, color: 'text-red-600' },
         { label: 'Re-Assess', value: medicalReAssess, color: 'text-purple-600' },
       ],
