@@ -11,7 +11,7 @@ import { Search, Stethoscope, Upload, Eye, Pencil, PencilLine, X as XIcon } from
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { COMPANIES, FTW_RESULTS, formatDate } from '@/utils/constants';
+import { COMPANIES, MEDICAL_RESULTS, formatDate } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
@@ -38,6 +38,18 @@ export default function MedicalTracker() {
     queryFn: () => base44.entities.Employee.list('-created_date', 2000),
   });
 
+  const { data: lookupMedicalResults = [] } = useQuery({
+    queryKey: ['lookups', 'ftw_result'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'ftw_result' }),
+  });
+
+  const allMedicalResults = useMemo(() => {
+    const base = MEDICAL_RESULTS;
+    const customVals = new Set(base.map(s => s.value));
+    const custom = lookupMedicalResults.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }));
+    return [...base, ...custom];
+  }, [lookupMedicalResults]);
+
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
@@ -55,7 +67,7 @@ export default function MedicalTracker() {
   const hasActiveFilters = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || resultFilter !== 'all' || !!search || !!trApprovedFrom || !!trApprovedTo;
 
   const medicalBulkFields = [
-    { key: 'ftw_result', label: 'Medical Result', type: 'select', options: FTW_RESULTS.map(r => ({ value: r, label: r })) },
+    { key: 'ftw_result', label: 'Medical Result', type: 'select', options: allMedicalResults },
     { key: 'ftw_medical_date', label: 'Medical Date', type: 'date' },
     { key: 'ftw_approved_date', label: 'TR Date Approved', type: 'date' },
   ];
@@ -81,10 +93,11 @@ export default function MedicalTracker() {
     return matchesSearch && matchesCompany && matchesPosition && matchesResult && matchesDepartment && matchesTrFrom && matchesTrTo;
   }), [employees, search, companyFilter, positionFilter, resultFilter, departmentFilter, trApprovedFrom, trApprovedTo]);
 
-  const stats = useMemo(() => FTW_RESULTS.map(r => ({
-    name: r,
-    count: filtered.filter(e => e.ftw_result === r).length,
-  })), [filtered]);
+  const stats = useMemo(() => allMedicalResults.map(r => ({
+    name: r.label,
+    value: r.value,
+    count: filtered.filter(e => e.ftw_result === r.value).length,
+  })), [filtered, allMedicalResults]);
 
   const companyHeadcount = useMemo(() => {
     const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
@@ -175,7 +188,7 @@ export default function MedicalTracker() {
             {stats.map((s, i) => (
               <Card key={s.name}>
                 <CardContent className="pt-4">
-                  <div className="text-3xl font-bold" style={{ color: COLORS[i] }}>{s.count}</div>
+                  <div className="text-3xl font-bold" style={{ color: COLORS[i % COLORS.length] }}>{s.count}</div>
                   <div className="text-xs text-muted-foreground mt-1">{s.name}</div>
                 </CardContent>
               </Card>
@@ -199,7 +212,8 @@ export default function MedicalTracker() {
               <CardContent>
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
-                    <Pie data={stats.filter(s => s.count > 0)} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, count }) => `${name}: ${count}`} labelLine={false}>
+                    <Pie data={stats.filter(s => s.count > 0)} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, count }) => `${name}: ${count}`} labelLine={false} >
+
                       {stats.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
                     </Pie>
                     <Tooltip />
@@ -249,7 +263,7 @@ export default function MedicalTracker() {
                 <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Result" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Results</SelectItem>
-                  {FTW_RESULTS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {allMedicalResults.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -309,7 +323,7 @@ export default function MedicalTracker() {
                       <TableCell className="text-xs"><InlineEditCell value={emp.ftw_approval_request_date} field="ftw_approval_request_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                       <TableCell className="text-xs"><InlineEditCell value={emp.ftw_approved_date} field="ftw_approved_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                       <TableCell>
-                        <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={emp.id} type="select" options={FTW_RESULTS.map(r=>({value:r,label:r}))} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} />
+                        <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={emp.id} type="select" options={allMedicalResults} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} />
                       </TableCell>
                       <TableCell className="text-xs"><InlineEditCell value={emp.ftw_doctor} field="ftw_doctor" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                       <TableCell className="text-xs"><InlineEditCell value={emp.ftw_mobile} field="ftw_mobile" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>

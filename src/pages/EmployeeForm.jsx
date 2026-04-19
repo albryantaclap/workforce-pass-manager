@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Save, Upload, User } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, RLIC_STATUSES, PID_STATUSES, FTW_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
 
 const emptyForm = {
   sl_no: '', name: '', photo_url: '', position_application: '', designation_org_chart: '', department: '',
@@ -97,6 +97,14 @@ export default function EmployeeForm() {
     queryKey: ['lookups', 'rlic_status'],
     queryFn: () => base44.entities.Lookup.filter({ type: 'rlic_status' }),
   });
+  const { data: lookupMedicalResults = [] } = useQuery({
+    queryKey: ['lookups', 'ftw_result'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'ftw_result' }),
+  });
+  const { data: lookupPidStatuses = [] } = useQuery({
+    queryKey: ['lookups', 'pid_status'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'pid_status' }),
+  });
 
   const allCompanies = useMemo(() => {
     const seen = new Set();
@@ -121,6 +129,20 @@ export default function EmployeeForm() {
     const custom = lookupRlicStatuses.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }));
     return [...base, ...custom];
   }, [lookupRlicStatuses]);
+
+  const allMedicalResults = useMemo(() => {
+    const base = MEDICAL_RESULTS;
+    const customVals = new Set(base.map(s => s.value));
+    const custom = lookupMedicalResults.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }));
+    return [...base, ...custom];
+  }, [lookupMedicalResults]);
+
+  const allPidStatuses = useMemo(() => {
+    const base = PID_STATUSES.map(s => typeof s === 'string' ? { value: s, label: s } : s);
+    const customVals = new Set(base.map(s => s.value));
+    const custom = lookupPidStatuses.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }));
+    return [...base, ...custom];
+  }, [lookupPidStatuses]);
 
   useEffect(() => {
     if (existingEmp && existingEmp.length > 0) {
@@ -240,7 +262,7 @@ export default function EmployeeForm() {
             <TextInput field="ftw_approval_request_date" label="TR FTW Approval Date Request" type="date" {...tf} />
             <TextInput field="ftw_count_days" label="Count Days" type="number" {...tf} />
             <TextInput field="ftw_approved_date" label="TR Date Approved" type="date" {...tf} />
-            <SelectInput field="ftw_result" label="Result" options={FTW_RESULTS} {...tf} />
+            <SelectInput field="ftw_result" label="Result" options={allMedicalResults} {...tf} />
             <TextInput field="ftw_doctor" label="Doctor Name" {...tf} />
             <TextInput field="ftw_mobile" label="Mobile Number" {...tf} />
             <TextInput field="ftw_reassess_date" label="Re-Assess Date" type="date" {...tf} />
@@ -277,7 +299,7 @@ export default function EmployeeForm() {
             <TextInput field="pid_issue_date" label="Issue Date" type="date" {...tf} />
             <TextInput field="pid_expiry" label="Expiry Date" type="date" {...tf} />
             <TextInput field="pid_projected_date" label="Projected PID Date" type="date" {...tf} />
-            <SelectInput field="pid_status" label="PID Status" options={PID_STATUSES} {...tf} />
+            <SelectInput field="pid_status" label="PID Status" options={allPidStatuses} {...tf} />
           </div>
         </Card>
 
