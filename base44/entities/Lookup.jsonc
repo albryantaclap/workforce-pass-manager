@@ -10,7 +10,8 @@
         "location",
         "department",
         "rlic_status",
-        "pid_status"
+        "pid_status",
+        "ftw_result"
       ],
       "description": "Lookup category"
     },

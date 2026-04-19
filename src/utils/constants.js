@@ -40,6 +40,12 @@ export const PID_STATUSES = [
 
 export const DEPARTMENTS = ['Electrical', 'Mechanical', 'Civil', 'Services'];
 export const FTW_RESULTS = ['ACCEPTED', 'REJECTED', 'PENDING', 'RE-ASSESS'];
+export const MEDICAL_RESULTS = [
+  { value: 'ACCEPTED', label: 'Accepted' },
+  { value: 'REJECTED', label: 'Rejected' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'RE-ASSESS', label: 'Re-Assess' },
+];
 export const TRAINING_STATUSES = ['DONE', 'PENDING', 'NOT REQUIRED'];
 export const LOCATIONS = ['QATAR', 'COMO CAMP', 'OTHER'];
 

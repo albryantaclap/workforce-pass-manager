@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trash2, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, LOCATIONS, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES } from '@/utils/constants';
+import { COMPANIES, LOCATIONS, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS } from '@/utils/constants';
 
 const COMPANY_TYPES = ['Main', 'Sub-contractor', 'GSO Supervision'];
 
@@ -18,6 +18,7 @@ const DEFAULTS = {
   department: DEPARTMENTS.map(d => ({ value: d, label: d, type: 'department', _static: true })),
   rlic_status: RLIC_STATUSES.map(s => ({ value: s.value, label: s.label, type: 'rlic_status', _static: true })),
   pid_status: PID_STATUSES.map(s => ({ value: s.value, label: s.label, type: 'pid_status', _static: true })),
+  ftw_result: MEDICAL_RESULTS.map(s => ({ value: s.value, label: s.label, type: 'ftw_result', _static: true })),
 };
 
 function LookupSection({ type, label, hint }) {
@@ -112,6 +113,7 @@ export default function LookupsManager() {
           <TabsTrigger value="department">Departments</TabsTrigger>
           <TabsTrigger value="rlic_status">Gate Pass Status</TabsTrigger>
           <TabsTrigger value="pid_status">Project ID Status</TabsTrigger>
+          <TabsTrigger value="ftw_result">Medical Result</TabsTrigger>
         </TabsList>
         <TabsContent value="company"><LookupSection type="company" label="Company" /></TabsContent>
         <TabsContent value="company_type"><LookupSection type="company_type" label="Company Type" /></TabsContent>
@@ -122,6 +124,9 @@ export default function LookupsManager() {
         </TabsContent>
         <TabsContent value="pid_status">
           <LookupSection type="pid_status" label="Project ID Status" hint="Add custom statuses (e.g. UNDER PROCESS). These will appear as filter options in Project ID dashboards." />
+        </TabsContent>
+        <TabsContent value="ftw_result">
+          <LookupSection type="ftw_result" label="Medical Result" hint="Add custom medical result statuses (e.g. UNDER REVIEW). These will appear as filter options in the Medical dashboard." />
         </TabsContent>
       </Tabs>
     </Card>
