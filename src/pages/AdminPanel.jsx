@@ -74,11 +74,17 @@ export default function AdminPanel() {
 
   const handleDedup = async () => {
     setDeduping(true);
+    let removed = 0;
     for (const dupe of duplicates) {
-      await base44.entities.Employee.delete(dupe.id);
+      try {
+        await base44.entities.Employee.delete(dupe.id);
+        removed++;
+      } catch {
+        // Record already deleted or not found — skip
+      }
     }
     queryClient.invalidateQueries({ queryKey: ['employees'] });
-    toast({ title: `Removed ${duplicates.length} duplicate records` });
+    toast({ title: `Removed ${removed} duplicate records` });
     setDeduping(false);
   };
 
