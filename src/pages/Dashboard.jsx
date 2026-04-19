@@ -50,6 +50,10 @@ export default function Dashboard() {
     queryKey: ['lookups', 'pid_status'],
     queryFn: () => base44.entities.Lookup.filter({ type: 'pid_status' }),
   });
+  const { data: customFtwResults = [] } = useQuery({
+    queryKey: ['lookups', 'ftw_result'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'ftw_result' }),
+  });
 
   const allCompanyOptions = useMemo(() => {
     // Deduplicate by uppercase value to avoid e.g. "GSO QATAR" vs "GSO Qatar" duplicates
@@ -144,7 +148,7 @@ export default function Dashboard() {
       combined: medicalAccepted,
       combinedLabel: 'Accepted Total',
       stats: [
-        { label: 'New', value: filtered.filter(e => !e.ftw_result).length, color: 'text-blue-600' },
+        { label: 'New', value: filtered.filter(e => customFtwResults.some(r => r.value === e.ftw_result && r.label?.toUpperCase() === 'NEW')).length, color: 'text-blue-600' },
         { label: 'Waiting TR', value: filtered.filter(e => e.ftw_result === 'PENDING').length, color: 'text-amber-600' },
         { label: 'Rejected', value: filtered.filter(e => e.ftw_result === 'REJECTED').length, color: 'text-red-600' },
         { label: 'Re-Assess', value: medicalReAssess, color: 'text-purple-600' },
