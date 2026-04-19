@@ -36,6 +36,8 @@ export default function MedicalTracker() {
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
     queryFn: () => base44.entities.Employee.list('-created_date', 2000),
+    staleTime: 30000,
+    placeholderData: (prev) => prev,
   });
 
   const { data: lookupMedicalResults = [] } = useQuery({
@@ -195,14 +197,8 @@ export default function MedicalTracker() {
             ))}
             <Card>
               <CardContent className="pt-4">
-                <div className="text-3xl font-bold text-slate-400">{filtered.filter(e => e.ftw_result === 'NO PASS').length}</div>
-                <div className="text-xs text-muted-foreground mt-1">No Pass</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-3xl font-bold text-slate-500">{filtered.filter(e => !e.ftw_result).length}</div>
-                <div className="text-xs text-muted-foreground mt-1">No Data</div>
+                <div className="text-3xl font-bold text-blue-500">{filtered.filter(e => !e.ftw_result).length}</div>
+                <div className="text-xs text-muted-foreground mt-1">New</div>
               </CardContent>
             </Card>
           </div>

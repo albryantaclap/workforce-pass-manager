@@ -43,7 +43,7 @@ export const FTW_RESULTS = ['ACCEPTED', 'REJECTED', 'PENDING', 'RE-ASSESS'];
 export const MEDICAL_RESULTS = [
   { value: 'ACCEPTED', label: 'Accepted' },
   { value: 'REJECTED', label: 'Rejected' },
-  { value: 'PENDING', label: 'Pending' },
+  { value: 'PENDING', label: 'Waiting TR Approval' },
   { value: 'RE-ASSESS', label: 'Re-Assess' },
 ];
 export const TRAINING_STATUSES = ['DONE', 'PENDING', 'NOT REQUIRED'];
