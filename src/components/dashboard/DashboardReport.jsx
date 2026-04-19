@@ -13,7 +13,7 @@ function groupBy(arr, key) {
 }
 
 const PALETTE = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16','#ec4899','#14b8a6'];
-const STATUS_COLORS = { 'Valid': '#10b981', 'Soon': '#f59e0b', 'Expired': '#ef4444', 'No Pass': '#94a3b8', 'Accepted': '#10b981', 'Pending': '#f59e0b', 'Rejected': '#ef4444', 'Re-Assess': '#8b5cf6', 'Done': '#10b981', 'N/A': '#94a3b8' };
+const STATUS_COLORS = { 'Valid': '#10b981', 'Soon': '#f59e0b', 'Expired': '#ef4444', 'No Pass': '#94a3b8', 'Accepted': '#10b981', 'Waiting TR Approval': '#f59e0b', 'Rejected': '#ef4444', 'Re-Assess': '#8b5cf6', 'Done': '#10b981', 'N/A': '#94a3b8' };
 
 function buildBarChartHTML(items, maxCount, colorFn) {
   if (!items.length) return '<p style="color:#94a3b8;font-size:10px">No data</p>';
