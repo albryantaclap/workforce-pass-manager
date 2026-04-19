@@ -115,7 +115,7 @@ export default function MedicalTracker() {
     return active.map(c => ({
       name: c.label.substring(0, 12),
       accepted: filtered.filter(e => e.company === c.value && e.ftw_result === 'ACCEPTED').length,
-      pending: filtered.filter(e => e.company === c.value && e.ftw_result === 'PENDING').length,
+      pending: filtered.filter(e => e.company === c.value && e.ftw_result === 'WAITING TR APPROVAL').length,
       rejected: filtered.filter(e => e.company === c.value && e.ftw_result === 'REJECTED').length,
     })).filter(c => c.accepted + c.pending + c.rejected > 0);
   }, [filtered]);
@@ -129,7 +129,7 @@ export default function MedicalTracker() {
     ReAssess_Date: e.ftw_reassess_date, Remarks: e.ftw_remarks,
   }));
 
-  const resultColors = { ACCEPTED: 'bg-emerald-50 text-emerald-700', REJECTED: 'bg-red-50 text-red-700', PENDING: 'bg-amber-50 text-amber-700', 'RE-ASSESS': 'bg-purple-50 text-purple-700' };
+  const resultColors = { ACCEPTED: 'bg-emerald-50 text-emerald-700', REJECTED: 'bg-red-50 text-red-700', 'WAITING TR APPROVAL': 'bg-amber-50 text-amber-700', 'RE-ASSESS': 'bg-purple-50 text-purple-700' };
 
   return (
     <div className="space-y-5">

@@ -169,7 +169,7 @@
       "enum": [
         "ACCEPTED",
         "REJECTED",
-        "PENDING",
+        "WAITING TR APPROVAL",
         "RE-ASSESS"
       ],
       "description": "FTW / Medical result"

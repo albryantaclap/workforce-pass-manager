@@ -149,7 +149,7 @@ export default function Dashboard() {
       combinedLabel: 'Accepted Total',
       stats: [
         { label: 'New', value: filtered.filter(e => customFtwResults.some(r => r.value === e.ftw_result && r.label?.toUpperCase() === 'NEW')).length, color: 'text-blue-600' },
-        { label: 'Waiting TR', value: filtered.filter(e => e.ftw_result === 'PENDING').length, color: 'text-amber-600' },
+        { label: 'Waiting TR', value: filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length, color: 'text-amber-600' },
         { label: 'Rejected', value: filtered.filter(e => e.ftw_result === 'REJECTED').length, color: 'text-red-600' },
         { label: 'Re-Assess', value: medicalReAssess, color: 'text-purple-600' },
       ],
