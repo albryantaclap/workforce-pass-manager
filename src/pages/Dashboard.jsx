@@ -395,6 +395,31 @@ export default function Dashboard() {
         </Card>
 
         <Card>
+          <CardHeader><CardTitle className="text-sm">Location / Mobilized</CardTitle></CardHeader>
+          <CardContent>
+            {(() => {
+              const locationCounts = [...new Set(filtered.map(e => e.current_location).filter(Boolean))]
+                .map((loc, i) => ({ name: loc, value: filtered.filter(e => e.current_location === loc).length }))
+                .filter(l => l.value > 0)
+                .sort((a, b) => b.value - a.value);
+              const unknown = filtered.filter(e => !e.current_location).length;
+              if (unknown > 0) locationCounts.push({ name: 'Unknown', value: unknown });
+              if (locationCounts.length === 0) return <p className="text-center text-muted-foreground py-10 text-sm">No data</p>;
+              return (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={locationCounts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, value }) => `${name}: ${value}`} labelLine={true}>
+                      {locationCounts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              );
+            })()}
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle className="text-sm">Top Positions / Designations</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>

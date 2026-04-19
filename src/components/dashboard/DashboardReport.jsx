@@ -139,10 +139,59 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
     return '#f59e0b';
   };
 
+  // Location / Mobilized counts
+  const locationCounts = Object.entries(
+    filtered.reduce((acc, e) => {
+      const loc = e.current_location || 'Unknown';
+      acc[loc] = (acc[loc] || 0) + 1;
+      return acc;
+    }, {})
+  ).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+
   const companyBarHTML = buildBarChartHTML(companyCounts, maxCompany, null);
   const deptBarHTML = buildBarChartHTML(deptCounts, maxDept, null);
   const posBarHTML = buildBarChartHTML(positionCounts, maxPos, null);
   const statusBarHTML = buildBarChartHTML(statusOverview, maxStatus, (label) => statusColorFn(label));
+
+  // Location pie chart as SVG
+  const locTotal = locationCounts.reduce((s, l) => s + l.count, 0);
+  const PIE_COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16'];
+  let locationPieHTML = '';
+  if (locationCounts.length > 0 && locTotal > 0) {
+    const cx = 80, cy = 80, r = 70;
+    let startAngle = -Math.PI / 2;
+    const slices = locationCounts.map((item, i) => {
+      const angle = (item.count / locTotal) * 2 * Math.PI;
+      const x1 = cx + r * Math.cos(startAngle);
+      const y1 = cy + r * Math.sin(startAngle);
+      const endAngle = startAngle + angle;
+      const x2 = cx + r * Math.cos(endAngle);
+      const y2 = cy + r * Math.sin(endAngle);
+      const large = angle > Math.PI ? 1 : 0;
+      const midAngle = startAngle + angle / 2;
+      const lx = cx + (r + 18) * Math.cos(midAngle);
+      const ly = cy + (r + 18) * Math.sin(midAngle);
+      const path = `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`;
+      const result = { path, color: PIE_COLORS[i % PIE_COLORS.length], lx, ly, label: `${item.name} (${item.count})` };
+      startAngle = endAngle;
+      return result;
+    });
+    const svgSlices = slices.map(s => `<path d="${s.path}" fill="${s.color}" stroke="white" stroke-width="1.5"/>`).join('');
+    const svgLabels = slices.filter(s => s.label).map(s => `<text x="${s.lx}" y="${s.ly}" font-size="7" fill="#334155" text-anchor="middle" dominant-baseline="middle">${s.label}</text>`).join('');
+    const legendHTML = locationCounts.map((item, i) => `
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;font-size:9px">
+        <div style="width:10px;height:10px;border-radius:2px;background:${PIE_COLORS[i % PIE_COLORS.length]};flex-shrink:0"></div>
+        <span style="color:#475569">${item.name}</span>
+        <span style="font-weight:700;color:#1e293b;margin-left:auto">${item.count}</span>
+      </div>`).join('');
+    locationPieHTML = `
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <svg width="160" height="160" viewBox="0 0 160 160">${svgSlices}${svgLabels}</svg>
+        <div style="flex:1;min-width:100px">${legendHTML}</div>
+      </div>`;
+  } else {
+    locationPieHTML = '<p style="color:#94a3b8;font-size:10px">No data</p>';
+  }
 
   const personnelTableRows = (rows) => rows.map((e, i) => {
     const rlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
@@ -190,6 +239,10 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
         <div class="chart-box">
           <div class="chart-title">📊 Headcount by Company</div>
           ${companyBarHTML}
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">📍 Location / Mobilized</div>
+          ${locationPieHTML}
         </div>
         <div class="chart-box">
           <div class="chart-title">📈 Pass &amp; Status Overview</div>
