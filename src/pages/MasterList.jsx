@@ -15,7 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, FTW_RESULTS, TRAINING_STATUSES, formatDate, computePassStatus } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, MEDICAL_RESULTS, TRAINING_STATUSES, formatDate, computePassStatus } from '@/utils/constants';
 
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
@@ -43,10 +43,11 @@ export default function MasterList() {
   const [departmentFilter, setDepartmentFilter] = useState(saved.departmentFilter || 'all');
   const [pidStatusFilter, setPidStatusFilter] = useState(saved.pidStatusFilter || []);
   const [gpStatusFilter, setGpStatusFilter] = useState(saved.gpStatusFilter || []);
+  const [medicalResultFilter, setMedicalResultFilter] = useState(saved.medicalResultFilter || 'all');
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter]);
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -77,7 +78,7 @@ export default function MasterList() {
     updateMutation.mutate({ id, data: { [field]: value } });
   };
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0;
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter !== 'all';
 
   const masterBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: FTW_RESULTS.map(r => ({ value: r, label: r })) },
@@ -129,9 +130,10 @@ export default function MasterList() {
       const matchesDepartment = departmentFilter === 'all' || emp.department === departmentFilter;
       const effectivePid = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
       const matchesPidStatus = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
-      return matchesSearch && matchesCompany && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus;
+      const matchesMedicalResult = medicalResultFilter === 'all' || (medicalResultFilter === 'NEW' ? !emp.ftw_result : emp.ftw_result === medicalResultFilter);
+      return matchesSearch && matchesCompany && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult;
     });
-  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, customRlicStatuses]);
+  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, customRlicStatuses]);
 
   const getExportData = () => filtered.map(e => ({
     SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
@@ -208,6 +210,14 @@ export default function MasterList() {
             onChange={setGpStatusFilter}
             placeholder="GP Statuses"
           />
+          <Select value={medicalResultFilter} onValueChange={setMedicalResultFilter}>
+            <SelectTrigger><SelectValue placeholder="Medical Result" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Medical Results</SelectItem>
+              <SelectItem value="NEW">New (No Result)</SelectItem>
+              {MEDICAL_RESULTS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <div className="flex gap-2">
             <Select value={locationFilter} onValueChange={setLocationFilter}>
               <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
@@ -226,9 +236,9 @@ export default function MasterList() {
             </Select>
           </div>
         </div>
-        {(search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0) && (
+        {hasActiveFilters && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); setGpStatusFilter([]); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter('all'); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
