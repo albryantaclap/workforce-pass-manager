@@ -195,12 +195,7 @@ export default function MedicalTracker() {
                 </CardContent>
               </Card>
             ))}
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-3xl font-bold text-blue-500">{filtered.filter(e => !e.ftw_result).length}</div>
-                <div className="text-xs text-muted-foreground mt-1">New</div>
-              </CardContent>
-            </Card>
+
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
