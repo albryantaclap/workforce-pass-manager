@@ -115,8 +115,22 @@ export default function MedicalImport() {
     const notFound = [];
     const total = records.length;
     const sleep = (ms) => new Promise(res => setTimeout(res, ms));
-    const BATCH_SIZE = 5;
-    const DELAY_MS = 300;
+    const BATCH_SIZE = 3;
+    const DELAY_MS = 800;
+
+    const apiCall = async (fn, retries = 3) => {
+      for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+          return await fn();
+        } catch (err) {
+          if (err?.message?.includes('Rate limit') && attempt < retries - 1) {
+            await sleep(2000 * (attempt + 1));
+          } else {
+            throw err;
+          }
+        }
+      }
+    };
 
     for (let i = 0; i < records.length; i++) {
       const rec = records[i];
@@ -132,7 +146,6 @@ export default function MedicalImport() {
       const result = normalizeResult(rec.ftw_result);
 
       if (!emp) {
-        // Create new employee
         const newEmp = { qid_no: qid };
         if (rec.name) newEmp.name = rec.name;
         if (rec.company) newEmp.company = rec.company;
@@ -145,9 +158,8 @@ export default function MedicalImport() {
         if (result) newEmp.ftw_result = result;
         if (rec.ftw_doctor) newEmp.ftw_doctor = rec.ftw_doctor;
         if (rec.ftw_mobile) newEmp.ftw_mobile = String(rec.ftw_mobile);
-        await base44.entities.Employee.create(newEmp);
+        await apiCall(() => base44.entities.Employee.create(newEmp));
         created++;
-        if (created % BATCH_SIZE === 0) await sleep(DELAY_MS);
       } else {
         const update = {};
         if (md) update.ftw_medical_date = md;
@@ -158,16 +170,17 @@ export default function MedicalImport() {
         if (rec.ftw_doctor) update.ftw_doctor = rec.ftw_doctor;
         if (rec.ftw_mobile) update.ftw_mobile = String(rec.ftw_mobile);
         if (Object.keys(update).length > 0) {
-          await base44.entities.Employee.update(emp.id, update);
+          await apiCall(() => base44.entities.Employee.update(emp.id, update));
           updated++;
-          if (updated % BATCH_SIZE === 0) await sleep(DELAY_MS);
         }
       }
+
+      if ((i + 1) % BATCH_SIZE === 0) await sleep(DELAY_MS);
       setProgress(40 + Math.floor((i / total) * 48));
     }
 
     for (let i = 0; i < dupesToDelete.length; i++) {
-      await base44.entities.Employee.delete(dupesToDelete[i]);
+      await apiCall(() => base44.entities.Employee.delete(dupesToDelete[i]));
       if ((i + 1) % BATCH_SIZE === 0) await sleep(DELAY_MS);
     }
 
