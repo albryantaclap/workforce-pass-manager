@@ -105,6 +105,10 @@ export default function EmployeeForm() {
     queryKey: ['lookups', 'pid_status'],
     queryFn: () => base44.entities.Lookup.filter({ type: 'pid_status' }),
   });
+  const { data: lookupTrainingStatuses = [] } = useQuery({
+    queryKey: ['lookups', 'training_status'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'training_status' }),
+  });
 
   const allCompanies = useMemo(() => {
     const seen = new Set();
@@ -143,6 +147,13 @@ export default function EmployeeForm() {
     const custom = lookupPidStatuses.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }));
     return [...base, ...custom];
   }, [lookupPidStatuses]);
+
+  const allTrainingStatuses = useMemo(() => {
+    const base = TRAINING_STATUSES;
+    const customVals = new Set(base.map(s => s.value));
+    const custom = lookupTrainingStatuses.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }));
+    return [...base, ...custom];
+  }, [lookupTrainingStatuses]);
 
   useEffect(() => {
     if (existingEmp && existingEmp.length > 0) {
@@ -233,7 +244,7 @@ export default function EmployeeForm() {
             <SelectInput field="company" label="Company *" options={allCompanies} {...tf} />
             <SelectInput field="company_type" label="Company Type" options={['Main', 'Sub-contractor', 'GSO Supervision']} {...tf} />
             <SelectInput field="department" label="Department" options={allDepartments} {...tf} />
-            <SelectInput field="current_location" label="Location" options={allLocations} {...tf} />
+            <SelectInput field="current_location" label="Location / Mobilized" options={allLocations} {...tf} />
             <SelectInput field="dir_indir" label="DIR / INDIR" options={['DIR', 'INDIR']} {...tf} />
             <TextInput field="staff_no" label="Staff No / RLIC No" {...tf} />
           </div>
@@ -287,7 +298,7 @@ export default function EmployeeForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <TextInput field="training_date_start" label="Training Date Started" type="date" {...tf} />
             <TextInput field="training_date_end" label="Training Date End" type="date" {...tf} />
-            <SelectInput field="training_status" label="Training Status" options={TRAINING_STATUSES} {...tf} />
+            <SelectInput field="training_status" label="Training Status" options={allTrainingStatuses} {...tf} />
           </div>
         </Card>
 

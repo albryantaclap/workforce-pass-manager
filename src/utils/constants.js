@@ -46,7 +46,11 @@ export const MEDICAL_RESULTS = [
   { value: 'WAITING TR APPROVAL', label: 'Waiting TR Approval' },
   { value: 'RE-ASSESS', label: 'Re-Assess' },
 ];
-export const TRAINING_STATUSES = ['DONE', 'PENDING', 'NOT REQUIRED'];
+export const TRAINING_STATUSES = [
+  { value: 'DONE', label: 'Done' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'NOT REQUIRED', label: 'Not Required' },
+];
 export const LOCATIONS = ['QATAR', 'COMO CAMP', 'OTHER'];
 
 export function formatDate(dateStr) {

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trash2, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, LOCATIONS, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS } from '@/utils/constants';
+import { COMPANIES, LOCATIONS, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES } from '@/utils/constants';
 
 const COMPANY_TYPES = ['Main', 'Sub-contractor', 'GSO Supervision'];
 
@@ -19,6 +19,7 @@ const DEFAULTS = {
   rlic_status: RLIC_STATUSES.map(s => ({ value: s.value, label: s.label, type: 'rlic_status', _static: true })),
   pid_status: PID_STATUSES.map(s => ({ value: s.value, label: s.label, type: 'pid_status', _static: true })),
   ftw_result: MEDICAL_RESULTS.map(s => ({ value: s.value, label: s.label, type: 'ftw_result', _static: true })),
+  training_status: TRAINING_STATUSES.map(s => ({ value: s.value, label: s.label, type: 'training_status', _static: true })),
 };
 
 function LookupSection({ type, label, hint }) {
@@ -114,6 +115,7 @@ export default function LookupsManager() {
           <TabsTrigger value="rlic_status">Gate Pass Status</TabsTrigger>
           <TabsTrigger value="pid_status">Project ID Status</TabsTrigger>
           <TabsTrigger value="ftw_result">Medical Result</TabsTrigger>
+          <TabsTrigger value="training_status">Training Status</TabsTrigger>
         </TabsList>
         <TabsContent value="company"><LookupSection type="company" label="Company" /></TabsContent>
         <TabsContent value="company_type"><LookupSection type="company_type" label="Company Type" /></TabsContent>
@@ -127,6 +129,9 @@ export default function LookupsManager() {
         </TabsContent>
         <TabsContent value="ftw_result">
           <LookupSection type="ftw_result" label="Medical Result" hint="Add custom medical result statuses (e.g. UNDER REVIEW). These will appear as filter options in the Medical dashboard." />
+        </TabsContent>
+        <TabsContent value="training_status">
+          <LookupSection type="training_status" label="Training Status" hint="Add custom training statuses (e.g. IN PROGRESS). These will appear as options in the Training section." />
         </TabsContent>
       </Tabs>
     </Card>
