@@ -54,6 +54,10 @@ export default function Dashboard() {
     queryKey: ['lookups', 'ftw_result'],
     queryFn: () => base44.entities.Lookup.filter({ type: 'ftw_result' }),
   });
+  const { data: customTrainingStatuses = [] } = useQuery({
+    queryKey: ['lookups', 'training_status'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'training_status' }),
+  });
 
   const allCompanyOptions = useMemo(() => {
     // Deduplicate by uppercase value to avoid e.g. "GSO QATAR" vs "GSO Qatar" duplicates
@@ -181,6 +185,11 @@ export default function Dashboard() {
         { label: 'Done', value: trainingDone, color: 'text-green-600' },
         { label: 'Pending', value: filtered.filter(e => e.training_status === 'PENDING').length, color: 'text-amber-600' },
         { label: 'N/A', value: filtered.filter(e => e.training_status === 'NOT REQUIRED').length, color: 'text-slate-500' },
+        ...customTrainingStatuses.map(s => ({
+          label: s.label,
+          value: filtered.filter(e => e.training_status === s.value).length,
+          color: 'text-blue-600',
+        })),
       ],
     },
   ];

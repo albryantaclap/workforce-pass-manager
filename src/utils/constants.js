@@ -55,11 +55,11 @@ export const LOCATIONS = ['QATAR', 'COMO CAMP', 'OTHER'];
 
 export function formatDate(dateStr) {
   if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (isNaN(d)) return dateStr;
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
+  // Parse date parts directly to avoid timezone shifting
+  const parts = String(dateStr).split('T')[0].split('-');
+  if (parts.length !== 3) return dateStr;
+  const [yyyy, mm, dd] = parts;
+  if (!yyyy || !mm || !dd) return dateStr;
   return `${dd}/${mm}/${yyyy}`;
 }
 
