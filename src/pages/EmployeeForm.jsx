@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Upload, User } from 'lucide-react';
+import { ArrowLeft, Save, Upload, User, UserCheck, UserX } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
 
@@ -192,12 +192,34 @@ export default function EmployeeForm() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4" /></Button>
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">{isEdit ? 'Edit Personnel' : 'Add Personnel'}</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Fill in details below</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4" /></Button>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">{isEdit ? 'Edit Personnel' : 'Add Personnel'}</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Fill in details below</p>
+          </div>
         </div>
+        {isEdit && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Status:</span>
+            <button
+              type="button"
+              onClick={() => handleChange('is_active', form.is_active === false ? true : false)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                form.is_active === false
+                  ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                  : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+              }`}
+            >
+              {form.is_active === false ? (
+                <><UserX className="w-4 h-4" /> Inactive</>
+              ) : (
+                <><UserCheck className="w-4 h-4" /> Active</>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
