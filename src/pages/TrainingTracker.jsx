@@ -44,8 +44,8 @@ export default function TrainingTracker() {
   }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter]);
 
   const stats = useMemo(() => TRAINING_STATUSES.map((s, i) => ({
-    name: s,
-    count: filtered.filter(e => e.training_status === s).length,
+    name: s.label,
+    count: filtered.filter(e => e.training_status === s.value).length,
   })), [filtered]);
 
   const companyHeadcount = useMemo(() => {
@@ -186,7 +186,7 @@ export default function TrainingTracker() {
                 <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  {TRAINING_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {TRAINING_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
