@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Check, X, Copy } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatDate } from '@/utils/constants';
 
 /**
  * Excel-like inline edit cell.
@@ -76,7 +77,9 @@ export default function InlineEditCell({ value, field, empId, type = 'text', opt
     if (onFillDown) onFillDown(field, value ?? null);
   };
 
-  const displayValue = value || <span className="text-muted-foreground">—</span>;
+  const displayValue = value
+    ? (type === 'date' ? formatDate(value) : value)
+    : <span className="text-muted-foreground">—</span>;
 
   if (!editing) {
     return (

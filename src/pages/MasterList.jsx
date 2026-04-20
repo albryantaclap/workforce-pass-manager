@@ -82,7 +82,7 @@ export default function MasterList() {
 
   const masterBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: FTW_RESULTS.map(r => ({ value: r, label: r })) },
-    { key: 'training_status', label: 'Training Status', type: 'select', options: TRAINING_STATUSES.map(s => ({ value: s, label: s })) },
+    { key: 'training_status', label: 'Training Status', type: 'select', options: TRAINING_STATUSES.map(s => ({ value: s.value, label: s.label })) },
     { key: 'rlic_status', label: 'RLIC Status', type: 'select', options: RLIC_STATUSES.map(s => ({ value: s.value, label: s.label })) },
     { key: 'current_location', label: 'Location', type: 'select', options: LOCATIONS.map(l => ({ value: l, label: l })) },
   ];
@@ -358,7 +358,7 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.training_date_start} field="training_date_start" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.training_date_end} field="training_date_end" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap">
-                      <InlineEditCell value={emp.training_status} field="training_status" empId={emp.id} type="select" options={TRAINING_STATUSES.map(s=>({value:s,label:s}))} onSave={handleCellSave} editMode={editMode} />
+                      <InlineEditCell value={emp.training_status} field="training_status" empId={emp.id} type="select" options={TRAINING_STATUSES.map(s=>({value:s.value,label:s.label}))} onSave={handleCellSave} editMode={editMode} />
                     </TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.remarks} field="remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">
