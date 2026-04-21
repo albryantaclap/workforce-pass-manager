@@ -162,6 +162,7 @@ export default function Dashboard() {
       title: 'Gate Pass (RLIC)', icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50', path: '/gatepass',
       combined: validRlic + filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length,
       combinedLabel: 'Total Valid',
+      overallTotal: validRlic + filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length + expiredRlic,
       stats: [
         { label: 'Valid', value: validRlic, color: 'text-green-600' },
         { label: 'Soon', value: filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
@@ -173,6 +174,7 @@ export default function Dashboard() {
       title: 'Project ID', icon: BadgeCheck, color: 'text-purple-600', bg: 'bg-purple-50', path: '/project-id',
       combined: validPid + filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length,
       combinedLabel: 'Total Valid',
+      overallTotal: validPid + filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length + expiredPid,
       stats: [
         { label: 'Valid', value: validPid, color: 'text-green-600' },
         { label: 'Soon', value: filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
@@ -318,9 +320,17 @@ export default function Dashboard() {
                     <CardTitle className="text-sm font-semibold">{card.title}</CardTitle>
                   </div>
                   {card.combined !== undefined && (
-                    <div className="flex flex-col items-end">
-                      <span className={`text-2xl font-extrabold ${card.color}`}>{card.combined}</span>
-                      <span className="text-[10px] text-muted-foreground leading-tight">{card.combinedLabel}</span>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className={`text-2xl font-extrabold ${card.color}`}>{card.combined}</span>
+                        {card.overallTotal !== undefined && (
+                          <span className="text-sm font-semibold text-muted-foreground">/ {card.overallTotal}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground leading-tight">
+                        <span>{card.combinedLabel}</span>
+                        {card.overallTotal !== undefined && <span>/ Overall</span>}
+                      </div>
                     </div>
                   )}
                 </div>

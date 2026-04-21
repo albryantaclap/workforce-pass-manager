@@ -200,7 +200,16 @@ export default function ProjectIDTracker() {
                     <p className="text-sm font-semibold text-purple-700">Total Valid Project IDs</p>
                     <p className="text-xs text-purple-600 mt-0.5">{validCount} Valid &nbsp;+&nbsp; {soonCount} Soon to Expire</p>
                   </div>
-                  <span className="text-5xl font-extrabold text-purple-600">{validCount + soonCount}</span>
+                  <div className="flex items-end gap-3">
+                    <div className="text-center">
+                      <span className="text-5xl font-extrabold text-purple-600">{validCount + soonCount}</span>
+                      <p className="text-[10px] text-purple-600 mt-0.5">Total Valid</p>
+                    </div>
+                    <div className="text-center border-l border-purple-300 pl-3">
+                      <span className="text-3xl font-bold text-purple-400">{(() => { const expiredCount = stats.find(s => s.name === 'Expired')?.count ?? 0; return validCount + soonCount + expiredCount; })()}</span>
+                      <p className="text-[10px] text-purple-500 mt-0.5">Overall Total</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             );
