@@ -171,6 +171,19 @@ export default function Dashboard() {
       ],
     },
     {
+      title: 'Training', icon: GraduationCap, color: 'text-orange-600', bg: 'bg-orange-50', path: '/training',
+      stats: [
+        { label: 'Done', value: trainingDone, color: 'text-green-600' },
+        { label: 'Pending', value: filtered.filter(e => e.training_status === 'PENDING').length, color: 'text-amber-600' },
+        { label: 'N/A', value: filtered.filter(e => e.training_status === 'NOT REQUIRED').length, color: 'text-slate-500' },
+        ...customTrainingStatuses.map(s => ({
+          label: s.label,
+          value: filtered.filter(e => e.training_status === s.value).length,
+          color: 'text-blue-600',
+        })),
+      ],
+    },
+    {
       title: 'Project ID', icon: BadgeCheck, color: 'text-purple-600', bg: 'bg-purple-50', path: '/project-id',
       combined: validPid + filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length,
       combinedLabel: 'Total Valid',
