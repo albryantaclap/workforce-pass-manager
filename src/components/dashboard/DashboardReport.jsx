@@ -113,9 +113,16 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
       return `<div class="stat-row"><span style="color:#64748b">${s.label}</span><span class="stat-val" style="color:${color}">${s.value}</span></div>`;
     }).join('');
     const combinedHTML = card.combined !== undefined ? `
-      <div style="text-align:right;margin-bottom:8px">
-        <div style="font-size:22px;font-weight:800;color:${border}">${card.combined}</div>
-        <div style="font-size:9px;color:#94a3b8">${card.combinedLabel}</div>
+      <div style="display:flex;justify-content:flex-end;align-items:flex-end;gap:10px;margin-bottom:8px">
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:800;color:${border}">${card.combined}</div>
+          <div style="font-size:9px;color:#94a3b8">${card.combinedLabel}</div>
+        </div>
+        ${card.overallTotal !== undefined ? `
+        <div style="text-align:right;border-left:2px solid #e2e8f0;padding-left:10px">
+          <div style="font-size:16px;font-weight:700;color:#94a3b8">${card.overallTotal}</div>
+          <div style="font-size:9px;color:#94a3b8">Overall Total</div>
+        </div>` : ''}
       </div>` : '';
     return `
       <div class="summary-card" style="border-color:${border}">
