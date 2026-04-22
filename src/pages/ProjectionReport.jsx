@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Printer } from 'lucide-react';
+import { Printer, X, FileText } from 'lucide-react';
 import { computePassStatus } from '@/utils/constants';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,10 +24,7 @@ const getValidGatepass     = (e) => {
   return (status === 'VALID RLIC PASS' || status === 'SOON TO EXPIRE') ? 1 : 0;
 };
 const getTrainingScheduled = (e) => (e.training_status === 'PENDING' ? 1 : 0);
-const getTrainingOnGoing   = (e) => {
-  // On-going: training has started but not yet done (has start date, no end date or status not DONE)
-  return (e.training_date_start && e.training_status !== 'DONE') ? 1 : 0;
-};
+const getTrainingOnGoing   = (e) => (e.training_date_start && e.training_status !== 'DONE') ? 1 : 0;
 const getTrainingCompleted = (e) => (e.training_status === 'DONE' ? 1 : 0);
 const getPID               = (e) => {
   const status = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
@@ -70,113 +67,114 @@ function sumRows(rows) {
   return totals;
 }
 
-// ── Table Components ─────────────────────────────────────────────────────────
-const HEADER_COLS = [
-  { label: 'DESIGNATION', width: '14%', group: null },
-  { label: 'DVC SUBMITTED FROM CONTRACTOR', width: '8%', group: 'DVC' },
-  { label: 'DVC SUBMITTED TO TR', width: '8%', group: 'DVC' },
-  { label: 'PENDING MEDICAL', width: '7%', group: 'MEDICAL' },
-  { label: 'FTW / APPROVED', width: '6%', group: 'MEDICAL' },
-  { label: 'GP UNDER PROCESS', width: '8%', group: 'GATEPASS' },
-  { label: 'VALID GATEPASS', width: '8%', group: 'GATEPASS' },
-  { label: 'SCHEDULED', width: '7%', group: 'TRAINING' },
-  { label: 'ON-GOING', width: '7%', group: 'TRAINING' },
-  { label: 'COMPLETED', width: '7%', group: 'TRAINING' },
-  { label: 'PID', width: '6%', group: null },
-  { label: 'CAMP', width: '7%', group: null },
-  { label: '', width: '7%', group: null },
-];
+// ── HTML Report Builder ───────────────────────────────────────────────────────
+const PRINT_CSS = `
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { font-family: Arial, sans-serif; font-size: 10px; background: white; color: #1e293b; }
+  .wrap { padding: 16px; }
+  .report-title { text-align: center; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; }
+  .report-date { text-align: center; font-size: 11px; color: #475569; margin-bottom: 16px; }
+  .company-block { margin-bottom: 20px; page-break-inside: avoid; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9px; }
+  td { border: 1px solid black; padding: 2px 3px; text-align: center; }
+  td.left { text-align: left; }
+  .hdr-company { background: #fde047; font-weight: 700; font-size: 11px; text-align: center; letter-spacing: 2px; padding: 4px; }
+  .hdr-company.grand { background: #1e293b; color: white; }
+  .hdr-group { font-weight: 700; font-size: 8px; text-align: center; padding: 2px; }
+  .g-dvc      { background: #e9d5ff; }
+  .g-medical  { background: #bfdbfe; }
+  .g-gatepass { background: #bbf7d0; }
+  .g-training { background: #fed7aa; }
+  .hdr-col { background: #f1f5f9; font-weight: 700; font-size: 8px; text-align: center; padding: 3px 2px; }
+  .c-dvc      { background: #f5f3ff; }
+  .c-medical  { background: #eff6ff; }
+  .c-gatepass { background: #f0fdf4; }
+  .c-training { background: #fff7ed; }
+  .row-total { background: #fef9c3; font-weight: 700; }
+  .grand-total-row { background: #1e293b; color: white; font-weight: 700; }
+  @media print {
+    @page { size: A3 landscape; margin: 10mm; }
+    body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .company-block { page-break-inside: avoid; }
+  }
+`;
 
-const groupBg = {
-  'DVC':      'bg-purple-100',
-  'MEDICAL':  'bg-blue-100',
-  'GATEPASS': 'bg-green-100',
-  'TRAINING': 'bg-orange-100',
-};
-const groupCellBg = {
-  'DVC':      'bg-purple-50/60',
-  'MEDICAL':  'bg-blue-50/60',
-  'GATEPASS': 'bg-green-50/60',
-  'TRAINING': 'bg-orange-50/60',
-};
+function c(v) { return v === 0 ? '' : v; }
 
-function TableHeaders({ companyName, headerBg = 'bg-yellow-300' }) {
-  // Group row spans
-  const groups = [
-    { label: '', span: 1 },
-    { label: 'DVC', span: 2, bg: groupBg.DVC },
-    { label: 'MEDICAL', span: 2, bg: groupBg.MEDICAL },
-    { label: 'GATEPASS', span: 2, bg: groupBg.GATEPASS },
-    { label: 'TRAINING', span: 3, bg: groupBg.TRAINING },
-    { label: '', span: 1 },
-    { label: '', span: 1 },
-    { label: '', span: 1 },
-  ];
-
-  return (
-    <>
-      <tr>
-        <td colSpan={13} className={`${headerBg} font-bold text-sm px-2 py-1 border border-black text-center tracking-widest`}>
-          {companyName}
-        </td>
-      </tr>
-      <tr className="text-center font-bold text-[9px]">
-        {groups.map((g, i) => (
-          <td key={i} colSpan={g.span} className={`border border-black py-0.5 ${g.bg || ''}`}>
-            {g.label}
-          </td>
-        ))}
-      </tr>
-      <tr className="bg-gray-100 font-bold text-[9px] text-center">
-        {HEADER_COLS.map((col, i) => (
-          <td key={i} className={`border border-black px-1 py-1 ${col.group ? groupCellBg[col.group] : ''}`} style={{ width: col.width }}>
-            {col.label}
-          </td>
-        ))}
-      </tr>
-    </>
-  );
-}
-
-function DataRow({ label, data, isTotal = false }) {
-  const c = (v) => (v === 0 ? '' : v);
-  const baseClass = `border border-black px-1 py-0.5 text-center ${isTotal ? 'font-bold bg-yellow-50' : ''}`;
-  return (
-    <tr className={isTotal ? 'bg-yellow-50' : 'hover:bg-slate-50'}>
-      <td className={`border border-black px-1 py-0.5 ${isTotal ? 'font-bold bg-yellow-50' : 'font-medium'} text-left`}>{label}</td>
-      <td className={`${baseClass} ${groupCellBg.DVC}`}>{c(data.dvcFrom)}</td>
-      <td className={`${baseClass} ${groupCellBg.DVC}`}>{c(data.dvcTo)}</td>
-      <td className={`${baseClass} ${groupCellBg.MEDICAL}`}>{c(data.pendingMedical)}</td>
-      <td className={`${baseClass} ${groupCellBg.MEDICAL}`}>{c(data.ftw)}</td>
-      <td className={`${baseClass} ${groupCellBg.GATEPASS}`}>{c(data.gpUnder)}</td>
-      <td className={`${baseClass} ${groupCellBg.GATEPASS}`}>{c(data.validGP)}</td>
-      <td className={`${baseClass} ${groupCellBg.TRAINING}`}>{c(data.trainingScheduled)}</td>
-      <td className={`${baseClass} ${groupCellBg.TRAINING}`}>{c(data.trainingOnGoing)}</td>
-      <td className={`${baseClass} ${groupCellBg.TRAINING}`}>{c(data.trainingDone)}</td>
-      <td className={baseClass}>{c(data.pid)}</td>
-      <td className={baseClass}>{c(data.camp)}</td>
-      <td className={baseClass}></td>
-    </tr>
-  );
-}
-
-function ReportTable({ company, rows }) {
+function buildCompanyTableHTML(company, rows, isGrand = false) {
   const designations = Object.keys(rows).sort();
   const totals = sumRows(rows);
-  return (
-    <div className="mb-6 break-inside-avoid">
-      <table className="w-full border-collapse text-[10px]" style={{ tableLayout: 'fixed' }}>
+  const hdrClass = isGrand ? 'hdr-company grand' : 'hdr-company';
+
+  const dataRows = designations.map(d => `
+    <tr>
+      <td class="left">${d}</td>
+      <td class="c-dvc">${c(rows[d].dvcFrom)}</td>
+      <td class="c-dvc">${c(rows[d].dvcTo)}</td>
+      <td class="c-medical">${c(rows[d].pendingMedical)}</td>
+      <td class="c-medical">${c(rows[d].ftw)}</td>
+      <td class="c-gatepass">${c(rows[d].gpUnder)}</td>
+      <td class="c-gatepass">${c(rows[d].validGP)}</td>
+      <td class="c-training">${c(rows[d].trainingScheduled)}</td>
+      <td class="c-training">${c(rows[d].trainingOnGoing)}</td>
+      <td class="c-training">${c(rows[d].trainingDone)}</td>
+      <td>${c(rows[d].pid)}</td>
+      <td>${c(rows[d].camp)}</td>
+      <td></td>
+    </tr>`).join('');
+
+  return `
+    <div class="company-block">
+      <table>
         <tbody>
-          <TableHeaders companyName={company} />
-          {designations.map(d => <DataRow key={d} label={d} data={rows[d]} />)}
-          <DataRow label="TOTAL" data={totals} isTotal />
+          <tr><td colspan="13" class="${hdrClass}">${company}</td></tr>
+          <tr>
+            <td class="hdr-group"></td>
+            <td colspan="2" class="hdr-group g-dvc">DVC</td>
+            <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
+            <td colspan="2" class="hdr-group g-gatepass">GATEPASS</td>
+            <td colspan="3" class="hdr-group g-training">TRAINING</td>
+            <td class="hdr-group"></td>
+            <td class="hdr-group"></td>
+            <td class="hdr-group"></td>
+          </tr>
+          <tr>
+            <td class="hdr-col left" style="width:14%">DESIGNATION</td>
+            <td class="hdr-col c-dvc" style="width:8%">DVC SUBMITTED FROM CONTRACTOR</td>
+            <td class="hdr-col c-dvc" style="width:8%">DVC SUBMITTED TO TR</td>
+            <td class="hdr-col c-medical" style="width:7%">PENDING MEDICAL</td>
+            <td class="hdr-col c-medical" style="width:6%">FTW / APPROVED</td>
+            <td class="hdr-col c-gatepass" style="width:8%">GP UNDER PROCESS</td>
+            <td class="hdr-col c-gatepass" style="width:8%">VALID GATEPASS</td>
+            <td class="hdr-col c-training" style="width:7%">SCHEDULED</td>
+            <td class="hdr-col c-training" style="width:7%">ON-GOING</td>
+            <td class="hdr-col c-training" style="width:7%">COMPLETED</td>
+            <td class="hdr-col" style="width:6%">PID</td>
+            <td class="hdr-col" style="width:7%">CAMP</td>
+            <td class="hdr-col" style="width:7%"></td>
+          </tr>
+          ${dataRows}
+          <tr class="row-total">
+            <td class="left">TOTAL</td>
+            <td class="c-dvc">${c(totals.dvcFrom)}</td>
+            <td class="c-dvc">${c(totals.dvcTo)}</td>
+            <td class="c-medical">${c(totals.pendingMedical)}</td>
+            <td class="c-medical">${c(totals.ftw)}</td>
+            <td class="c-gatepass">${c(totals.gpUnder)}</td>
+            <td class="c-gatepass">${c(totals.validGP)}</td>
+            <td class="c-training">${c(totals.trainingScheduled)}</td>
+            <td class="c-training">${c(totals.trainingOnGoing)}</td>
+            <td class="c-training">${c(totals.trainingDone)}</td>
+            <td>${c(totals.pid)}</td>
+            <td>${c(totals.camp)}</td>
+            <td></td>
+          </tr>
         </tbody>
       </table>
-    </div>
-  );
+    </div>`;
 }
 
-function GrandTotalTable({ companyData }) {
+function buildGrandTotalHTML(companyData) {
   const companies = Object.keys(companyData).sort();
   const grandTotal = ZERO_ROW();
   const companyTotals = {};
@@ -185,78 +183,120 @@ function GrandTotalTable({ companyData }) {
     for (const k of Object.keys(grandTotal)) grandTotal[k] += companyTotals[co][k];
   }
 
-  const c = (v) => (v === 0 ? '' : v);
+  const companyRows = companies.map(co => `
+    <tr>
+      <td class="left">${co}</td>
+      <td class="c-dvc">${c(companyTotals[co].dvcFrom)}</td>
+      <td class="c-dvc">${c(companyTotals[co].dvcTo)}</td>
+      <td class="c-medical">${c(companyTotals[co].pendingMedical)}</td>
+      <td class="c-medical">${c(companyTotals[co].ftw)}</td>
+      <td class="c-gatepass">${c(companyTotals[co].gpUnder)}</td>
+      <td class="c-gatepass">${c(companyTotals[co].validGP)}</td>
+      <td class="c-training">${c(companyTotals[co].trainingScheduled)}</td>
+      <td class="c-training">${c(companyTotals[co].trainingOnGoing)}</td>
+      <td class="c-training">${c(companyTotals[co].trainingDone)}</td>
+      <td>${c(companyTotals[co].pid)}</td>
+      <td>${c(companyTotals[co].camp)}</td>
+      <td></td>
+    </tr>`).join('');
 
-  const groups = [
-    { label: '', span: 1 },
-    { label: 'DVC', span: 2, bg: groupBg.DVC },
-    { label: 'MEDICAL', span: 2, bg: groupBg.MEDICAL },
-    { label: 'GATEPASS', span: 2, bg: groupBg.GATEPASS },
-    { label: 'TRAINING', span: 3, bg: groupBg.TRAINING },
-    { label: '', span: 1 },
-    { label: '', span: 1 },
-    { label: '', span: 1 },
-  ];
-
-  return (
-    <div className="mb-8 break-inside-avoid">
-      <table className="w-full border-collapse text-[10px]" style={{ tableLayout: 'fixed' }}>
+  return `
+    <div class="company-block">
+      <table>
         <tbody>
+          <tr><td colspan="13" class="hdr-company grand">GRAND TOTAL — ALL COMPANIES</td></tr>
           <tr>
-            <td colSpan={13} className="bg-slate-800 text-white font-bold text-sm px-2 py-1 border border-black text-center tracking-widest">
-              GRAND TOTAL — ALL COMPANIES
-            </td>
+            <td class="hdr-group"></td>
+            <td colspan="2" class="hdr-group g-dvc">DVC</td>
+            <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
+            <td colspan="2" class="hdr-group g-gatepass">GATEPASS</td>
+            <td colspan="3" class="hdr-group g-training">TRAINING</td>
+            <td class="hdr-group"></td>
+            <td class="hdr-group"></td>
+            <td class="hdr-group"></td>
           </tr>
-          <tr className="text-center font-bold text-[9px]">
-            {groups.map((g, i) => (
-              <td key={i} colSpan={g.span} className={`border border-black py-0.5 ${g.bg || ''}`}>{g.label}</td>
-            ))}
+          <tr>
+            <td class="hdr-col left" style="width:14%">COMPANY</td>
+            <td class="hdr-col c-dvc" style="width:8%">DVC SUBMITTED FROM CONTRACTOR</td>
+            <td class="hdr-col c-dvc" style="width:8%">DVC SUBMITTED TO TR</td>
+            <td class="hdr-col c-medical" style="width:7%">PENDING MEDICAL</td>
+            <td class="hdr-col c-medical" style="width:6%">FTW / APPROVED</td>
+            <td class="hdr-col c-gatepass" style="width:8%">GP UNDER PROCESS</td>
+            <td class="hdr-col c-gatepass" style="width:8%">VALID GATEPASS</td>
+            <td class="hdr-col c-training" style="width:7%">SCHEDULED</td>
+            <td class="hdr-col c-training" style="width:7%">ON-GOING</td>
+            <td class="hdr-col c-training" style="width:7%">COMPLETED</td>
+            <td class="hdr-col" style="width:6%">PID</td>
+            <td class="hdr-col" style="width:7%">CAMP</td>
+            <td class="hdr-col" style="width:7%"></td>
           </tr>
-          <tr className="bg-gray-100 font-bold text-[9px] text-center">
-            <td className="border border-black px-1 py-1 text-left" style={{ width: '14%' }}>COMPANY</td>
-            {HEADER_COLS.slice(1).map((col, i) => (
-              <td key={i} className={`border border-black px-1 py-1 ${col.group ? groupCellBg[col.group] : ''}`} style={{ width: col.width }}>{col.label}</td>
-            ))}
-          </tr>
-          {companies.map(co => (
-            <tr key={co} className="hover:bg-slate-50 text-center">
-              <td className="border border-black px-1 py-0.5 text-left font-medium">{co}</td>
-              <td className={`border border-black px-1 py-0.5 ${groupCellBg.DVC}`}>{c(companyTotals[co].dvcFrom)}</td>
-              <td className={`border border-black px-1 py-0.5 ${groupCellBg.DVC}`}>{c(companyTotals[co].dvcTo)}</td>
-              <td className={`border border-black px-1 py-0.5 ${groupCellBg.MEDICAL}`}>{c(companyTotals[co].pendingMedical)}</td>
-              <td className={`border border-black px-1 py-0.5 ${groupCellBg.MEDICAL}`}>{c(companyTotals[co].ftw)}</td>
-              <td className={`border border-black px-1 py-0.5 ${groupCellBg.GATEPASS}`}>{c(companyTotals[co].gpUnder)}</td>
-              <td className={`border border-black px-1 py-0.5 ${groupCellBg.GATEPASS}`}>{c(companyTotals[co].validGP)}</td>
-              <td className={`border border-black px-1 py-0.5 ${groupCellBg.TRAINING}`}>{c(companyTotals[co].trainingScheduled)}</td>
-              <td className={`border border-black px-1 py-0.5 ${groupCellBg.TRAINING}`}>{c(companyTotals[co].trainingOnGoing)}</td>
-              <td className={`border border-black px-1 py-0.5 ${groupCellBg.TRAINING}`}>{c(companyTotals[co].trainingDone)}</td>
-              <td className="border border-black px-1 py-0.5">{c(companyTotals[co].pid)}</td>
-              <td className="border border-black px-1 py-0.5">{c(companyTotals[co].camp)}</td>
-              <td className="border border-black px-1 py-0.5"></td>
-            </tr>
-          ))}
-          <tr className="text-center bg-slate-800 text-white font-bold">
-            <td className="border border-white px-1 py-1 text-left">GRAND TOTAL</td>
-            <td className="border border-white px-1 py-1">{grandTotal.dvcFrom || ''}</td>
-            <td className="border border-white px-1 py-1">{grandTotal.dvcTo || ''}</td>
-            <td className="border border-white px-1 py-1">{grandTotal.pendingMedical || ''}</td>
-            <td className="border border-white px-1 py-1">{grandTotal.ftw || ''}</td>
-            <td className="border border-white px-1 py-1">{grandTotal.gpUnder || ''}</td>
-            <td className="border border-white px-1 py-1">{grandTotal.validGP || ''}</td>
-            <td className="border border-white px-1 py-1">{grandTotal.trainingScheduled || ''}</td>
-            <td className="border border-white px-1 py-1">{grandTotal.trainingOnGoing || ''}</td>
-            <td className="border border-white px-1 py-1">{grandTotal.trainingDone || ''}</td>
-            <td className="border border-white px-1 py-1">{grandTotal.pid || ''}</td>
-            <td className="border border-white px-1 py-1">{grandTotal.camp || ''}</td>
-            <td className="border border-white px-1 py-1"></td>
+          ${companyRows}
+          <tr class="grand-total-row">
+            <td class="left">GRAND TOTAL</td>
+            <td>${grandTotal.dvcFrom || ''}</td>
+            <td>${grandTotal.dvcTo || ''}</td>
+            <td>${grandTotal.pendingMedical || ''}</td>
+            <td>${grandTotal.ftw || ''}</td>
+            <td>${grandTotal.gpUnder || ''}</td>
+            <td>${grandTotal.validGP || ''}</td>
+            <td>${grandTotal.trainingScheduled || ''}</td>
+            <td>${grandTotal.trainingOnGoing || ''}</td>
+            <td>${grandTotal.trainingDone || ''}</td>
+            <td>${grandTotal.pid || ''}</td>
+            <td>${grandTotal.camp || ''}</td>
+            <td></td>
           </tr>
         </tbody>
       </table>
+    </div>`;
+}
+
+function buildReportHTML(companyData, displayDate, selectedCompany) {
+  const companies = Object.keys(companyData).sort();
+  const grandHTML = selectedCompany === 'ALL' ? buildGrandTotalHTML(companyData) : '';
+  const companyTablesHTML = companies.map(co => buildCompanyTableHTML(co, companyData[co])).join('');
+
+  return `
+    <div class="wrap">
+      <div class="report-title">GATEPASS DAILY REPORT UPDATE — ${displayDate}</div>
+      ${selectedCompany !== 'ALL' ? `<div class="report-date">Company: ${selectedCompany}</div>` : ''}
+      ${grandHTML}
+      ${companyTablesHTML}
+    </div>`;
+}
+
+// ── Preview Modal ─────────────────────────────────────────────────────────────
+function ReportPreviewModal({ reportHTML, displayDate, onClose }) {
+  const handlePrint = () => {
+    const win = window.open('', '_blank', 'width=1400,height=900');
+    win.document.write(`<!DOCTYPE html><html><head><title>Projection Report ${displayDate}</title><style>${PRINT_CSS}</style></head><body>${reportHTML}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
+    win.document.close();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center overflow-auto py-6 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-2xl z-10">
+          <h2 className="text-lg font-bold">Projection Report Preview</h2>
+          <div className="flex gap-2">
+            <Button onClick={handlePrint} className="gap-2">
+              <Printer className="w-4 h-4" /> Print / Save PDF
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
+          </div>
+        </div>
+        {/* Preview */}
+        <div className="overflow-auto p-4">
+          <style>{PRINT_CSS}</style>
+          <div dangerouslySetInnerHTML={{ __html: reportHTML }} />
+        </div>
+      </div>
     </div>
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── All Companies list ────────────────────────────────────────────────────────
 const ALL_COMPANIES = [
   'GSO QATAR','ITELLIGENT','ANION','SEA QUEEN','LMV E AND I','METAL WORLD','ASMA','FIT',
   'SPRAY CON','EMKAN','ENERTEC','CRYSTAL','MEGATRONICS (GSO)','ENERSERVE (GSO)','ENERTEC (GSO)',
@@ -264,11 +304,11 @@ const ALL_COMPANIES = [
   'ALTHAF (GSO)','ZEAL-IT',
 ];
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProjectionReport() {
-  const today = format(new Date(), 'dd-MM-yyyy');
-
   const [selectedCompany, setSelectedCompany] = useState('ALL');
   const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [showPreview, setShowPreview] = useState(false);
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
@@ -283,11 +323,14 @@ export default function ProjectionReport() {
     return companyData[key] ? { [key]: companyData[key] } : {};
   }, [companyData, selectedCompany]);
 
-  const companies = useMemo(() => Object.keys(filteredCompanyData).sort(), [filteredCompanyData]);
-
   const displayDate = reportDate
     ? format(new Date(reportDate + 'T00:00:00'), 'dd-MM-yyyy')
-    : today;
+    : format(new Date(), 'dd-MM-yyyy');
+
+  const reportHTML = useMemo(
+    () => buildReportHTML(filteredCompanyData, displayDate, selectedCompany),
+    [filteredCompanyData, displayDate, selectedCompany]
+  );
 
   if (isLoading) {
     return (
@@ -298,95 +341,80 @@ export default function ProjectionReport() {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Controls — hidden on print */}
-      <div className="no-print flex flex-wrap items-center justify-between gap-4">
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Daily Projection Report</h2>
-          <p className="text-sm text-muted-foreground mt-1">Active personnel only</p>
+          <p className="text-sm text-muted-foreground mt-1">Active personnel only — gate pass daily status</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Date filter */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Report Date:</label>
-            <Input
-              type="date"
-              value={reportDate}
-              onChange={(e) => setReportDate(e.target.value)}
-              className="w-40"
-            />
-          </div>
-          {/* Company filter */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Company:</label>
-            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-              <SelectTrigger className="w-52">
-                <SelectValue placeholder="All Companies" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Companies</SelectItem>
-                {ALL_COMPANIES.map(c => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={() => window.print()} className="gap-2">
-            <Printer className="w-4 h-4" /> Print / PDF
-          </Button>
-        </div>
+        <Button onClick={() => setShowPreview(true)} className="gap-2">
+          <FileText className="w-4 h-4" /> Preview &amp; Print
+        </Button>
       </div>
 
-      {/* Report content */}
-      <div id="projection-report">
-        {/* Report Title */}
-        <div className="text-center mb-4">
-          <div className="text-base font-bold uppercase tracking-widest text-slate-800">
-            GATEPASS DAILY REPORT UPDATE — {displayDate}
-          </div>
-          {selectedCompany !== 'ALL' && (
-            <div className="text-sm text-slate-600 mt-0.5">Company: {selectedCompany}</div>
-          )}
-        </div>
-
-        {/* Grand Total Summary — only when showing all companies */}
-        {selectedCompany === 'ALL' && <GrandTotalTable companyData={filteredCompanyData} />}
-
-        {/* Per-company tables */}
-        {companies.map(co => (
-          <ReportTable
-            key={co}
-            company={co}
-            rows={filteredCompanyData[co]}
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-4 p-4 bg-card rounded-xl border">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Report Date:</label>
+          <Input
+            type="date"
+            value={reportDate}
+            onChange={(e) => setReportDate(e.target.value)}
+            className="w-40"
           />
-        ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Company:</label>
+          <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="All Companies" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Companies</SelectItem>
+              {ALL_COMPANIES.map(co => (
+                <SelectItem key={co} value={co}>{co}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Print styles */}
-      <style>{`
-        @media print {
-          @page { size: landscape; margin: 10mm; }
-          .no-print { display: none !important; }
-          body { background: white !important; }
-          #projection-report { padding: 0; }
+      {/* Quick summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {(() => {
+          const gt = Object.values(filteredCompanyData).reduce((acc, rows) => {
+            const t = sumRows(rows);
+            for (const k of Object.keys(acc)) acc[k] += t[k];
+            return acc;
+          }, ZERO_ROW());
+          return [
+            { label: 'DVC Submitted (Contractor)', value: gt.dvcFrom, color: 'text-purple-600', bg: 'bg-purple-50' },
+            { label: 'FTW / Approved', value: gt.ftw, color: 'text-blue-600', bg: 'bg-blue-50' },
+            { label: 'Valid Gate Pass', value: gt.validGP, color: 'text-green-600', bg: 'bg-green-50' },
+            { label: 'Training Completed', value: gt.trainingDone, color: 'text-orange-600', bg: 'bg-orange-50' },
+          ].map(card => (
+            <div key={card.label} className={`rounded-xl border p-4 ${card.bg}`}>
+              <div className="text-xs text-slate-500 font-medium">{card.label}</div>
+              <div className={`text-3xl font-bold mt-1 ${card.color}`}>{card.value}</div>
+            </div>
+          ));
+        })()}
+      </div>
 
-          /* Force background colors and borders to print */
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
+      {/* Instruction hint */}
+      <div className="text-sm text-muted-foreground text-center py-4">
+        Click <strong>Preview &amp; Print</strong> to open the full report in a modal, then print or save as PDF (A3 landscape).
+      </div>
 
-          /* Prevent page breaks inside tables */
-          .break-inside-avoid {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-          }
-
-          table { border-collapse: collapse !important; width: 100% !important; }
-          td, th { border: 1px solid black !important; }
-        }
-      `}</style>
+      {/* Modal Preview */}
+      {showPreview && (
+        <ReportPreviewModal
+          reportHTML={reportHTML}
+          displayDate={displayDate}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 }
