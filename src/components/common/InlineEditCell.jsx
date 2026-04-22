@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Check, X, Copy } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDate } from '@/utils/constants';
+import { formatDate, normalizeDate } from '@/utils/constants';
 
 /**
  * Excel-like inline edit cell.
@@ -38,14 +38,17 @@ export default function InlineEditCell({ value, field, empId, type = 'text', opt
 
   const handleClick = () => {
     if (!editMode) return;
-    setDraft(value ?? '');
+    // Normalize date to YYYY-MM-DD for the date input
+    setDraft(type === 'date' ? (normalizeDate(value) ?? '') : (value ?? ''));
     setEditing(true);
   };
 
   const save = useCallback(() => {
     setEditing(false);
-    if (draft !== (value ?? '')) onSave(empId, field, draft || null);
-  }, [draft, value, empId, field, onSave]);
+    const normalized = type === 'date' ? (normalizeDate(draft) ?? draft) : draft;
+    const originalNormalized = type === 'date' ? (normalizeDate(value) ?? value ?? '') : (value ?? '');
+    if (normalized !== originalNormalized) onSave(empId, field, normalized || null);
+  }, [draft, value, empId, field, onSave, type]);
 
   const cancel = () => {
     setEditing(false);
@@ -78,7 +81,7 @@ export default function InlineEditCell({ value, field, empId, type = 'text', opt
   };
 
   const displayValue = value
-    ? (type === 'date' ? formatDate(value) : value)
+    ? (type === 'date' ? formatDate(normalizeDate(value) ?? value) : value)
     : <span className="text-muted-foreground">—</span>;
 
   if (!editing) {
