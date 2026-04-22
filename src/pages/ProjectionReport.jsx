@@ -2,64 +2,17 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Printer, X, FileText } from 'lucide-react';
+import { Printer, X, FileText, Calendar } from 'lucide-react';
 import { computePassStatus } from '@/utils/constants';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 
 // ── Column logic ─────────────────────────────────────────────────────────────
-const getDvcFromContractor = (e) => (e.visa_date_applied ? 1 : 0);
-const getDvcToTR           = (e) => (e.ftw_approval_request_date ? 1 : 0);
-const getPendingMedical    = (e) => (!e.ftw_result || e.ftw_result === 'WAITING TR APPROVAL' || e.ftw_result === 'RE-ASSESS') ? 1 : 0;
-const getFTW               = (e) => (e.ftw_result === 'ACCEPTED' ? 1 : 0);
-const getGPUnderProcess    = (e) => {
-  const status = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
-  const hasIssueDate = !!e.gate_pass_issue_date;
-  const isValid = status === 'VALID RLIC PASS' || status === 'SOON TO EXPIRE';
-  return (hasIssueDate && !isValid) ? 1 : 0;
-};
-const getValidGatepass     = (e) => {
-  const status = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
-  return (status === 'VALID RLIC PASS' || status === 'SOON TO EXPIRE') ? 1 : 0;
-};
-const getTrainingScheduled = (e) => (e.training_status === 'PENDING' ? 1 : 0);
-const getTrainingOnGoing   = (e) => (e.training_date_start && e.training_status !== 'DONE') ? 1 : 0;
-const getTrainingCompleted = (e) => (e.training_status === 'DONE' ? 1 : 0);
-const getPID               = (e) => {
-  const status = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
-  return (status === 'VALID PID PASS' || status === 'SOON TO EXPIRE') ? 1 : 0;
-};
-const getCamp              = (e) => (e.current_location === 'COMO CAMP' ? 1 : 0);
-
-const ZERO_ROW = () => ({ dvcFrom: 0, dvcTo: 0, pendingMedical: 0, ftw: 0, gpUnder: 0, validGP: 0, trainingScheduled: 0, trainingOnGoing: 0, trainingDone: 0, pid: 0, camp: 0 });
-
-function accumulateRow(row, e) {
-  row.dvcFrom           += getDvcFromContractor(e);
-  row.dvcTo             += getDvcToTR(e);
-  row.pendingMedical    += getPendingMedical(e);
-  row.ftw               += getFTW(e);
-  row.gpUnder           += getGPUnderProcess(e);
-  row.validGP           += getValidGatepass(e);
-  row.trainingScheduled += getTrainingScheduled(e);
-  row.trainingOnGoing   += getTrainingOnGoing(e);
-  row.trainingDone      += getTrainingCompleted(e);
-  row.pid               += getPID(e);
-  row.camp              += getCamp(e);
-}
-
-function buildCompanyData(employees) {
-  const companyMap = {};
-  for (const e of employees) {
-    if (e.is_active === false) continue;
-    const company     = (e.company || 'UNKNOWN').toUpperCase();
-    const designation = (e.designation_org_chart || e.position_application || 'UNSPECIFIED').toUpperCase();
-    if (!companyMap[company]) companyMap[company] = {};
-    if (!companyMap[company][designation]) companyMap[company][designation] = ZERO_ROW();
-    accumulateRow(companyMap[company][designation], e);
-  }
-  return companyMap;
-}
+const ZERO_ROW = () => ({
+  dvcFrom: 0, dvcTo: 0, pendingMedical: 0, ftw: 0,
+  gpUnder: 0, validGP: 0, trainingScheduled: 0,
+  trainingOnGoing: 0, trainingDone: 0, pid: 0, camp: 0
+});
 
 function sumRows(rows) {
   const totals = ZERO_ROW();
@@ -67,7 +20,9 @@ function sumRows(rows) {
   return totals;
 }
 
-// ── HTML Report Builder ───────────────────────────────────────────────────────
+function c(v) { return v === 0 ? '' : v; }
+
+// ── CSS for preview / print ───────────────────────────────────────────────────
 const PRINT_CSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body { font-family: Arial, sans-serif; font-size: 10px; background: white; color: #1e293b; }
@@ -99,13 +54,11 @@ const PRINT_CSS = `
   }
 `;
 
-function c(v) { return v === 0 ? '' : v; }
-
+// ── Table HTML builder ────────────────────────────────────────────────────────
 function buildCompanyTableHTML(company, rows, isGrand = false) {
   const designations = Object.keys(rows).sort();
   const totals = sumRows(rows);
   const hdrClass = isGrand ? 'hdr-company grand' : 'hdr-company';
-
   const dataRows = designations.map(d => `
     <tr>
       <td class="left">${d}</td>
@@ -122,7 +75,6 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
       <td>${c(rows[d].camp)}</td>
       <td></td>
     </tr>`).join('');
-
   return `
     <div class="company-block">
       <table>
@@ -134,14 +86,12 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
             <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
             <td colspan="2" class="hdr-group g-gatepass">GATEPASS</td>
             <td colspan="3" class="hdr-group g-training">TRAINING</td>
-            <td class="hdr-group"></td>
-            <td class="hdr-group"></td>
-            <td class="hdr-group"></td>
+            <td class="hdr-group"></td><td class="hdr-group"></td><td class="hdr-group"></td>
           </tr>
           <tr>
             <td class="hdr-col left" style="width:14%">DESIGNATION</td>
-            <td class="hdr-col c-dvc" style="width:8%">DVC SUBMITTED FROM CONTRACTOR</td>
-            <td class="hdr-col c-dvc" style="width:8%">DVC SUBMITTED TO TR</td>
+            <td class="hdr-col c-dvc" style="width:8%">DVC FROM CONTRACTOR</td>
+            <td class="hdr-col c-dvc" style="width:8%">DVC TO TR</td>
             <td class="hdr-col c-medical" style="width:7%">PENDING MEDICAL</td>
             <td class="hdr-col c-medical" style="width:6%">FTW / APPROVED</td>
             <td class="hdr-col c-gatepass" style="width:8%">GP UNDER PROCESS</td>
@@ -182,7 +132,6 @@ function buildGrandTotalHTML(companyData) {
     companyTotals[co] = sumRows(companyData[co]);
     for (const k of Object.keys(grandTotal)) grandTotal[k] += companyTotals[co][k];
   }
-
   const companyRows = companies.map(co => `
     <tr>
       <td class="left">${co}</td>
@@ -199,7 +148,6 @@ function buildGrandTotalHTML(companyData) {
       <td>${c(companyTotals[co].camp)}</td>
       <td></td>
     </tr>`).join('');
-
   return `
     <div class="company-block">
       <table>
@@ -211,14 +159,12 @@ function buildGrandTotalHTML(companyData) {
             <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
             <td colspan="2" class="hdr-group g-gatepass">GATEPASS</td>
             <td colspan="3" class="hdr-group g-training">TRAINING</td>
-            <td class="hdr-group"></td>
-            <td class="hdr-group"></td>
-            <td class="hdr-group"></td>
+            <td class="hdr-group"></td><td class="hdr-group"></td><td class="hdr-group"></td>
           </tr>
           <tr>
             <td class="hdr-col left" style="width:14%">COMPANY</td>
-            <td class="hdr-col c-dvc" style="width:8%">DVC SUBMITTED FROM CONTRACTOR</td>
-            <td class="hdr-col c-dvc" style="width:8%">DVC SUBMITTED TO TR</td>
+            <td class="hdr-col c-dvc" style="width:8%">DVC FROM CONTRACTOR</td>
+            <td class="hdr-col c-dvc" style="width:8%">DVC TO TR</td>
             <td class="hdr-col c-medical" style="width:7%">PENDING MEDICAL</td>
             <td class="hdr-col c-medical" style="width:6%">FTW / APPROVED</td>
             <td class="hdr-col c-gatepass" style="width:8%">GP UNDER PROCESS</td>
@@ -233,18 +179,12 @@ function buildGrandTotalHTML(companyData) {
           ${companyRows}
           <tr class="grand-total-row">
             <td class="left">GRAND TOTAL</td>
-            <td>${grandTotal.dvcFrom || ''}</td>
-            <td>${grandTotal.dvcTo || ''}</td>
-            <td>${grandTotal.pendingMedical || ''}</td>
-            <td>${grandTotal.ftw || ''}</td>
-            <td>${grandTotal.gpUnder || ''}</td>
-            <td>${grandTotal.validGP || ''}</td>
-            <td>${grandTotal.trainingScheduled || ''}</td>
-            <td>${grandTotal.trainingOnGoing || ''}</td>
+            <td>${grandTotal.dvcFrom || ''}</td><td>${grandTotal.dvcTo || ''}</td>
+            <td>${grandTotal.pendingMedical || ''}</td><td>${grandTotal.ftw || ''}</td>
+            <td>${grandTotal.gpUnder || ''}</td><td>${grandTotal.validGP || ''}</td>
+            <td>${grandTotal.trainingScheduled || ''}</td><td>${grandTotal.trainingOnGoing || ''}</td>
             <td>${grandTotal.trainingDone || ''}</td>
-            <td>${grandTotal.pid || ''}</td>
-            <td>${grandTotal.camp || ''}</td>
-            <td></td>
+            <td>${grandTotal.pid || ''}</td><td>${grandTotal.camp || ''}</td><td></td>
           </tr>
         </tbody>
       </table>
@@ -255,7 +195,6 @@ function buildReportHTML(companyData, displayDate, selectedCompany) {
   const companies = Object.keys(companyData).sort();
   const grandHTML = selectedCompany === 'ALL' ? buildGrandTotalHTML(companyData) : '';
   const companyTablesHTML = companies.map(co => buildCompanyTableHTML(co, companyData[co])).join('');
-
   return `
     <div class="wrap">
       <div class="report-title">GATEPASS DAILY REPORT UPDATE — ${displayDate}</div>
@@ -272,21 +211,16 @@ function ReportPreviewModal({ reportHTML, displayDate, onClose }) {
     win.document.write(`<!DOCTYPE html><html><head><title>Projection Report ${displayDate}</title><style>${PRINT_CSS}</style></head><body>${reportHTML}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
     win.document.close();
   };
-
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center overflow-auto py-6 px-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl">
-        {/* Toolbar */}
         <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-2xl z-10">
           <h2 className="text-lg font-bold">Projection Report Preview</h2>
           <div className="flex gap-2">
-            <Button onClick={handlePrint} className="gap-2">
-              <Printer className="w-4 h-4" /> Print / Save PDF
-            </Button>
+            <Button onClick={handlePrint} className="gap-2"><Printer className="w-4 h-4" /> Print / Save PDF</Button>
             <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
           </div>
         </div>
-        {/* Preview */}
         <div className="overflow-auto p-4">
           <style>{PRINT_CSS}</style>
           <div dangerouslySetInnerHTML={{ __html: reportHTML }} />
@@ -296,7 +230,17 @@ function ReportPreviewModal({ reportHTML, displayDate, onClose }) {
   );
 }
 
-// ── All Companies list ────────────────────────────────────────────────────────
+// ── Inline Report Display ─────────────────────────────────────────────────────
+function InlineReport({ reportHTML }) {
+  return (
+    <div className="bg-white rounded-xl border shadow overflow-auto">
+      <style>{PRINT_CSS}</style>
+      <div dangerouslySetInnerHTML={{ __html: reportHTML }} />
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 const ALL_COMPANIES = [
   'GSO QATAR','ITELLIGENT','ANION','SEA QUEEN','LMV E AND I','METAL WORLD','ASMA','FIT',
   'SPRAY CON','EMKAN','ENERTEC','CRYSTAL','MEGATRONICS (GSO)','ENERSERVE (GSO)','ENERTEC (GSO)',
@@ -304,33 +248,57 @@ const ALL_COMPANIES = [
   'ALTHAF (GSO)','ZEAL-IT',
 ];
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProjectionReport() {
   const [selectedCompany, setSelectedCompany] = useState('ALL');
-  const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState('');
   const [showPreview, setShowPreview] = useState(false);
 
-  const { data: employees = [], isLoading } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => base44.entities.Employee.list('-created_date', 2000),
+  // Load all saved snapshots
+  const { data: snapshots = [], isLoading } = useQuery({
+    queryKey: ['projection-snapshots'],
+    queryFn: () => base44.entities.ProjectionSnapshot.list('-snapshot_date', 365),
   });
 
-  const companyData = useMemo(() => buildCompanyData(employees), [employees]);
+  // Available dates for dropdown
+  const availableDates = useMemo(() =>
+    snapshots.map(s => s.snapshot_date).sort((a, b) => b.localeCompare(a)),
+    [snapshots]
+  );
 
+  // Auto-select latest date
+  const displayDate = selectedDate || availableDates[0] || '';
+
+  // Find the snapshot for the selected date
+  const snapshot = useMemo(() =>
+    snapshots.find(s => s.snapshot_date === displayDate),
+    [snapshots, displayDate]
+  );
+
+  // Apply company filter to snapshot data
   const filteredCompanyData = useMemo(() => {
-    if (selectedCompany === 'ALL') return companyData;
+    if (!snapshot?.report_data) return {};
+    if (selectedCompany === 'ALL') return snapshot.report_data;
     const key = selectedCompany.toUpperCase();
-    return companyData[key] ? { [key]: companyData[key] } : {};
-  }, [companyData, selectedCompany]);
+    return snapshot.report_data[key] ? { [key]: snapshot.report_data[key] } : {};
+  }, [snapshot, selectedCompany]);
 
-  const displayDate = reportDate
-    ? format(new Date(reportDate + 'T00:00:00'), 'dd-MM-yyyy')
-    : format(new Date(), 'dd-MM-yyyy');
+  const formattedDisplayDate = displayDate
+    ? format(new Date(displayDate + 'T00:00:00'), 'dd-MM-yyyy')
+    : '—';
 
   const reportHTML = useMemo(
-    () => buildReportHTML(filteredCompanyData, displayDate, selectedCompany),
-    [filteredCompanyData, displayDate, selectedCompany]
+    () => buildReportHTML(filteredCompanyData, formattedDisplayDate, selectedCompany),
+    [filteredCompanyData, formattedDisplayDate, selectedCompany]
   );
+
+  // Quick summary from filtered data
+  const summaryTotals = useMemo(() => {
+    return Object.values(filteredCompanyData).reduce((acc, rows) => {
+      const t = sumRows(rows);
+      for (const k of Object.keys(acc)) acc[k] += t[k];
+      return acc;
+    }, ZERO_ROW());
+  }, [filteredCompanyData]);
 
   if (isLoading) {
     return (
@@ -342,13 +310,15 @@ export default function ProjectionReport() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Daily Projection Report</h2>
-          <p className="text-sm text-muted-foreground mt-1">Active personnel only — gate pass daily status</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Snapshots saved automatically every midnight · {snapshots.length} snapshot{snapshots.length !== 1 ? 's' : ''} available
+          </p>
         </div>
-        <Button onClick={() => setShowPreview(true)} className="gap-2">
+        <Button onClick={() => setShowPreview(true)} disabled={!snapshot} className="gap-2">
           <FileText className="w-4 h-4" /> Preview &amp; Print
         </Button>
       </div>
@@ -356,13 +326,20 @@ export default function ProjectionReport() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4 p-4 bg-card rounded-xl border">
         <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-slate-500" />
           <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Report Date:</label>
-          <Input
-            type="date"
-            value={reportDate}
-            onChange={(e) => setReportDate(e.target.value)}
-            className="w-40"
-          />
+          <Select value={displayDate} onValueChange={setSelectedDate}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Select date…" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableDates.map(d => (
+                <SelectItem key={d} value={d}>
+                  {format(new Date(d + 'T00:00:00'), 'dd MMM yyyy')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Company:</label>
@@ -378,40 +355,46 @@ export default function ProjectionReport() {
             </SelectContent>
           </Select>
         </div>
+        {snapshot && (
+          <div className="ml-auto text-sm text-muted-foreground">
+            Personnel: <strong>{snapshot.total_personnel}</strong>
+          </div>
+        )}
       </div>
 
-      {/* Quick summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {(() => {
-          const gt = Object.values(filteredCompanyData).reduce((acc, rows) => {
-            const t = sumRows(rows);
-            for (const k of Object.keys(acc)) acc[k] += t[k];
-            return acc;
-          }, ZERO_ROW());
-          return [
-            { label: 'DVC Submitted (Contractor)', value: gt.dvcFrom, color: 'text-purple-600', bg: 'bg-purple-50' },
-            { label: 'FTW / Approved', value: gt.ftw, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: 'Valid Gate Pass', value: gt.validGP, color: 'text-green-600', bg: 'bg-green-50' },
-            { label: 'Training Completed', value: gt.trainingDone, color: 'text-orange-600', bg: 'bg-orange-50' },
+      {/* Summary cards */}
+      {snapshot && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { label: 'DVC Submitted (Contractor)', value: summaryTotals.dvcFrom, color: 'text-purple-600', bg: 'bg-purple-50' },
+            { label: 'FTW / Approved', value: summaryTotals.ftw, color: 'text-blue-600', bg: 'bg-blue-50' },
+            { label: 'Valid Gate Pass', value: summaryTotals.validGP, color: 'text-green-600', bg: 'bg-green-50' },
+            { label: 'Training Completed', value: summaryTotals.trainingDone, color: 'text-orange-600', bg: 'bg-orange-50' },
           ].map(card => (
             <div key={card.label} className={`rounded-xl border p-4 ${card.bg}`}>
               <div className="text-xs text-slate-500 font-medium">{card.label}</div>
               <div className={`text-3xl font-bold mt-1 ${card.color}`}>{card.value}</div>
             </div>
-          ));
-        })()}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Instruction hint */}
-      <div className="text-sm text-muted-foreground text-center py-4">
-        Click <strong>Preview &amp; Print</strong> to open the full report in a modal, then print or save as PDF (A3 landscape).
-      </div>
+      {/* Inline report tables */}
+      {snapshot ? (
+        <InlineReport reportHTML={reportHTML} />
+      ) : (
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+          <Calendar className="w-10 h-10 opacity-30" />
+          <p className="font-medium">No snapshots saved yet.</p>
+          <p className="text-sm">The first snapshot will be saved automatically tonight at midnight.</p>
+        </div>
+      )}
 
-      {/* Modal Preview */}
-      {showPreview && (
+      {/* Print Modal */}
+      {showPreview && snapshot && (
         <ReportPreviewModal
           reportHTML={reportHTML}
-          displayDate={displayDate}
+          displayDate={formattedDisplayDate}
           onClose={() => setShowPreview(false)}
         />
       )}
