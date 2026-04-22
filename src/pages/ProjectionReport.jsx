@@ -53,22 +53,31 @@ function getEmployeeCounts(emp) {
   }
 
   // Training
-  // Only DONE and PENDING are meaningful statuses (NOT REQUIRED is excluded from counts).
-  // PENDING + training_date_start set (started but not done) = On-going
-  // PENDING + no training_date_start (not yet started)       = Scheduled
-  // DONE                                                      = Completed
   const training = (emp.training_status || '').trim().toUpperCase();
   if (training === 'DONE') {
     counts.trainingDone = 1;
-  } else if (training === 'PENDING') {
-    const startDate = emp.training_date_start || emp.training_date || '';
-    if (startDate) {
+  } else if (training === 'NOT REQUIRED') {
+    // NOT REQUIRED — excluded from all training counts
+  } else {
+    // PENDING or blank/null — determine Scheduled vs On-going by dates
+    const startDate = emp.training_date_start || emp.training_date;
+    const endDate = emp.training_date_end;
+    if (endDate) {
+      // Has an end date set → treat as on-going
       counts.trainingOnGoing = 1;
+    } else if (startDate) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const start = new Date(startDate.split('T')[0] + 'T00:00:00');
+      if (start <= today) {
+        counts.trainingOnGoing = 1;
+      } else {
+        counts.trainingScheduled = 1;
+      }
     } else {
+      // No dates at all — Scheduled
       counts.trainingScheduled = 1;
     }
   }
-  // NOT REQUIRED and blank → not counted in any training column
 
   // PID — count if they have a PID number or a valid/soon status
   const pidStatus = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
