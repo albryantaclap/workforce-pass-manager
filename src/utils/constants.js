@@ -65,9 +65,15 @@ export function formatDate(dateStr) {
 
 export function daysUntil(dateStr) {
   if (!dateStr) return null;
-  const d = new Date(dateStr);
-  if (isNaN(d)) return null;
-  return Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
+  // Parse YYYY-MM-DD directly to avoid timezone shifting
+  const parts = String(dateStr).split('T')[0].split('-');
+  if (parts.length !== 3) return null;
+  const [yyyy, mm, dd] = parts.map(Number);
+  if (!yyyy || !mm || !dd) return null;
+  const d = new Date(yyyy, mm - 1, dd); // Local midnight
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((d - today) / (1000 * 60 * 60 * 24));
 }
 
 // Built-in status values that are date-derivable — these should NOT be used as custom overrides

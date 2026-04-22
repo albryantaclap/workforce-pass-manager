@@ -63,9 +63,9 @@ export default function GatepassTracker() {
     const effectiveRlic = getEffectiveRlic(e);
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(effectiveRlic);
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
-    const receivedDate = e.gate_pass_received_date || '';
-    const matchesReceivedFrom = !receivedFrom || receivedDate >= receivedFrom;
-    const matchesReceivedTo = !receivedTo || receivedDate <= receivedTo;
+    const receivedDate = e.gate_pass_received_date || null;
+    const matchesReceivedFrom = !receivedFrom || (receivedDate && receivedDate >= receivedFrom);
+    const matchesReceivedTo = !receivedTo || (receivedDate && receivedDate <= receivedTo);
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesReceivedFrom && matchesReceivedTo;
   }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customRlicStatuses, receivedFrom, receivedTo]);
 

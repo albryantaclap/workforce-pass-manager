@@ -63,9 +63,9 @@ export default function ProjectIDTracker() {
     const effectivePid = getEffectivePid(e);
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(effectivePid);
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
-    const issueDate = e.pid_issue_date || '';
-    const matchesIssueFrom = !pidIssueFrom || issueDate >= pidIssueFrom;
-    const matchesIssueTo = !pidIssueTo || issueDate <= pidIssueTo;
+    const issueDate = e.pid_issue_date || null;
+    const matchesIssueFrom = !pidIssueFrom || (issueDate && issueDate >= pidIssueFrom);
+    const matchesIssueTo = !pidIssueTo || (issueDate && issueDate <= pidIssueTo);
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo;
   }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customPidStatuses, pidIssueFrom, pidIssueTo]);
 

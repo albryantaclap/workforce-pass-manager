@@ -90,9 +90,9 @@ export default function MedicalTracker() {
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
     const matchesResult = resultFilter === 'all' || e.ftw_result === resultFilter;
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
-    const approvedDate = e.ftw_approved_date || '';
-    const matchesTrFrom = !trApprovedFrom || approvedDate >= trApprovedFrom;
-    const matchesTrTo = !trApprovedTo || approvedDate <= trApprovedTo;
+    const approvedDate = e.ftw_approved_date || null;
+    const matchesTrFrom = !trApprovedFrom || (approvedDate && approvedDate >= trApprovedFrom);
+    const matchesTrTo = !trApprovedTo || (approvedDate && approvedDate <= trApprovedTo);
     return matchesSearch && matchesCompany && matchesPosition && matchesResult && matchesDepartment && matchesTrFrom && matchesTrTo;
   }), [employees, search, companyFilter, positionFilter, resultFilter, departmentFilter, trApprovedFrom, trApprovedTo]);
 

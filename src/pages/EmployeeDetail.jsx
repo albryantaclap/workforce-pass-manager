@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Pencil, User, Briefcase, FileText, Shield } from 'lucide-react';
 import StatusBadge from '../components/common/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, parseISO } from 'date-fns';
+import { formatDate } from '@/utils/constants';
 
 function InfoRow({ label, value }) {
   return (
@@ -16,11 +16,6 @@ function InfoRow({ label, value }) {
       <p className="text-sm font-medium mt-0.5">{value || '—'}</p>
     </div>
   );
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '—';
-  return format(parseISO(dateStr), 'dd MMM yyyy');
 }
 
 export default function EmployeeDetail() {
