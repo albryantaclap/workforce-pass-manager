@@ -84,6 +84,7 @@ export default function Dashboard() {
 
   const filtered = useMemo(() => {
     return employees.filter(e => {
+      if (e.is_active === false) return false;
       const empCompany = (e.company || '').trim().toUpperCase();
       const matchCo = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
       const matchPos = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
@@ -302,7 +303,7 @@ export default function Dashboard() {
         </div>
         {hasFilter && (
           <p className="text-xs text-muted-foreground mt-2">
-            Showing stats for <strong>{total}</strong> of <strong>{employees.length}</strong> personnel
+            Showing stats for <strong>{total}</strong> of <strong>{employees.filter(e => e.is_active !== false).length}</strong> active personnel
           </p>
         )}
       </Card>
