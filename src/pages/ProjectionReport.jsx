@@ -369,6 +369,22 @@ export default function ProjectionReport() {
           .no-print { display: none !important; }
           body { background: white !important; }
           #projection-report { padding: 0; }
+
+          /* Force background colors and borders to print */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+
+          /* Prevent page breaks inside tables */
+          .break-inside-avoid {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          table { border-collapse: collapse !important; width: 100% !important; }
+          td, th { border: 1px solid black !important; }
         }
       `}</style>
     </div>
