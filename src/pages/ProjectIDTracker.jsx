@@ -55,6 +55,7 @@ export default function ProjectIDTracker() {
   const positions = useMemo(() => [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p })), [employees]);
 
   const filtered = useMemo(() => employees.filter(e => {
+    if (e.is_active === false) return false;
     const matchesSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.pid?.includes(search) || e.qid_no?.includes(search);
     const empCompany = (e.company || '').trim().toUpperCase();
     const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
