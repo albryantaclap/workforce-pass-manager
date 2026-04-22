@@ -2,16 +2,17 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Printer, X, FileText, Calendar } from 'lucide-react';
+import { Printer, X, FileText, RefreshCw } from 'lucide-react';
 import { computePassStatus } from '@/utils/constants';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// ── Column logic ─────────────────────────────────────────────────────────────
+// ── Column structure ──────────────────────────────────────────────────────────
 const ZERO_ROW = () => ({
-  dvcFrom: 0, dvcTo: 0, pendingMedical: 0, ftw: 0,
-  gpUnder: 0, validGP: 0, trainingScheduled: 0,
-  trainingOnGoing: 0, trainingDone: 0, pid: 0, camp: 0
+  pendingMedical: 0, ftw: 0,
+  gpUnder: 0, validGP: 0,
+  trainingScheduled: 0, trainingOnGoing: 0, trainingDone: 0,
+  pid: 0, camp: 0
 });
 
 function sumRows(rows) {
@@ -21,6 +22,86 @@ function sumRows(rows) {
 }
 
 function c(v) { return v === 0 ? '' : v; }
+
+// ── Business logic: compute counts per employee ───────────────────────────────
+const BUILT_IN_RLIC = new Set(['VALID RLIC PASS', 'EXPIRED RLIC PASS', 'SOON TO EXPIRE', 'NO RLIC PASS']);
+const BUILT_IN_PID  = new Set(['VALID PID PASS',  'EXPIRED PID PASS',  'SOON TO EXPIRE', 'NO PID PASS']);
+
+function getEmployeeCounts(emp) {
+  const counts = ZERO_ROW();
+
+  // Medical
+  const ftw = (emp.ftw_result || '').trim().toUpperCase();
+  if (ftw === 'ACCEPTED') {
+    counts.ftw = 1;
+  } else {
+    // Everything not accepted = pending (waiting, re-assess, rejected, blank)
+    counts.pendingMedical = 1;
+  }
+
+  // Gatepass
+  // Custom statuses (not built-in) like "UNDER PROCESS" → GP Under Process
+  const rlicStatus = (emp.rlic_status || '').trim().toUpperCase();
+  if (rlicStatus && !BUILT_IN_RLIC.has(rlicStatus)) {
+    counts.gpUnder = 1;
+  } else {
+    // Derive from expiry date
+    const effectiveRlic = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
+    if (effectiveRlic === 'VALID RLIC PASS' || effectiveRlic === 'SOON TO EXPIRE') {
+      counts.validGP = 1;
+    }
+  }
+
+  // Training
+  const training = (emp.training_status || '').trim().toUpperCase();
+  if (training === 'DONE') {
+    counts.trainingDone = 1;
+  } else if (training === 'PENDING') {
+    // Scheduled = has a future start date or no start yet
+    // On-going = training_date_start is set and in the past, but not done
+    const startDate = emp.training_date_start || emp.training_date;
+    if (startDate) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const start = new Date(startDate + 'T00:00:00');
+      if (start <= today) {
+        counts.trainingOnGoing = 1;
+      } else {
+        counts.trainingScheduled = 1;
+      }
+    } else {
+      counts.trainingScheduled = 1;
+    }
+  }
+
+  // PID — count if they have a PID number or a valid/soon status
+  const pidStatus = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
+  if (emp.pid || (pidStatus !== 'NO PID PASS' && pidStatus !== 'EXPIRED PID PASS')) {
+    counts.pid = 1;
+  }
+
+  // Camp location
+  if ((emp.current_location || '').trim().toUpperCase() === 'COMO CAMP') {
+    counts.camp = 1;
+  }
+
+  return counts;
+}
+
+// ── Build company data structure from live employees ─────────────────────────
+function buildCompanyData(employees, companyFilter) {
+  const companyData = {};
+  for (const emp of employees) {
+    if (emp.is_active === false) continue;
+    const co = (emp.company || 'UNKNOWN').trim().toUpperCase();
+    if (companyFilter !== 'ALL' && co !== companyFilter.toUpperCase()) continue;
+    const desig = (emp.designation_org_chart || emp.position_application || 'UNSPECIFIED').trim().toUpperCase();
+    if (!companyData[co]) companyData[co] = {};
+    if (!companyData[co][desig]) companyData[co][desig] = ZERO_ROW();
+    const counts = getEmployeeCounts(emp);
+    for (const k of Object.keys(counts)) companyData[co][desig][k] += counts[k];
+  }
+  return companyData;
+}
 
 // ── CSS for preview / print ───────────────────────────────────────────────────
 const PRINT_CSS = `
@@ -36,15 +117,17 @@ const PRINT_CSS = `
   .hdr-company { background: #fde047; font-weight: 700; font-size: 11px; text-align: center; letter-spacing: 2px; padding: 4px; }
   .hdr-company.grand { background: #1e293b; color: white; }
   .hdr-group { font-weight: 700; font-size: 8px; text-align: center; padding: 2px; }
-  .g-dvc      { background: #e9d5ff; }
   .g-medical  { background: #bfdbfe; }
   .g-gatepass { background: #bbf7d0; }
   .g-training { background: #fed7aa; }
+  .g-pid      { background: #e9d5ff; }
+  .g-camp     { background: #fce7f3; }
   .hdr-col { background: #f1f5f9; font-weight: 700; font-size: 8px; text-align: center; padding: 3px 2px; }
-  .c-dvc      { background: #f5f3ff; }
   .c-medical  { background: #eff6ff; }
   .c-gatepass { background: #f0fdf4; }
   .c-training { background: #fff7ed; }
+  .c-pid      { background: #faf5ff; }
+  .c-camp     { background: #fdf2f8; }
   .row-total { background: #fef9c3; font-weight: 700; }
   .grand-total-row { background: #1e293b; color: white; font-weight: 700; }
   @media print {
@@ -62,8 +145,6 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
   const dataRows = designations.map(d => `
     <tr>
       <td class="left">${d}</td>
-      <td class="c-dvc">${c(rows[d].dvcFrom)}</td>
-      <td class="c-dvc">${c(rows[d].dvcTo)}</td>
       <td class="c-medical">${c(rows[d].pendingMedical)}</td>
       <td class="c-medical">${c(rows[d].ftw)}</td>
       <td class="c-gatepass">${c(rows[d].gpUnder)}</td>
@@ -71,41 +152,37 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
       <td class="c-training">${c(rows[d].trainingScheduled)}</td>
       <td class="c-training">${c(rows[d].trainingOnGoing)}</td>
       <td class="c-training">${c(rows[d].trainingDone)}</td>
-      <td>${c(rows[d].pid)}</td>
-      <td>${c(rows[d].camp)}</td>
+      <td class="c-pid">${c(rows[d].pid)}</td>
+      <td class="c-camp">${c(rows[d].camp)}</td>
     </tr>`).join('');
   return `
     <div class="company-block">
       <table>
         <tbody>
-          <tr><td colspan="12" class="${hdrClass}">${company}</td></tr>
+          <tr><td colspan="10" class="${hdrClass}">${company}</td></tr>
           <tr>
             <td class="hdr-group"></td>
-            <td colspan="2" class="hdr-group g-dvc">DVC</td>
             <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
             <td colspan="2" class="hdr-group g-gatepass">GATEPASS</td>
             <td colspan="3" class="hdr-group g-training">TRAINING</td>
-            <td class="hdr-group"></td><td class="hdr-group"></td>
+            <td class="hdr-group g-pid">PID</td>
+            <td class="hdr-group g-camp">CAMP</td>
           </tr>
           <tr>
-            <td class="hdr-col left" style="width:16%">DESIGNATION</td>
-            <td class="hdr-col c-dvc" style="width:9%">DVC FROM CONTRACTOR</td>
-            <td class="hdr-col c-dvc" style="width:9%">DVC TO TR</td>
-            <td class="hdr-col c-medical" style="width:8%">PENDING MEDICAL</td>
-            <td class="hdr-col c-medical" style="width:7%">FTW / APPROVED</td>
+            <td class="hdr-col left" style="width:18%">DESIGNATION</td>
+            <td class="hdr-col c-medical" style="width:9%">PENDING MEDICAL</td>
+            <td class="hdr-col c-medical" style="width:9%">FTW / APPROVED</td>
             <td class="hdr-col c-gatepass" style="width:9%">GP UNDER PROCESS</td>
             <td class="hdr-col c-gatepass" style="width:9%">VALID GATEPASS</td>
-            <td class="hdr-col c-training" style="width:8%">SCHEDULED</td>
-            <td class="hdr-col c-training" style="width:8%">ON-GOING</td>
-            <td class="hdr-col c-training" style="width:8%">COMPLETED</td>
-            <td class="hdr-col" style="width:7%">PID</td>
-            <td class="hdr-col" style="width:7%">CAMP</td>
+            <td class="hdr-col c-training" style="width:9%">SCHEDULED</td>
+            <td class="hdr-col c-training" style="width:9%">ON-GOING</td>
+            <td class="hdr-col c-training" style="width:9%">COMPLETED</td>
+            <td class="hdr-col c-pid" style="width:9%">PID</td>
+            <td class="hdr-col c-camp" style="width:9%">CAMP</td>
           </tr>
           ${dataRows}
           <tr class="row-total">
             <td class="left">TOTAL</td>
-            <td class="c-dvc">${c(totals.dvcFrom)}</td>
-            <td class="c-dvc">${c(totals.dvcTo)}</td>
             <td class="c-medical">${c(totals.pendingMedical)}</td>
             <td class="c-medical">${c(totals.ftw)}</td>
             <td class="c-gatepass">${c(totals.gpUnder)}</td>
@@ -113,8 +190,8 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
             <td class="c-training">${c(totals.trainingScheduled)}</td>
             <td class="c-training">${c(totals.trainingOnGoing)}</td>
             <td class="c-training">${c(totals.trainingDone)}</td>
-            <td>${c(totals.pid)}</td>
-            <td>${c(totals.camp)}</td>
+            <td class="c-pid">${c(totals.pid)}</td>
+            <td class="c-camp">${c(totals.camp)}</td>
           </tr>
         </tbody>
       </table>
@@ -132,8 +209,6 @@ function buildGrandTotalHTML(companyData) {
   const companyRows = companies.map(co => `
     <tr>
       <td class="left">${co}</td>
-      <td class="c-dvc">${c(companyTotals[co].dvcFrom)}</td>
-      <td class="c-dvc">${c(companyTotals[co].dvcTo)}</td>
       <td class="c-medical">${c(companyTotals[co].pendingMedical)}</td>
       <td class="c-medical">${c(companyTotals[co].ftw)}</td>
       <td class="c-gatepass">${c(companyTotals[co].gpUnder)}</td>
@@ -141,40 +216,37 @@ function buildGrandTotalHTML(companyData) {
       <td class="c-training">${c(companyTotals[co].trainingScheduled)}</td>
       <td class="c-training">${c(companyTotals[co].trainingOnGoing)}</td>
       <td class="c-training">${c(companyTotals[co].trainingDone)}</td>
-      <td>${c(companyTotals[co].pid)}</td>
-      <td>${c(companyTotals[co].camp)}</td>
+      <td class="c-pid">${c(companyTotals[co].pid)}</td>
+      <td class="c-camp">${c(companyTotals[co].camp)}</td>
     </tr>`).join('');
   return `
     <div class="company-block">
       <table>
         <tbody>
-          <tr><td colspan="12" class="hdr-company grand">GRAND TOTAL — ALL COMPANIES</td></tr>
+          <tr><td colspan="10" class="hdr-company grand">GRAND TOTAL — ALL COMPANIES</td></tr>
           <tr>
             <td class="hdr-group"></td>
-            <td colspan="2" class="hdr-group g-dvc">DVC</td>
             <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
             <td colspan="2" class="hdr-group g-gatepass">GATEPASS</td>
             <td colspan="3" class="hdr-group g-training">TRAINING</td>
-            <td class="hdr-group"></td><td class="hdr-group"></td>
+            <td class="hdr-group g-pid">PID</td>
+            <td class="hdr-group g-camp">CAMP</td>
           </tr>
           <tr>
-            <td class="hdr-col left" style="width:16%">COMPANY</td>
-            <td class="hdr-col c-dvc" style="width:9%">DVC FROM CONTRACTOR</td>
-            <td class="hdr-col c-dvc" style="width:9%">DVC TO TR</td>
-            <td class="hdr-col c-medical" style="width:8%">PENDING MEDICAL</td>
-            <td class="hdr-col c-medical" style="width:7%">FTW / APPROVED</td>
+            <td class="hdr-col left" style="width:18%">COMPANY</td>
+            <td class="hdr-col c-medical" style="width:9%">PENDING MEDICAL</td>
+            <td class="hdr-col c-medical" style="width:9%">FTW / APPROVED</td>
             <td class="hdr-col c-gatepass" style="width:9%">GP UNDER PROCESS</td>
             <td class="hdr-col c-gatepass" style="width:9%">VALID GATEPASS</td>
-            <td class="hdr-col c-training" style="width:8%">SCHEDULED</td>
-            <td class="hdr-col c-training" style="width:8%">ON-GOING</td>
-            <td class="hdr-col c-training" style="width:8%">COMPLETED</td>
-            <td class="hdr-col" style="width:7%">PID</td>
-            <td class="hdr-col" style="width:7%">CAMP</td>
+            <td class="hdr-col c-training" style="width:9%">SCHEDULED</td>
+            <td class="hdr-col c-training" style="width:9%">ON-GOING</td>
+            <td class="hdr-col c-training" style="width:9%">COMPLETED</td>
+            <td class="hdr-col c-pid" style="width:9%">PID</td>
+            <td class="hdr-col c-camp" style="width:9%">CAMP</td>
           </tr>
           ${companyRows}
           <tr class="grand-total-row">
             <td class="left">GRAND TOTAL</td>
-            <td>${grandTotal.dvcFrom || ''}</td><td>${grandTotal.dvcTo || ''}</td>
             <td>${grandTotal.pendingMedical || ''}</td><td>${grandTotal.ftw || ''}</td>
             <td>${grandTotal.gpUnder || ''}</td><td>${grandTotal.validGP || ''}</td>
             <td>${grandTotal.trainingScheduled || ''}</td><td>${grandTotal.trainingOnGoing || ''}</td>
@@ -225,7 +297,6 @@ function ReportPreviewModal({ reportHTML, displayDate, onClose }) {
   );
 }
 
-// ── Inline Report Display ─────────────────────────────────────────────────────
 function InlineReport({ reportHTML }) {
   return (
     <div className="bg-white rounded-xl border shadow overflow-auto">
@@ -235,7 +306,7 @@ function InlineReport({ reportHTML }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Companies list ────────────────────────────────────────────────────────────
 const ALL_COMPANIES = [
   'GSO QATAR','ITELLIGENT','ANION','SEA QUEEN','LMV E AND I','METAL WORLD','ASMA','FIT',
   'SPRAY CON','EMKAN','ENERTEC','CRYSTAL','MEGATRONICS (GSO)','ENERSERVE (GSO)','ENERTEC (GSO)',
@@ -243,57 +314,40 @@ const ALL_COMPANIES = [
   'ALTHAF (GSO)','ZEAL-IT',
 ];
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProjectionReport() {
   const [selectedCompany, setSelectedCompany] = useState('ALL');
-  const [selectedDate, setSelectedDate] = useState('');
   const [showPreview, setShowPreview] = useState(false);
 
-  // Load all saved snapshots
-  const { data: snapshots = [], isLoading } = useQuery({
-    queryKey: ['projection-snapshots'],
-    queryFn: () => base44.entities.ProjectionSnapshot.list('-snapshot_date', 365),
+  // Load all active employees from masterlist
+  const { data: employees = [], isLoading, refetch, isFetching } = useQuery({
+    queryKey: ['employees-projection'],
+    queryFn: () => base44.entities.Employee.list('-updated_date', 2000),
   });
 
-  // Available dates for dropdown
-  const availableDates = useMemo(() =>
-    snapshots.map(s => s.snapshot_date).sort((a, b) => b.localeCompare(a)),
-    [snapshots]
+  const today = format(new Date(), 'dd-MM-yyyy');
+
+  // Compute company data from live employee records
+  const companyData = useMemo(
+    () => buildCompanyData(employees, selectedCompany),
+    [employees, selectedCompany]
   );
-
-  // Auto-select latest date
-  const displayDate = selectedDate || availableDates[0] || '';
-
-  // Find the snapshot for the selected date
-  const snapshot = useMemo(() =>
-    snapshots.find(s => s.snapshot_date === displayDate),
-    [snapshots, displayDate]
-  );
-
-  // Apply company filter to snapshot data
-  const filteredCompanyData = useMemo(() => {
-    if (!snapshot?.report_data) return {};
-    if (selectedCompany === 'ALL') return snapshot.report_data;
-    const key = selectedCompany.toUpperCase();
-    return snapshot.report_data[key] ? { [key]: snapshot.report_data[key] } : {};
-  }, [snapshot, selectedCompany]);
-
-  const formattedDisplayDate = displayDate
-    ? format(new Date(displayDate + 'T00:00:00'), 'dd-MM-yyyy')
-    : '—';
 
   const reportHTML = useMemo(
-    () => buildReportHTML(filteredCompanyData, formattedDisplayDate, selectedCompany),
-    [filteredCompanyData, formattedDisplayDate, selectedCompany]
+    () => buildReportHTML(companyData, today, selectedCompany),
+    [companyData, today, selectedCompany]
   );
 
-  // Quick summary from filtered data
+  // Summary totals across all filtered data
   const summaryTotals = useMemo(() => {
-    return Object.values(filteredCompanyData).reduce((acc, rows) => {
+    return Object.values(companyData).reduce((acc, rows) => {
       const t = sumRows(rows);
       for (const k of Object.keys(acc)) acc[k] += t[k];
       return acc;
     }, ZERO_ROW());
-  }, [filteredCompanyData]);
+  }, [companyData]);
+
+  const activeCount = employees.filter(e => e.is_active !== false).length;
 
   if (isLoading) {
     return (
@@ -310,32 +364,21 @@ export default function ProjectionReport() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Daily Projection Report</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Snapshots saved automatically every midnight · {snapshots.length} snapshot{snapshots.length !== 1 ? 's' : ''} available
+            Live data from masterlist · {activeCount} active personnel
           </p>
         </div>
-        <Button onClick={() => setShowPreview(true)} disabled={!snapshot} className="gap-2">
-          <FileText className="w-4 h-4" /> Preview &amp; Print
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
+          <Button onClick={() => setShowPreview(true)} disabled={employees.length === 0} className="gap-2">
+            <FileText className="w-4 h-4" /> Preview &amp; Print
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4 p-4 bg-card rounded-xl border">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-slate-500" />
-          <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Report Date:</label>
-          <Select value={displayDate} onValueChange={setSelectedDate}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Select date…" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableDates.map(d => (
-                <SelectItem key={d} value={d}>
-                  {format(new Date(d + 'T00:00:00'), 'dd MMM yyyy')}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Company:</label>
           <Select value={selectedCompany} onValueChange={setSelectedCompany}>
@@ -350,46 +393,42 @@ export default function ProjectionReport() {
             </SelectContent>
           </Select>
         </div>
-        {snapshot && (
-          <div className="ml-auto text-sm text-muted-foreground">
-            Personnel: <strong>{snapshot.total_personnel}</strong>
-          </div>
-        )}
+        <div className="ml-auto text-sm text-muted-foreground">
+          Report date: <strong>{today}</strong>
+        </div>
       </div>
 
       {/* Summary cards */}
-      {snapshot && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { label: 'DVC Submitted (Contractor)', value: summaryTotals.dvcFrom, color: 'text-purple-600', bg: 'bg-purple-50' },
-            { label: 'FTW / Approved', value: summaryTotals.ftw, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: 'Valid Gate Pass', value: summaryTotals.validGP, color: 'text-green-600', bg: 'bg-green-50' },
-            { label: 'Training Completed', value: summaryTotals.trainingDone, color: 'text-orange-600', bg: 'bg-orange-50' },
-          ].map(card => (
-            <div key={card.label} className={`rounded-xl border p-4 ${card.bg}`}>
-              <div className="text-xs text-slate-500 font-medium">{card.label}</div>
-              <div className={`text-3xl font-bold mt-1 ${card.color}`}>{card.value}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        {[
+          { label: 'Pending Medical', value: summaryTotals.pendingMedical, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'FTW / Approved', value: summaryTotals.ftw, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'GP Under Process', value: summaryTotals.gpUnder, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Valid Gate Pass', value: summaryTotals.validGP, color: 'text-green-600', bg: 'bg-green-50' },
+          { label: 'Training Completed', value: summaryTotals.trainingDone, color: 'text-orange-600', bg: 'bg-orange-50' },
+        ].map(card => (
+          <div key={card.label} className={`rounded-xl border p-4 ${card.bg}`}>
+            <div className="text-xs text-slate-500 font-medium">{card.label}</div>
+            <div className={`text-3xl font-bold mt-1 ${card.color}`}>{card.value}</div>
+          </div>
+        ))}
+      </div>
 
       {/* Inline report tables */}
-      {snapshot ? (
+      {employees.length > 0 ? (
         <InlineReport reportHTML={reportHTML} />
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
-          <Calendar className="w-10 h-10 opacity-30" />
-          <p className="font-medium">No snapshots saved yet.</p>
-          <p className="text-sm">The first snapshot will be saved automatically tonight at midnight.</p>
+          <FileText className="w-10 h-10 opacity-30" />
+          <p className="font-medium">No employee data found.</p>
         </div>
       )}
 
       {/* Print Modal */}
-      {showPreview && snapshot && (
+      {showPreview && (
         <ReportPreviewModal
           reportHTML={reportHTML}
-          displayDate={formattedDisplayDate}
+          displayDate={today}
           onClose={() => setShowPreview(false)}
         />
       )}
