@@ -103,7 +103,7 @@ const PRINT_CSS = `
   table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
   td { border: 1px solid black; padding: 4px 5px; text-align: center; }
   td.left { text-align: left; }
-  td.num { font-size: 20px; font-weight: 700; line-height: 1.1; padding: 4px 3px; }
+  td.num { font-size: 17px; font-weight: 700; line-height: 1.1; padding: 4px 3px; }
   .hdr-company { background: #fde047; font-weight: 700; font-size: 15px; text-align: center; letter-spacing: 2px; padding: 6px; }
   .hdr-company.grand { background: #1e293b; color: white; }
   .hdr-group { font-weight: 700; font-size: 10px; text-align: center; padding: 3px; }
