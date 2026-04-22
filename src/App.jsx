@@ -19,6 +19,7 @@ import MedicalImport from './pages/MedicalImport';
 import MasterImport from './pages/MasterImport';
 import GatepassImport from './pages/GatepassImport';
 import InactivePersonnel from './pages/InactivePersonnel';
+import ProjectionReport from './pages/ProjectionReport';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
@@ -66,6 +67,7 @@ const AuthenticatedApp = () => {
         <Route path="/master-list/import" element={<MasterImport />} />
         <Route path="/gatepass/import" element={<GatepassImport />} />
         <Route path="/inactive" element={<InactivePersonnel />} />
+        <Route path="/projection" element={<ProjectionReport />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
