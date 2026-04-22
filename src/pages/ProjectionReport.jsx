@@ -56,25 +56,19 @@ function getEmployeeCounts(emp) {
   const training = (emp.training_status || '').trim().toUpperCase();
   if (training === 'DONE') {
     counts.trainingDone = 1;
-  } else if (training === 'NOT REQUIRED') {
-    // NOT REQUIRED — excluded from all training counts
-  } else {
-    // PENDING or blank/null — determine Scheduled vs On-going by dates
+  } else if (training === 'PENDING') {
+    // Scheduled = has a future start date or no start yet
+    // On-going = training_date_start is set and in the past, but not done
     const startDate = emp.training_date_start || emp.training_date;
-    const endDate = emp.training_date_end;
-    if (endDate) {
-      // Has an end date set → treat as on-going
-      counts.trainingOnGoing = 1;
-    } else if (startDate) {
-      const today = new Date(); today.setHours(0, 0, 0, 0);
-      const start = new Date(startDate.split('T')[0] + 'T00:00:00');
+    if (startDate) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const start = new Date(startDate + 'T00:00:00');
       if (start <= today) {
         counts.trainingOnGoing = 1;
       } else {
         counts.trainingScheduled = 1;
       }
     } else {
-      // No dates at all — Scheduled
       counts.trainingScheduled = 1;
     }
   }
@@ -204,16 +198,8 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
     </div>`;
 }
 
-const KNOWN_COMPANIES = new Set([
-  'GSO QATAR','ITELLIGENT','ANION','SEA QUEEN','LMV E AND I','METAL WORLD','ASMA','FIT',
-  'SPRAY CON','EMKAN','ENERTEC','CRYSTAL','MEGATRONICS (GSO)','ENERSERVE (GSO)','ENERTEC (GSO)',
-  'NTC (GSO)','MIR (GSO)','ALTAF (GSO)','SWAN GLOBAL (GSO)','SIGEL (GSO)','AL-RAMSHA (GSO)',
-  'ALTHAF (GSO)','ZEAL-IT',
-]);
-
 function buildGrandTotalHTML(companyData) {
-  // Only include recognized companies to avoid stray designation/data-entry values
-  const companies = Object.keys(companyData).filter(co => KNOWN_COMPANIES.has(co)).sort();
+  const companies = Object.keys(companyData).sort();
   const grandTotal = ZERO_ROW();
   const companyTotals = {};
   for (const co of companies) {
