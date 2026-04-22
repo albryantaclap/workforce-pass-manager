@@ -27,8 +27,8 @@ export default function GatepassTracker() {
   const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [receivedFrom, setReceivedFrom] = useState('');
-  const [receivedTo, setReceivedTo] = useState('');
+  const [updatedFrom, setUpdatedFrom] = useState('');
+  const [updatedTo, setUpdatedTo] = useState('');
   const [editMode, setEditMode] = useState(false);
 
   const queryClient = useQueryClient();
@@ -63,11 +63,11 @@ export default function GatepassTracker() {
     const effectiveRlic = getEffectiveRlic(e);
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(effectiveRlic);
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
-    const receivedDate = e.gate_pass_received_date || null;
-    const matchesReceivedFrom = !receivedFrom || (receivedDate && receivedDate >= receivedFrom);
-    const matchesReceivedTo = !receivedTo || (receivedDate && receivedDate <= receivedTo);
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesReceivedFrom && matchesReceivedTo;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customRlicStatuses, receivedFrom, receivedTo]);
+    const updatedDate = e.updated_date ? e.updated_date.split('T')[0] : null;
+    const matchesUpdatedFrom = !updatedFrom || (updatedDate && updatedDate >= updatedFrom);
+    const matchesUpdatedTo = !updatedTo || (updatedDate && updatedDate <= updatedTo);
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesUpdatedFrom && matchesUpdatedTo;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customRlicStatuses, updatedFrom, updatedTo]);
 
   const stats = useMemo(() => {
     // Built-in 4 + any custom statuses
@@ -116,7 +116,7 @@ export default function GatepassTracker() {
     toast({ title: `Filled "${field}" for ${filtered.length} rows` });
   };
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all' || !!receivedFrom || !!receivedTo;
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all' || !!updatedFrom || !!updatedTo;
 
   const gateBulkFields = [
     { key: 'rlic_status', label: 'RLIC Status', type: 'select', options: allStatusOptions },
@@ -320,15 +320,15 @@ export default function GatepassTracker() {
             </div>
             <div className="flex flex-col sm:flex-row gap-3 mt-3 items-end">
               <div className="flex-1">
-                <p className="text-xs font-medium text-muted-foreground mb-1">Received Date — From</p>
-                <Input type="date" value={receivedFrom} onChange={e => setReceivedFrom(e.target.value)} className="text-xs" />
+                <p className="text-xs font-medium text-muted-foreground mb-1">Last Updated — From</p>
+                <Input type="date" value={updatedFrom} onChange={e => setUpdatedFrom(e.target.value)} className="text-xs" />
               </div>
               <div className="flex-1">
-                <p className="text-xs font-medium text-muted-foreground mb-1">Received Date — To</p>
-                <Input type="date" value={receivedTo} onChange={e => setReceivedTo(e.target.value)} className="text-xs" />
+                <p className="text-xs font-medium text-muted-foreground mb-1">Last Updated — To</p>
+                <Input type="date" value={updatedTo} onChange={e => setUpdatedTo(e.target.value)} className="text-xs" />
               </div>
-              {(receivedFrom || receivedTo) && (
-                <Button variant="ghost" size="sm" onClick={() => { setReceivedFrom(''); setReceivedTo(''); }} className="text-xs">Clear Dates</Button>
+              {(updatedFrom || updatedTo) && (
+                <Button variant="ghost" size="sm" onClick={() => { setUpdatedFrom(''); setUpdatedTo(''); }} className="text-xs">Clear Dates</Button>
               )}
             </div>
           </Card>
