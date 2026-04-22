@@ -97,21 +97,22 @@ const PRINT_CSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body { font-family: Arial, sans-serif; font-size: 10px; background: white; color: #1e293b; }
   .wrap { padding: 16px; }
-  .report-title { text-align: center; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; }
-  .report-date { text-align: center; font-size: 11px; color: #475569; margin-bottom: 16px; }
-  .company-block { margin-bottom: 20px; page-break-inside: avoid; }
-  table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9px; }
-  td { border: 1px solid black; padding: 2px 3px; text-align: center; }
+  .report-title { text-align: center; font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; }
+  .report-date { text-align: center; font-size: 14px; color: #475569; margin-bottom: 16px; }
+  .company-block { margin-bottom: 24px; page-break-inside: avoid; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+  td { border: 1px solid black; padding: 4px 5px; text-align: center; }
   td.left { text-align: left; }
-  .hdr-company { background: #fde047; font-weight: 700; font-size: 11px; text-align: center; letter-spacing: 2px; padding: 4px; }
+  td.num { font-size: 28px; font-weight: 700; line-height: 1.1; padding: 4px 3px; }
+  .hdr-company { background: #fde047; font-weight: 700; font-size: 15px; text-align: center; letter-spacing: 2px; padding: 6px; }
   .hdr-company.grand { background: #1e293b; color: white; }
-  .hdr-group { font-weight: 700; font-size: 8px; text-align: center; padding: 2px; }
+  .hdr-group { font-weight: 700; font-size: 10px; text-align: center; padding: 3px; }
   .g-medical  { background: #bfdbfe; }
   .g-gatepass { background: #bbf7d0; }
   .g-training { background: #fed7aa; }
   .g-pid      { background: #e9d5ff; }
   .g-camp     { background: #fce7f3; }
-  .hdr-col { background: #f1f5f9; font-weight: 700; font-size: 8px; text-align: center; padding: 3px 2px; }
+  .hdr-col { background: #f1f5f9; font-weight: 700; font-size: 10px; text-align: center; padding: 4px 3px; }
   .c-medical  { background: #eff6ff; }
   .c-gatepass { background: #f0fdf4; }
   .c-training { background: #fff7ed; }
@@ -134,15 +135,15 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
   const dataRows = designations.map(d => `
     <tr>
       <td class="left">${d}</td>
-      <td class="c-medical">${c(rows[d].pendingMedical)}</td>
-      <td class="c-medical">${c(rows[d].ftw)}</td>
-      <td class="c-gatepass">${c(rows[d].gpUnder)}</td>
-      <td class="c-gatepass">${c(rows[d].validGP)}</td>
-      <td class="c-training">${c(rows[d].trainingScheduled)}</td>
-      <td class="c-training">${c(rows[d].trainingOnGoing)}</td>
-      <td class="c-training">${c(rows[d].trainingDone)}</td>
-      <td class="c-pid">${c(rows[d].pid)}</td>
-      <td class="c-camp">${c(rows[d].camp)}</td>
+      <td class="c-medical num">${c(rows[d].pendingMedical)}</td>
+      <td class="c-medical num">${c(rows[d].ftw)}</td>
+      <td class="c-gatepass num">${c(rows[d].gpUnder)}</td>
+      <td class="c-gatepass num">${c(rows[d].validGP)}</td>
+      <td class="c-training num">${c(rows[d].trainingScheduled)}</td>
+      <td class="c-training num">${c(rows[d].trainingOnGoing)}</td>
+      <td class="c-training num">${c(rows[d].trainingDone)}</td>
+      <td class="c-pid num">${c(rows[d].pid)}</td>
+      <td class="c-camp num">${c(rows[d].camp)}</td>
     </tr>`).join('');
   return `
     <div class="company-block">
@@ -172,15 +173,15 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
           ${dataRows}
           <tr class="row-total">
             <td class="left">TOTAL</td>
-            <td class="c-medical">${c(totals.pendingMedical)}</td>
-            <td class="c-medical">${c(totals.ftw)}</td>
-            <td class="c-gatepass">${c(totals.gpUnder)}</td>
-            <td class="c-gatepass">${c(totals.validGP)}</td>
-            <td class="c-training">${c(totals.trainingScheduled)}</td>
-            <td class="c-training">${c(totals.trainingOnGoing)}</td>
-            <td class="c-training">${c(totals.trainingDone)}</td>
-            <td class="c-pid">${c(totals.pid)}</td>
-            <td class="c-camp">${c(totals.camp)}</td>
+            <td class="c-medical num">${c(totals.pendingMedical)}</td>
+            <td class="c-medical num">${c(totals.ftw)}</td>
+            <td class="c-gatepass num">${c(totals.gpUnder)}</td>
+            <td class="c-gatepass num">${c(totals.validGP)}</td>
+            <td class="c-training num">${c(totals.trainingScheduled)}</td>
+            <td class="c-training num">${c(totals.trainingOnGoing)}</td>
+            <td class="c-training num">${c(totals.trainingDone)}</td>
+            <td class="c-pid num">${c(totals.pid)}</td>
+            <td class="c-camp num">${c(totals.camp)}</td>
           </tr>
         </tbody>
       </table>
@@ -198,15 +199,15 @@ function buildGrandTotalHTML(companyData) {
   const companyRows = companies.map(co => `
     <tr>
       <td class="left">${co}</td>
-      <td class="c-medical">${c(companyTotals[co].pendingMedical)}</td>
-      <td class="c-medical">${c(companyTotals[co].ftw)}</td>
-      <td class="c-gatepass">${c(companyTotals[co].gpUnder)}</td>
-      <td class="c-gatepass">${c(companyTotals[co].validGP)}</td>
-      <td class="c-training">${c(companyTotals[co].trainingScheduled)}</td>
-      <td class="c-training">${c(companyTotals[co].trainingOnGoing)}</td>
-      <td class="c-training">${c(companyTotals[co].trainingDone)}</td>
-      <td class="c-pid">${c(companyTotals[co].pid)}</td>
-      <td class="c-camp">${c(companyTotals[co].camp)}</td>
+      <td class="c-medical num">${c(companyTotals[co].pendingMedical)}</td>
+      <td class="c-medical num">${c(companyTotals[co].ftw)}</td>
+      <td class="c-gatepass num">${c(companyTotals[co].gpUnder)}</td>
+      <td class="c-gatepass num">${c(companyTotals[co].validGP)}</td>
+      <td class="c-training num">${c(companyTotals[co].trainingScheduled)}</td>
+      <td class="c-training num">${c(companyTotals[co].trainingOnGoing)}</td>
+      <td class="c-training num">${c(companyTotals[co].trainingDone)}</td>
+      <td class="c-pid num">${c(companyTotals[co].pid)}</td>
+      <td class="c-camp num">${c(companyTotals[co].camp)}</td>
     </tr>`).join('');
   return `
     <div class="company-block">
@@ -236,11 +237,11 @@ function buildGrandTotalHTML(companyData) {
           ${companyRows}
           <tr class="grand-total-row">
             <td class="left">GRAND TOTAL</td>
-            <td>${grandTotal.pendingMedical || ''}</td><td>${grandTotal.ftw || ''}</td>
-            <td>${grandTotal.gpUnder || ''}</td><td>${grandTotal.validGP || ''}</td>
-            <td>${grandTotal.trainingScheduled || ''}</td><td>${grandTotal.trainingOnGoing || ''}</td>
-            <td>${grandTotal.trainingDone || ''}</td>
-            <td>${grandTotal.pid || ''}</td><td>${grandTotal.camp || ''}</td>
+            <td class="num">${grandTotal.pendingMedical || ''}</td><td class="num">${grandTotal.ftw || ''}</td>
+            <td class="num">${grandTotal.gpUnder || ''}</td><td class="num">${grandTotal.validGP || ''}</td>
+            <td class="num">${grandTotal.trainingScheduled || ''}</td><td class="num">${grandTotal.trainingOnGoing || ''}</td>
+            <td class="num">${grandTotal.trainingDone || ''}</td>
+            <td class="num">${grandTotal.pid || ''}</td><td class="num">${grandTotal.camp || ''}</td>
           </tr>
         </tbody>
       </table>
