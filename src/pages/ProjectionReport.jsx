@@ -52,25 +52,14 @@ function getEmployeeCounts(emp) {
     }
   }
 
-  // Training
+  // Training — based purely on training_status value
   const training = (emp.training_status || '').trim().toUpperCase();
   if (training === 'DONE') {
     counts.trainingDone = 1;
-  } else if (training === 'PENDING') {
-    // Scheduled = has a future start date or no start yet
-    // On-going = training_date_start is set and in the past, but not done
-    const startDate = emp.training_date_start || emp.training_date;
-    if (startDate) {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const start = new Date(startDate + 'T00:00:00');
-      if (start <= today) {
-        counts.trainingOnGoing = 1;
-      } else {
-        counts.trainingScheduled = 1;
-      }
-    } else {
-      counts.trainingScheduled = 1;
-    }
+  } else if (training === 'ON-GOING' || training === 'ONGOING' || training === 'ON GOING') {
+    counts.trainingOnGoing = 1;
+  } else if (training === 'SCHEDULED') {
+    counts.trainingScheduled = 1;
   }
 
   // PID — count if they have a PID number or a valid/soon status

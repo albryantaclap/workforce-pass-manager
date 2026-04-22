@@ -47,6 +47,8 @@ export const MEDICAL_RESULTS = [
   { value: 'RE-ASSESS', label: 'Re-Assess' },
 ];
 export const TRAINING_STATUSES = [
+  { value: 'SCHEDULED', label: 'Scheduled' },
+  { value: 'ON-GOING', label: 'On-Going' },
   { value: 'DONE', label: 'Done' },
   { value: 'PENDING', label: 'Pending' },
   { value: 'NOT REQUIRED', label: 'Not Required' },
