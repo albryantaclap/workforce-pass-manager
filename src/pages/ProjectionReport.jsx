@@ -73,35 +73,33 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
       <td class="c-training">${c(rows[d].trainingDone)}</td>
       <td>${c(rows[d].pid)}</td>
       <td>${c(rows[d].camp)}</td>
-      <td></td>
     </tr>`).join('');
   return `
     <div class="company-block">
       <table>
         <tbody>
-          <tr><td colspan="13" class="${hdrClass}">${company}</td></tr>
+          <tr><td colspan="12" class="${hdrClass}">${company}</td></tr>
           <tr>
             <td class="hdr-group"></td>
             <td colspan="2" class="hdr-group g-dvc">DVC</td>
             <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
             <td colspan="2" class="hdr-group g-gatepass">GATEPASS</td>
             <td colspan="3" class="hdr-group g-training">TRAINING</td>
-            <td class="hdr-group"></td><td class="hdr-group"></td><td class="hdr-group"></td>
+            <td class="hdr-group"></td><td class="hdr-group"></td>
           </tr>
           <tr>
-            <td class="hdr-col left" style="width:14%">DESIGNATION</td>
-            <td class="hdr-col c-dvc" style="width:8%">DVC FROM CONTRACTOR</td>
-            <td class="hdr-col c-dvc" style="width:8%">DVC TO TR</td>
-            <td class="hdr-col c-medical" style="width:7%">PENDING MEDICAL</td>
-            <td class="hdr-col c-medical" style="width:6%">FTW / APPROVED</td>
-            <td class="hdr-col c-gatepass" style="width:8%">GP UNDER PROCESS</td>
-            <td class="hdr-col c-gatepass" style="width:8%">VALID GATEPASS</td>
-            <td class="hdr-col c-training" style="width:7%">SCHEDULED</td>
-            <td class="hdr-col c-training" style="width:7%">ON-GOING</td>
-            <td class="hdr-col c-training" style="width:7%">COMPLETED</td>
-            <td class="hdr-col" style="width:6%">PID</td>
+            <td class="hdr-col left" style="width:16%">DESIGNATION</td>
+            <td class="hdr-col c-dvc" style="width:9%">DVC FROM CONTRACTOR</td>
+            <td class="hdr-col c-dvc" style="width:9%">DVC TO TR</td>
+            <td class="hdr-col c-medical" style="width:8%">PENDING MEDICAL</td>
+            <td class="hdr-col c-medical" style="width:7%">FTW / APPROVED</td>
+            <td class="hdr-col c-gatepass" style="width:9%">GP UNDER PROCESS</td>
+            <td class="hdr-col c-gatepass" style="width:9%">VALID GATEPASS</td>
+            <td class="hdr-col c-training" style="width:8%">SCHEDULED</td>
+            <td class="hdr-col c-training" style="width:8%">ON-GOING</td>
+            <td class="hdr-col c-training" style="width:8%">COMPLETED</td>
+            <td class="hdr-col" style="width:7%">PID</td>
             <td class="hdr-col" style="width:7%">CAMP</td>
-            <td class="hdr-col" style="width:7%"></td>
           </tr>
           ${dataRows}
           <tr class="row-total">
@@ -117,7 +115,6 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
             <td class="c-training">${c(totals.trainingDone)}</td>
             <td>${c(totals.pid)}</td>
             <td>${c(totals.camp)}</td>
-            <td></td>
           </tr>
         </tbody>
       </table>
@@ -146,35 +143,33 @@ function buildGrandTotalHTML(companyData) {
       <td class="c-training">${c(companyTotals[co].trainingDone)}</td>
       <td>${c(companyTotals[co].pid)}</td>
       <td>${c(companyTotals[co].camp)}</td>
-      <td></td>
     </tr>`).join('');
   return `
     <div class="company-block">
       <table>
         <tbody>
-          <tr><td colspan="13" class="hdr-company grand">GRAND TOTAL — ALL COMPANIES</td></tr>
+          <tr><td colspan="12" class="hdr-company grand">GRAND TOTAL — ALL COMPANIES</td></tr>
           <tr>
             <td class="hdr-group"></td>
             <td colspan="2" class="hdr-group g-dvc">DVC</td>
             <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
             <td colspan="2" class="hdr-group g-gatepass">GATEPASS</td>
             <td colspan="3" class="hdr-group g-training">TRAINING</td>
-            <td class="hdr-group"></td><td class="hdr-group"></td><td class="hdr-group"></td>
+            <td class="hdr-group"></td><td class="hdr-group"></td>
           </tr>
           <tr>
-            <td class="hdr-col left" style="width:14%">COMPANY</td>
-            <td class="hdr-col c-dvc" style="width:8%">DVC FROM CONTRACTOR</td>
-            <td class="hdr-col c-dvc" style="width:8%">DVC TO TR</td>
-            <td class="hdr-col c-medical" style="width:7%">PENDING MEDICAL</td>
-            <td class="hdr-col c-medical" style="width:6%">FTW / APPROVED</td>
-            <td class="hdr-col c-gatepass" style="width:8%">GP UNDER PROCESS</td>
-            <td class="hdr-col c-gatepass" style="width:8%">VALID GATEPASS</td>
-            <td class="hdr-col c-training" style="width:7%">SCHEDULED</td>
-            <td class="hdr-col c-training" style="width:7%">ON-GOING</td>
-            <td class="hdr-col c-training" style="width:7%">COMPLETED</td>
-            <td class="hdr-col" style="width:6%">PID</td>
+            <td class="hdr-col left" style="width:16%">COMPANY</td>
+            <td class="hdr-col c-dvc" style="width:9%">DVC FROM CONTRACTOR</td>
+            <td class="hdr-col c-dvc" style="width:9%">DVC TO TR</td>
+            <td class="hdr-col c-medical" style="width:8%">PENDING MEDICAL</td>
+            <td class="hdr-col c-medical" style="width:7%">FTW / APPROVED</td>
+            <td class="hdr-col c-gatepass" style="width:9%">GP UNDER PROCESS</td>
+            <td class="hdr-col c-gatepass" style="width:9%">VALID GATEPASS</td>
+            <td class="hdr-col c-training" style="width:8%">SCHEDULED</td>
+            <td class="hdr-col c-training" style="width:8%">ON-GOING</td>
+            <td class="hdr-col c-training" style="width:8%">COMPLETED</td>
+            <td class="hdr-col" style="width:7%">PID</td>
             <td class="hdr-col" style="width:7%">CAMP</td>
-            <td class="hdr-col" style="width:7%"></td>
           </tr>
           ${companyRows}
           <tr class="grand-total-row">
@@ -184,7 +179,7 @@ function buildGrandTotalHTML(companyData) {
             <td>${grandTotal.gpUnder || ''}</td><td>${grandTotal.validGP || ''}</td>
             <td>${grandTotal.trainingScheduled || ''}</td><td>${grandTotal.trainingOnGoing || ''}</td>
             <td>${grandTotal.trainingDone || ''}</td>
-            <td>${grandTotal.pid || ''}</td><td>${grandTotal.camp || ''}</td><td></td>
+            <td>${grandTotal.pid || ''}</td><td>${grandTotal.camp || ''}</td>
           </tr>
         </tbody>
       </table>
