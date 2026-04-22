@@ -55,10 +55,27 @@ export const TRAINING_STATUSES = [
 ];
 export const LOCATIONS = ['QATAR', 'COMO CAMP', 'OTHER'];
 
+// Normalize any date string to YYYY-MM-DD regardless of input format
+// Handles: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY (treated as DD/MM/YYYY for this app)
+export function normalizeDate(dateStr) {
+  if (!dateStr) return null;
+  const s = String(dateStr).trim().split('T')[0];
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // DD/MM/YYYY or DD-MM-YYYY
+  const slash = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (slash) {
+    const [, dd, mm, yyyy] = slash;
+    return `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+  }
+  return s;
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '—';
-  // Parse date parts directly to avoid timezone shifting
-  const parts = String(dateStr).split('T')[0].split('-');
+  const normalized = normalizeDate(dateStr);
+  if (!normalized) return dateStr;
+  const parts = normalized.split('-');
   if (parts.length !== 3) return dateStr;
   const [yyyy, mm, dd] = parts;
   if (!yyyy || !mm || !dd) return dateStr;
@@ -67,10 +84,11 @@ export function formatDate(dateStr) {
 
 export function daysUntil(dateStr) {
   if (!dateStr) return null;
-  // Parse YYYY-MM-DD directly to avoid timezone shifting
-  const parts = String(dateStr).split('T')[0].split('-');
+  const normalized = normalizeDate(dateStr);
+  if (!normalized) return null;
+  const parts = normalized.split('-').map(Number);
   if (parts.length !== 3) return null;
-  const [yyyy, mm, dd] = parts.map(Number);
+  const [yyyy, mm, dd] = parts;
   if (!yyyy || !mm || !dd) return null;
   const d = new Date(yyyy, mm - 1, dd); // Local midnight
   const today = new Date();

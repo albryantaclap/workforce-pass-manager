@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import StatusBadge from '../components/common/StatusBadge';
-import { COMPANIES, PID_STATUSES, formatDate, daysUntil, computePassStatus } from '@/utils/constants';
+import { COMPANIES, PID_STATUSES, formatDate, daysUntil, computePassStatus, normalizeDate } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
@@ -63,7 +63,7 @@ export default function ProjectIDTracker() {
     const effectivePid = getEffectivePid(e);
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(effectivePid);
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
-    const issueDate = e.pid_issue_date || null;
+    const issueDate = normalizeDate(e.pid_issue_date);
     const matchesIssueFrom = !pidIssueFrom || (issueDate && issueDate >= pidIssueFrom);
     const matchesIssueTo = !pidIssueTo || (issueDate && issueDate <= pidIssueTo);
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo;
