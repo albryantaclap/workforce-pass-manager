@@ -44,10 +44,13 @@ export default function MasterList() {
   const [pidStatusFilter, setPidStatusFilter] = useState(saved.pidStatusFilter || []);
   const [gpStatusFilter, setGpStatusFilter] = useState(saved.gpStatusFilter || []);
   const [medicalResultFilter, setMedicalResultFilter] = useState(saved.medicalResultFilter || 'all');
+  const [trainingStatusFilter, setTrainingStatusFilter] = useState(saved.trainingStatusFilter || 'all');
+  const [trainingDateFrom, setTrainingDateFrom] = useState(saved.trainingDateFrom || '');
+  const [trainingDateTo, setTrainingDateTo] = useState(saved.trainingDateTo || '');
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter]);
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingDateFrom, trainingDateTo });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingDateFrom, trainingDateTo]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -78,7 +81,7 @@ export default function MasterList() {
     updateMutation.mutate({ id, data: { [field]: value } });
   };
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter !== 'all';
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter !== 'all' || trainingStatusFilter !== 'all' || trainingDateFrom || trainingDateTo;
 
   const masterBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: FTW_RESULTS.map(r => ({ value: r, label: r })) },
@@ -132,9 +135,13 @@ export default function MasterList() {
       const effectivePid = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
       const matchesPidStatus = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
       const matchesMedicalResult = medicalResultFilter === 'all' || (medicalResultFilter === 'NEW' ? !emp.ftw_result : emp.ftw_result === medicalResultFilter);
-      return matchesSearch && matchesCompany && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult;
+      const matchesTrainingStatus = trainingStatusFilter === 'all' || emp.training_status === trainingStatusFilter;
+      const empTrainStart = emp.training_date_start ? emp.training_date_start.substring(0, 10) : '';
+      const matchesTrainingFrom = !trainingDateFrom || (empTrainStart && empTrainStart >= trainingDateFrom);
+      const matchesTrainingTo = !trainingDateTo || (empTrainStart && empTrainStart <= trainingDateTo);
+      return matchesSearch && matchesCompany && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesTrainingFrom && matchesTrainingTo;
     });
-  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, customRlicStatuses]);
+  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingDateFrom, trainingDateTo, customRlicStatuses]);
 
   const getExportData = () => filtered.map(e => ({
     SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
@@ -236,10 +243,22 @@ export default function MasterList() {
               </SelectContent>
             </Select>
           </div>
+          <Select value={trainingStatusFilter} onValueChange={setTrainingStatusFilter}>
+            <SelectTrigger><SelectValue placeholder="Training Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Training Status</SelectItem>
+              {TRAINING_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2">
+            <Input type="date" value={trainingDateFrom} onChange={e => setTrainingDateFrom(e.target.value)} className="text-xs" title="Training Start From" />
+            <span className="text-xs text-muted-foreground">–</span>
+            <Input type="date" value={trainingDateTo} onChange={e => setTrainingDateTo(e.target.value)} className="text-xs" title="Training Start To" />
+          </div>
         </div>
         {hasActiveFilters && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter('all'); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter('all'); setTrainingStatusFilter('all'); setTrainingDateFrom(''); setTrainingDateTo(''); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
