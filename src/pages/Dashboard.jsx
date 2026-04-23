@@ -138,6 +138,7 @@ export default function Dashboard() {
   const expiredPid = filtered.filter(e => getPid(e) === 'EXPIRED PID PASS').length;
   const medicalAccepted = filtered.filter(e => e.ftw_result === 'ACCEPTED').length;
   const trainingDone = filtered.filter(e => e.training_status === 'DONE').length;
+  const trainingOnGoing = filtered.filter(e => ['ON-GOING', 'ONGOING', 'ON GOING'].includes((e.training_status || '').trim().toUpperCase())).length;
 
   const medicalReAssess = filtered.filter(e => e.ftw_result === 'RE-ASSESS').length;
   // Custom RLIC statuses (e.g. "Under Process") — count all non-built-in rlic statuses
@@ -173,9 +174,10 @@ export default function Dashboard() {
     },
     {
       title: 'Training', icon: GraduationCap, color: 'text-orange-600', bg: 'bg-orange-50', path: '/training',
-      combined: trainingDone,
-      combinedLabel: 'Done',
+      combined: trainingOnGoing,
+      combinedLabel: 'On-Going',
       stats: [
+        { label: 'Done', value: trainingDone, color: 'text-green-600' },
         { label: 'Pending', value: filtered.filter(e => e.training_status === 'PENDING').length, color: 'text-amber-600' },
         { label: 'N/A', value: filtered.filter(e => e.training_status === 'NOT REQUIRED').length, color: 'text-slate-500' },
         ...customTrainingStatuses.map(s => ({
