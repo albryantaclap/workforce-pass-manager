@@ -171,17 +171,17 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
             <td class="hdr-col c-camp" style="width:9%">CAMP</td>
           </tr>
           ${dataRows}
-          <tr class="row-total">
+          <tr class="grand-total-row">
             <td class="left">TOTAL</td>
-            <td class="c-medical num">${c(totals.pendingMedical)}</td>
-            <td class="c-medical num">${c(totals.ftw)}</td>
-            <td class="c-gatepass num">${c(totals.gpUnder)}</td>
-            <td class="c-gatepass num">${c(totals.validGP)}</td>
-            <td class="c-training num">${c(totals.trainingScheduled)}</td>
-            <td class="c-training num">${c(totals.trainingOnGoing)}</td>
-            <td class="c-training num">${c(totals.trainingDone)}</td>
-            <td class="c-pid num">${c(totals.pid)}</td>
-            <td class="c-camp num">${c(totals.camp)}</td>
+            <td class="num">${c(totals.pendingMedical)}</td>
+            <td class="num">${c(totals.ftw)}</td>
+            <td class="num">${c(totals.gpUnder)}</td>
+            <td class="num">${c(totals.validGP)}</td>
+            <td class="num">${c(totals.trainingScheduled)}</td>
+            <td class="num">${c(totals.trainingOnGoing)}</td>
+            <td class="num">${c(totals.trainingDone)}</td>
+            <td class="num">${c(totals.pid)}</td>
+            <td class="num">${c(totals.camp)}</td>
           </tr>
         </tbody>
       </table>
