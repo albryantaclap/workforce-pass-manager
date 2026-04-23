@@ -118,7 +118,7 @@ const PRINT_CSS = `
   .c-training { background: #fff7ed; }
   .c-pid      { background: #faf5ff; }
   .c-camp     { background: #fdf2f8; }
-  .row-total { background: #fef9c3; font-weight: 700; }
+  .row-total { background: #1e293b; color: white; font-weight: 700; }
   .grand-total-row { background: #1e293b; color: white; font-weight: 700; }
   @media print {
     @page { size: A3 landscape; margin: 10mm; }
@@ -389,13 +389,14 @@ export default function ProjectionReport() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {[
           { label: 'Pending Medical', value: summaryTotals.pendingMedical, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'FTW / Approved', value: summaryTotals.ftw, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'GP Under Process', value: summaryTotals.gpUnder, color: 'text-amber-600', bg: 'bg-amber-50' },
           { label: 'Valid Gate Pass', value: summaryTotals.validGP, color: 'text-green-600', bg: 'bg-green-50' },
           { label: 'Training Completed', value: summaryTotals.trainingDone, color: 'text-orange-600', bg: 'bg-orange-50' },
+          { label: 'PID Valid', value: summaryTotals.pid, color: 'text-purple-600', bg: 'bg-purple-50' },
         ].map(card => (
           <div key={card.label} className={`rounded-xl border p-4 ${card.bg}`}>
             <div className="text-xs text-slate-500 font-medium">{card.label}</div>
