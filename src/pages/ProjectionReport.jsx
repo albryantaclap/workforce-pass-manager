@@ -62,9 +62,9 @@ function getEmployeeCounts(emp) {
     counts.trainingScheduled = 1;
   }
 
-  // PID — count if they have a PID number or a valid/soon status
+  // PID — count only Valid or Soon-to-Expire entries
   const pidStatus = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
-  if (emp.pid || (pidStatus !== 'NO PID PASS' && pidStatus !== 'EXPIRED PID PASS')) {
+  if (pidStatus === 'VALID PID PASS' || pidStatus === 'SOON TO EXPIRE') {
     counts.pid = 1;
   }
 
