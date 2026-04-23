@@ -24,6 +24,8 @@ export default function TrainingTracker() {
   const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [startDateFrom, setStartDateFrom] = useState('');
+  const [startDateTo, setStartDateTo] = useState('');
 
 
   const { data: employees = [], isLoading } = useQuery({
@@ -40,8 +42,11 @@ export default function TrainingTracker() {
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
     const matchesStatus = statusFilter === 'all' || e.training_status === statusFilter;
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter]);
+    const empStart = e.training_date_start ? e.training_date_start.substring(0, 10) : '';
+    const matchesStartFrom = !startDateFrom || (empStart && empStart >= startDateFrom);
+    const matchesStartTo = !startDateTo || (empStart && empStart <= startDateTo);
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesStartFrom && matchesStartTo;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, startDateFrom, startDateTo]);
 
   const stats = useMemo(() => TRAINING_STATUSES.map((s, i) => ({
     name: s.label,
@@ -109,7 +114,24 @@ export default function TrainingTracker() {
             </Select>
           </div>
         </div>
-        {(companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all') && (
+        <div className="flex flex-col sm:flex-row gap-3 mt-3">
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Training Start Date — From</p>
+            <Input type="date" value={startDateFrom} onChange={e => setStartDateFrom(e.target.value)} className="w-full" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Training Start Date — To</p>
+            <Input type="date" value={startDateTo} onChange={e => setStartDateTo(e.target.value)} className="w-full" />
+          </div>
+          <div className="flex items-end">
+            {(startDateFrom || startDateTo) && (
+              <Button variant="ghost" size="sm" onClick={() => { setStartDateFrom(''); setStartDateTo(''); }} className="text-muted-foreground">
+                Clear Dates
+              </Button>
+            )}
+          </div>
+        </div>
+        {(companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || startDateFrom || startDateTo) && (
           <p className="text-xs text-muted-foreground mt-2">Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> personnel</p>
         )}
       </Card>
