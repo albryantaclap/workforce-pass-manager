@@ -46,8 +46,10 @@ export default function AdminPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const isOwner = user?.role === 'owner';
-  const isAdmin = user?.role === 'admin' || isOwner;
+  const isBuilder = user?.collaborator_role === 'editor' || user?.collaborator_role === 'owner';
+  const effectiveRole = isBuilder ? 'owner' : (user?.role || 'user');
+  const isOwner = effectiveRole === 'owner';
+  const isAdmin = effectiveRole === 'admin' || isOwner;
 
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['users'],

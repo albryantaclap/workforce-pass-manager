@@ -8,7 +8,9 @@ import { useAuth } from '@/lib/AuthContext';
  */
 export function usePermissions() {
   const { user } = useAuth();
-  const role = user?.role || 'user';
+  // App builder (collaborator) is always treated as owner
+  const isBuilder = user?.collaborator_role === 'editor' || user?.collaborator_role === 'owner';
+  const role = isBuilder ? 'owner' : (user?.role || 'user');
 
   return {
     isOwner: role === 'owner',
