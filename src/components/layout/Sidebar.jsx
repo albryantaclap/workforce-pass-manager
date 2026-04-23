@@ -3,6 +3,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield, LogOut, UserX, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
+import { usePermissions } from '@/lib/usePermissions';
+
+const ROLE_LABELS = {
+  owner: 'Super Administrator',
+  admin: 'Admin',
+  user: 'View Only',
+};
 
 const navItems = [
   { label: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -20,7 +27,7 @@ const navItems = [
 export default function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'owner';
+  const { isAdmin, canEdit } = usePermissions();
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar text-sidebar-foreground flex flex-col">
@@ -35,7 +42,11 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.filter(item => item.path !== '/admin' || isAdmin).map((item) => {
+        {navItems.filter(item => {
+          if (item.path === '/admin') return isAdmin;
+          if (item.path === '/employees/new') return canEdit;
+          return true;
+        }).map((item) => {
           const isActive = location.pathname === item.path || 
             (item.path !== '/' && location.pathname.startsWith(item.path));
           return (
@@ -61,7 +72,7 @@ export default function Sidebar() {
           <div className="flex items-center justify-between">
             <div className="min-w-0">
               <p className="text-xs font-medium text-sidebar-foreground/80 truncate">{user.full_name || user.email}</p>
-              <p className="text-[10px] text-sidebar-foreground/40 capitalize">{user.role}</p>
+              <p className="text-[10px] text-sidebar-foreground/40">{ROLE_LABELS[user.role] || user.role}</p>
             </div>
             <button
               onClick={() => logout()}

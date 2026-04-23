@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Upload, User, UserCheck, UserX } from 'lucide-react';
+import { ArrowLeft, Save, Upload, User, UserCheck, UserX, Shield } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
+import { usePermissions } from '@/lib/usePermissions';
 
 const emptyForm = {
   sl_no: '', name: '', photo_url: '', position_application: '', designation_org_chart: '', department: '',
@@ -68,6 +69,7 @@ const SelectInput = ({ field, label, options, placeholder = 'Select', form, onCh
 export default function EmployeeForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { canEdit } = usePermissions();
   const pathParts = window.location.pathname.split('/');
   const isEdit = pathParts.includes('edit');
   const empId = isEdit ? pathParts[pathParts.indexOf('edit') - 1] : null;
@@ -189,6 +191,17 @@ export default function EmployeeForm() {
     setUploadingPhoto(false);
     toast({ title: 'Photo uploaded' });
   };
+
+  if (!canEdit) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+        <Shield className="w-12 h-12 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold">View Only Access</h2>
+        <p className="text-muted-foreground mt-2">You do not have permission to edit records.</p>
+        <Button className="mt-4" variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">

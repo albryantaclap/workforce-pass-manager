@@ -21,6 +21,7 @@ import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
 import BulkEditBar from '../components/common/BulkEditBar';
+import { usePermissions } from '@/lib/usePermissions';
 
 const STORAGE_KEY = 'masterlist_filters';
 
@@ -32,6 +33,7 @@ function saveFilters(f) {
 }
 
 export default function MasterList() {
+  const { canEdit } = usePermissions();
   const [editMode, setEditMode] = useState(false);
   const saved = useMemo(() => loadFilters(), []);
   const [search, setSearch] = useState(saved.search || '');
@@ -170,16 +172,22 @@ export default function MasterList() {
           <p className="text-sm text-muted-foreground mt-1">{filtered.length} of {employees.filter(e => e.is_active !== false).length} active personnel</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant={editMode ? 'default' : 'outline'} onClick={() => setEditMode(v => !v)}>
-            {editMode ? <><X className="w-4 h-4 mr-2" /> Exit Edit Mode</> : <><PencilLine className="w-4 h-4 mr-2" /> Edit in Grid</>}
-          </Button>
+          {canEdit && (
+            <Button variant={editMode ? 'default' : 'outline'} onClick={() => setEditMode(v => !v)}>
+              {editMode ? <><X className="w-4 h-4 mr-2" /> Exit Edit Mode</> : <><PencilLine className="w-4 h-4 mr-2" /> Edit in Grid</>}
+            </Button>
+          )}
           <ExportButton getData={getExportData} filename="master_list.csv" />
-          <Link to="/master-list/import">
-            <Button variant="outline"><Upload className="w-4 h-4 mr-2" /> Import</Button>
-          </Link>
-          <Link to="/employees/new">
-            <Button><Plus className="w-4 h-4 mr-2" /> Add Personnel</Button>
-          </Link>
+          {canEdit && (
+            <Link to="/master-list/import">
+              <Button variant="outline"><Upload className="w-4 h-4 mr-2" /> Import</Button>
+            </Link>
+          )}
+          {canEdit && (
+            <Link to="/employees/new">
+              <Button><Plus className="w-4 h-4 mr-2" /> Add Personnel</Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -386,24 +394,28 @@ export default function MasterList() {
                         <Link to={`/employees/${emp.id}`}>
                           <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button>
                         </Link>
-                        <Link to={`/employees/${emp.id}/edit`}>
-                          <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button>
-                        </Link>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Record</AlertDialogTitle>
-                              <AlertDialogDescription>Delete {emp.name}? This cannot be undone.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteMutation.mutate(emp.id)} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        {canEdit && (
+                          <Link to={`/employees/${emp.id}/edit`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button>
+                          </Link>
+                        )}
+                        {canEdit && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Record</AlertDialogTitle>
+                                <AlertDialogDescription>Delete {emp.name}? This cannot be undone.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteMutation.mutate(emp.id)} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

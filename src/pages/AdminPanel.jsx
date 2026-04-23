@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Users, Trash2, UserPlus, AlertTriangle, List } from 'lucide-react';
+import { Shield, Users, Trash2, UserPlus, AlertTriangle, List, Crown, Pencil, Eye } from 'lucide-react';
 import LookupsManager from '../components/admin/LookupsManager';
 import { useToast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,14 +18,36 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 
+const ROLE_CONFIG = {
+  owner: { label: 'Super Administrator', icon: Crown, badge: 'bg-amber-100 text-amber-700 border-amber-200', description: 'Full access — manage users, edit all data, access admin panel' },
+  admin: { label: 'Admin', icon: Pencil, badge: 'bg-primary/10 text-primary border-primary/20', description: 'Can view and edit all data' },
+  user:  { label: 'User', icon: Eye, badge: 'bg-slate-100 text-slate-600 border-slate-200', description: 'View only — cannot edit or delete records' },
+};
+
+function RoleBadge({ role }) {
+  const cfg = ROLE_CONFIG[role] || ROLE_CONFIG.user;
+  const Icon = cfg.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold border ${cfg.badge}`}>
+      <Icon className="w-3 h-3" />
+      {cfg.label}
+    </span>
+  );
+}
+
 export default function AdminPanel() {
   const { user } = useAuth();
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('user');
   const [inviting, setInviting] = useState(false);
   const [deduping, setDeduping] = useState(false);
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editingRole, setEditingRole] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const isOwner = user?.role === 'owner';
+  const isAdmin = user?.role === 'admin' || isOwner;
 
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['users'],
@@ -35,6 +57,15 @@ export default function AdminPanel() {
   const { data: employees = [], isLoading: loadingEmps } = useQuery({
     queryKey: ['employees'],
     queryFn: () => base44.entities.Employee.list('-created_date', 2000),
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ id, role }) => base44.entities.User.update(id, { role }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast({ title: 'User role updated successfully' });
+      setEditingUserId(null);
+    },
   });
 
   const duplicates = useMemo(() => {
@@ -51,7 +82,7 @@ export default function AdminPanel() {
     return dupes;
   }, [employees]);
 
-  if (user?.role !== 'admin' && user?.role !== 'owner') {
+  if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
         <Shield className="w-12 h-12 text-muted-foreground mb-4" />
@@ -64,12 +95,23 @@ export default function AdminPanel() {
   const handleInvite = async (e) => {
     e.preventDefault();
     if (!inviteEmail) return;
+    // Only owners can invite admins or owners
+    const safeRole = !isOwner && inviteRole !== 'user' ? 'user' : inviteRole;
     setInviting(true);
-    await base44.users.inviteUser(inviteEmail, inviteRole);
+    await base44.users.inviteUser(inviteEmail, safeRole);
     toast({ title: `Invitation sent to ${inviteEmail}` });
     setInviteEmail('');
     setInviting(false);
     queryClient.invalidateQueries({ queryKey: ['users'] });
+  };
+
+  const handleRoleChange = (u) => {
+    setEditingUserId(u.id);
+    setEditingRole(u.role || 'user');
+  };
+
+  const handleSaveRole = () => {
+    updateRoleMutation.mutate({ id: editingUserId, role: editingRole });
   };
 
   const handleDedup = async () => {
@@ -80,7 +122,7 @@ export default function AdminPanel() {
         await base44.entities.Employee.delete(dupe.id);
         removed++;
       } catch {
-        // Record already deleted or not found — skip
+        // skip
       }
     }
     queryClient.invalidateQueries({ queryKey: ['employees'] });
@@ -109,35 +151,56 @@ export default function AdminPanel() {
 
         {/* Users Tab */}
         <TabsContent value="users" className="space-y-4 mt-4">
-          <Card className="p-6">
-            <h3 className="text-sm font-semibold mb-4">Invite New User</h3>
-            <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <Label className="text-xs mb-1.5 block">Email Address</Label>
-                <Input type="email" required placeholder="user@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
-              </div>
-              <div>
-                <Label className="text-xs mb-1.5 block">Role</Label>
-                <Select value={inviteRole} onValueChange={setInviteRole}>
-                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">User (Viewer)</SelectItem>
-                    <SelectItem value="admin">Administrator</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button type="submit" disabled={inviting}>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  {inviting ? 'Sending...' : 'Send Invite'}
-                </Button>
-              </div>
-            </form>
-            <p className="text-xs text-muted-foreground mt-3">
-              <strong>User</strong> — Can view all data and export reports. &nbsp;|&nbsp; <strong>Administrator</strong> — Full access including add/edit/delete and admin panel.
-            </p>
-          </Card>
 
+          {/* Role Legend */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {Object.entries(ROLE_CONFIG).map(([key, cfg]) => {
+              const Icon = cfg.icon;
+              return (
+                <div key={key} className={`rounded-xl border p-3 flex items-start gap-3 ${cfg.badge.includes('amber') ? 'bg-amber-50 border-amber-200' : key === 'admin' ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${cfg.badge.includes('amber') ? 'bg-amber-100' : key === 'admin' ? 'bg-primary/10' : 'bg-slate-100'}`}>
+                    <Icon className={`w-4 h-4 ${cfg.badge.includes('amber') ? 'text-amber-700' : key === 'admin' ? 'text-primary' : 'text-slate-600'}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold">{cfg.label}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{cfg.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Invite */}
+          {isAdmin && (
+            <Card className="p-6">
+              <h3 className="text-sm font-semibold mb-4">Invite New User</h3>
+              <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <Label className="text-xs mb-1.5 block">Email Address</Label>
+                  <Input type="email" required placeholder="user@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs mb-1.5 block">Role</Label>
+                  <Select value={inviteRole} onValueChange={setInviteRole}>
+                    <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User (View Only)</SelectItem>
+                      <SelectItem value="admin">Admin (View & Edit)</SelectItem>
+                      {isOwner && <SelectItem value="owner">Super Administrator</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button type="submit" disabled={inviting}>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    {inviting ? 'Sending...' : 'Send Invite'}
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          )}
+
+          {/* User Table */}
           <Card className="overflow-hidden">
             <CardHeader className="pb-3"><CardTitle className="text-sm">All Users</CardTitle></CardHeader>
             <Table>
@@ -147,21 +210,47 @@ export default function AdminPanel() {
                   <TableHead className="text-xs">Email</TableHead>
                   <TableHead className="text-xs">Role</TableHead>
                   <TableHead className="text-xs">Joined</TableHead>
+                  {isOwner && <TableHead className="text-xs">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loadingUsers ? (
-                  Array(3).fill(0).map((_, i) => <TableRow key={i}>{Array(4).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
+                  Array(3).fill(0).map((_, i) => (
+                    <TableRow key={i}>{Array(isOwner ? 5 : 4).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                  ))
                 ) : users.map(u => (
                   <TableRow key={u.id}>
                     <TableCell className="text-sm font-medium">{u.full_name}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${u.role === 'admin' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                        {u.role === 'admin' ? 'Administrator' : 'User'}
-                      </span>
+                      {editingUserId === u.id ? (
+                        <div className="flex items-center gap-2">
+                          <Select value={editingRole} onValueChange={setEditingRole}>
+                            <SelectTrigger className="w-44 h-7 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">User (View Only)</SelectItem>
+                              <SelectItem value="admin">Admin (View & Edit)</SelectItem>
+                              <SelectItem value="owner">Super Administrator</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button size="sm" className="h-7 text-xs" onClick={handleSaveRole} disabled={updateRoleMutation.isPending}>Save</Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingUserId(null)}>Cancel</Button>
+                        </div>
+                      ) : (
+                        <RoleBadge role={u.role} />
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{new Date(u.created_date).toLocaleDateString()}</TableCell>
+                    {isOwner && (
+                      <TableCell>
+                        {u.id !== user?.id && editingUserId !== u.id && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleRoleChange(u)}>
+                            <Pencil className="w-3 h-3" /> Change Role
+                          </Button>
+                        )}
+                        {u.id === user?.id && <span className="text-xs text-muted-foreground italic">You</span>}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -177,7 +266,7 @@ export default function AdminPanel() {
                 <h3 className="text-sm font-semibold">Duplicate QID Check</h3>
                 <p className="text-xs text-muted-foreground mt-1">Personnel with the same QID number — keeping the first entry, removing duplicates.</p>
               </div>
-              {duplicates.length > 0 && (
+              {duplicates.length > 0 && isOwner && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm" disabled={deduping}>
@@ -232,6 +321,7 @@ export default function AdminPanel() {
             )}
           </Card>
         </TabsContent>
+
         <TabsContent value="lookups" className="mt-4">
           <LookupsManager />
         </TabsContent>

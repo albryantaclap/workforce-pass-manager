@@ -1,0 +1,16 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "admin",
+        "user"
+      ],
+      "default": "user",
+      "description": "User role: owner = Super Administrator (full access), admin = Admin (view & edit), user = View only"
+    }
+  }
+}
