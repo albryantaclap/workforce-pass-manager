@@ -220,7 +220,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
   }).join('');
 
   const tableHeader = `<thead><tr>
-    <th>Name</th><th>Company</th><th>Position</th><th>Medical</th><th>RLIC</th><th>PID</th><th>Training</th>
+    <th>Name</th><th>Company</th><th>Position</th><th>Medical</th><th>Gate Pass (RLIC)</th><th>PID</th><th>Training</th>
   </tr></thead>`;
 
   const byCompanyHTML = Object.entries(byCompany).sort((a, b) => b[1].length - a[1].length).map(([company, rows]) => `
