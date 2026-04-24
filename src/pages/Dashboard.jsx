@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import MultiSelect from '@/components/common/MultiSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, computePassStatus, formatDate } from '@/utils/constants';
+import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, computePassStatus, formatDate } from '@/utils/constants';
 import DashboardReport from '@/components/dashboard/DashboardReport';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
@@ -83,9 +83,7 @@ export default function Dashboard() {
   const allRlicOptions = useMemo(() => [...RLIC_STATUSES, ...customRlicStatuses.map(s => ({ value: s.value, label: s.label }))], [customRlicStatuses]);
   const allPidOptions = useMemo(() => [...PID_STATUSES, ...customPidStatuses.map(s => ({ value: s.value, label: s.label }))], [customPidStatuses]);
   const allTrainingOptions = useMemo(() => [
-    { value: 'DONE', label: 'Done' },
-    { value: 'PENDING', label: 'Pending' },
-    { value: 'NOT REQUIRED', label: 'Not Required' },
+    ...TRAINING_STATUSES,
     ...customTrainingStatuses.map(s => ({ value: s.value, label: s.label })),
   ], [customTrainingStatuses]);
 
@@ -112,7 +110,7 @@ export default function Dashboard() {
       const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
       return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTraining && matchTrFrom && matchTrTo && matchGpFrom && matchGpTo && matchPidFrom && matchPidTo;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, pidStatusFilter, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || !!trApprovedFrom || !!trApprovedTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
