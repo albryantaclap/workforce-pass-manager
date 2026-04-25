@@ -170,9 +170,9 @@ export default function Dashboard() {
       title: 'Medical Data', icon: Stethoscope, color: 'text-blue-600', bg: 'bg-blue-50', path: '/medical',
       combined: medicalAccepted,
       combinedLabel: 'Accepted',
-      overallTotal: medicalAccepted + filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length + filtered.filter(e => e.ftw_result === 'REJECTED').length + medicalReAssess + filtered.filter(e => !e.ftw_result).length,
+      overallTotal: medicalAccepted + filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length + filtered.filter(e => e.ftw_result === 'REJECTED').length + medicalReAssess + filtered.filter(e => !e.ftw_result || e.ftw_result === 'NEW').length,
       stats: [
-        { label: 'New', value: filtered.filter(e => !e.ftw_result).length, color: 'text-blue-600' },
+        { label: 'New', value: filtered.filter(e => !e.ftw_result || e.ftw_result === 'NEW').length, color: 'text-blue-600' },
         { label: 'Waiting TR', value: filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length, color: 'text-amber-600' },
         { label: 'Rejected', value: filtered.filter(e => e.ftw_result === 'REJECTED').length, color: 'text-red-600' },
         { label: 'Re-Assess', value: medicalReAssess, color: 'text-purple-600' },

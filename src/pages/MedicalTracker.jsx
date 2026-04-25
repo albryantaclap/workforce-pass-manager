@@ -193,7 +193,7 @@ export default function MedicalTracker() {
             const waitingTr = filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length;
             const rejected = filtered.filter(e => e.ftw_result === 'REJECTED').length;
             const reAssess = filtered.filter(e => e.ftw_result === 'RE-ASSESS').length;
-            const newCount = filtered.filter(e => !e.ftw_result).length;
+            const newCount = filtered.filter(e => !e.ftw_result || e.ftw_result === 'NEW').length;
             const overallTotal = accepted + waitingTr + rejected + reAssess + newCount;
             return (
               <Card className="border-blue-200 bg-blue-50/60">
