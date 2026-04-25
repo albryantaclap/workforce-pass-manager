@@ -187,6 +187,35 @@ export default function MedicalTracker() {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4 mt-4">
+          {/* Overall Total Banner */}
+          {(() => {
+            const accepted = filtered.filter(e => e.ftw_result === 'ACCEPTED').length;
+            const waitingTr = filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length;
+            const rejected = filtered.filter(e => e.ftw_result === 'REJECTED').length;
+            const reAssess = filtered.filter(e => e.ftw_result === 'RE-ASSESS').length;
+            const newCount = filtered.filter(e => !e.ftw_result).length;
+            const overallTotal = accepted + waitingTr + rejected + reAssess + newCount;
+            return (
+              <Card className="border-blue-200 bg-blue-50/60">
+                <CardContent className="pt-4 pb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-blue-700">Medical Data Overview</p>
+                    <p className="text-xs text-blue-600 mt-0.5">{accepted} Accepted &nbsp;+&nbsp; {waitingTr} Waiting TR &nbsp;+&nbsp; {rejected} Rejected &nbsp;+&nbsp; {reAssess} Re-Assess &nbsp;+&nbsp; {newCount} New</p>
+                  </div>
+                  <div className="flex items-end gap-3">
+                    <div className="text-center">
+                      <span className="text-5xl font-extrabold text-blue-600">{accepted}</span>
+                      <p className="text-[10px] text-blue-600 mt-0.5">Accepted</p>
+                    </div>
+                    <div className="text-center border-l border-blue-300 pl-3">
+                      <span className="text-3xl font-bold text-blue-400">{overallTotal}</span>
+                      <p className="text-[10px] text-blue-500 mt-0.5">Overall Total</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {stats.map((s, i) => (
               <Card key={s.name}>
