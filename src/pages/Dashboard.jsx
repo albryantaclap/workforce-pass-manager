@@ -158,23 +158,6 @@ export default function Dashboard() {
   const trainingOnGoing = filtered.filter(e => ['ON-GOING', 'ONGOING', 'ON GOING'].includes((e.training_status || '').trim().toUpperCase())).length;
 
   const medicalReAssess = filtered.filter(e => e.ftw_result === 'RE-ASSESS').length;
-
-  // Build medical stats dynamically from all known results (base + custom lookups)
-  const medicalNew = filtered.filter(e => !e.ftw_result || e.ftw_result === 'NEW').length;
-  const medicalStatBreakdown = [
-    { label: 'New', value: medicalNew, color: 'text-blue-600' },
-    ...allMedicalResultOptions.map(r => ({
-      label: r.label,
-      value: filtered.filter(e => e.ftw_result === r.value).length,
-      color: r.value === 'ACCEPTED' ? 'text-emerald-600'
-           : r.value === 'REJECTED' ? 'text-red-600'
-           : r.value === 'WAITING TR APPROVAL' ? 'text-amber-600'
-           : r.value === 'RE-ASSESS' ? 'text-purple-600'
-           : 'text-blue-600',
-    })),
-  ];
-  const medicalOverallTotal = medicalNew + allMedicalResultOptions.reduce((sum, r) => sum + filtered.filter(e => e.ftw_result === r.value).length, 0);
-
   // Custom RLIC statuses (e.g. "Under Process") — count all non-built-in rlic statuses
   const customRlicCounts = customRlicStatuses.map(s => ({
     label: s.label,
@@ -187,8 +170,13 @@ export default function Dashboard() {
       title: 'Medical Data', icon: Stethoscope, color: 'text-blue-600', bg: 'bg-blue-50', path: '/medical',
       combined: medicalAccepted,
       combinedLabel: 'Accepted',
-      overallTotal: medicalOverallTotal,
-      stats: medicalStatBreakdown,
+      overallTotal: medicalAccepted + filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length + filtered.filter(e => e.ftw_result === 'REJECTED').length + medicalReAssess + filtered.filter(e => !e.ftw_result).length,
+      stats: [
+        { label: 'New', value: filtered.filter(e => !e.ftw_result).length, color: 'text-blue-600' },
+        { label: 'Waiting TR', value: filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length, color: 'text-amber-600' },
+        { label: 'Rejected', value: filtered.filter(e => e.ftw_result === 'REJECTED').length, color: 'text-red-600' },
+        { label: 'Re-Assess', value: medicalReAssess, color: 'text-purple-600' },
+      ],
     },
     {
       title: 'Gate Pass (RLIC)', icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50', path: '/gatepass',

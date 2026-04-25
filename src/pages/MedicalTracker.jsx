@@ -190,12 +190,11 @@ export default function MedicalTracker() {
           {/* Overall Total Banner */}
           {(() => {
             const accepted = filtered.filter(e => e.ftw_result === 'ACCEPTED').length;
-            const newCount = filtered.filter(e => !e.ftw_result || e.ftw_result === 'NEW').length;
-            const knownResultCounts = allMedicalResults.reduce((sum, r) => sum + filtered.filter(e => e.ftw_result === r.value).length, 0);
-            const overallTotal = newCount + knownResultCounts;
             const waitingTr = filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length;
             const rejected = filtered.filter(e => e.ftw_result === 'REJECTED').length;
             const reAssess = filtered.filter(e => e.ftw_result === 'RE-ASSESS').length;
+            const newCount = filtered.filter(e => !e.ftw_result).length;
+            const overallTotal = accepted + waitingTr + rejected + reAssess + newCount;
             return (
               <Card className="border-blue-200 bg-blue-50/60">
                 <CardContent className="pt-4 pb-4 flex items-center justify-between">
