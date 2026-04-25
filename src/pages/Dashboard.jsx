@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import MultiSelect from '@/components/common/MultiSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, computePassStatus, formatDate } from '@/utils/constants';
+import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, computePassStatus, formatDate } from '@/utils/constants';
 import DashboardReport from '@/components/dashboard/DashboardReport';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [rlicStatusFilter, setRlicStatusFilter] = useState([]);
   const [trainingStatusFilter, setTrainingStatusFilter] = useState([]);
   const [pidStatusFilter, setPidStatusFilter] = useState([]);
+  const [medicalResultFilter, setMedicalResultFilter] = useState('all');
   const [trApprovedFrom, setTrApprovedFrom] = useState('');
   const [trApprovedTo, setTrApprovedTo] = useState('');
   const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
@@ -84,6 +85,10 @@ export default function Dashboard() {
 
   const allRlicOptions = useMemo(() => [...RLIC_STATUSES, ...customRlicStatuses.map(s => ({ value: s.value, label: s.label }))], [customRlicStatuses]);
   const allPidOptions = useMemo(() => [...PID_STATUSES, ...customPidStatuses.map(s => ({ value: s.value, label: s.label }))], [customPidStatuses]);
+  const allMedicalResultOptions = useMemo(() => {
+    const customVals = new Set(MEDICAL_RESULTS.map(s => s.value));
+    return [...MEDICAL_RESULTS, ...customFtwResults.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }))];
+  }, [customFtwResults]);
   const allTrainingOptions = useMemo(() => [
     ...TRAINING_STATUSES,
     ...customTrainingStatuses.map(s => ({ value: s.value, label: s.label })),
@@ -101,6 +106,7 @@ export default function Dashboard() {
       const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
       const matchPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
       const matchTraining = trainingStatusFilter.length === 0 || trainingStatusFilter.includes(e.training_status);
+      const matchMedResult = medicalResultFilter === 'all' || e.ftw_result === medicalResultFilter;
       const trainSchedDate = e.training_date_scheduled || '';
       const matchTrainSchedFrom = !trainingScheduledFrom || trainSchedDate >= trainingScheduledFrom;
       const matchTrainSchedTo = !trainingScheduledTo || trainSchedDate <= trainingScheduledTo;
@@ -113,11 +119,11 @@ export default function Dashboard() {
       const pidDate = e.pid_issue_date || '';
       const matchPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
       const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-      return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTraining && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpFrom && matchGpTo && matchPidFrom && matchPidTo;
+      return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpFrom && matchGpTo && matchPidFrom && matchPidTo;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
-  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
+  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter !== 'all' || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -266,7 +272,7 @@ export default function Dashboard() {
             </Select>
           </div>
           {hasFilter && (
-            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all'); setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setTrApprovedFrom(''); setTrApprovedTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); }}>
+            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all'); setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]); setMedicalResultFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setTrApprovedFrom(''); setTrApprovedTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); }}>
               <X className="w-4 h-4 mr-1" /> Clear Filters
             </Button>
           )}
@@ -298,6 +304,16 @@ export default function Dashboard() {
               onChange={setPidStatusFilter}
               placeholder="All Project ID Statuses..."
             />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Medical Result</p>
+            <Select value={medicalResultFilter} onValueChange={setMedicalResultFilter}>
+              <SelectTrigger><SelectValue placeholder="All Results" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Results</SelectItem>
+                {allMedicalResultOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
