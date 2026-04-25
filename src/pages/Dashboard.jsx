@@ -164,7 +164,6 @@ export default function Dashboard() {
   const medicalWaitingTr = filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length;
   const medicalRejected = filtered.filter(e => e.ftw_result === 'REJECTED').length;
   const medicalStatBreakdown = [
-    { label: 'New', value: medicalNew, color: 'text-blue-600' },
     { label: 'Waiting TR', value: medicalWaitingTr, color: 'text-amber-600' },
     { label: 'Rejected', value: medicalRejected, color: 'text-red-600' },
     { label: 'Re-Assess', value: medicalReAssess, color: 'text-purple-600' },
