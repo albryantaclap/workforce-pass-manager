@@ -21,6 +21,23 @@ import { useToast } from '@/components/ui/use-toast';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
 
+const medicalResultStyles = {
+  'ACCEPTED': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'REJECTED': 'bg-red-50 text-red-700 border-red-200',
+  'WAITING TR APPROVAL': 'bg-amber-50 text-amber-700 border-amber-200',
+  'RE-ASSESS': 'bg-purple-50 text-purple-700 border-purple-200',
+};
+const medicalShortLabels = {
+  'ACCEPTED': 'Accepted', 'REJECTED': 'Rejected',
+  'WAITING TR APPROVAL': 'Waiting TR', 'RE-ASSESS': 'Re-Assess',
+};
+function MedicalBadge({ result }) {
+  if (!result) return <span className="text-xs text-muted-foreground">—</span>;
+  const style = medicalResultStyles[result] || 'bg-blue-50 text-blue-700 border-blue-200';
+  const label = medicalShortLabels[result] || result;
+  return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${style}`}>{label}</span>;
+}
+
 export default function GatepassTracker() {
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
@@ -350,15 +367,16 @@ export default function GatepassTracker() {
                     <TableHead className="text-xs bg-muted/50">Received</TableHead>
                     <TableHead className="text-xs bg-muted/50">Expiry</TableHead>
                     <TableHead className="text-xs bg-muted/50">Days Left</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Medical</TableHead>
                     <TableHead className="text-xs bg-muted/50">Status</TableHead>
                     <TableHead className="text-xs bg-muted/50">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(10).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
+                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(11).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
                   ) : filtered.map(emp => {
                     const days = daysUntil(emp.gate_pass_expiry);
                     return (
@@ -377,6 +395,7 @@ export default function GatepassTracker() {
                             </span>
                           ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
+                        <TableCell><MedicalBadge result={emp.ftw_result} /></TableCell>
                         <TableCell>
                           {editMode ? (
                             <InlineEditCell value={emp.rlic_status} field="rlic_status" empId={emp.id} type="select" options={allStatusOptions} onSave={handleCellSave} editMode={editMode} />
