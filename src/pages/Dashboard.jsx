@@ -168,8 +168,16 @@ export default function Dashboard() {
     { label: 'Waiting TR', value: medicalWaitingTr, color: 'text-amber-600' },
     { label: 'Rejected', value: medicalRejected, color: 'text-red-600' },
     { label: 'Re-Assess', value: medicalReAssess, color: 'text-purple-600' },
+    // Custom lookup results (e.g. "Recalled") — exclude base results already shown above
+    ...customFtwResults
+      .filter(r => !['ACCEPTED', 'REJECTED', 'WAITING TR APPROVAL', 'RE-ASSESS'].includes(r.value))
+      .map(r => ({
+        label: r.label,
+        value: filtered.filter(e => e.ftw_result === r.value).length,
+        color: 'text-slate-600',
+      })),
   ];
-  const medicalOverallTotal = medicalAccepted + medicalNew + medicalWaitingTr + medicalRejected + medicalReAssess;
+  const medicalOverallTotal = medicalAccepted + medicalStatBreakdown.reduce((sum, s) => sum + s.value, 0);
 
   // Custom RLIC statuses (e.g. "Under Process") — count all non-built-in rlic statuses
   const customRlicCounts = customRlicStatuses.map(s => ({
