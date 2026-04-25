@@ -200,7 +200,16 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
     locationPieHTML = '<p style="color:#94a3b8;font-size:10px">No data</p>';
   }
 
-  const personnelTableRows = (rows) => rows.map((e, i) => {
+  const RLIC_SORT_ORDER = { 'VALID RLIC PASS': 0, 'SOON TO EXPIRE': 3, 'NO RLIC PASS': 2, 'EXPIRED RLIC PASS': 4 };
+  const getRlicSortKey = (e) => {
+    const status = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+    // Custom statuses (e.g. "Under Process") → slot 1 (between Valid and No Pass)
+    return RLIC_SORT_ORDER[status] !== undefined ? RLIC_SORT_ORDER[status] : 1;
+  };
+
+  const sortByRlic = (rows) => [...rows].sort((a, b) => getRlicSortKey(a) - getRlicSortKey(b));
+
+  const personnelTableRows = (rows) => sortByRlic(rows).map((e, i) => {
     const rlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
     const pid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
     const rlicShort = rlic === 'VALID RLIC PASS' ? 'Valid' : rlic === 'EXPIRED RLIC PASS' ? 'Expired' : rlic === 'SOON TO EXPIRE' ? 'Soon' : rlic === 'NO RLIC PASS' ? 'No Pass' : rlic || '—';
