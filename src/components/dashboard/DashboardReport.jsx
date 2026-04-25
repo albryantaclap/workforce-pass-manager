@@ -218,6 +218,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
     const rlicColor = rlicShort === 'Valid' ? '#16a34a' : rlicShort === 'Expired' ? '#dc2626' : rlicShort === 'Soon' ? '#d97706' : '#94a3b8';
     const pidColor = pidShort === 'Valid' ? '#16a34a' : pidShort === 'Expired' ? '#dc2626' : pidShort === 'Soon' ? '#d97706' : '#94a3b8';
     return `<tr>
+      <td style="background:${bg};text-align:center;color:#94a3b8;font-size:9px">${i + 1}</td>
       <td style="background:${bg}">${e.name}</td>
       <td style="background:${bg}">${e.company || '—'}</td>
       <td style="background:${bg}">${e.designation_org_chart || '—'}</td>
@@ -229,7 +230,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
   }).join('');
 
   const tableHeader = `<thead><tr>
-    <th>Name</th><th>Company</th><th>Position</th><th>Medical</th><th>Gate Pass (RLIC)</th><th>PID</th><th>Training</th>
+    <th style="width:32px;text-align:center">#</th><th>Name</th><th>Company</th><th>Position</th><th>Medical</th><th>Gate Pass (RLIC)</th><th>PID</th><th>Training</th>
   </tr></thead>`;
 
   const byCompanyHTML = Object.entries(byCompany).sort((a, b) => b[1].length - a[1].length).map(([company, rows]) => `
