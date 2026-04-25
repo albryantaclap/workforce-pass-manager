@@ -47,12 +47,14 @@ export default function MasterList() {
   const [gpStatusFilter, setGpStatusFilter] = useState(saved.gpStatusFilter || []);
   const [medicalResultFilter, setMedicalResultFilter] = useState(saved.medicalResultFilter || 'all');
   const [trainingStatusFilter, setTrainingStatusFilter] = useState(saved.trainingStatusFilter || 'all');
+  const [trainingScheduledFrom, setTrainingScheduledFrom] = useState(saved.trainingScheduledFrom || '');
+  const [trainingScheduledTo, setTrainingScheduledTo] = useState(saved.trainingScheduledTo || '');
   const [trainingDateFrom, setTrainingDateFrom] = useState(saved.trainingDateFrom || '');
   const [trainingDateTo, setTrainingDateTo] = useState(saved.trainingDateTo || '');
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingDateFrom, trainingDateTo });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingDateFrom, trainingDateTo]);
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, trainingDateFrom, trainingDateTo });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, trainingDateFrom, trainingDateTo]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -83,7 +85,7 @@ export default function MasterList() {
     updateMutation.mutate({ id, data: { [field]: value } });
   };
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter !== 'all' || trainingStatusFilter !== 'all' || trainingDateFrom || trainingDateTo;
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter !== 'all' || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || trainingDateFrom || trainingDateTo;
 
   const masterBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: FTW_RESULTS.map(r => ({ value: r, label: r })) },
@@ -138,12 +140,15 @@ export default function MasterList() {
       const matchesPidStatus = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
       const matchesMedicalResult = medicalResultFilter === 'all' || (medicalResultFilter === 'NEW' ? !emp.ftw_result : emp.ftw_result === medicalResultFilter);
       const matchesTrainingStatus = trainingStatusFilter === 'all' || emp.training_status === trainingStatusFilter;
+      const empTrainScheduled = emp.training_date_scheduled ? emp.training_date_scheduled.substring(0, 10) : '';
+      const matchesTrainingScheduledFrom = !trainingScheduledFrom || (empTrainScheduled && empTrainScheduled >= trainingScheduledFrom);
+      const matchesTrainingScheduledTo = !trainingScheduledTo || (empTrainScheduled && empTrainScheduled <= trainingScheduledTo);
       const empTrainStart = emp.training_date_start ? emp.training_date_start.substring(0, 10) : '';
       const matchesTrainingFrom = !trainingDateFrom || (empTrainStart && empTrainStart >= trainingDateFrom);
       const matchesTrainingTo = !trainingDateTo || (empTrainStart && empTrainStart <= trainingDateTo);
-      return matchesSearch && matchesCompany && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesTrainingFrom && matchesTrainingTo;
+      return matchesSearch && matchesCompany && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesTrainingScheduledFrom && matchesTrainingScheduledTo && matchesTrainingFrom && matchesTrainingTo;
     });
-  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingDateFrom, trainingDateTo, customRlicStatuses]);
+  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, trainingDateFrom, trainingDateTo, customRlicStatuses]);
 
   const getExportData = () => filtered.map(e => ({
     SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
@@ -161,7 +166,7 @@ export default function MasterList() {
     Gate_Pass_Expiry: formatDate(e.gate_pass_expiry), Staff_No: e.staff_no, RLIC_Status: e.rlic_status,
     PID_No: e.pid, PID_Issue_Date: formatDate(e.pid_issue_date), PID_Expiry: formatDate(e.pid_expiry),
     PID_Projected_Date: formatDate(e.pid_projected_date), PID_Status: e.pid_status,
-    Training_Date_Start: formatDate(e.training_date_start), Training_Date_End: formatDate(e.training_date_end), Training_Status: e.training_status,
+    Training_Date_Scheduled: formatDate(e.training_date_scheduled), Training_Date_Start: formatDate(e.training_date_start), Training_Date_End: formatDate(e.training_date_end), Training_Status: e.training_status,
   }));
 
   return (
@@ -259,6 +264,11 @@ export default function MasterList() {
             </SelectContent>
           </Select>
           <div className="flex items-center gap-2">
+            <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs" title="Training Scheduled From" />
+            <span className="text-xs text-muted-foreground">–</span>
+            <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs" title="Training Scheduled To" />
+          </div>
+          <div className="flex items-center gap-2">
             <Input type="date" value={trainingDateFrom} onChange={e => setTrainingDateFrom(e.target.value)} className="text-xs" title="Training Start From" />
             <span className="text-xs text-muted-foreground">–</span>
             <Input type="date" value={trainingDateTo} onChange={e => setTrainingDateTo(e.target.value)} className="text-xs" title="Training Start To" />
@@ -266,7 +276,7 @@ export default function MasterList() {
         </div>
         {hasActiveFilters && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter('all'); setTrainingStatusFilter('all'); setTrainingDateFrom(''); setTrainingDateTo(''); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter('all'); setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setTrainingDateFrom(''); setTrainingDateTo(''); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
@@ -323,6 +333,7 @@ export default function MasterList() {
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Expiry</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Projected</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Status</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date Scheduled</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date Started</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date End</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Status</TableHead>
@@ -333,11 +344,11 @@ export default function MasterList() {
             <TableBody>
               {isLoading ? (
                 Array(8).fill(0).map((_, i) => (
-                  <TableRow key={i}>{Array(41).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                  <TableRow key={i}>{Array(42).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={41} className="text-center py-12 text-muted-foreground">No records found</TableCell>
+                  <TableCell colSpan={42} className="text-center py-12 text-muted-foreground">No records found</TableCell>
                 </TableRow>
               ) : (
                 filtered.map((emp) => (
@@ -383,6 +394,7 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_expiry} field="pid_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_projected_date} field="pid_projected_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.pid_expiry} type="pid" storedStatus={emp.pid_status} short /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.training_date_scheduled} field="training_date_scheduled" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.training_date_start} field="training_date_start" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.training_date_end} field="training_date_end" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap">

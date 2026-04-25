@@ -225,6 +225,11 @@
       ],
       "description": "RLIC pass status"
     },
+    "training_date_scheduled": {
+      "type": "string",
+      "format": "date",
+      "description": "Training date scheduled"
+    },
     "training_date_start": {
       "type": "string",
       "format": "date",

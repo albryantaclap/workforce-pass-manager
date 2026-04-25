@@ -23,7 +23,7 @@ const emptyForm = {
   gate_pass_issue_date: '', gate_pass_received_date: '', gate_pass_expiry: '',
   staff_no: '', rlic_status: '',
   pid_issue_date: '', pid_expiry: '', pid: '', pid_status: '', pid_projected_date: '',
-  training_date: '', training_status: '',
+  training_date: '', training_date_scheduled: '', training_status: '',
 };
 
 const Field = ({ label, children }) => (
@@ -331,6 +331,7 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Training</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <TextInput field="training_date_scheduled" label="Training Date Scheduled" type="date" {...tf} />
             <TextInput field="training_date_start" label="Training Date Started" type="date" {...tf} />
             <TextInput field="training_date_end" label="Training Date End" type="date" {...tf} />
             <SelectInput field="training_status" label="Training Status" options={allTrainingStatuses} {...tf} />

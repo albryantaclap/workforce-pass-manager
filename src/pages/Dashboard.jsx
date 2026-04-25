@@ -24,6 +24,8 @@ export default function Dashboard() {
   const [pidStatusFilter, setPidStatusFilter] = useState([]);
   const [trApprovedFrom, setTrApprovedFrom] = useState('');
   const [trApprovedTo, setTrApprovedTo] = useState('');
+  const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
+  const [trainingScheduledTo, setTrainingScheduledTo] = useState('');
   const [gpReceivedFrom, setGpReceivedFrom] = useState('');
   const [gpReceivedTo, setGpReceivedTo] = useState('');
   const [pidIssueFrom, setPidIssueFrom] = useState('');
@@ -99,6 +101,9 @@ export default function Dashboard() {
       const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
       const matchPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
       const matchTraining = trainingStatusFilter.length === 0 || trainingStatusFilter.includes(e.training_status);
+      const trainSchedDate = e.training_date_scheduled || '';
+      const matchTrainSchedFrom = !trainingScheduledFrom || trainSchedDate >= trainingScheduledFrom;
+      const matchTrainSchedTo = !trainingScheduledTo || trainSchedDate <= trainingScheduledTo;
       const trDate = e.ftw_approved_date || '';
       const matchTrFrom = !trApprovedFrom || trDate >= trApprovedFrom;
       const matchTrTo = !trApprovedTo || trDate <= trApprovedTo;
@@ -108,11 +113,11 @@ export default function Dashboard() {
       const pidDate = e.pid_issue_date || '';
       const matchPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
       const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-      return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTraining && matchTrFrom && matchTrTo && matchGpFrom && matchGpTo && matchPidFrom && matchPidTo;
+      return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTraining && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpFrom && matchGpTo && matchPidFrom && matchPidTo;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
-  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || !!trApprovedFrom || !!trApprovedTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
+  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -261,7 +266,7 @@ export default function Dashboard() {
             </Select>
           </div>
           {hasFilter && (
-            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all'); setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]); setTrApprovedFrom(''); setTrApprovedTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); }}>
+            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all'); setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setTrApprovedFrom(''); setTrApprovedTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); }}>
               <X className="w-4 h-4 mr-1" /> Clear Filters
             </Button>
           )}
@@ -295,7 +300,14 @@ export default function Dashboard() {
             />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Training Scheduled Date</p>
+            <div className="flex gap-2">
+              <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs" placeholder="From" />
+              <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs" placeholder="To" />
+            </div>
+          </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">TR Date Approved</p>
             <div className="flex gap-2">

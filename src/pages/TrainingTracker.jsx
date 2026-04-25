@@ -24,6 +24,8 @@ export default function TrainingTracker() {
   const [positionFilter, setPositionFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [scheduledDateFrom, setScheduledDateFrom] = useState('');
+  const [scheduledDateTo, setScheduledDateTo] = useState('');
   const [startDateFrom, setStartDateFrom] = useState('');
   const [startDateTo, setStartDateTo] = useState('');
 
@@ -42,11 +44,14 @@ export default function TrainingTracker() {
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
     const matchesStatus = statusFilter === 'all' || e.training_status === statusFilter;
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
+    const empScheduled = e.training_date_scheduled ? e.training_date_scheduled.substring(0, 10) : '';
+    const matchesScheduledFrom = !scheduledDateFrom || (empScheduled && empScheduled >= scheduledDateFrom);
+    const matchesScheduledTo = !scheduledDateTo || (empScheduled && empScheduled <= scheduledDateTo);
     const empStart = e.training_date_start ? e.training_date_start.substring(0, 10) : '';
     const matchesStartFrom = !startDateFrom || (empStart && empStart >= startDateFrom);
     const matchesStartTo = !startDateTo || (empStart && empStart <= startDateTo);
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesStartFrom && matchesStartTo;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, startDateFrom, startDateTo]);
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesScheduledFrom && matchesScheduledTo && matchesStartFrom && matchesStartTo;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, scheduledDateFrom, scheduledDateTo, startDateFrom, startDateTo]);
 
   const stats = useMemo(() => TRAINING_STATUSES.map((s, i) => ({
     name: s.label,
@@ -72,7 +77,7 @@ export default function TrainingTracker() {
 
   const getExportData = () => filtered.map(e => ({
     Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
-    Training_Date_Started: e.training_date_start, Training_Date_End: e.training_date_end, Training_Status: e.training_status,
+    Training_Date_Scheduled: e.training_date_scheduled, Training_Date_Started: e.training_date_start, Training_Date_End: e.training_date_end, Training_Status: e.training_status,
   }));
 
   const statusColors = { DONE: 'bg-emerald-50 text-emerald-700', PENDING: 'bg-amber-50 text-amber-700', 'NOT REQUIRED': 'bg-slate-100 text-slate-600' };
@@ -116,6 +121,14 @@ export default function TrainingTracker() {
         </div>
         <div className="flex flex-col sm:flex-row gap-3 mt-3">
           <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Training Scheduled Date — From</p>
+            <Input type="date" value={scheduledDateFrom} onChange={e => setScheduledDateFrom(e.target.value)} className="w-full" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Training Scheduled Date — To</p>
+            <Input type="date" value={scheduledDateTo} onChange={e => setScheduledDateTo(e.target.value)} className="w-full" />
+          </div>
+          <div className="flex-1">
             <p className="text-xs font-medium text-muted-foreground mb-1">Training Start Date — From</p>
             <Input type="date" value={startDateFrom} onChange={e => setStartDateFrom(e.target.value)} className="w-full" />
           </div>
@@ -124,8 +137,8 @@ export default function TrainingTracker() {
             <Input type="date" value={startDateTo} onChange={e => setStartDateTo(e.target.value)} className="w-full" />
           </div>
           <div className="flex items-end">
-            {(startDateFrom || startDateTo) && (
-              <Button variant="ghost" size="sm" onClick={() => { setStartDateFrom(''); setStartDateTo(''); }} className="text-muted-foreground">
+            {(scheduledDateFrom || scheduledDateTo || startDateFrom || startDateTo) && (
+              <Button variant="ghost" size="sm" onClick={() => { setScheduledDateFrom(''); setScheduledDateTo(''); setStartDateFrom(''); setStartDateTo(''); }} className="text-muted-foreground">
                 Clear Dates
               </Button>
             )}
@@ -224,6 +237,7 @@ export default function TrainingTracker() {
                     <TableHead className="text-xs bg-muted/50">Nationality</TableHead>
                     <TableHead className="text-xs bg-muted/50">QID No</TableHead>
                     <TableHead className="text-xs bg-muted/50">Position</TableHead>
+                    <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date Scheduled</TableHead>
                     <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date Started</TableHead>
                     <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date End</TableHead>
                     <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Status</TableHead>
@@ -242,6 +256,7 @@ export default function TrainingTracker() {
                       <TableCell className="text-xs">{emp.nationality}</TableCell>
                       <TableCell className="text-xs font-mono">{emp.qid_no}</TableCell>
                       <TableCell className="text-xs">{emp.designation_org_chart}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_scheduled)}</TableCell>
                       <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_start)}</TableCell>
                       <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_end)}</TableCell>
                       <TableCell>
