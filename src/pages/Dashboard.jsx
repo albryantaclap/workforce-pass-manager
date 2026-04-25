@@ -159,21 +159,17 @@ export default function Dashboard() {
 
   const medicalReAssess = filtered.filter(e => e.ftw_result === 'RE-ASSESS').length;
 
-  // Build medical stats dynamically from all known results (base + custom lookups)
-  const medicalNew = filtered.filter(e => !e.ftw_result || e.ftw_result === 'NEW').length;
+  // Build medical stats — "New" = no ftw_result set at all
+  const medicalNew = filtered.filter(e => !e.ftw_result).length;
+  const medicalWaitingTr = filtered.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length;
+  const medicalRejected = filtered.filter(e => e.ftw_result === 'REJECTED').length;
   const medicalStatBreakdown = [
     { label: 'New', value: medicalNew, color: 'text-blue-600' },
-    ...allMedicalResultOptions.map(r => ({
-      label: r.label,
-      value: filtered.filter(e => e.ftw_result === r.value).length,
-      color: r.value === 'ACCEPTED' ? 'text-emerald-600'
-           : r.value === 'REJECTED' ? 'text-red-600'
-           : r.value === 'WAITING TR APPROVAL' ? 'text-amber-600'
-           : r.value === 'RE-ASSESS' ? 'text-purple-600'
-           : 'text-blue-600',
-    })),
+    { label: 'Waiting TR', value: medicalWaitingTr, color: 'text-amber-600' },
+    { label: 'Rejected', value: medicalRejected, color: 'text-red-600' },
+    { label: 'Re-Assess', value: medicalReAssess, color: 'text-purple-600' },
   ];
-  const medicalOverallTotal = medicalNew + allMedicalResultOptions.reduce((sum, r) => sum + filtered.filter(e => e.ftw_result === r.value).length, 0);
+  const medicalOverallTotal = medicalAccepted + medicalNew + medicalWaitingTr + medicalRejected + medicalReAssess;
 
   // Custom RLIC statuses (e.g. "Under Process") — count all non-built-in rlic statuses
   const customRlicCounts = customRlicStatuses.map(s => ({

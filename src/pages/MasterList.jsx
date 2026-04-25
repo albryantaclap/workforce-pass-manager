@@ -235,7 +235,7 @@ export default function MasterList() {
             <SelectTrigger><SelectValue placeholder="Medical Result" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Medical Results</SelectItem>
-              <SelectItem value="NEW">New (No Result)</SelectItem>
+              <SelectItem value="NEW">New</SelectItem>
               {MEDICAL_RESULTS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
             </SelectContent>
           </Select>
