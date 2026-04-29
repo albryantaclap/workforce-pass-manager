@@ -1,0 +1,44 @@
+{
+  "name": "ChatNotification",
+  "type": "object",
+  "properties": {
+    "recipient_email": {
+      "type": "string",
+      "description": "Email of the user to notify"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "mention",
+        "message"
+      ],
+      "description": "Notification type"
+    },
+    "message_id": {
+      "type": "string",
+      "description": "ID of the related message"
+    },
+    "sender_name": {
+      "type": "string",
+      "description": "Name of sender who triggered notification"
+    },
+    "preview": {
+      "type": "string",
+      "description": "Short message preview"
+    },
+    "channel": {
+      "type": "string",
+      "description": "Channel the message was in"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether notification has been read"
+    }
+  },
+  "required": [
+    "recipient_email",
+    "type",
+    "message_id"
+  ]
+}
