@@ -1,0 +1,47 @@
+{
+  "name": "ActivityLog",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "delete"
+      ],
+      "description": "Type of action performed"
+    },
+    "entity_name": {
+      "type": "string",
+      "description": "Name of the entity affected"
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "ID of the affected record"
+    },
+    "performed_by": {
+      "type": "string",
+      "description": "Email of the user who performed the action"
+    },
+    "record_snapshot": {
+      "type": "object",
+      "description": "Full snapshot of the record at time of action"
+    },
+    "changed_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Fields that were changed (for updates)"
+    },
+    "record_name": {
+      "type": "string",
+      "description": "Human-readable name of the record (e.g. employee name)"
+    }
+  },
+  "required": [
+    "action",
+    "entity_name",
+    "entity_id"
+  ]
+}

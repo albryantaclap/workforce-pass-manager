@@ -1,0 +1,44 @@
+{
+  "name": "DeletedEmployee",
+  "type": "object",
+  "properties": {
+    "original_id": {
+      "type": "string",
+      "description": "The original Employee record ID before deletion"
+    },
+    "deleted_by": {
+      "type": "string",
+      "description": "Email of the user who deleted the record"
+    },
+    "deleted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the record was deleted"
+    },
+    "employee_data": {
+      "type": "object",
+      "description": "Full snapshot of the employee record at time of deletion"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Name of the deleted employee for quick reference"
+    },
+    "company": {
+      "type": "string",
+      "description": "Company of the deleted employee"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department of the deleted employee"
+    },
+    "recovered": {
+      "type": "boolean",
+      "description": "Whether this record has been recovered",
+      "default": false
+    }
+  },
+  "required": [
+    "employee_data",
+    "employee_name"
+  ]
+}

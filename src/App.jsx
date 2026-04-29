@@ -20,6 +20,8 @@ import MasterImport from './pages/MasterImport';
 import GatepassImport from './pages/GatepassImport';
 import InactivePersonnel from './pages/InactivePersonnel';
 import ProjectionReport from './pages/ProjectionReport';
+import DeletedPersonnel from './pages/DeletedPersonnel';
+import ActivityLog from './pages/ActivityLog';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
@@ -68,6 +70,8 @@ const AuthenticatedApp = () => {
         <Route path="/gatepass/import" element={<GatepassImport />} />
         <Route path="/inactive" element={<InactivePersonnel />} />
         <Route path="/projection" element={<ProjectionReport />} />
+        <Route path="/deleted-personnel" element={<DeletedPersonnel />} />
+        <Route path="/activity-log" element={<ActivityLog />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield, LogOut, UserX, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield, LogOut, UserX, TrendingUp, Trash2, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
 import { usePermissions } from '@/lib/usePermissions';
@@ -21,6 +21,8 @@ const navItems = [
   { label: 'Training', path: '/training', icon: GraduationCap },
   { label: 'Inactive Personnel', path: '/inactive', icon: UserX },
   { label: 'Projection Report', path: '/projection', icon: TrendingUp },
+  { label: 'Deleted Personnel', path: '/deleted-personnel', icon: Trash2 },
+  { label: 'Activity Log', path: '/activity-log', icon: Activity },
   { label: 'Admin Panel', path: '/admin', icon: Shield },
 ];
 
