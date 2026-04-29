@@ -306,7 +306,7 @@ export default function ProjectIDTracker() {
             <CardHeader><CardTitle className="text-sm">Expiring Within 90 Days</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {employees
+                {filtered
                   .filter(e => { const d = daysUntil(e.pid_expiry); return d !== null && d <= 90; })
                   .sort((a, b) => daysUntil(a.pid_expiry) - daysUntil(b.pid_expiry))
                   .slice(0, 10)
@@ -324,7 +324,7 @@ export default function ProjectIDTracker() {
                       </div>
                     );
                   })}
-                {employees.filter(e => { const d = daysUntil(e.pid_expiry); return d !== null && d <= 90; }).length === 0 && (
+                {filtered.filter(e => { const d = daysUntil(e.pid_expiry); return d !== null && d <= 90; }).length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">No PIDs expiring within 90 days</p>
                 )}
               </div>

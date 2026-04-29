@@ -13,9 +13,20 @@ Deno.serve(async (req) => {
 
     const action = event.type; // create, update, delete
     const entity_id = event.entity_id;
+
+    // For deletes, data is null — use old_data. For creates/updates, data is available.
     const record = data || old_data;
     const record_name = record?.name || entity_id;
-    const performed_by = record?.created_by || 'unknown';
+
+    // Try to get the user who triggered this action
+    let performed_by = 'system';
+    try {
+      const user = await base44.auth.me();
+      if (user?.email) performed_by = user.email;
+    } catch (_) {
+      // Automation context — no user session; fall back to record's created_by
+      performed_by = record?.created_by || 'system';
+    }
 
     // Log to ActivityLog
     await base44.asServiceRole.entities.ActivityLog.create({
