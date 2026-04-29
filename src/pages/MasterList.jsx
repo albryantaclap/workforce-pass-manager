@@ -120,6 +120,7 @@ export default function MasterList() {
 
   const filtered = useMemo(() => {
     return employees.filter((emp) => {
+      if (emp.is_active === false) return false;
       const matchesSearch = !search ||
         emp.name?.toLowerCase().includes(search.toLowerCase()) ||
         emp.qid_no?.includes(search) ||
@@ -173,7 +174,7 @@ export default function MasterList() {
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Master List</h2>
-          <p className="text-sm text-muted-foreground mt-1">{filtered.length} of {employees.length} total personnel</p>
+          <p className="text-sm text-muted-foreground mt-1">{filtered.length} of {employees.filter(e => e.is_active !== false).length} active personnel</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {canEdit && (
