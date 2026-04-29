@@ -1,0 +1,52 @@
+{
+  "name": "BackupRecord",
+  "type": "object",
+  "properties": {
+    "filename": {
+      "type": "string",
+      "description": "The backup filename"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL of the stored backup file"
+    },
+    "file_size_bytes": {
+      "type": "number",
+      "description": "Size of the backup file in bytes"
+    },
+    "record_count": {
+      "type": "number",
+      "description": "Number of records in the backup"
+    },
+    "created_by_email": {
+      "type": "string",
+      "description": "Email of user who created the backup"
+    },
+    "filter_from": {
+      "type": "string",
+      "format": "date",
+      "description": "Start date filter used during backup"
+    },
+    "filter_to": {
+      "type": "string",
+      "format": "date",
+      "description": "End date filter used during backup"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "failed"
+      ],
+      "description": "Backup status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional notes"
+    }
+  },
+  "required": [
+    "filename",
+    "status"
+  ]
+}

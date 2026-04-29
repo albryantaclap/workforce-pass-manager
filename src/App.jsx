@@ -22,6 +22,7 @@ import InactivePersonnel from './pages/InactivePersonnel';
 import ProjectionReport from './pages/ProjectionReport';
 import DeletedPersonnel from './pages/DeletedPersonnel';
 import ActivityLog from './pages/ActivityLog';
+import DatabaseBackup from './pages/DatabaseBackup';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
@@ -72,6 +73,7 @@ const AuthenticatedApp = () => {
         <Route path="/projection" element={<ProjectionReport />} />
         <Route path="/deleted-personnel" element={<DeletedPersonnel />} />
         <Route path="/activity-log" element={<ActivityLog />} />
+        <Route path="/database-backup" element={<DatabaseBackup />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
