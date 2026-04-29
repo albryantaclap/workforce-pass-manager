@@ -30,7 +30,7 @@ const navItems = [
 export default function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { isAdmin, canEdit } = usePermissions();
+  const { isAdmin, canEdit, isSuperAdminOnly } = usePermissions();
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar text-sidebar-foreground flex flex-col">
@@ -46,6 +46,10 @@ export default function Sidebar() {
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.filter(item => {
+          // Super admin only sees DB Backup and Admin Panel
+          if (isSuperAdminOnly) {
+            return item.path === '/database-backup' || item.path === '/admin';
+          }
           if (item.path === '/admin') return isAdmin;
           if (item.path === '/database-backup') return isAdmin;
           if (item.path === '/employees/new') return canEdit;
