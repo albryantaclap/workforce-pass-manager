@@ -80,7 +80,7 @@ function getEmployeeCounts(emp) {
 function buildCompanyData(employees, companyFilter) {
   const companyData = {};
   for (const emp of employees) {
-    if (emp.is_active === false) continue;
+    if (emp.is_active === false || emp.is_active === null) continue;
     const co = (emp.company || 'UNKNOWN').trim().toUpperCase();
     if (companyFilter !== 'ALL' && co !== companyFilter.toUpperCase()) continue;
     const desig = (emp.designation_org_chart || emp.position_application || 'UNSPECIFIED').trim().toUpperCase();
@@ -309,10 +309,10 @@ export default function ProjectionReport() {
   const [selectedCompany, setSelectedCompany] = useState('ALL');
   const [showPreview, setShowPreview] = useState(false);
 
-  // Load all active employees from masterlist
+  // Load all employees — same query key as Dashboard so cache is shared
   const { data: employees = [], isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['employees-projection'],
-    queryFn: () => base44.entities.Employee.list('-updated_date', 2000),
+    queryKey: ['employees'],
+    queryFn: () => base44.entities.Employee.list('-created_date', 2000),
   });
 
   const today = format(new Date(), 'dd-MM-yyyy');
@@ -337,7 +337,7 @@ export default function ProjectionReport() {
     }, ZERO_ROW());
   }, [companyData]);
 
-  const activeCount = employees.filter(e => e.is_active !== false).length;
+  const activeCount = employees.filter(e => e.is_active !== false && e.is_active !== null).length;
 
   if (isLoading) {
     return (
@@ -354,7 +354,7 @@ export default function ProjectionReport() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Daily Projection Report</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Live data from masterlist · {activeCount} active personnel
+            Live data from masterlist · {employees.filter(e => e.is_active !== false).length} active personnel
           </p>
         </div>
         <div className="flex gap-2">
