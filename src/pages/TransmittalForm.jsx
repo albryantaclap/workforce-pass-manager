@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,54 @@ import { Input } from '@/components/ui/input';
 import { Printer, ArrowLeft, X, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+
+// Company list from Employee entity schema
+const COMPANY_LIST = [
+  'GSO QATAR','ITELLIGENT','ANION','SEA QUEEN','LMV E AND I','METAL WORLD','ASMA','FIT',
+  'SPRAY CON','EMKAN','ENERTEC','CRYSTAL','MEGATRONICS (GSO)','ENERSERVE (GSO)',
+  'ENERTEC (GSO)','NTC (GSO)','MIR (GSO)','ALTAF (GSO)','SWAN GLOBAL (GSO)',
+  'SIGEL (GSO)','AL-RAMSHA (GSO)','ALTHAF (GSO)','ZEAL-IT'
+];
+
+function CompanyAutocomplete({ value, onChange, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+
+  const suggestions = COMPANY_LIST.filter(c =>
+    value && c.toLowerCase().includes(value.toLowerCase()) && c.toLowerCase() !== value.toLowerCase()
+  );
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <Input
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+      />
+      {open && suggestions.length > 0 && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+          {suggestions.map(c => (
+            <button
+              key={c}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+              onMouseDown={() => { onChange(c); setOpen(false); }}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const TODAY = format(new Date(), 'dd-MMM-yy');
 
@@ -90,13 +138,13 @@ export default function TransmittalForm() {
         {/* Header fields */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white border rounded-lg p-4">
           <div><label className="text-xs font-medium block mb-1">From</label><Input value={fromName} onChange={e => setFromName(e.target.value)} placeholder="From name" /></div>
-          <div><label className="text-xs font-medium block mb-1">Trans. Ref. No. (NFE-TN-...)</label><Input value={refSuffix} onChange={e => setRefSuffix(e.target.value)} placeholder="26-138" /></div>
           <div><label className="text-xs font-medium block mb-1">Originator</label><Input value={originator} onChange={e => setOriginator(e.target.value)} placeholder="Originator" /></div>
-          <div><label className="text-xs font-medium block mb-1">To (Company)</label><Input value={toCompany} onChange={e => setToCompany(e.target.value)} placeholder="Company" /></div>
+          <div><label className="text-xs font-medium block mb-1">Trans. Ref. No. (NFE-TN-...)</label><Input value={refSuffix} onChange={e => setRefSuffix(e.target.value)} placeholder="26-138" /></div>
+          <div><label className="text-xs font-medium block mb-1">To (Company)</label><CompanyAutocomplete value={toCompany} onChange={setToCompany} placeholder="Company" /></div>
           <div><label className="text-xs font-medium block mb-1">Attention</label><Input value={attention} onChange={e => setAttention(e.target.value)} placeholder="Attention" /></div>
           <div><label className="text-xs font-medium block mb-1">Telephone No.</label><Input value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="Telephone" /></div>
           <div><label className="text-xs font-medium block mb-1">Forwarded By (Name)</label><Input value={forwardedByName} onChange={e => setForwardedByName(e.target.value)} placeholder="Name" /></div>
-          <div><label className="text-xs font-medium block mb-1">Received By (Company)</label><Input value={receivedByCompany} onChange={e => setReceivedByCompany(e.target.value)} placeholder="Company" /></div>
+          <div><label className="text-xs font-medium block mb-1">Received By (Company)</label><CompanyAutocomplete value={receivedByCompany} onChange={setReceivedByCompany} placeholder="Company" /></div>
           <div className="flex items-end gap-4 pb-1">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={viaHandDelivery} onChange={e => setViaHandDelivery(e.target.checked)} className="w-4 h-4" /> Hand Delivery
@@ -355,27 +403,33 @@ export default function TransmittalForm() {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 0;
+            margin: 10mm 12mm;
           }
 
-          /* Hide everything except the printable form */
-          body > * { visibility: hidden; }
-          .transmittal-page, .transmittal-page * { visibility: visible; }
-
-          /* Hide the side panel / controls */
+          /* Hide everything, then show only the form */
+          body * { visibility: hidden !important; }
+          .transmittal-page, .transmittal-page * { visibility: visible !important; }
           .no-print { display: none !important; }
 
-          /* Position the form to fill the page */
+          /* Reset body & html so the form fits cleanly */
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+
+          /* Fit the form to the A4 page */
           .transmittal-page {
-            position: fixed !important;
+            position: absolute !important;
             top: 0 !important;
             left: 0 !important;
-            width: 210mm !important;
-            min-height: 297mm !important;
+            width: 100% !important;
+            min-height: auto !important;
             margin: 0 !important;
-            padding: 10mm 12mm !important;
+            padding: 0 !important;
             border: none !important;
             box-shadow: none !important;
+            font-size: 9px !important;
           }
 
           /* Force background colors and images to print */
