@@ -353,9 +353,37 @@ export default function TransmittalForm() {
       {/* Print styles */}
       <style>{`
         @media print {
+          @page {
+            size: A4 portrait;
+            margin: 0;
+          }
+
+          /* Hide everything except the printable form */
+          body > * { visibility: hidden; }
+          .transmittal-page, .transmittal-page * { visibility: visible; }
+
+          /* Hide the side panel / controls */
           .no-print { display: none !important; }
-          body { margin: 0; background: white; }
-          .transmittal-page { border: none !important; margin: 0 !important; width: 100% !important; min-height: auto !important; }
+
+          /* Position the form to fill the page */
+          .transmittal-page {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 210mm !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            padding: 10mm 12mm !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+
+          /* Force background colors and images to print */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
         }
       `}</style>
     </div>
