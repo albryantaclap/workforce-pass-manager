@@ -24,6 +24,7 @@ import DeletedPersonnel from './pages/DeletedPersonnel';
 import ActivityLog from './pages/ActivityLog';
 import DatabaseBackup from './pages/DatabaseBackup';
 import Chat from './pages/Chat';
+import TransmittalForm from './pages/TransmittalForm';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
@@ -76,6 +77,7 @@ const AuthenticatedApp = () => {
         <Route path="/activity-log" element={<ActivityLog />} />
         <Route path="/database-backup" element={<DatabaseBackup />} />
         <Route path="/chat" element={<Chat />} />
+        <Route path="/transmittal" element={<TransmittalForm />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
