@@ -31,7 +31,7 @@ const navItems = [
 export default function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { isAdmin, canEdit, isSuperAdminOnly } = usePermissions();
+  const { isAdmin, isOwner, canEdit, isSuperAdminOnly } = usePermissions();
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar text-sidebar-foreground flex flex-col">
@@ -51,8 +51,8 @@ export default function Sidebar() {
           if (isSuperAdminOnly) {
             return item.path === '/database-backup' || item.path === '/admin';
           }
-          if (item.path === '/admin') return isAdmin;
-          if (item.path === '/database-backup') return isAdmin;
+          if (item.path === '/admin') return isOwner;
+          if (item.path === '/database-backup') return isOwner;
           if (item.path === '/chat') return true;
           if (item.path === '/employees/new') return canEdit;
           return true;
