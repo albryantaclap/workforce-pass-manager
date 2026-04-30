@@ -1,57 +1,57 @@
 export const COMPANIES = [
-  { value: 'GSO QATAR', label: 'GSO Qatar', type: 'Main' },
-  { value: 'ITELLIGENT', label: 'Itelligent', type: 'Sub-contractor' },
-  { value: 'ANION', label: 'Anion', type: 'Sub-contractor' },
-  { value: 'SEA QUEEN', label: 'Sea Queen', type: 'Sub-contractor' },
-  { value: 'LMV E AND I', label: 'LMV E and I', type: 'Sub-contractor' },
-  { value: 'METAL WORLD', label: 'Metal World', type: 'Sub-contractor' },
+  { value: 'GSO QATAR', label: 'GSO QATAR', type: 'Main' },
+  { value: 'ITELLIGENT', label: 'ITELLIGENT', type: 'Sub-contractor' },
+  { value: 'ANION', label: 'ANION', type: 'Sub-contractor' },
+  { value: 'SEA QUEEN', label: 'SEA QUEEN', type: 'Sub-contractor' },
+  { value: 'LMV E AND I', label: 'LMV E AND I', type: 'Sub-contractor' },
+  { value: 'METAL WORLD', label: 'METAL WORLD', type: 'Sub-contractor' },
   { value: 'ASMA', label: 'ASMA', type: 'Sub-contractor' },
   { value: 'FIT', label: 'FIT', type: 'Sub-contractor' },
-  { value: 'SPRAY CON', label: 'Spray Con', type: 'Sub-contractor' },
-  { value: 'EMKAN', label: 'Emkan', type: 'Sub-contractor' },
-  { value: 'ENERTEC', label: 'Enertec', type: 'Sub-contractor' },
-  { value: 'CRYSTAL', label: 'Crystal', type: 'Sub-contractor' },
-  { value: 'MEGATRONICS (GSO)', label: 'Megatronics (GSO)', type: 'GSO Supervision' },
-  { value: 'ENERSERVE (GSO)', label: 'Enerserve (GSO)', type: 'GSO Supervision' },
-  { value: 'ENERTEC (GSO)', label: 'Enertec (GSO)', type: 'GSO Supervision' },
+  { value: 'SPRAY CON', label: 'SPRAY CON', type: 'Sub-contractor' },
+  { value: 'EMKAN', label: 'EMKAN', type: 'Sub-contractor' },
+  { value: 'ENERTEC', label: 'ENERTEC', type: 'Sub-contractor' },
+  { value: 'CRYSTAL', label: 'CRYSTAL', type: 'Sub-contractor' },
+  { value: 'MEGATRONICS (GSO)', label: 'MEGATRONICS (GSO)', type: 'GSO Supervision' },
+  { value: 'ENERSERVE (GSO)', label: 'ENERSERVE (GSO)', type: 'GSO Supervision' },
+  { value: 'ENERTEC (GSO)', label: 'ENERTEC (GSO)', type: 'GSO Supervision' },
   { value: 'NTC (GSO)', label: 'NTC (GSO)', type: 'GSO Supervision' },
   { value: 'MIR (GSO)', label: 'MIR (GSO)', type: 'GSO Supervision' },
-  { value: 'ALTAF (GSO)', label: 'Altaf (GSO)', type: 'GSO Supervision' },
-  { value: 'SWAN GLOBAL (GSO)', label: 'Swan Global (GSO)', type: 'GSO Supervision' },
-  { value: 'SIGEL (GSO)', label: 'Sigel (GSO)', type: 'GSO Supervision' },
-  { value: 'AL-RAMSHA (GSO)', label: 'Al-Ramsha (GSO)', type: 'GSO Supervision' },
-  { value: 'ALTHAF (GSO)', label: 'Althaf (GSO)', type: 'GSO Supervision' },
-  { value: 'ZEAL-IT', label: 'Zeal-IT', type: 'Sub-contractor' },
+  { value: 'ALTAF (GSO)', label: 'ALTAF (GSO)', type: 'GSO Supervision' },
+  { value: 'SWAN GLOBAL (GSO)', label: 'SWAN GLOBAL (GSO)', type: 'GSO Supervision' },
+  { value: 'SIGEL (GSO)', label: 'SIGEL (GSO)', type: 'GSO Supervision' },
+  { value: 'AL-RAMSHA (GSO)', label: 'AL-RAMSHA (GSO)', type: 'GSO Supervision' },
+  { value: 'ALTHAF (GSO)', label: 'ALTHAF (GSO)', type: 'GSO Supervision' },
+  { value: 'ZEAL-IT', label: 'ZEAL-IT', type: 'Sub-contractor' },
 ];
 
 export const RLIC_STATUSES = [
-  { value: 'VALID RLIC PASS', label: 'Valid' },
-  { value: 'EXPIRED RLIC PASS', label: 'Expired' },
-  { value: 'SOON TO EXPIRE', label: 'Soon to Expire' },
-  { value: 'NO RLIC PASS', label: 'No Pass' },
+  { value: 'VALID RLIC PASS', label: 'VALID RLIC PASS' },
+  { value: 'EXPIRED RLIC PASS', label: 'EXPIRED RLIC PASS' },
+  { value: 'SOON TO EXPIRE', label: 'SOON TO EXPIRE' },
+  { value: 'NO RLIC PASS', label: 'NO RLIC PASS' },
 ];
 
 export const PID_STATUSES = [
-  { value: 'VALID PID PASS', label: 'Valid' },
-  { value: 'EXPIRED PID PASS', label: 'Expired' },
-  { value: 'SOON TO EXPIRE', label: 'Soon to Expire' },
-  { value: 'NO PID PASS', label: 'No Pass' },
+  { value: 'VALID PID PASS', label: 'VALID PID PASS' },
+  { value: 'EXPIRED PID PASS', label: 'EXPIRED PID PASS' },
+  { value: 'SOON TO EXPIRE', label: 'SOON TO EXPIRE' },
+  { value: 'NO PID PASS', label: 'NO PID PASS' },
 ];
 
-export const DEPARTMENTS = ['Electrical', 'Mechanical', 'Civil', 'Services'];
+export const DEPARTMENTS = ['ELECTRICAL', 'MECHANICAL', 'CIVIL', 'SERVICES'];
 export const FTW_RESULTS = ['ACCEPTED', 'REJECTED', 'WAITING TR APPROVAL', 'RE-ASSESS'];
 export const MEDICAL_RESULTS = [
-  { value: 'ACCEPTED', label: 'Accepted' },
-  { value: 'REJECTED', label: 'Rejected' },
-  { value: 'WAITING TR APPROVAL', label: 'Waiting TR Approval' },
-  { value: 'RE-ASSESS', label: 'Re-Assess' },
+  { value: 'ACCEPTED', label: 'ACCEPTED' },
+  { value: 'REJECTED', label: 'REJECTED' },
+  { value: 'WAITING TR APPROVAL', label: 'WAITING TR APPROVAL' },
+  { value: 'RE-ASSESS', label: 'RE-ASSESS' },
 ];
 export const TRAINING_STATUSES = [
-  { value: 'SCHEDULED', label: 'Scheduled' },
-  { value: 'ON-GOING', label: 'On-Going' },
-  { value: 'DONE', label: 'Done' },
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'NOT REQUIRED', label: 'Not Required' },
+  { value: 'SCHEDULED', label: 'SCHEDULED' },
+  { value: 'ON-GOING', label: 'ON-GOING' },
+  { value: 'DONE', label: 'DONE' },
+  { value: 'PENDING', label: 'PENDING' },
+  { value: 'NOT REQUIRED', label: 'NOT REQUIRED' },
 ];
 export const LOCATIONS = ['QATAR', 'COMO CAMP', 'OTHER'];
 

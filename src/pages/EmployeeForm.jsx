@@ -58,8 +58,8 @@ const SelectInput = ({ field, label, options, placeholder = 'Select', form, onCh
       <SelectContent>
         {options.map(opt => (
           typeof opt === 'string'
-            ? <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-            : <SelectItem key={opt.value} value={opt.value}>{opt.label || opt.value}</SelectItem>
+            ? <SelectItem key={opt} value={opt}>{opt.toUpperCase()}</SelectItem>
+            : <SelectItem key={opt.value} value={opt.value}>{(opt.label || opt.value).toUpperCase()}</SelectItem>
         ))}
       </SelectContent>
     </Select>
@@ -177,7 +177,11 @@ export default function EmployeeForm() {
     },
   });
 
-  const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+  const TEXT_FIELDS = ['name','position_application','designation_org_chart','nationality','religion','contact_details','sponsor','remarks','qid_no','pp_no','ftw_doctor','ftw_mobile','ftw_remarks','staff_no','pid'];
+  const handleChange = (field, value) => {
+    const uppercased = TEXT_FIELDS.includes(field) && typeof value === 'string' ? value.toUpperCase() : value;
+    setForm(prev => ({ ...prev, [field]: uppercased }));
+  };
   const handleSubmit = (e) => { e.preventDefault(); saveMutation.mutate(form); };
 
   const tf = { form, onChange: handleChange };
