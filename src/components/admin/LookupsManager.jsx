@@ -54,7 +54,9 @@ function LookupSection({ type, label, hint }) {
   const handleAdd = (e) => {
     e.preventDefault();
     if (!newValue.trim()) return;
-    createMutation.mutate({ type, value: newValue.trim().toUpperCase(), label: (newLabel || newValue).trim() });
+    const val = newValue.trim().toUpperCase();
+    const lbl = (newLabel || newValue).trim().toUpperCase();
+    createMutation.mutate({ type, value: val, label: lbl });
   };
 
   const statics = DEFAULTS[type] || [];
@@ -74,8 +76,8 @@ function LookupSection({ type, label, hint }) {
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Built-in entries</p>
         {statics.map(s => (
           <div key={s.value} className="flex items-center justify-between px-3 py-2 rounded bg-muted/30 text-sm">
-            <span>{s.label}</span>
-            <span className="text-xs text-muted-foreground font-mono">{s.value}</span>
+            <span className="uppercase">{s.label}</span>
+            <span className="text-xs text-muted-foreground font-mono uppercase">{s.value}</span>
           </div>
         ))}
 
@@ -84,9 +86,9 @@ function LookupSection({ type, label, hint }) {
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-4 mb-2">Custom entries</p>
             {dbEntries.map(entry => (
               <div key={entry.id} className="flex items-center justify-between px-3 py-2 rounded bg-blue-50 text-sm">
-                <span>{entry.label}</span>
+                <span className="uppercase">{entry.label}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground font-mono">{entry.value}</span>
+                  <span className="text-xs text-muted-foreground font-mono uppercase">{entry.value}</span>
                   <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteMutation.mutate(entry.id)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>

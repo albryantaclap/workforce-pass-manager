@@ -208,8 +208,8 @@ export default function MasterList() {
           <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
             <SelectTrigger><SelectValue placeholder="Department" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
-              {['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              <SelectItem value="all">ALL DEPARTMENTS</SelectItem>
+              {['ELECTRICAL','MECHANICAL','CIVIL','SERVICES','STEEL STRUCTURE'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={rlicFilter} onValueChange={setRlicFilter}>
@@ -354,21 +354,21 @@ export default function MasterList() {
                 filtered.map((emp) => (
                   <TableRow key={emp.id} className="hover:bg-muted/30">
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{emp.sl_no}</TableCell>
-                    <TableCell className="text-xs font-medium whitespace-nowrap"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.position_application} field="position_application" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.designation_org_chart} field="designation_org_chart" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.department} field="department" empId={emp.id} type="select" options={['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d=>({value:d,label:d}))} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.company}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{emp.company_type || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.nationality} field="nationality" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.religion} field="religion" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs font-medium whitespace-nowrap uppercase"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.position_application} field="position_application" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.designation_org_chart} field="designation_org_chart" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.department} field="department" empId={emp.id} type="select" options={['ELECTRICAL','MECHANICAL','CIVIL','SERVICES','STEEL STRUCTURE'].map(d=>({value:d,label:d}))} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase">{emp.company}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase">{emp.company_type || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.nationality} field="nationality" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.religion} field="religion" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.current_location} field="current_location" empId={emp.id} type="select" options={LOCATIONS.map(l=>({value:l,label:l}))} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.dir_indir} field="dir_indir" empId={emp.id} type="select" options={[{value:'DIR',label:'DIR'},{value:'INDIR',label:'INDIR'}]} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.contact_details} field="contact_details" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.sponsor} field="sponsor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs font-mono whitespace-nowrap"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.contact_details} field="contact_details" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.sponsor} field="sponsor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap uppercase"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.qid_expiry} field="qid_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} className="font-mono" /></TableCell>
-                    <TableCell className="text-xs font-mono whitespace-nowrap"><InlineEditCell value={emp.pp_no} field="pp_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap uppercase"><InlineEditCell value={emp.pp_no} field="pp_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pp_expiry} field="pp_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.visa_date_applied} field="visa_date_applied" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.visa_date_received} field="visa_date_received" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
@@ -381,15 +381,15 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap">
                       <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={emp.id} type="select" options={FTW_RESULTS.map(r=>({value:r,label:r}))} onSave={handleCellSave} editMode={editMode} />
                     </TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_doctor} field="ftw_doctor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.ftw_doctor} field="ftw_doctor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_reassess_date} field="ftw_reassess_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_remarks} field="ftw_remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.ftw_remarks} field="ftw_remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.gate_pass_issue_date} field="gate_pass_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.gate_pass_received_date} field="gate_pass_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.gate_pass_expiry} field="gate_pass_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.staff_no} field="staff_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.staff_no} field="staff_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.gate_pass_expiry} type="rlic" storedStatus={emp.rlic_status} short /></TableCell>
-                    <TableCell className="text-xs font-mono whitespace-nowrap"><InlineEditCell value={emp.pid} field="pid" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap uppercase"><InlineEditCell value={emp.pid} field="pid" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_issue_date} field="pid_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_expiry} field="pid_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_projected_date} field="pid_projected_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
@@ -400,7 +400,7 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap">
                       <InlineEditCell value={emp.training_status} field="training_status" empId={emp.id} type="select" options={TRAINING_STATUSES.map(s=>({value:s.value,label:s.label}))} onSave={handleCellSave} editMode={editMode} />
                     </TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.remarks} field="remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.remarks} field="remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">
                       <div className="flex justify-end gap-1">
                         <Link to={`/employees/${emp.id}`}>
