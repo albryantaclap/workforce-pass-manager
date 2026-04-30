@@ -24,6 +24,17 @@ export default function TransmittalForm() {
   const [viaHandDelivery, setViaHandDelivery] = useState(true);
   const [viaCourier, setViaCourier] = useState(false);
 
+  // Transmitting checkboxes
+  const [txDrawings, setTxDrawings] = useState(false);
+  const [txMobilization, setTxMobilization] = useState(false);
+  const [txSpecifications, setTxSpecifications] = useState(false);
+  const [txLetter, setTxLetter] = useState(false);
+  const [txRlicPass, setTxRlicPass] = useState(true);
+  const [txPidPassport, setTxPidPassport] = useState(false);
+  const [txOthers, setTxOthers] = useState(false);
+  const [txOthersText, setTxOthersText] = useState('');
+  const [txAsStated, setTxAsStated] = useState(false);
+
   // Personnel search & selection
   const [search, setSearch] = useState('');
   const [selectedPersonnel, setSelectedPersonnel] = useState([]);
@@ -94,6 +105,28 @@ export default function TransmittalForm() {
               <input type="checkbox" checked={viaCourier} onChange={e => setViaCourier(e.target.checked)} className="w-4 h-4" /> Courier
             </label>
           </div>
+          <div className="md:col-span-3">
+            <label className="text-xs font-medium block mb-2">Transmitting the following</label>
+            <div className="flex flex-wrap gap-3">
+              {[
+                ['Drawings', txDrawings, setTxDrawings],
+                ['Mobilization', txMobilization, setTxMobilization],
+                ['Specifications', txSpecifications, setTxSpecifications],
+                ['Letter', txLetter, setTxLetter],
+                ['RLIC Pass', txRlicPass, setTxRlicPass],
+                ['PID & Passport', txPidPassport, setTxPidPassport],
+                ['As stated', txAsStated, setTxAsStated],
+              ].map(([label, checked, setter]) => (
+                <label key={label} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input type="checkbox" checked={checked} onChange={e => setter(e.target.checked)} className="w-4 h-4" /> {label}
+                </label>
+              ))}
+              <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                <input type="checkbox" checked={txOthers} onChange={e => setTxOthers(e.target.checked)} className="w-4 h-4" /> Others:
+              </label>
+              {txOthers && <Input className="w-36 h-7 text-sm" value={txOthersText} onChange={e => setTxOthersText(e.target.value)} placeholder="specify..." />}
+            </div>
+          </div>
         </div>
 
         {/* Personnel search */}
@@ -146,17 +179,12 @@ export default function TransmittalForm() {
           <tbody>
             {/* Logo row */}
             <tr>
-              <td colSpan={7} style={{ padding: '4px 8px', borderBottom: '2px solid black' }}>
-                {/* GSO Qatar Logo */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <svg width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="50" cy="50" r="48" stroke="#1a5276" strokeWidth="4" fill="#eaf0fb" />
-                    <text x="50" y="58" textAnchor="middle" fill="#1a5276" fontSize="28" fontWeight="bold" fontFamily="Arial">G</text>
-                  </svg>
-                  <div>
-                    <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#1a3c6e', lineHeight: 1.1 }}>GSO Qatar</div>
-                  </div>
-                </div>
+              <td colSpan={7} style={{ padding: '6px 10px', borderBottom: '2px solid black' }}>
+                <img
+                  src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/d1f8aeb83_Logo.png"
+                  alt="GSO Qatar"
+                  style={{ height: '48px', objectFit: 'contain' }}
+                />
               </td>
             </tr>
 
@@ -197,21 +225,30 @@ export default function TransmittalForm() {
 
             {/* Transmitting */}
             <tr style={{ borderBottom: '1px solid black' }}>
-              <td colSpan={7} style={{ padding: '3px 6px' }}>
+              <td colSpan={7} style={{ padding: '5px 6px' }}>
                 <span style={{ fontWeight: 'bold' }}>Transmitting the following:</span>
-                <div style={{ display: 'flex', gap: '24px', marginTop: '4px', flexWrap: 'wrap' }}>
-                  {[['Drawings',''], ['Mobilization',''], ['Specifications',''], ['Letter','']].map(([label]) => (
-                    <label key={label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '1px solid black' }}></span> {label}
-                    </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '5px', flexWrap: 'nowrap' }}>
+                  {[
+                    ['Drawings', txDrawings],
+                    ['Mobilization', txMobilization],
+                    ['Specifications', txSpecifications],
+                    ['Letter', txLetter],
+                    ['RLIC Pass', txRlicPass],
+                    ['PID & Passport', txPidPassport],
+                  ].map(([label, checked]) => (
+                    <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
+                      <span style={{ display: 'inline-block', width: '11px', height: '11px', border: '1px solid black', textAlign: 'center', lineHeight: '10px', fontSize: '9px', flexShrink: 0 }}>{checked ? '✓' : ''}</span>
+                      {label}
+                    </span>
                   ))}
-                </div>
-                <div style={{ display: 'flex', gap: '24px', marginTop: '3px', flexWrap: 'wrap' }}>
-                  {[['RLIC Pass', true], ['PID & Passport', false], ['Others:', false], ['As stated', false]].map(([label, checked]) => (
-                    <label key={label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '1px solid black', textAlign: 'center', lineHeight: '12px', fontSize: '10px' }}>{checked ? '✓' : ''}</span> {label}
-                    </label>
-                  ))}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
+                    <span style={{ display: 'inline-block', width: '11px', height: '11px', border: '1px solid black', textAlign: 'center', lineHeight: '10px', fontSize: '9px', flexShrink: 0 }}>{txOthers ? '✓' : ''}</span>
+                    Others: <span style={{ borderBottom: '1px solid black', minWidth: '60px', display: 'inline-block' }}>{txOthersText}</span>
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
+                    <span style={{ display: 'inline-block', width: '11px', height: '11px', border: '1px solid black', textAlign: 'center', lineHeight: '10px', fontSize: '9px', flexShrink: 0 }}>{txAsStated ? '✓' : ''}</span>
+                    As stated
+                  </span>
                 </div>
               </td>
             </tr>
