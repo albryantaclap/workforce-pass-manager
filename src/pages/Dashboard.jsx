@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import MultiSelect from '@/components/common/MultiSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, computePassStatus, formatDate } from '@/utils/constants';
+import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, computePassStatus, formatDate, normalizeDate } from '@/utils/constants';
 import DashboardReport from '@/components/dashboard/DashboardReport';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
@@ -107,16 +107,16 @@ export default function Dashboard() {
       const matchPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
       const matchTraining = trainingStatusFilter.length === 0 || trainingStatusFilter.includes(e.training_status);
       const matchMedResult = medicalResultFilter === 'all' || e.ftw_result === medicalResultFilter;
-      const trainSchedDate = e.training_date_scheduled || '';
+      const trainSchedDate = normalizeDate(e.training_date_scheduled) || '';
       const matchTrainSchedFrom = !trainingScheduledFrom || trainSchedDate >= trainingScheduledFrom;
       const matchTrainSchedTo = !trainingScheduledTo || trainSchedDate <= trainingScheduledTo;
-      const trDate = e.ftw_approved_date || '';
+      const trDate = normalizeDate(e.ftw_approved_date) || '';
       const matchTrFrom = !trApprovedFrom || trDate >= trApprovedFrom;
       const matchTrTo = !trApprovedTo || trDate <= trApprovedTo;
-      const gpDate = e.gate_pass_received_date || '';
+      const gpDate = normalizeDate(e.gate_pass_received_date) || '';
       const matchGpFrom = !gpReceivedFrom || gpDate >= gpReceivedFrom;
       const matchGpTo = !gpReceivedTo || gpDate <= gpReceivedTo;
-      const pidDate = e.pid_issue_date || '';
+      const pidDate = normalizeDate(e.pid_issue_date) || '';
       const matchPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
       const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
       return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpFrom && matchGpTo && matchPidFrom && matchPidTo;
@@ -341,7 +341,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">TR Date Approved</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical TR Date Approved</p>
             <div className="flex gap-2">
               <Input type="date" value={trApprovedFrom} onChange={e => setTrApprovedFrom(e.target.value)} className="text-xs" placeholder="From" />
               <Input type="date" value={trApprovedTo} onChange={e => setTrApprovedTo(e.target.value)} className="text-xs" placeholder="To" />
