@@ -68,7 +68,21 @@ export function normalizeDate(dateStr) {
     const [, dd, mm, yyyy] = slash;
     return `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
   }
-  return s;
+  // Excel serial number (e.g. 45410)
+  if (/^\d{4,6}$/.test(s)) {
+    const serial = parseInt(s, 10);
+    if (serial > 40000 && serial < 60000) {
+      // Excel epoch: Jan 1 1900 (with leap year bug offset = 25569 days to Unix epoch)
+      const d = new Date((serial - 25569) * 86400 * 1000);
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().split('T')[0];
+      }
+    }
+  }
+  // Try native Date parse as last resort (handles ISO variants)
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+  return null;
 }
 
 export function formatDate(dateStr) {
