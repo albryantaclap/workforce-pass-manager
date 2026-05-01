@@ -166,8 +166,8 @@ export default function ProjectIDTracker() {
 
   const getExportData = () => filtered.map(e => ({
     Name: e.name, Company: e.company, QID_No: e.qid_no, PID: e.pid,
-    PID_Issue_Date: e.pid_issue_date, PID_Expiry: e.pid_expiry, PID_Status: e.pid_status,
-    Projected_Date: e.pid_projected_date,
+    PID_Issue_Date: formatDate(e.pid_issue_date), PID_Expiry: formatDate(e.pid_expiry), PID_Status: e.pid_status,
+    Projected_Date: formatDate(e.pid_projected_date),
   }));
 
   return (

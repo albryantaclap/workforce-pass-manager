@@ -77,7 +77,7 @@ export default function TrainingTracker() {
 
   const getExportData = () => filtered.map(e => ({
     Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
-    Training_Date_Scheduled: e.training_date_scheduled, Training_Date_Started: e.training_date_start, Training_Date_End: e.training_date_end, Training_Status: e.training_status,
+    Training_Date_Scheduled: formatDate(e.training_date_scheduled), Training_Date_Started: formatDate(e.training_date_start), Training_Date_End: formatDate(e.training_date_end), Training_Status: e.training_status,
   }));
 
   const statusColors = { DONE: 'bg-emerald-50 text-emerald-700', PENDING: 'bg-amber-50 text-amber-700', 'NOT REQUIRED': 'bg-slate-100 text-slate-600' };

@@ -150,8 +150,8 @@ export default function GatepassTracker() {
 
   const getExportData = () => filtered.map(e => ({
     Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
-    Staff_No: e.staff_no, Gate_Pass_Issue: e.gate_pass_issue_date,
-    Gate_Pass_Received: e.gate_pass_received_date, Gate_Pass_Expiry: e.gate_pass_expiry,
+    Staff_No: e.staff_no, Gate_Pass_Issue: formatDate(e.gate_pass_issue_date),
+    Gate_Pass_Received: formatDate(e.gate_pass_received_date), Gate_Pass_Expiry: formatDate(e.gate_pass_expiry),
     RLIC_Status: e.rlic_status,
   }));
 

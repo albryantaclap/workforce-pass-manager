@@ -11,7 +11,7 @@ import { Search, Stethoscope, Upload, Eye, Pencil, PencilLine, X as XIcon } from
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { COMPANIES, MEDICAL_RESULTS, formatDate } from '@/utils/constants';
+import { COMPANIES, MEDICAL_RESULTS, formatDate, normalizeDate } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
@@ -90,7 +90,7 @@ export default function MedicalTracker() {
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
     const matchesResult = resultFilter === 'all' || e.ftw_result === resultFilter;
     const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
-    const approvedDate = e.ftw_approved_date || null;
+    const approvedDate = normalizeDate(e.ftw_approved_date);
     const matchesTrFrom = !trApprovedFrom || (approvedDate && approvedDate >= trApprovedFrom);
     const matchesTrTo = !trApprovedTo || (approvedDate && approvedDate <= trApprovedTo);
     return matchesSearch && matchesCompany && matchesPosition && matchesResult && matchesDepartment && matchesTrFrom && matchesTrTo;
@@ -123,11 +123,11 @@ export default function MedicalTracker() {
 
   const getExportData = () => filtered.map(e => ({
     Name: e.name, Company: e.company, Nationality: e.nationality,
-    QID_No: e.qid_no, PP_No: e.pp_no, Medical_Date: e.ftw_medical_date,
-    Received_Date: e.ftw_received_date, Approval_Request: e.ftw_approval_request_date,
-    Count_Days: e.ftw_count_days, Approved_Date: e.ftw_approved_date,
+    QID_No: e.qid_no, PP_No: e.pp_no, Medical_Date: formatDate(e.ftw_medical_date),
+    Received_Date: formatDate(e.ftw_received_date), Approval_Request: formatDate(e.ftw_approval_request_date),
+    Count_Days: e.ftw_count_days, Approved_Date: formatDate(e.ftw_approved_date),
     Result: e.ftw_result, Doctor: e.ftw_doctor, Mobile: e.ftw_mobile,
-    ReAssess_Date: e.ftw_reassess_date, Remarks: e.ftw_remarks,
+    ReAssess_Date: formatDate(e.ftw_reassess_date), Remarks: e.ftw_remarks,
   }));
 
   const resultColors = { ACCEPTED: 'bg-emerald-50 text-emerald-700', REJECTED: 'bg-red-50 text-red-700', 'WAITING TR APPROVAL': 'bg-amber-50 text-amber-700', 'RE-ASSESS': 'bg-purple-50 text-purple-700' };
