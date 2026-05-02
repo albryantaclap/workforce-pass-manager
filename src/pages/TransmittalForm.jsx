@@ -74,15 +74,12 @@ export default function TransmittalForm() {
   const [viaCourier, setViaCourier] = useState(false);
 
   // Transmitting checkboxes
-  const [txDrawings, setTxDrawings] = useState(false);
-  const [txMobilization, setTxMobilization] = useState(false);
-  const [txSpecifications, setTxSpecifications] = useState(false);
-  const [txLetter, setTxLetter] = useState(false);
-  const [txRlicPass, setTxRlicPass] = useState(true);
-  const [txPidPassport, setTxPidPassport] = useState(false);
+  const [txMF, setTxMF] = useState(false);
+  const [txPP, setTxPP] = useState(false);
+  const [txPID, setTxPID] = useState(false);
+  const [txCRFT, setTxCRFT] = useState(false);
   const [txOthers, setTxOthers] = useState(false);
   const [txOthersText, setTxOthersText] = useState('');
-  const [txAsStated, setTxAsStated] = useState(false);
 
   // Gate Pass filter
   const [filterDate, setFilterDate] = useState('');
@@ -135,14 +132,11 @@ export default function TransmittalForm() {
 
   // Derive Hard Copy label from "Transmitting the following" checkboxes
   const hardCopyLabel = [
-    txDrawings && 'DRAWINGS',
-    txMobilization && 'MOBILIZATION',
-    txSpecifications && 'SPECIFICATIONS',
-    txLetter && 'LETTER',
-    txRlicPass && 'RLIC PASS',
-    txPidPassport && 'PID & PASSPORT',
+    txMF && 'MF',
+    txPP && 'PP',
+    txPID && 'PID',
+    txCRFT && 'CRFT',
     txOthers && txOthersText && txOthersText.toUpperCase(),
-    txAsStated && 'AS STATED',
   ].filter(Boolean).join(', ') || '—';
 
   // Build rows: selected personnel + empty rows to fill the table (min 9 rows shown, rest blank)
@@ -198,13 +192,10 @@ export default function TransmittalForm() {
             <label className="text-xs font-medium block mb-2">Transmitting the following</label>
             <div className="flex flex-wrap gap-3">
               {[
-                ['Drawings', txDrawings, setTxDrawings],
-                ['Mobilization', txMobilization, setTxMobilization],
-                ['Specifications', txSpecifications, setTxSpecifications],
-                ['Letter', txLetter, setTxLetter],
-                ['RLIC Pass', txRlicPass, setTxRlicPass],
-                ['PID & Passport', txPidPassport, setTxPidPassport],
-                ['As stated', txAsStated, setTxAsStated],
+                ['MF', txMF, setTxMF],
+                ['PP', txPP, setTxPP],
+                ['PID', txPID, setTxPID],
+                ['CRFT', txCRFT, setTxCRFT],
               ].map(([label, checked, setter]) => (
                 <label key={label} className="flex items-center gap-1.5 text-sm cursor-pointer">
                   <input type="checkbox" checked={checked} onChange={e => setter(e.target.checked)} className="w-4 h-4" /> {label}
@@ -345,12 +336,10 @@ export default function TransmittalForm() {
                 <span style={{ fontWeight: 'bold' }}>Transmitting the following:</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '5px', flexWrap: 'nowrap' }}>
                   {[
-                    ['Drawings', txDrawings],
-                    ['Mobilization', txMobilization],
-                    ['Specifications', txSpecifications],
-                    ['Letter', txLetter],
-                    ['RLIC Pass', txRlicPass],
-                    ['PID & Passport', txPidPassport],
+                    ['MF', txMF],
+                    ['PP', txPP],
+                    ['PID', txPID],
+                    ['CRFT', txCRFT],
                   ].map(([label, checked]) => (
                     <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
                       <span style={{ display: 'inline-block', width: '11px', height: '11px', border: '1px solid black', textAlign: 'center', lineHeight: '10px', fontSize: '9px', flexShrink: 0 }}>{checked ? '✓' : ''}</span>
@@ -360,10 +349,6 @@ export default function TransmittalForm() {
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
                     <span style={{ display: 'inline-block', width: '11px', height: '11px', border: '1px solid black', textAlign: 'center', lineHeight: '10px', fontSize: '9px', flexShrink: 0 }}>{txOthers ? '✓' : ''}</span>
                     Others: <span style={{ borderBottom: '1px solid black', minWidth: '60px', display: 'inline-block' }}>{txOthersText}</span>
-                  </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
-                    <span style={{ display: 'inline-block', width: '11px', height: '11px', border: '1px solid black', textAlign: 'center', lineHeight: '10px', fontSize: '9px', flexShrink: 0 }}>{txAsStated ? '✓' : ''}</span>
-                    As stated
                   </span>
                 </div>
               </td>
