@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -61,10 +61,7 @@ export default function GatepassImport() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: employees = [] } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => base44.entities.Employee.list('-created_date', 2000),
-  });
+  // No pre-fetch — per-record QID lookup used during import to avoid list limit issues
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -80,61 +77,62 @@ export default function GatepassImport() {
 
   const runImport = async () => {
     if (!fileReady) return;
-    setStatus('matching');
-    setProgress(20);
+    setStatus('updating');
+    setProgress(10);
 
-    const qidMap = new Map();
-    employees.forEach(emp => {
-      if (emp.qid_no) qidMap.set(String(emp.qid_no).trim(), emp);
+    // Deduplicate CSV rows by QID (last row wins)
+    const rowsByQid = new Map();
+    parsedRecords.forEach(rec => {
+      const qid = String(rec.qid_no || '').trim();
+      if (qid) rowsByQid.set(qid, rec);
     });
 
-    setStatus('updating');
-    setProgress(40);
-
-    let updated = 0;
-    let created = 0;
-    const notFound = [];
-    const total = parsedRecords.length;
+    const allEntries = [...rowsByQid.entries()];
+    const total = allEntries.length;
     const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+    const BATCH = 10;
 
-    for (let i = 0; i < total; i++) {
-      const rec = parsedRecords[i];
-      const qid = String(rec.qid_no || '').trim();
-      if (!qid) continue;
+    let updated = 0, created = 0;
+    const notFound = [];
 
-      const emp = qidMap.get(qid);
-      const issueDate = parseDate(rec.gate_pass_issue_date);
-      const receivedDate = parseDate(rec.gate_pass_received_date);
-      const expiryDate = parseDate(rec.gate_pass_expiry);
-      const rlicStatus = normalizeRlic(rec.rlic_status);
+    for (let i = 0; i < total; i += BATCH) {
+      const chunk = allEntries.slice(i, i + BATCH);
+      await Promise.all(chunk.map(async ([qid, rec]) => {
+        const issueDate = parseDate(rec.gate_pass_issue_date);
+        const receivedDate = parseDate(rec.gate_pass_received_date);
+        const expiryDate = parseDate(rec.gate_pass_expiry);
+        const rlicStatus = normalizeRlic(rec.rlic_status);
 
-      if (!emp) {
-        const newEmp = { qid_no: qid };
-        if (rec.name) newEmp.name = rec.name;
-        if (rec.company) newEmp.company = rec.company;
-        if (rec.nationality) newEmp.nationality = rec.nationality;
-        if (rec.staff_no) newEmp.staff_no = rec.staff_no;
-        if (issueDate) newEmp.gate_pass_issue_date = issueDate;
-        if (receivedDate) newEmp.gate_pass_received_date = receivedDate;
-        if (expiryDate) newEmp.gate_pass_expiry = expiryDate;
-        if (rlicStatus) newEmp.rlic_status = rlicStatus;
-        await base44.entities.Employee.create(newEmp);
-        created++;
-        if (created % 5 === 0) await sleep(300);
-      } else {
-        const update = {};
-        if (rec.staff_no) update.staff_no = rec.staff_no;
-        if (issueDate) update.gate_pass_issue_date = issueDate;
-        if (receivedDate) update.gate_pass_received_date = receivedDate;
-        if (expiryDate) update.gate_pass_expiry = expiryDate;
-        if (rlicStatus) update.rlic_status = rlicStatus;
-        if (Object.keys(update).length > 0) {
-          await base44.entities.Employee.update(emp.id, update);
-          updated++;
-          if (updated % 5 === 0) await sleep(300);
+        // Per-record lookup — no list limit issues
+        const matches = await base44.entities.Employee.filter({ qid_no: qid }, '-created_date', 1);
+
+        if (matches.length === 0) {
+          const newEmp = { qid_no: qid };
+          if (rec.name) newEmp.name = rec.name;
+          if (rec.company) newEmp.company = rec.company;
+          if (rec.nationality) newEmp.nationality = rec.nationality;
+          if (rec.staff_no) newEmp.staff_no = rec.staff_no;
+          if (issueDate) newEmp.gate_pass_issue_date = issueDate;
+          if (receivedDate) newEmp.gate_pass_received_date = receivedDate;
+          if (expiryDate) newEmp.gate_pass_expiry = expiryDate;
+          if (rlicStatus) newEmp.rlic_status = rlicStatus;
+          await base44.entities.Employee.create(newEmp);
+          created++;
+        } else {
+          const update = {};
+          if (rec.staff_no) update.staff_no = rec.staff_no;
+          if (issueDate) update.gate_pass_issue_date = issueDate;
+          if (receivedDate) update.gate_pass_received_date = receivedDate;
+          if (expiryDate) update.gate_pass_expiry = expiryDate;
+          if (rlicStatus) update.rlic_status = rlicStatus;
+          if (Object.keys(update).length > 0) {
+            await base44.entities.Employee.update(matches[0].id, update);
+            updated++;
+          }
         }
-      }
-      setProgress(40 + Math.floor((i / total) * 58));
+      }));
+      setProgress(10 + Math.round(((i + BATCH) / total) * 88));
+      if (i + BATCH < total) await sleep(150);
     }
 
     setProgress(100);

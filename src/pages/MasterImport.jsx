@@ -193,27 +193,54 @@ export default function MasterImport() {
       return;
     }
 
-    // Fetch all existing employees to match by QID No
-    const existing = await base44.entities.Employee.list('-created_date', 5000);
-    const byQid = {};
-    existing.forEach(e => { if (e.qid_no) byQid[e.qid_no.trim()] = e; });
+    // Deduplicate rows by QID (last row wins)
+    const rowsByQid = new Map();
+    const noQidRows = [];
+    rows.forEach(row => {
+      const qid = row.qid_no ? row.qid_no.trim() : null;
+      if (qid) rowsByQid.set(qid, row);
+      else noQidRows.push(row);
+    });
 
     let created = 0, updated = 0, failed = 0;
-    for (let i = 0; i < rows.length; i++) {
-      try {
-        const row = rows[i];
-        const qid = row.qid_no ? row.qid_no.trim() : null;
-        if (qid && byQid[qid]) {
-          await base44.entities.Employee.update(byQid[qid].id, row);
-          updated++;
-        } else {
-          await base44.entities.Employee.create(row);
-          created++;
+    const allRows = [...rowsByQid.entries()]; // [qid, row]
+    const BATCH = 10;
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    for (let i = 0; i < allRows.length; i += BATCH) {
+      const chunk = allRows.slice(i, i + BATCH);
+      await Promise.all(chunk.map(async ([qid, row]) => {
+        try {
+          // Per-record lookup — never miss records beyond a list limit
+          const existing = await base44.entities.Employee.filter({ qid_no: qid }, '-created_date', 1);
+          if (existing.length > 0) {
+            // Safe merge: strip null/empty values so we never overwrite with blank
+            const safeUpdate = {};
+            Object.entries(row).forEach(([k, v]) => {
+              if (v !== null && v !== undefined && v !== '') safeUpdate[k] = v;
+            });
+            if (Object.keys(safeUpdate).length > 0) {
+              await base44.entities.Employee.update(existing[0].id, safeUpdate);
+              updated++;
+            }
+          } else {
+            // Validate required fields before insert
+            if (!row.name || !row.company) { failed++; return; }
+            await base44.entities.Employee.create(row);
+            created++;
+          }
+        } catch {
+          failed++;
         }
-      } catch (e) {
-        failed++;
-      }
-      setProgress(Math.round(((i + 1) / rows.length) * 100));
+      }));
+      setProgress(Math.round(((i + BATCH) / allRows.length) * 100));
+      if (i + BATCH < allRows.length) await sleep(200);
+    }
+
+    // Handle rows without QID (create only, validate first)
+    for (const row of noQidRows) {
+      if (!row.name || !row.company) { failed++; continue; }
+      try { await base44.entities.Employee.create(row); created++; } catch { failed++; }
     }
 
     setResult({ success: true, message: `Import complete: ${created} created, ${updated} updated${failed > 0 ? `, ${failed} failed` : ''}.` });

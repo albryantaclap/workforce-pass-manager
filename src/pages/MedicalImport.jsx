@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,10 +69,7 @@ export default function MedicalImport() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: employees = [] } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => base44.entities.Employee.list('-created_date', 2000),
-  });
+  // No pre-fetch — per-record QID lookup used during import to avoid list limit issues
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -88,105 +85,79 @@ export default function MedicalImport() {
 
   const runImport = async () => {
     if (!fileReady) return;
-    setStatus('extracting');
+    setStatus('updating');
     setProgress(10);
 
-    let records = parsedRecords;
-
-    setStatus('matching');
-    setProgress(30);
-
-    // Build QID map
-    const qidMap = new Map();
-    const seen = new Set();
-    const dupesToDelete = [];
-    employees.forEach(emp => {
-      if (!emp.qid_no) return;
-      const key = String(emp.qid_no).trim();
-      if (seen.has(key)) dupesToDelete.push(emp.id);
-      else { seen.add(key); qidMap.set(key, emp); }
+    // Deduplicate CSV rows by QID (last row wins)
+    const rowsByQid = new Map();
+    parsedRecords.forEach(rec => {
+      const qid = String(rec.qid_no || '').trim();
+      if (qid) rowsByQid.set(qid, rec);
     });
 
-    setStatus('updating');
-    setProgress(40);
-
-    let updated = 0;
-    let created = 0;
-    const notFound = [];
-    const total = records.length;
+    const allEntries = [...rowsByQid.entries()];
+    const total = allEntries.length;
     const sleep = (ms) => new Promise(res => setTimeout(res, ms));
-    const BATCH_SIZE = 3;
-    const DELAY_MS = 800;
+    const BATCH = 10;
 
-    const apiCall = async (fn, retries = 3) => {
-      for (let attempt = 0; attempt < retries; attempt++) {
-        try {
-          return await fn();
-        } catch (err) {
-          if (err?.message?.includes('Rate limit') && attempt < retries - 1) {
-            await sleep(2000 * (attempt + 1));
-          } else {
-            throw err;
+    let updated = 0, created = 0, dupsRemoved = 0;
+    const notFound = [];
+
+    for (let i = 0; i < total; i += BATCH) {
+      const chunk = allEntries.slice(i, i + BATCH);
+      await Promise.all(chunk.map(async ([qid, rec]) => {
+        const md = parseDate(rec.ftw_medical_date);
+        const rd = parseDate(rec.ftw_received_date);
+        const ard = parseDate(rec.ftw_approval_request_date);
+        const ad = parseDate(rec.ftw_approved_date);
+        const result = normalizeResult(rec.ftw_result);
+
+        // Per-record lookup — no list limit issues
+        const matches = await base44.entities.Employee.filter({ qid_no: qid }, '-created_date', 5);
+
+        if (matches.length === 0) {
+          // Not found — create stub
+          const newEmp = { qid_no: qid };
+          if (rec.name) newEmp.name = rec.name;
+          if (rec.company) newEmp.company = rec.company;
+          if (rec.nationality) newEmp.nationality = rec.nationality;
+          if (rec.pp_no) newEmp.pp_no = rec.pp_no;
+          if (md) newEmp.ftw_medical_date = md;
+          if (rd) newEmp.ftw_received_date = rd;
+          if (ard) newEmp.ftw_approval_request_date = ard;
+          if (ad) newEmp.ftw_approved_date = ad;
+          if (result) newEmp.ftw_result = result;
+          if (rec.ftw_doctor) newEmp.ftw_doctor = rec.ftw_doctor;
+          if (rec.ftw_mobile) newEmp.ftw_mobile = String(rec.ftw_mobile);
+          await base44.entities.Employee.create(newEmp);
+          created++;
+        } else {
+          // Soft-deactivate duplicates (never hard delete), update the primary
+          const [primary, ...dups] = matches;
+          await Promise.all(dups.map(d => base44.entities.Employee.update(d.id, { is_active: false })));
+          dupsRemoved += dups.length;
+
+          const update = {};
+          if (md) update.ftw_medical_date = md;
+          if (rd) update.ftw_received_date = rd;
+          if (ard) update.ftw_approval_request_date = ard;
+          if (ad) update.ftw_approved_date = ad;
+          if (result) update.ftw_result = result;
+          if (rec.ftw_doctor) update.ftw_doctor = rec.ftw_doctor;
+          if (rec.ftw_mobile) update.ftw_mobile = String(rec.ftw_mobile);
+          if (Object.keys(update).length > 0) {
+            await base44.entities.Employee.update(primary.id, update);
+            updated++;
           }
         }
-      }
-    };
-
-    for (let i = 0; i < records.length; i++) {
-      const rec = records[i];
-      const qid = String(rec.qid_no || '').trim();
-      if (!qid) continue;
-
-      const emp = qidMap.get(qid);
-
-      const md = parseDate(rec.ftw_medical_date);
-      const rd = parseDate(rec.ftw_received_date);
-      const ard = parseDate(rec.ftw_approval_request_date);
-      const ad = parseDate(rec.ftw_approved_date);
-      const result = normalizeResult(rec.ftw_result);
-
-      if (!emp) {
-        const newEmp = { qid_no: qid };
-        if (rec.name) newEmp.name = rec.name;
-        if (rec.company) newEmp.company = rec.company;
-        if (rec.nationality) newEmp.nationality = rec.nationality;
-        if (rec.pp_no) newEmp.pp_no = rec.pp_no;
-        if (md) newEmp.ftw_medical_date = md;
-        if (rd) newEmp.ftw_received_date = rd;
-        if (ard) newEmp.ftw_approval_request_date = ard;
-        if (ad) newEmp.ftw_approved_date = ad;
-        if (result) newEmp.ftw_result = result;
-        if (rec.ftw_doctor) newEmp.ftw_doctor = rec.ftw_doctor;
-        if (rec.ftw_mobile) newEmp.ftw_mobile = String(rec.ftw_mobile);
-        await apiCall(() => base44.entities.Employee.create(newEmp));
-        created++;
-      } else {
-        const update = {};
-        if (md) update.ftw_medical_date = md;
-        if (rd) update.ftw_received_date = rd;
-        if (ard) update.ftw_approval_request_date = ard;
-        if (ad) update.ftw_approved_date = ad;
-        if (result) update.ftw_result = result;
-        if (rec.ftw_doctor) update.ftw_doctor = rec.ftw_doctor;
-        if (rec.ftw_mobile) update.ftw_mobile = String(rec.ftw_mobile);
-        if (Object.keys(update).length > 0) {
-          await apiCall(() => base44.entities.Employee.update(emp.id, update));
-          updated++;
-        }
-      }
-
-      if ((i + 1) % BATCH_SIZE === 0) await sleep(DELAY_MS);
-      setProgress(40 + Math.floor((i / total) * 48));
-    }
-
-    for (let i = 0; i < dupesToDelete.length; i++) {
-      await apiCall(() => base44.entities.Employee.delete(dupesToDelete[i]));
-      if ((i + 1) % BATCH_SIZE === 0) await sleep(DELAY_MS);
+      }));
+      setProgress(10 + Math.round(((i + BATCH) / total) * 88));
+      if (i + BATCH < total) await sleep(150);
     }
 
     setProgress(100);
     setStatus('done');
-    setResults({ updated, created, notFound, dupsRemoved: dupesToDelete.length });
+    setResults({ updated, created, notFound, dupsRemoved });
     queryClient.invalidateQueries({ queryKey: ['employees'] });
   };
 
