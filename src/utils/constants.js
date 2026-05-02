@@ -131,7 +131,7 @@ export function computePassStatus(dateStr, type, storedStatus) {
   const days = daysUntil(dateStr);
   if (days === null) return type === 'rlic' ? 'NO RLIC PASS' : 'NO PID PASS';
   if (days < 0) return type === 'rlic' ? 'EXPIRED RLIC PASS' : 'EXPIRED PID PASS';
-  if (days <= 90) return 'SOON TO EXPIRE';
+  if (days <= 30) return 'SOON TO EXPIRE';
   return type === 'rlic' ? 'VALID RLIC PASS' : 'VALID PID PASS';
 }
 
