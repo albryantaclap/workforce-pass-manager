@@ -84,6 +84,10 @@ export default function TransmittalForm() {
   const [txOthersText, setTxOthersText] = useState('');
   const [txAsStated, setTxAsStated] = useState(false);
 
+  // Gate Pass filter
+  const [filterDate, setFilterDate] = useState('');
+  const [filterCompany, setFilterCompany] = useState('');
+
   // Personnel search & selection
   const [search, setSearch] = useState('');
   const [selectedPersonnel, setSelectedPersonnel] = useState([]);
@@ -92,6 +96,19 @@ export default function TransmittalForm() {
     queryKey: ['employees-active'],
     queryFn: () => base44.entities.Employee.filter({ is_active: true }),
   });
+
+  // Auto-populate when both gate pass filters are set
+  useEffect(() => {
+    if (filterDate && filterCompany) {
+      const autoFiltered = employees.filter(e =>
+        e.gate_pass_received_date === filterDate &&
+        e.company === filterCompany
+      );
+      if (autoFiltered.length > 0) {
+        setSelectedPersonnel(autoFiltered);
+      }
+    }
+  }, [filterDate, filterCompany, employees]);
 
   const filtered = employees.filter(e => {
     if (!search) return true;
@@ -199,6 +216,33 @@ export default function TransmittalForm() {
               {txOthers && <Input className="w-36 h-7 text-sm" value={txOthersText} onChange={e => setTxOthersText(e.target.value)} placeholder="specify..." />}
             </div>
           </div>
+        </div>
+
+        {/* Gate Pass Filter */}
+        <div className="bg-white border rounded-lg p-4 space-y-3">
+          <h3 className="text-sm font-semibold">Auto-fill by Gate Pass Received Date & Company</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium block mb-1">Gate Pass Received Date</label>
+              <Input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium block mb-1">Company</label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={filterCompany}
+                onChange={e => setFilterCompany(e.target.value)}
+              >
+                <option value="">-- Select Company --</option>
+                {COMPANY_LIST.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          {filterDate && filterCompany && (
+            <p className="text-xs text-muted-foreground">
+              {employees.filter(e => e.gate_pass_received_date === filterDate && e.company === filterCompany).length} personnel found with gate pass received on {filterDate} from {filterCompany}.
+            </p>
+          )}
         </div>
 
         {/* Personnel search */}
@@ -353,7 +397,7 @@ export default function TransmittalForm() {
               <tr key={emp.id} style={{ borderBottom: '1px solid #999' }}>
                 <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>{i + 1}</td>
                 <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999', fontFamily: 'monospace' }}>{emp.qid_no || ''}</td>
-                <td style={{ padding: '3px 6px', borderRight: '1px solid #999' }}>RLIC - {emp.name}</td>
+                <td style={{ padding: '3px 6px', borderRight: '1px solid #999' }}>{emp.name}{emp.position_application ? ` - ${emp.position_application}` : ''}</td>
                 <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>1</td>
                 <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>{hardCopyLabel}</td>
                 <td style={{ padding: '3px 6px', textAlign: 'center' }}>-</td>
