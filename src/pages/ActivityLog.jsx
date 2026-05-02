@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
@@ -24,20 +24,20 @@ export default function ActivityLog() {
     refetchInterval: 30000,
   });
 
-  const filtered = logs.filter(log => {
+  const filtered = useMemo(() => logs.filter(log => {
     const matchesSearch =
       log.record_name?.toLowerCase().includes(search.toLowerCase()) ||
       log.performed_by?.toLowerCase().includes(search.toLowerCase()) ||
       log.entity_name?.toLowerCase().includes(search.toLowerCase());
     const matchesAction = actionFilter === 'all' || log.action === actionFilter;
     return matchesSearch && matchesAction;
-  });
+  }), [logs, search, actionFilter]);
 
-  const counts = {
+  const counts = useMemo(() => ({
     create: logs.filter(l => l.action === 'create').length,
     update: logs.filter(l => l.action === 'update').length,
     delete: logs.filter(l => l.action === 'delete').length,
-  };
+  }), [logs]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

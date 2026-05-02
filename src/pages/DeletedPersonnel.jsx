@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -21,11 +21,30 @@ export default function DeletedPersonnel() {
 
   const recoverMutation = useMutation({
     mutationFn: async (record) => {
-      const { employee_data } = record;
-      // Remove internal fields before re-creating
-      const { id, created_date, updated_date, ...cleanData } = employee_data;
-      await base44.entities.Employee.create({ ...cleanData, is_active: true });
-      await base44.entities.DeletedEmployee.update(record.id, { recovered: true });
+      const { employee_data, original_id } = record;
+      // Check if original record still exists (soft-deleted with is_active: false)
+      let restored = false;
+      try {
+        // Try to update the original record back to active (soft-delete recovery)
+        await base44.entities.Employee.update(original_id, { ...employee_data, is_active: true });
+        restored = true;
+      } catch {
+        // Original ID gone (hard deleted) — re-create with clean data
+        const { id, created_date, updated_date, ...cleanData } = employee_data;
+        await base44.entities.Employee.create({ ...cleanData, is_active: true });
+      }
+      await Promise.all([
+        base44.entities.DeletedEmployee.update(record.id, { recovered: true }),
+        base44.entities.ActivityLog.create({
+          action: 'create',
+          entity_name: 'Employee',
+          entity_id: original_id,
+          performed_by: 'system-recovery',
+          record_snapshot: employee_data,
+          changed_fields: ['is_active'],
+          record_name: record.employee_name,
+        }),
+      ]);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deleted-employees'] });
@@ -33,12 +52,12 @@ export default function DeletedPersonnel() {
     },
   });
 
-  const filtered = deleted.filter(r =>
+  const filtered = useMemo(() => deleted.filter(r =>
     r.employee_name?.toLowerCase().includes(search.toLowerCase()) ||
     r.company?.toLowerCase().includes(search.toLowerCase()) ||
     r.department?.toLowerCase().includes(search.toLowerCase()) ||
     r.deleted_by?.toLowerCase().includes(search.toLowerCase())
-  );
+  ), [deleted, search]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

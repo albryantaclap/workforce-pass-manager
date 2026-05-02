@@ -103,10 +103,10 @@ export default function MasterList() {
   };
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Employee.delete(id),
+    mutationFn: (id) => base44.entities.Employee.update(id, { is_active: false, _last_updated_by: currentUser?.email || '' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
-      toast({ title: 'Record deleted' });
+      toast({ title: 'Record moved to Inactive Personnel' });
     },
   });
 
@@ -421,11 +421,11 @@ export default function MasterList() {
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Record</AlertDialogTitle>
-                                <AlertDialogDescription>Delete {emp.name}? This cannot be undone.</AlertDialogDescription>
+                                <AlertDialogDescription>This will move {emp.name} to Inactive Personnel. You can restore them later.</AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteMutation.mutate(emp.id)} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
+                                <AlertDialogAction onClick={() => deleteMutation.mutate(emp.id)} className="bg-destructive text-destructive-foreground">Set Inactive</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
