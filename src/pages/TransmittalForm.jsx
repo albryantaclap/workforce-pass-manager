@@ -62,6 +62,7 @@ export default function TransmittalForm() {
   const printRef = useRef();
 
   const [fromName, setFromName] = useState('');
+  const [refPrefix, setRefPrefix] = useState('NFE-TN-');
   const [refSuffix, setRefSuffix] = useState('');
   const [originator, setOriginator] = useState('');
   const [toCompany, setToCompany] = useState('');
@@ -115,6 +116,18 @@ export default function TransmittalForm() {
     window.print();
   };
 
+  // Derive Hard Copy label from "Transmitting the following" checkboxes
+  const hardCopyLabel = [
+    txDrawings && 'DRAWINGS',
+    txMobilization && 'MOBILIZATION',
+    txSpecifications && 'SPECIFICATIONS',
+    txLetter && 'LETTER',
+    txRlicPass && 'RLIC PASS',
+    txPidPassport && 'PID & PASSPORT',
+    txOthers && txOthersText && txOthersText.toUpperCase(),
+    txAsStated && 'AS STATED',
+  ].filter(Boolean).join(', ') || '—';
+
   // Build rows: selected personnel + empty rows to fill the table (min 9 rows shown, rest blank)
   const MIN_ROWS = 9;
   const blankCount = Math.max(0, MIN_ROWS - selectedPersonnel.length);
@@ -139,7 +152,18 @@ export default function TransmittalForm() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white border rounded-lg p-4">
           <div><label className="text-xs font-medium block mb-1">From</label><Input value={fromName} onChange={e => setFromName(e.target.value)} placeholder="From name" /></div>
           <div><label className="text-xs font-medium block mb-1">Originator</label><Input value={originator} onChange={e => setOriginator(e.target.value)} placeholder="Originator" /></div>
-          <div><label className="text-xs font-medium block mb-1">Trans. Ref. No. (NFE-TN-...)</label><Input value={refSuffix} onChange={e => setRefSuffix(e.target.value)} placeholder="26-138" /></div>
+          <div>
+            <label className="text-xs font-medium block mb-1">Trans. Ref. No.</label>
+            <div className="flex items-center gap-3 mb-1">
+              {['NFE-TN-', 'RLIC-TN-'].map(p => (
+                <label key={p} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input type="radio" name="refPrefix" value={p} checked={refPrefix === p} onChange={() => setRefPrefix(p)} className="w-4 h-4" />
+                  {p}
+                </label>
+              ))}
+            </div>
+            <Input value={refSuffix} onChange={e => setRefSuffix(e.target.value)} placeholder="26-138" />
+          </div>
           <div><label className="text-xs font-medium block mb-1">To (Company)</label><CompanyAutocomplete value={toCompany} onChange={setToCompany} placeholder="Company" /></div>
           <div><label className="text-xs font-medium block mb-1">Attention</label><Input value={attention} onChange={e => setAttention(e.target.value)} placeholder="Attention" /></div>
           <div><label className="text-xs font-medium block mb-1">Telephone No.</label><Input value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="Telephone" /></div>
@@ -248,7 +272,7 @@ export default function TransmittalForm() {
               <td style={{ padding: '3px 6px', whiteSpace: 'nowrap', fontWeight: 'bold', width: '70px' }}>From:</td>
               <td style={{ padding: '3px 6px', borderRight: '1px solid black', minWidth: '160px' }}>{fromName}</td>
               <td style={{ padding: '3px 6px', whiteSpace: 'nowrap', fontWeight: 'bold' }}>Trans. Ref. No.</td>
-              <td colSpan={4} style={{ padding: '3px 6px', fontWeight: 'bold' }}>NFE-TN-{refSuffix}</td>
+              <td colSpan={4} style={{ padding: '3px 6px', fontWeight: 'bold' }}>{refPrefix}{refSuffix}</td>
             </tr>
             <tr style={{ borderBottom: '1px solid black' }}>
               <td style={{ padding: '3px 6px', fontWeight: 'bold' }}>Originator:</td>
@@ -331,7 +355,7 @@ export default function TransmittalForm() {
                 <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999', fontFamily: 'monospace' }}>{emp.qid_no || ''}</td>
                 <td style={{ padding: '3px 6px', borderRight: '1px solid #999' }}>RLIC - {emp.name}</td>
                 <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>1</td>
-                <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>RLIC PASS</td>
+                <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>{hardCopyLabel}</td>
                 <td style={{ padding: '3px 6px', textAlign: 'center' }}>-</td>
               </tr>
             ))}
