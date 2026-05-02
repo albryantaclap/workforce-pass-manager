@@ -379,6 +379,7 @@ export default function ProjectIDTracker() {
                     <TableHead className="text-xs bg-muted/50">Days Left</TableHead>
                     <TableHead className="text-xs bg-muted/50">Medical</TableHead>
                     <TableHead className="text-xs bg-muted/50">Gate Pass</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Training</TableHead>
                     <TableHead className="text-xs bg-muted/50">Status</TableHead>
                     <TableHead className="text-xs bg-muted/50">Actions</TableHead>
                   </TableRow>
@@ -387,7 +388,7 @@ export default function ProjectIDTracker() {
                   {isLoading ? (
                     Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(12).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={12} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={13} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
                   ) : filtered.map(emp => {
                     const days = daysUntil(emp.pid_expiry);
                     return (
@@ -408,6 +409,11 @@ export default function ProjectIDTracker() {
                         </TableCell>
                         <TableCell><MedicalBadge result={emp.ftw_result} /></TableCell>
                         <TableCell><GatePassBadge emp={emp} /></TableCell>
+                        <TableCell>
+                          {emp.training_status ? (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${{ DONE: 'bg-emerald-50 text-emerald-700 border-emerald-200', PENDING: 'bg-amber-50 text-amber-700 border-amber-200', 'NOT REQUIRED': 'bg-slate-100 text-slate-600 border-slate-200' }[emp.training_status] || 'bg-blue-50 text-blue-700 border-blue-200'}`}>{emp.training_status}</span>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                        </TableCell>
                         <TableCell>
                           {editMode ? (
                             <InlineEditCell value={emp.pid_status} field="pid_status" empId={emp.id} type="select" options={allStatusOptions} onSave={handleCellSave} editMode={editMode} />
