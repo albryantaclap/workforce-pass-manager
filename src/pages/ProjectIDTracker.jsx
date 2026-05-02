@@ -63,6 +63,7 @@ export default function ProjectIDTracker() {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [pidIssueFrom, setPidIssueFrom] = useState('');
   const [pidIssueTo, setPidIssueTo] = useState('');
+  const [trainingFilter, setTrainingFilter] = useState('all');
   const [editMode, setEditMode] = useState(false);
 
   const queryClient = useQueryClient();
@@ -100,8 +101,9 @@ export default function ProjectIDTracker() {
     const issueDate = normalizeDate(e.pid_issue_date);
     const matchesIssueFrom = !pidIssueFrom || (issueDate && issueDate >= pidIssueFrom);
     const matchesIssueTo = !pidIssueTo || (issueDate && issueDate <= pidIssueTo);
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customPidStatuses, pidIssueFrom, pidIssueTo]);
+    const matchesTraining = trainingFilter === 'all' || e.training_status === trainingFilter;
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customPidStatuses, pidIssueFrom, pidIssueTo, trainingFilter]);
 
   const stats = useMemo(() => {
     const customCounts = customPidStatuses.map(s => ({
@@ -149,7 +151,7 @@ export default function ProjectIDTracker() {
     toast({ title: `Filled "${field}" for ${filtered.length} rows` });
   };
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all' || !!pidIssueFrom || !!pidIssueTo;
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all' || !!pidIssueFrom || !!pidIssueTo || trainingFilter !== 'all';
 
   const pidBulkFields = [
     { key: 'pid_status', label: 'PID Status', type: 'select', options: allStatusOptions },
@@ -358,6 +360,18 @@ export default function ProjectIDTracker() {
               {(pidIssueFrom || pidIssueTo) && (
                 <Button variant="ghost" size="sm" onClick={() => { setPidIssueFrom(''); setPidIssueTo(''); }} className="text-xs">Clear Dates</Button>
               )}
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Training Status</p>
+                <Select value={trainingFilter} onValueChange={setTrainingFilter}>
+                  <SelectTrigger className="text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="DONE">Done</SelectItem>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="NOT REQUIRED">Not Required</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </Card>
           {editMode && hasActiveFilters && filtered.length > 0 && (
