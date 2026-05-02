@@ -72,14 +72,15 @@ export default function MasterList() {
 
   const getEffectiveRlic = (e) => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
 
+  // Only fetch active employees — dedicated filter avoids the list cap hiding records
   const { data: employees = [], isLoading } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => base44.entities.Employee.list('-created_date', 2000),
+    queryKey: ['employees-active'],
+    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees-active'] }),
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
   });
 
@@ -98,14 +99,15 @@ export default function MasterList() {
 
   const handleBulkApply = async (field, value) => {
     await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
-    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    queryClient.invalidateQueries({ queryKey: ['employees-active'] });
     toast({ title: `Updated ${filtered.length} records` });
   };
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Employee.update(id, { is_active: false, _last_updated_by: currentUser?.email || '' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
       toast({ title: 'Record moved to Inactive Personnel' });
     },
   });
@@ -122,7 +124,7 @@ export default function MasterList() {
 
   const filtered = useMemo(() => {
     return employees.filter((emp) => {
-      if (emp.is_active === false) return false;
+      // All fetched records are already active — no need to re-check is_active here
       const matchesSearch = !search ||
         emp.name?.toLowerCase().includes(search.toLowerCase()) ||
         emp.qid_no?.includes(search) ||
@@ -176,7 +178,7 @@ export default function MasterList() {
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Master List</h2>
-          <p className="text-sm text-muted-foreground mt-1">{filtered.length} of {employees.filter(e => e.is_active !== false).length} active personnel</p>
+          <p className="text-sm text-muted-foreground mt-1">{filtered.length} of {employees.length} active personnel</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {canEdit && (
@@ -440,7 +442,7 @@ export default function MasterList() {
           </div>
         </div>
         <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
-          Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> records
+          Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> active records
         </div>
       </Card>
     </div>

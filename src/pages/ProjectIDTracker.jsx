@@ -73,8 +73,8 @@ export default function ProjectIDTracker() {
 
 
   const { data: employees = [], isLoading } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => base44.entities.Employee.list('-created_date', 2000),
+    queryKey: ['employees-active'],
+    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
   });
 
   const { data: customPidStatuses = [] } = useQuery({
@@ -92,7 +92,6 @@ export default function ProjectIDTracker() {
   const positions = useMemo(() => [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p })), [employees]);
 
   const filtered = useMemo(() => employees.filter(e => {
-    if (e.is_active === false) return false;
     const matchesSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.pid?.includes(search) || e.qid_no?.includes(search);
     const empCompany = (e.company || '').trim().toUpperCase();
     const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
@@ -141,7 +140,7 @@ export default function ProjectIDTracker() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees-active'] }),
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
   });
 
@@ -149,7 +148,7 @@ export default function ProjectIDTracker() {
 
   const handleFillDown = async (field, value) => {
     await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
-    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    queryClient.invalidateQueries({ queryKey: ['employees-active'] });
     toast({ title: `Filled "${field}" for ${filtered.length} rows` });
   };
 
@@ -164,7 +163,7 @@ export default function ProjectIDTracker() {
 
   const handleBulkApply = async (field, value) => {
     await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
-    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    queryClient.invalidateQueries({ queryKey: ['employees-active'] });
     toast({ title: `Updated ${filtered.length} records` });
   };
 

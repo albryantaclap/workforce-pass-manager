@@ -29,9 +29,10 @@ export default function InactivePersonnel() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Dedicated query — only fetch inactive records, no shared limit with active employees
   const { data: employees = [], isLoading } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => base44.entities.Employee.list('-created_date', 2000),
+    queryKey: ['employees-inactive'],
+    queryFn: () => base44.entities.Employee.filter({ is_active: false }, '-created_date', 5000),
   });
 
   const uniqueCompanies = useMemo(() => {
@@ -40,15 +41,16 @@ export default function InactivePersonnel() {
   }, [employees]);
 
   const positions = useMemo(() => {
-    const pos = [...new Set(employees.filter(e => e.is_active === false).map(e => e.designation_org_chart).filter(Boolean))].sort();
+    const pos = [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort();
     return pos.map(p => ({ value: p, label: p }));
   }, [employees]);
 
   const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 ||
     departmentFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || medicalResultFilter !== 'all';
 
+  // All records from this query are already inactive — just apply UI filters
   const inactive = useMemo(() =>
-    employees.filter(e => e.is_active === false).filter(e => {
+    employees.filter(e => {
       const matchesSearch = !search ||
         e.name?.toLowerCase().includes(search.toLowerCase()) ||
         e.qid_no?.includes(search) ||
@@ -67,7 +69,18 @@ export default function InactivePersonnel() {
 
   const reactivateMutation = useMutation({
     mutationFn: (id) => base44.entities.Employee.update(id, { is_active: true }),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['employees-inactive'] });
+      const prev = queryClient.getQueryData(['employees-inactive']);
+      queryClient.setQueryData(['employees-inactive'], old => (old || []).filter(e => e.id !== id));
+      return { prev };
+    },
+    onError: (_err, _id, ctx) => {
+      queryClient.setQueryData(['employees-inactive'], ctx.prev);
+      toast({ title: 'Failed to reactivate', variant: 'destructive' });
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       toast({ title: 'Personnel reactivated' });
     },
@@ -87,7 +100,7 @@ export default function InactivePersonnel() {
           </div>
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Inactive Personnel</h2>
-            <p className="text-sm text-muted-foreground">{inactive.length} of {employees.filter(e => e.is_active === false).length} inactive records</p>
+            <p className="text-sm text-muted-foreground">{inactive.length} of {employees.length} inactive records</p>
           </div>
         </div>
       </div>
@@ -233,7 +246,7 @@ export default function InactivePersonnel() {
           </div>
         </div>
         <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
-          Showing <strong>{inactive.length}</strong> of <strong>{employees.filter(e => e.is_active === false).length}</strong> inactive records
+          Showing <strong>{inactive.length}</strong> of <strong>{employees.length}</strong> inactive records
         </div>
       </Card>
     </div>

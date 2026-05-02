@@ -22,17 +22,20 @@ export default function DeletedPersonnel() {
   const recoverMutation = useMutation({
     mutationFn: async (record) => {
       const { employee_data, original_id } = record;
-      // Check if original record still exists (soft-deleted with is_active: false)
-      let restored = false;
-      try {
-        // Try to update the original record back to active (soft-delete recovery)
-        await base44.entities.Employee.update(original_id, { ...employee_data, is_active: true });
-        restored = true;
-      } catch {
-        // Original ID gone (hard deleted) — re-create with clean data
-        const { id, created_date, updated_date, ...cleanData } = employee_data;
+
+      // Check if original record exists in inactive pool
+      const existing = await base44.entities.Employee.filter({ is_active: false }, '-created_date', 5000);
+      const match = existing.find(e => e.id === original_id);
+
+      if (match) {
+        // Safe targeted update — only restore is_active, don't overwrite any other fields
+        await base44.entities.Employee.update(original_id, { is_active: true });
+      } else {
+        // Original gone — re-create with clean snapshot data
+        const { id, created_date, updated_date, _last_updated_by, ...cleanData } = employee_data;
         await base44.entities.Employee.create({ ...cleanData, is_active: true });
       }
+
       await Promise.all([
         base44.entities.DeletedEmployee.update(record.id, { recovered: true }),
         base44.entities.ActivityLog.create({
@@ -46,8 +49,20 @@ export default function DeletedPersonnel() {
         }),
       ]);
     },
+    onMutate: async (record) => {
+      await queryClient.cancelQueries({ queryKey: ['deleted-employees'] });
+      const prev = queryClient.getQueryData(['deleted-employees']);
+      queryClient.setQueryData(['deleted-employees'], old => (old || []).filter(r => r.id !== record.id));
+      return { prev };
+    },
+    onError: (_err, _record, ctx) => {
+      queryClient.setQueryData(['deleted-employees'], ctx.prev);
+      toast({ title: 'Recovery failed', variant: 'destructive' });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deleted-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
       toast({ title: 'Employee recovered successfully', description: 'The record has been restored.' });
     },
   });
