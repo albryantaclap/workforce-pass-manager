@@ -11,6 +11,7 @@ import { ArrowLeft, Save, Upload, User, UserCheck, UserX, Shield } from 'lucide-
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
+import { useCurrentUser } from '@/lib/useCurrentUser';
 
 const emptyForm = {
   sl_no: '', name: '', photo_url: '', position_application: '', designation_org_chart: '', department: '',
@@ -70,6 +71,7 @@ export default function EmployeeForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { canEdit } = usePermissions();
+  const currentUser = useCurrentUser();
   const pathParts = window.location.pathname.split('/');
   const isEdit = pathParts.includes('edit');
   const empId = isEdit ? pathParts[pathParts.indexOf('edit') - 1] : null;
@@ -167,6 +169,7 @@ export default function EmployeeForm() {
   const saveMutation = useMutation({
     mutationFn: (data) => {
       const cleaned = Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== '' && v !== null && v !== undefined));
+      if (currentUser?.email) cleaned._last_updated_by = currentUser.email;
       if (isEdit && empId) return base44.entities.Employee.update(empId, cleaned);
       return base44.entities.Employee.create(cleaned);
     },

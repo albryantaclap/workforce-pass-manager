@@ -17,10 +17,12 @@ import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
 import BulkEditBar from '../components/common/BulkEditBar';
 import { useToast } from '@/components/ui/use-toast';
+import { useCurrentUser } from '@/lib/useCurrentUser';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
 export default function MedicalTracker() {
+  const currentUser = useCurrentUser();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
@@ -53,7 +55,7 @@ export default function MedicalTracker() {
   }, [lookupMedicalResults]);
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
   });

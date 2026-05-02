@@ -18,15 +18,14 @@ Deno.serve(async (req) => {
     const record = data || old_data;
     const record_name = record?.name || entity_id;
 
-    // Try to get the user who triggered this action
-    let performed_by = 'system';
-    try {
-      const user = await base44.auth.me();
-      if (user?.email) performed_by = user.email;
-    } catch (_) {
-      // Automation context — no user session; fall back to record's created_by
-      performed_by = record?.created_by || 'system';
-    }
+    // Resolve who performed the action:
+    // 1. _last_updated_by is set by the frontend on every save so we always know the real user
+    // 2. For creates, fall back to created_by (the creator's email, set by the platform)
+    // 3. Final fallback: 'system'
+    let performed_by =
+      record?._last_updated_by ||
+      (action === 'create' ? record?.created_by : null) ||
+      'system';
 
     // Log to ActivityLog
     await base44.asServiceRole.entities.ActivityLog.create({

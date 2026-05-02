@@ -22,6 +22,7 @@ import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
 import BulkEditBar from '../components/common/BulkEditBar';
 import { usePermissions } from '@/lib/usePermissions';
+import { useCurrentUser } from '@/lib/useCurrentUser';
 
 const STORAGE_KEY = 'masterlist_filters';
 
@@ -34,6 +35,7 @@ function saveFilters(f) {
 
 export default function MasterList() {
   const { canEdit } = usePermissions();
+  const currentUser = useCurrentUser();
   const [editMode, setEditMode] = useState(false);
   const saved = useMemo(() => loadFilters(), []);
   const [search, setSearch] = useState(saved.search || '');
@@ -76,7 +78,7 @@ export default function MasterList() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
   });

@@ -18,6 +18,7 @@ import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
 import BulkEditBar from '../components/common/BulkEditBar';
 import { useToast } from '@/components/ui/use-toast';
+import { useCurrentUser } from '@/lib/useCurrentUser';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
 
@@ -56,6 +57,7 @@ function GatePassBadge({ emp }) {
 }
 
 export default function ProjectIDTracker() {
+  const currentUser = useCurrentUser();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
@@ -138,7 +140,7 @@ export default function ProjectIDTracker() {
   }, [filtered]);
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
   });
@@ -243,7 +245,7 @@ export default function ProjectIDTracker() {
                       <p className="text-[10px] text-purple-600 mt-0.5">Total Valid</p>
                     </div>
                     <div className="text-center border-l border-purple-300 pl-3">
-                      <span className="text-3xl font-bold text-purple-400">{(() => { const expiredCount = stats.find(s => s.name === 'Expired')?.count ?? 0; return validCount + soonCount + expiredCount; })()}</span>
+                      <span className="text-3xl font-bold text-purple-400">{filtered.length}</span>
                       <p className="text-[10px] text-purple-500 mt-0.5">Overall Total</p>
                     </div>
                   </div>
