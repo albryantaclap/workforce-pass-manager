@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trash2, Edit2, Check, X } from 'lucide-react';
+import { Trash2, Edit2, Check, X, CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isToday, isYesterday } from 'date-fns';
 
@@ -120,6 +120,14 @@ export default function MessageBubble({ message, isOwn, allUsers, currentUser, s
           <span className={cn('text-[10px] text-muted-foreground mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity', isOwn ? 'text-right' : 'text-left')}>
             {formatTime(message.created_date)}
           </span>
+        )}
+
+        {isOwn && (
+          <div className={cn('text-[10px] text-muted-foreground', isOwn ? 'text-right' : '')}>
+            {message.status === 'sent' && <span>✓</span>}
+            {message.status === 'delivered' && <span>✓✓</span>}
+            {message.status === 'seen' && <CheckCheck className="w-2.5 h-2.5 inline text-primary" />}
+          </div>
         )}
       </div>
     </div>

@@ -1,0 +1,43 @@
+{
+  "name": "ConversationParticipant",
+  "type": "object",
+  "properties": {
+    "conversation_id": {
+      "type": "string",
+      "description": "ID of the conversation"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "Email of the participant"
+    },
+    "last_read_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when user last read messages"
+    },
+    "unread_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of unread messages"
+    },
+    "is_typing": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether user is currently typing"
+    },
+    "last_typing_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When user last started typing"
+    },
+    "is_muted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether notifications are muted"
+    }
+  },
+  "required": [
+    "conversation_id",
+    "user_email"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "name": "Conversation",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "direct",
+        "group"
+      ],
+      "description": "Conversation type: direct (1-to-1) or group"
+    },
+    "name": {
+      "type": "string",
+      "description": "Conversation name (for groups, empty for direct messages)"
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of participant emails"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email of user who created the conversation"
+    },
+    "last_message_text": {
+      "type": "string",
+      "description": "Preview of last message"
+    },
+    "last_message_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last message"
+    },
+    "last_message_by": {
+      "type": "string",
+      "description": "Email of user who sent last message"
+    }
+  },
+  "required": [
+    "type",
+    "participants"
+  ]
+}
