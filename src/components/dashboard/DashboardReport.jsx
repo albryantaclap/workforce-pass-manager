@@ -3,9 +3,18 @@ import { Button } from '@/components/ui/button';
 import { X, Printer } from 'lucide-react';
 import { computePassStatus } from '@/utils/constants';
 
+// Normalize department names so variants like "STEEL STRUCTURE" and "Steel Structure" merge into one group
+function normalizeDept(val) {
+  if (!val) return 'Unknown';
+  const upper = val.trim().toUpperCase();
+  if (upper === 'STEEL STRUCTURE') return 'Steel Structure';
+  return val.trim();
+}
+
 function groupBy(arr, key) {
   return arr.reduce((acc, item) => {
-    const k = item[key] || 'Unknown';
+    const raw = item[key];
+    const k = key === 'department' ? normalizeDept(raw) : (raw || 'Unknown');
     if (!acc[k]) acc[k] = [];
     acc[k].push(item);
     return acc;
