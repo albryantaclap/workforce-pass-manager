@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import StatusBadge from '../components/common/StatusBadge';
 import { COMPANIES, RLIC_STATUSES, formatDate, daysUntil, computePassStatus } from '@/utils/constants';
+import { useLookupOptions } from '@/hooks/useLookupOptions';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
@@ -59,15 +60,7 @@ export default function GatepassTracker() {
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
   });
 
-  const { data: customRlicStatuses = [] } = useQuery({
-    queryKey: ['lookups', 'rlic_status'],
-    queryFn: () => base44.entities.Lookup.filter({ type: 'rlic_status' }),
-  });
-
-  const allStatusOptions = useMemo(() => {
-    const custom = customRlicStatuses.map(s => ({ value: s.value, label: s.label }));
-    return [...RLIC_STATUSES, ...custom];
-  }, [customRlicStatuses]);
+  const { rlicStatusOptions: allStatusOptions } = useLookupOptions();
 
   const getEffectiveRlic = (e) => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
 
@@ -85,22 +78,14 @@ export default function GatepassTracker() {
     const matchesUpdatedFrom = !updatedFrom || (updatedDate && updatedDate >= updatedFrom);
     const matchesUpdatedTo = !updatedTo || (updatedDate && updatedDate <= updatedTo);
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesUpdatedFrom && matchesUpdatedTo;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customRlicStatuses, updatedFrom, updatedTo]);
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, updatedFrom, updatedTo]);
 
   const stats = useMemo(() => {
-    // Built-in 4 + any custom statuses
-    const customCounts = customRlicStatuses.map(s => ({
+    return allStatusOptions.map(s => ({
       name: s.label,
       count: filtered.filter(e => getEffectiveRlic(e) === s.value).length,
     }));
-    return [
-      { name: 'Valid', count: filtered.filter(e => getEffectiveRlic(e) === 'VALID RLIC PASS').length },
-      { name: 'Expired', count: filtered.filter(e => getEffectiveRlic(e) === 'EXPIRED RLIC PASS').length },
-      { name: 'Soon', count: filtered.filter(e => getEffectiveRlic(e) === 'SOON TO EXPIRE').length },
-      { name: 'No Pass', count: filtered.filter(e => getEffectiveRlic(e) === 'NO RLIC PASS').length },
-      ...customCounts,
-    ];
-  }, [filtered, customRlicStatuses]);
+  }, [filtered, allStatusOptions]);
 
   const companyHeadcount = useMemo(() => {
     const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));

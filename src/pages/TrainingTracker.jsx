@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { COMPANIES, TRAINING_STATUSES, formatDate } from '@/utils/constants';
+import { useLookupOptions } from '@/hooks/useLookupOptions';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import { useToast } from '@/components/ui/use-toast';
@@ -19,6 +20,7 @@ import { useToast } from '@/components/ui/use-toast';
 const COLORS = ['#10b981', '#f59e0b', '#94a3b8'];
 
 export default function TrainingTracker() {
+  const { trainingStatusOptions } = useLookupOptions();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
@@ -53,10 +55,10 @@ export default function TrainingTracker() {
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesScheduledFrom && matchesScheduledTo && matchesStartFrom && matchesStartTo;
   }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, scheduledDateFrom, scheduledDateTo, startDateFrom, startDateTo]);
 
-  const stats = useMemo(() => TRAINING_STATUSES.map((s, i) => ({
+  const stats = useMemo(() => trainingStatusOptions.map((s) => ({
     name: s.label,
     count: filtered.filter(e => e.training_status === s.value).length,
-  })), [filtered]);
+  })), [filtered, trainingStatusOptions]);
 
   const companyHeadcount = useMemo(() => {
     const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
@@ -221,7 +223,7 @@ export default function TrainingTracker() {
                 <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  {TRAINING_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  {trainingStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

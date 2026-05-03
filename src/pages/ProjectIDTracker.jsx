@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import StatusBadge from '../components/common/StatusBadge';
 import { COMPANIES, PID_STATUSES, RLIC_STATUSES, formatDate, daysUntil, computePassStatus, normalizeDate } from '@/utils/constants';
+import { useLookupOptions } from '@/hooks/useLookupOptions';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
@@ -78,15 +79,7 @@ export default function ProjectIDTracker() {
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
   });
 
-  const { data: customPidStatuses = [] } = useQuery({
-    queryKey: ['lookups', 'pid_status'],
-    queryFn: () => base44.entities.Lookup.filter({ type: 'pid_status' }),
-  });
-
-  const allStatusOptions = useMemo(() => {
-    const custom = customPidStatuses.map(s => ({ value: s.value, label: s.label }));
-    return [...PID_STATUSES, ...custom];
-  }, [customPidStatuses]);
+  const { pidStatusOptions: allStatusOptions, rlicStatusOptions, trainingStatusOptions } = useLookupOptions();
 
   const getEffectivePid = (e) => computePassStatus(e.pid_expiry, 'pid', e.pid_status);
 
@@ -107,21 +100,14 @@ export default function ProjectIDTracker() {
     const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
     const matchesGatePass = gatePassFilter.length === 0 || gatePassFilter.includes(effectiveRlic);
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customPidStatuses, pidIssueFrom, pidIssueTo, trainingFilter, gatePassFilter]);
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, gatePassFilter]);
 
   const stats = useMemo(() => {
-    const customCounts = customPidStatuses.map(s => ({
+    return allStatusOptions.map(s => ({
       name: s.label,
       count: filtered.filter(e => getEffectivePid(e) === s.value).length,
     }));
-    return [
-      { name: 'Valid', count: filtered.filter(e => getEffectivePid(e) === 'VALID PID PASS').length },
-      { name: 'Expired', count: filtered.filter(e => getEffectivePid(e) === 'EXPIRED PID PASS').length },
-      { name: 'Soon', count: filtered.filter(e => getEffectivePid(e) === 'SOON TO EXPIRE').length },
-      { name: 'No Pass', count: filtered.filter(e => getEffectivePid(e) === 'NO PID PASS').length },
-      ...customCounts,
-    ];
-  }, [filtered, customPidStatuses]);
+  }, [filtered, allStatusOptions]);
 
   const companyHeadcount = useMemo(() => {
     const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
@@ -370,15 +356,13 @@ export default function ProjectIDTracker() {
                   <SelectTrigger className="text-xs"><SelectValue placeholder="All" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="DONE">Done</SelectItem>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="NOT REQUIRED">Not Required</SelectItem>
+                    {trainingStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex-1">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Gate Pass Status</p>
-                <MultiSelect options={RLIC_STATUSES} value={gatePassFilter} onChange={setGatePassFilter} placeholder="All Gate Pass" />
+                <MultiSelect options={rlicStatusOptions} value={gatePassFilter} onChange={setGatePassFilter} placeholder="All Gate Pass" />
               </div>
             </div>
           </Card>

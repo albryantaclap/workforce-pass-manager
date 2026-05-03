@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, MEDICAL_RESULTS, FTW_RESULTS, TRAINING_STATUSES, formatDate, computePassStatus } from '@/utils/constants';
+import { useLookupOptions } from '@/hooks/useLookupOptions';
 
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
@@ -77,15 +78,12 @@ export default function MasterList() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: customRlicStatuses = [] } = useQuery({
-    queryKey: ['lookups', 'rlic_status'],
-    queryFn: () => base44.entities.Lookup.filter({ type: 'rlic_status' }),
-  });
+  const {
+    companyOptions, companyTypeOptions, locationOptions, departmentOptions,
+    rlicStatusOptions, pidStatusOptions, medicalResultOptions, trainingStatusOptions,
+  } = useLookupOptions();
 
-  const allGpStatusOptions = useMemo(() => {
-    const custom = customRlicStatuses.map(s => ({ value: s.value, label: s.label }));
-    return [...RLIC_STATUSES, ...custom];
-  }, [customRlicStatuses]);
+  const allGpStatusOptions = rlicStatusOptions;
 
   const getEffectiveRlic = (e) => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
 
@@ -108,10 +106,10 @@ export default function MasterList() {
   const hasActiveFilters = searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter !== 'all' || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || trainingDateFrom || trainingDateTo;
 
   const masterBulkFields = [
-    { key: 'ftw_result', label: 'Medical Result', type: 'select', options: FTW_RESULTS.map(r => ({ value: r, label: r })) },
-    { key: 'training_status', label: 'Training Status', type: 'select', options: TRAINING_STATUSES.map(s => ({ value: s.value, label: s.label })) },
-    { key: 'rlic_status', label: 'RLIC Status', type: 'select', options: RLIC_STATUSES.map(s => ({ value: s.value, label: s.label })) },
-    { key: 'current_location', label: 'Location', type: 'select', options: LOCATIONS.map(l => ({ value: l, label: l })) },
+    { key: 'ftw_result', label: 'Medical Result', type: 'select', options: medicalResultOptions },
+    { key: 'training_status', label: 'Training Status', type: 'select', options: trainingStatusOptions },
+    { key: 'rlic_status', label: 'RLIC Status', type: 'select', options: rlicStatusOptions },
+    { key: 'current_location', label: 'Location', type: 'select', options: locationOptions },
   ];
 
   const handleBulkApply = async (field, value) => {
@@ -169,7 +167,7 @@ export default function MasterList() {
       const matchesTrainingTo = !trainingDateTo || (empTrainStart && empTrainStart <= trainingDateTo);
       return matchesSearch && matchesCompany && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesTrainingScheduledFrom && matchesTrainingScheduledTo && matchesTrainingFrom && matchesTrainingTo;
     });
-  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, trainingDateFrom, trainingDateTo, customRlicStatuses]);
+  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, trainingDateFrom, trainingDateTo]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const pagedRows = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
@@ -381,12 +379,12 @@ export default function MasterList() {
                     <TableCell className="text-xs font-medium whitespace-nowrap uppercase"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.position_application} field="position_application" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.designation_org_chart} field="designation_org_chart" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.department} field="department" empId={emp.id} type="select" options={['ELECTRICAL','MECHANICAL','CIVIL','SERVICES','STEEL STRUCTURE'].map(d=>({value:d,label:d}))} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.department} field="department" empId={emp.id} type="select" options={departmentOptions} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase">{emp.company}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase">{emp.company_type || '—'}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.nationality} field="nationality" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.religion} field="religion" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.current_location} field="current_location" empId={emp.id} type="select" options={LOCATIONS.map(l=>({value:l,label:l}))} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.current_location} field="current_location" empId={emp.id} type="select" options={locationOptions} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.dir_indir} field="dir_indir" empId={emp.id} type="select" options={[{value:'DIR',label:'DIR'},{value:'INDIR',label:'INDIR'}]} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.contact_details} field="contact_details" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.sponsor} field="sponsor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
@@ -403,7 +401,7 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_count_days} field="ftw_count_days" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_approved_date} field="ftw_approved_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap">
-                      <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={emp.id} type="select" options={FTW_RESULTS.map(r=>({value:r,label:r}))} onSave={handleCellSave} editMode={editMode} />
+                      <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={emp.id} type="select" options={medicalResultOptions} onSave={handleCellSave} editMode={editMode} />
                     </TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.ftw_doctor} field="ftw_doctor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.ftw_reassess_date} field="ftw_reassess_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
@@ -422,7 +420,7 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.training_date_start} field="training_date_start" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.training_date_end} field="training_date_end" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap">
-                      <InlineEditCell value={emp.training_status} field="training_status" empId={emp.id} type="select" options={TRAINING_STATUSES.map(s=>({value:s.value,label:s.label}))} onSave={handleCellSave} editMode={editMode} />
+                      <InlineEditCell value={emp.training_status} field="training_status" empId={emp.id} type="select" options={trainingStatusOptions} onSave={handleCellSave} editMode={editMode} />
                     </TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.remarks} field="remarks" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">

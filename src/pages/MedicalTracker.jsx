@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { COMPANIES, MEDICAL_RESULTS, formatDate, normalizeDate } from '@/utils/constants';
+import { useLookupOptions } from '@/hooks/useLookupOptions';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
@@ -42,17 +43,7 @@ export default function MedicalTracker() {
     placeholderData: (prev) => prev,
   });
 
-  const { data: lookupMedicalResults = [] } = useQuery({
-    queryKey: ['lookups', 'ftw_result'],
-    queryFn: () => base44.entities.Lookup.filter({ type: 'ftw_result' }),
-  });
-
-  const allMedicalResults = useMemo(() => {
-    const base = MEDICAL_RESULTS;
-    const customVals = new Set(base.map(s => s.value));
-    const custom = lookupMedicalResults.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }));
-    return [...base, ...custom];
-  }, [lookupMedicalResults]);
+  const { medicalResultOptions: allMedicalResults } = useLookupOptions();
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
@@ -101,7 +92,7 @@ export default function MedicalTracker() {
     name: r.label,
     value: r.value,
     count: filtered.filter(e => e.ftw_result === r.value).length,
-  })), [filtered, allMedicalResults]);
+  })), [filtered, allMedicalResults]);  // allMedicalResults from useLookupOptions
 
   const companyHeadcount = useMemo(() => {
     const allCompanies = new Set(filtered.map(e => e.company).filter(Boolean));
