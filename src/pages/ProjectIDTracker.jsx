@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import StatusBadge from '../components/common/StatusBadge';
-import { COMPANIES, PID_STATUSES, formatDate, daysUntil, computePassStatus, normalizeDate } from '@/utils/constants';
+import { COMPANIES, PID_STATUSES, RLIC_STATUSES, formatDate, daysUntil, computePassStatus, normalizeDate } from '@/utils/constants';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
@@ -66,6 +66,7 @@ export default function ProjectIDTracker() {
   const [pidIssueFrom, setPidIssueFrom] = useState('');
   const [pidIssueTo, setPidIssueTo] = useState('');
   const [trainingFilter, setTrainingFilter] = useState('all');
+  const [gatePassFilter, setGatePassFilter] = useState([]);
   const [editMode, setEditMode] = useState(false);
 
   const queryClient = useQueryClient();
@@ -103,8 +104,10 @@ export default function ProjectIDTracker() {
     const matchesIssueFrom = !pidIssueFrom || (issueDate && issueDate >= pidIssueFrom);
     const matchesIssueTo = !pidIssueTo || (issueDate && issueDate <= pidIssueTo);
     const matchesTraining = trainingFilter === 'all' || e.training_status === trainingFilter;
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customPidStatuses, pidIssueFrom, pidIssueTo, trainingFilter]);
+    const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+    const matchesGatePass = gatePassFilter.length === 0 || gatePassFilter.includes(effectiveRlic);
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, customPidStatuses, pidIssueFrom, pidIssueTo, trainingFilter, gatePassFilter]);
 
   const stats = useMemo(() => {
     const customCounts = customPidStatuses.map(s => ({
@@ -152,7 +155,7 @@ export default function ProjectIDTracker() {
     toast({ title: `Filled "${field}" for ${filtered.length} rows` });
   };
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all' || !!pidIssueFrom || !!pidIssueTo || trainingFilter !== 'all';
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all' || !!pidIssueFrom || !!pidIssueTo || trainingFilter !== 'all' || gatePassFilter.length > 0;
 
   const pidBulkFields = [
     { key: 'pid_status', label: 'PID Status', type: 'select', options: allStatusOptions },
@@ -372,6 +375,10 @@ export default function ProjectIDTracker() {
                     <SelectItem value="NOT REQUIRED">Not Required</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Gate Pass Status</p>
+                <MultiSelect options={RLIC_STATUSES} value={gatePassFilter} onChange={setGatePassFilter} placeholder="All Gate Pass" />
               </div>
             </div>
           </Card>
