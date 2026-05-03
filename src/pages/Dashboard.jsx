@@ -81,7 +81,14 @@ export default function Dashboard() {
   }, [lookupDepartments]);
 
   const positions = useMemo(() => {
-    return [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p }));
+    const seen = new Map();
+    for (const e of employees) {
+      const raw = (e.designation_org_chart || '').trim();
+      if (!raw) continue;
+      const key = raw.toUpperCase();
+      if (!seen.has(key)) seen.set(key, raw);
+    }
+    return [...seen.values()].sort().map(p => ({ value: p, label: p }));
   }, [employees]);
 
   const allRlicOptions = useMemo(() => [...RLIC_STATUSES, ...customRlicStatuses.map(s => ({ value: s.value, label: s.label }))], [customRlicStatuses]);
@@ -464,16 +471,34 @@ export default function Dashboard() {
         <Card>
           <CardHeader><CardTitle className="text-sm">Personnel by Department</CardTitle></CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={allDepartments.map((d, i) => ({ name: d, count: filtered.filter(e => (e.department || '').trim().toUpperCase() === d.toUpperCase()).length, colorIdx: i })).filter(d => d.count > 0)} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {allDepartments.map((d, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {(() => {
+              // Merge case-insensitive department names; use the canonical label from allDepartments or first-seen casing
+              const deptMap = new Map();
+              for (const emp of filtered) {
+                const raw = (emp.department || '').trim();
+                if (!raw) continue;
+                const key = raw.toUpperCase();
+                if (!deptMap.has(key)) {
+                  const canonical = allDepartments.find(d => d.toUpperCase() === key) || raw;
+                  deptMap.set(key, { name: canonical, count: 0 });
+                }
+                deptMap.get(key).count++;
+              }
+              const deptData = [...deptMap.values()].filter(d => d.count > 0).sort((a, b) => b.count - a.count);
+              if (deptData.length === 0) return <p className="text-center text-muted-foreground py-10 text-sm">No data</p>;
+              return (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={deptData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                      {deptData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              );
+            })()}
           </CardContent>
         </Card>
 
@@ -507,9 +532,16 @@ export default function Dashboard() {
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart
-                data={Object.entries(
-                  filtered.reduce((acc, e) => { if (e.designation_org_chart) acc[e.designation_org_chart] = (acc[e.designation_org_chart] || 0) + 1; return acc; }, {})
-                ).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => ({ name: name.substring(0, 16), count }))}
+                data={(() => {
+                  const posMap = new Map();
+                  for (const e of filtered) {
+                    if (!e.designation_org_chart) continue;
+                    const key = e.designation_org_chart.trim().toUpperCase();
+                    if (!posMap.has(key)) posMap.set(key, { name: e.designation_org_chart.trim(), count: 0 });
+                    posMap.get(key).count++;
+                  }
+                  return [...posMap.values()].sort((a, b) => b.count - a.count).slice(0, 10).map(d => ({ name: d.name.substring(0, 16), count: d.count }));
+                })()}
                 margin={{ top: 5, right: 10, left: -20, bottom: 40 }}
                 layout="vertical"
               >
