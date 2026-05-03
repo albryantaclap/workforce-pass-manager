@@ -43,7 +43,7 @@ export default function MedicalTracker() {
     placeholderData: (prev) => prev,
   });
 
-  const { medicalResultOptions: allMedicalResults } = useLookupOptions();
+  const { medicalResultOptions: allMedicalResults, departmentOptions } = useLookupOptions();
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
@@ -162,7 +162,7 @@ export default function MedicalTracker() {
               <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
-                {['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

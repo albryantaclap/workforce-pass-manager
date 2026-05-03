@@ -231,18 +231,18 @@ export default function MasterList() {
             <SelectTrigger><SelectValue placeholder="Department" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">ALL DEPARTMENTS</SelectItem>
-              {['ELECTRICAL','MECHANICAL','CIVIL','SERVICES','STEEL STRUCTURE'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={rlicFilter} onValueChange={setRlicFilter}>
             <SelectTrigger><SelectValue placeholder="RLIC Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All RLIC</SelectItem>
-              {RLIC_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              {rlicStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <MultiSelect
-            options={PID_STATUSES.map(s => ({ value: s.value, label: s.label }))}
+            options={pidStatusOptions}
             value={pidStatusFilter}
             onChange={setPidStatusFilter}
             placeholder="PID Status"
@@ -258,7 +258,7 @@ export default function MasterList() {
             <SelectContent>
               <SelectItem value="all">All Medical Results</SelectItem>
               <SelectItem value="NEW">New</SelectItem>
-              {MEDICAL_RESULTS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+              {medicalResultOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <div className="flex gap-2">
@@ -266,7 +266,7 @@ export default function MasterList() {
               <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
-                {LOCATIONS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                {locationOptions.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={dirFilter} onValueChange={setDirFilter}>
@@ -282,7 +282,7 @@ export default function MasterList() {
             <SelectTrigger><SelectValue placeholder="Training Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Training Status</SelectItem>
-              {TRAINING_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              {trainingStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <div className="flex items-center gap-2">

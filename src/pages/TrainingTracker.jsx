@@ -20,7 +20,7 @@ import { useToast } from '@/components/ui/use-toast';
 const COLORS = ['#10b981', '#f59e0b', '#94a3b8'];
 
 export default function TrainingTracker() {
-  const { trainingStatusOptions } = useLookupOptions();
+  const { trainingStatusOptions, departmentOptions } = useLookupOptions();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
@@ -116,7 +116,7 @@ export default function TrainingTracker() {
               <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
-                {['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

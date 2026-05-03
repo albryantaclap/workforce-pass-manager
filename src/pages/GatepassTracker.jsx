@@ -60,7 +60,7 @@ export default function GatepassTracker() {
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
   });
 
-  const { rlicStatusOptions: allStatusOptions } = useLookupOptions();
+  const { rlicStatusOptions: allStatusOptions, departmentOptions } = useLookupOptions();
 
   const getEffectiveRlic = (e) => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
 
@@ -179,7 +179,7 @@ export default function GatepassTracker() {
               <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
-                {['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

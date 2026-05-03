@@ -79,7 +79,7 @@ export default function ProjectIDTracker() {
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
   });
 
-  const { pidStatusOptions: allStatusOptions, rlicStatusOptions, trainingStatusOptions } = useLookupOptions();
+  const { pidStatusOptions: allStatusOptions, rlicStatusOptions, trainingStatusOptions, departmentOptions } = useLookupOptions();
 
   const getEffectivePid = (e) => computePassStatus(e.pid_expiry, 'pid', e.pid_status);
 
@@ -199,7 +199,7 @@ export default function ProjectIDTracker() {
               <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
-                {['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
