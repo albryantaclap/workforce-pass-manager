@@ -123,10 +123,30 @@ export default function EmployeeForm() {
     }
     return result;
   }, [lookupCompanies]);
-  const allDepartments = [
-    ...DEPARTMENTS,
-    ...lookupDepartments.map(d => d.value).filter(v => !DEPARTMENTS.includes(v)),
-  ];
+  const allDepartments = useMemo(() => {
+    const allDepts = [];
+    const seen = new Set();
+
+    // Add built-in departments (already in ALL CAPS)
+    DEPARTMENTS.forEach(d => {
+      const key = d.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allDepts.push({ value: d, label: d });
+      }
+    });
+
+    // Add custom lookup departments
+    lookupDepartments.forEach(d => {
+      const key = d.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allDepts.push({ value: d.value, label: d.label.toUpperCase() });
+      }
+    });
+
+    return allDepts;
+  }, [lookupDepartments]);
   const allLocations = [
     ...LOCATIONS,
     ...lookupLocations.map(l => l.value).filter(v => !LOCATIONS.includes(v)),
@@ -181,9 +201,15 @@ export default function EmployeeForm() {
   });
 
   const TEXT_FIELDS = ['name','position_application','designation_org_chart','nationality','religion','contact_details','sponsor','remarks','qid_no','pp_no','ftw_doctor','ftw_mobile','ftw_remarks','staff_no','pid'];
+  const UPPERCASE_FIELDS = ['department'];
   const handleChange = (field, value) => {
-    const uppercased = TEXT_FIELDS.includes(field) && typeof value === 'string' ? value.toUpperCase() : value;
-    setForm(prev => ({ ...prev, [field]: uppercased }));
+    let processed = value;
+    if (TEXT_FIELDS.includes(field) && typeof value === 'string') {
+      processed = value.toUpperCase();
+    } else if (UPPERCASE_FIELDS.includes(field) && typeof value === 'string') {
+      processed = value.toUpperCase();
+    }
+    setForm(prev => ({ ...prev, [field]: processed }));
   };
   const handleSubmit = (e) => { e.preventDefault(); saveMutation.mutate(form); };
 

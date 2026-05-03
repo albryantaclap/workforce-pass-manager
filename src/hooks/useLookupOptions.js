@@ -45,19 +45,33 @@ export function useLookupOptions() {
   ] = queries;
 
   const merge = (base, custom) => {
-    const baseValues = new Set(base.map(b => b.value));
-    const extras = custom.filter(c => !baseValues.has(c.value)).map(c => ({ value: c.value, label: c.label }));
-    return [...base, ...extras];
-  };
+     const baseValues = new Set(base.map(b => b.value.toUpperCase()));
+     const extras = custom
+       .filter(c => !baseValues.has(c.value.toUpperCase()))
+       .map(c => ({ value: c.value, label: c.label.toUpperCase() }));
+     return [...base, ...extras];
+   };
 
   return useMemo(() => ({
-    companyOptions: merge(COMPANIES.map(c => ({ value: c.value, label: c.label })), customCompanies),
+    companyOptions: merge(COMPANIES.map(c => ({ value: c.value, label: c.label.toUpperCase() })), customCompanies),
     companyTypeOptions: merge(COMPANY_TYPES, customCompanyTypes),
-    locationOptions: merge(LOCATIONS.map(l => ({ value: l, label: l })), customLocations),
+    locationOptions: merge(LOCATIONS.map(l => ({ value: l.toUpperCase(), label: l.toUpperCase() })), customLocations),
     departmentOptions: merge(DEPARTMENTS_BASE, customDepartments),
-    rlicStatusOptions: merge(RLIC_STATUSES, customRlicStatuses),
-    pidStatusOptions: merge(PID_STATUSES, customPidStatuses),
-    medicalResultOptions: merge(MEDICAL_RESULTS, customMedicalResults),
-    trainingStatusOptions: merge(TRAINING_STATUSES, customTrainingStatuses),
+    rlicStatusOptions: merge(
+      RLIC_STATUSES.map(s => ({ value: s.value, label: s.label.toUpperCase() })),
+      customRlicStatuses
+    ),
+    pidStatusOptions: merge(
+      PID_STATUSES.map(s => ({ value: s.value, label: s.label.toUpperCase() })),
+      customPidStatuses
+    ),
+    medicalResultOptions: merge(
+      MEDICAL_RESULTS.map(s => ({ value: s.value, label: s.label.toUpperCase() })),
+      customMedicalResults
+    ),
+    trainingStatusOptions: merge(
+      TRAINING_STATUSES.map(s => ({ value: s.value, label: s.label.toUpperCase() })),
+      customTrainingStatuses
+    ),
   }), [customCompanies, customCompanyTypes, customLocations, customDepartments, customRlicStatuses, customPidStatuses, customMedicalResults, customTrainingStatuses]);
 }
