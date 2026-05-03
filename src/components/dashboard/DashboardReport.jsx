@@ -235,13 +235,13 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
       <td style="background:${bg}">${e.department || '—'}</td>
       <td style="background:${bg};color:${e.ftw_result === 'ACCEPTED' ? '#16a34a' : e.ftw_result === 'REJECTED' ? '#dc2626' : '#1e293b'}">${e.ftw_result || '—'}</td>
       <td style="background:${bg};color:${rlicColor};font-weight:600">${rlicShort}</td>
-      <td style="background:${bg};color:${pidColor};font-weight:600">${pidShort}</td>
       <td style="background:${bg};color:${e.training_status === 'DONE' ? '#16a34a' : '#1e293b'}">${e.training_status || '—'}</td>
+      <td style="background:${bg};color:${pidColor};font-weight:600">${pidShort}</td>
     </tr>`;
   }).join('');
 
   const tableHeader = `<thead><tr>
-    <th style="width:32px;text-align:center">#</th><th>Name</th><th>QID No.</th><th>Company</th><th>Position</th><th>Department</th><th>Medical</th><th>Gate Pass (RLIC)</th><th>PID</th><th>Training</th>
+    <th style="width:32px;text-align:center">#</th><th>Name</th><th>QID No.</th><th>Company</th><th>Position</th><th>Department</th><th>Medical</th><th>Gate Pass (RLIC)</th><th>Training</th><th>PID</th>
   </tr></thead>`;
 
   const byCompanyHTML = Object.entries(byCompany).sort((a, b) => b[1].length - a[1].length).map(([company, rows]) => `
