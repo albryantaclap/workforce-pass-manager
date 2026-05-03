@@ -75,10 +75,34 @@ export default function Dashboard() {
     return result;
   }, [lookupCompanies]);
 
-  const allDepartments = useMemo(() => {
-    const extras = lookupDepartments.map(d => d.value).filter(v => !DEPARTMENTS.includes(v));
-    return [...DEPARTMENTS, ...extras];
+  const allDepartmentOptions = useMemo(() => {
+    const allDepts = [];
+    const seen = new Set();
+
+    // Add built-in departments
+    DEPARTMENTS.forEach(d => {
+      const key = d.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allDepts.push({ value: d, label: d.toUpperCase() });
+      }
+    });
+
+    // Add custom lookup departments
+    lookupDepartments.forEach(d => {
+      const key = d.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allDepts.push({ value: d.value, label: d.label.toUpperCase() });
+      }
+    });
+
+    return allDepts;
   }, [lookupDepartments]);
+
+  const allDepartments = useMemo(() => {
+    return allDepartmentOptions.map(d => d.value);
+  }, [allDepartmentOptions]);
 
   const positions = useMemo(() => {
     const seen = new Map();
@@ -91,16 +115,105 @@ export default function Dashboard() {
     return [...seen.values()].sort().map(p => ({ value: p, label: p }));
   }, [employees]);
 
-  const allRlicOptions = useMemo(() => [...RLIC_STATUSES, ...customRlicStatuses.map(s => ({ value: s.value, label: s.label }))], [customRlicStatuses]);
-  const allPidOptions = useMemo(() => [...PID_STATUSES, ...customPidStatuses.map(s => ({ value: s.value, label: s.label }))], [customPidStatuses]);
+  const allRlicOptions = useMemo(() => {
+    const allOptions = [];
+    const seen = new Set();
+
+    // Add built-in statuses
+    RLIC_STATUSES.forEach(s => {
+      const key = s.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allOptions.push({ value: s.value, label: s.label.toUpperCase() });
+      }
+    });
+
+    // Add custom statuses
+    customRlicStatuses.forEach(s => {
+      const key = s.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allOptions.push({ value: s.value, label: s.label.toUpperCase() });
+      }
+    });
+
+    return allOptions;
+  }, [customRlicStatuses]);
+
+  const allPidOptions = useMemo(() => {
+    const allOptions = [];
+    const seen = new Set();
+
+    // Add built-in statuses
+    PID_STATUSES.forEach(s => {
+      const key = s.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allOptions.push({ value: s.value, label: s.label.toUpperCase() });
+      }
+    });
+
+    // Add custom statuses
+    customPidStatuses.forEach(s => {
+      const key = s.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allOptions.push({ value: s.value, label: s.label.toUpperCase() });
+      }
+    });
+
+    return allOptions;
+  }, [customPidStatuses]);
+
   const allMedicalResultOptions = useMemo(() => {
-    const customVals = new Set(MEDICAL_RESULTS.map(s => s.value));
-    return [...MEDICAL_RESULTS, ...customFtwResults.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }))];
+    const allOptions = [];
+    const seen = new Set();
+
+    // Add built-in medical results
+    MEDICAL_RESULTS.forEach(s => {
+      const key = s.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allOptions.push({ value: s.value, label: s.label.toUpperCase() });
+      }
+    });
+
+    // Add custom medical results
+    customFtwResults.forEach(s => {
+      const key = s.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allOptions.push({ value: s.value, label: s.label.toUpperCase() });
+      }
+    });
+
+    return allOptions;
   }, [customFtwResults]);
-  const allTrainingOptions = useMemo(() => [
-    ...TRAINING_STATUSES,
-    ...customTrainingStatuses.map(s => ({ value: s.value, label: s.label })),
-  ], [customTrainingStatuses]);
+
+  const allTrainingOptions = useMemo(() => {
+    const allOptions = [];
+    const seen = new Set();
+
+    // Add built-in training statuses
+    TRAINING_STATUSES.forEach(s => {
+      const key = s.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allOptions.push({ value: s.value, label: s.label.toUpperCase() });
+      }
+    });
+
+    // Add custom training statuses
+    customTrainingStatuses.forEach(s => {
+      const key = s.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allOptions.push({ value: s.value, label: s.label.toUpperCase() });
+      }
+    });
+
+    return allOptions;
+  }, [customTrainingStatuses]);
 
   const filtered = useMemo(() => {
     return employees.filter(e => {
@@ -290,8 +403,8 @@ export default function Dashboard() {
             <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
               <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Departments</SelectItem>
-                {['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                <SelectItem value="all">ALL DEPARTMENTS</SelectItem>
+                {allDepartmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -334,7 +447,7 @@ export default function Dashboard() {
             <Select value={medicalResultFilter} onValueChange={setMedicalResultFilter}>
               <SelectTrigger><SelectValue placeholder="All Results" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Results</SelectItem>
+                <SelectItem value="all">ALL RESULTS</SelectItem>
                 {allMedicalResultOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
               </SelectContent>
             </Select>
