@@ -350,6 +350,13 @@ export default function Dashboard() {
         { label: 'Valid', value: validPid, color: 'text-green-600' },
         { label: 'Soon', value: filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
         { label: 'Expired', value: expiredPid, color: 'text-red-600' },
+        ...customPidStatuses
+          .filter(s => !['VALID PID PASS', 'EXPIRED PID PASS', 'SOON TO EXPIRE', 'NO PID PASS'].includes(s.value))
+          .map(s => ({
+            label: s.label,
+            value: filtered.filter(e => getPid(e) === s.value).length,
+            color: 'text-slate-600',
+          })),
       ],
     },
   ];
