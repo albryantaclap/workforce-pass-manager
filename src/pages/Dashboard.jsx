@@ -354,177 +354,165 @@ export default function Dashboard() {
     },
   ];
 
+  const clearFilters = () => {
+    setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all');
+    setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]);
+    setMedicalResultFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
+    setTrApprovedFrom(''); setTrApprovedTo(''); setGpReceivedFrom(''); setGpReceivedTo('');
+    setPidIssueFrom(''); setPidIssueTo('');
+  };
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h2>
           <p className="text-sm text-muted-foreground mt-1">
             GSO Qatar Workforce Overview
-            {hasFilter && <span className="ml-2 text-primary font-medium">— Filtered: {total} personnel</span>}
-            {!hasFilter && <span className="ml-1">— {total} Total Personnel</span>}
+            {hasFilter
+              ? <span className="ml-2 text-primary font-semibold">· Filtered: {total} personnel</span>
+              : <span className="ml-1">· {total} total active personnel</span>}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => setShowReport(true)}>
-            <Printer className="w-4 h-4 mr-1.5" /> Print / PDF Report
+        <div className="flex items-center gap-2.5">
+          <Button variant="outline" size="sm" onClick={() => setShowReport(true)} className="gap-1.5">
+            <Printer className="w-4 h-4" /> Print / PDF
           </Button>
-          <div className="flex items-center gap-2 bg-primary/10 text-primary rounded-lg px-4 py-2">
+          <div className="flex items-center gap-2 bg-primary text-primary-foreground rounded-xl px-4 py-2 shadow-md shadow-primary/25">
             <Users className="w-4 h-4" />
-            <span className="font-bold text-lg">{total}</span>
-            <span className="text-sm">Personnel</span>
+            <span className="font-bold text-lg leading-none">{total}</span>
+            <span className="text-xs opacity-80">Personnel</span>
           </div>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col sm:flex-row gap-3 items-end">
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Company</p>
-            <MultiSelect
-              options={allCompanyOptions}
-              value={companyFilter}
-              onChange={setCompanyFilter}
-              placeholder="All companies..."
-            />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Position / Designation</p>
-            <MultiSelect
-              options={positions}
-              value={positionFilter}
-              onChange={setPositionFilter}
-              placeholder="All positions..."
-            />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Department</p>
-            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-              <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ALL DEPARTMENTS</SelectItem>
-                {allDepartmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+      {/* Filters Panel */}
+      <Card className="border shadow-sm">
+        <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filters</p>
           {hasFilter && (
-            <Button variant="outline" size="sm" onClick={() => { setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all'); setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]); setMedicalResultFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setTrApprovedFrom(''); setTrApprovedTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); }}>
-              <X className="w-4 h-4 mr-1" /> Clear Filters
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground">
+              <X className="w-3 h-3" /> Clear All
             </Button>
           )}
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 mt-3">
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Gate Pass Status</p>
-            <MultiSelect
-              options={allRlicOptions}
-              value={rlicStatusFilter}
-              onChange={setRlicStatusFilter}
-              placeholder="All Gate Pass Statuses..."
-            />
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Company</p>
+              <MultiSelect options={allCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Position / Designation</p>
+              <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Department</p>
+              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ALL DEPARTMENTS</SelectItem>
+                  {allDepartmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Training Status</p>
-            <MultiSelect
-              options={allTrainingOptions}
-              value={trainingStatusFilter}
-              onChange={setTrainingStatusFilter}
-              placeholder="All Training Statuses..."
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Status</p>
+              <MultiSelect options={allRlicOptions} value={rlicStatusFilter} onChange={setRlicStatusFilter} placeholder="All statuses..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Training Status</p>
+              <MultiSelect options={allTrainingOptions} value={trainingStatusFilter} onChange={setTrainingStatusFilter} placeholder="All statuses..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Status</p>
+              <MultiSelect options={allPidOptions} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="All statuses..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical Result</p>
+              <Select value={medicalResultFilter} onValueChange={setMedicalResultFilter}>
+                <SelectTrigger><SelectValue placeholder="All Results" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ALL RESULTS</SelectItem>
+                  {allMedicalResultOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Project ID Status</p>
-            <MultiSelect
-              options={allPidOptions}
-              value={pidStatusFilter}
-              onChange={setPidStatusFilter}
-              placeholder="All Project ID Statuses..."
-            />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 border-t">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Training Scheduled</p>
+              <div className="flex gap-1.5">
+                <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-8" />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical TR Approved</p>
+              <div className="flex gap-1.5">
+                <Input type="date" value={trApprovedFrom} onChange={e => setTrApprovedFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={trApprovedTo} onChange={e => setTrApprovedTo(e.target.value)} className="text-xs h-8" />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Received</p>
+              <div className="flex gap-1.5">
+                <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8" />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Issue</p>
+              <div className="flex gap-1.5">
+                <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-8" />
+              </div>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Filter by Medical Result</p>
-            <Select value={medicalResultFilter} onValueChange={setMedicalResultFilter}>
-              <SelectTrigger><SelectValue placeholder="All Results" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ALL RESULTS</SelectItem>
-                {allMedicalResultOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          {hasFilter && (
+            <p className="text-xs text-muted-foreground pt-1">
+              Showing <strong className="text-foreground">{total}</strong> of <strong className="text-foreground">{employees.filter(e => e.is_active !== false).length}</strong> active personnel
+            </p>
+          )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Training Scheduled Date</p>
-            <div className="flex gap-2">
-              <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs" placeholder="From" />
-              <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs" placeholder="To" />
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical TR Date Approved</p>
-            <div className="flex gap-2">
-              <Input type="date" value={trApprovedFrom} onChange={e => setTrApprovedFrom(e.target.value)} className="text-xs" placeholder="From" />
-              <Input type="date" value={trApprovedTo} onChange={e => setTrApprovedTo(e.target.value)} className="text-xs" placeholder="To" />
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Received Date</p>
-            <div className="flex gap-2">
-              <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs" placeholder="From" />
-              <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs" placeholder="To" />
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Issue Date</p>
-            <div className="flex gap-2">
-              <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs" placeholder="From" />
-              <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs" placeholder="To" />
-            </div>
-          </div>
-        </div>
-        {hasFilter && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Showing stats for <strong>{total}</strong> of <strong>{employees.filter(e => e.is_active !== false).length}</strong> active personnel
-          </p>
-        )}
       </Card>
 
       {/* Category Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {categoryCards.map(card => (
           <Link key={card.title} to={card.path}>
-            <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-transparent hover:border-l-primary">
-              <CardHeader className="pb-2">
+            <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border hover:border-primary/30 overflow-hidden">
+              <div className={`h-1 w-full ${card.bg} opacity-80`} />
+              <CardHeader className="pb-2 pt-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-8 h-8 rounded-lg ${card.bg} flex items-center justify-center`}>
-                      <card.icon className={`w-4 h-4 ${card.color}`} />
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center group-hover:scale-105 transition-transform`}>
+                      <card.icon className={`w-4.5 h-4.5 ${card.color}`} />
                     </div>
-                    <CardTitle className="text-sm font-semibold">{card.title}</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-foreground">{card.title}</CardTitle>
                   </div>
                   {card.combined !== undefined && (
-                    <div className="flex flex-col items-end gap-0.5">
-                      <div className="flex items-baseline gap-1.5">
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-baseline gap-1">
                         <span className={`text-2xl font-extrabold ${card.color}`}>{card.combined}</span>
                         {card.overallTotal !== undefined && (
-                          <span className="text-sm font-semibold text-muted-foreground">/ {card.overallTotal}</span>
+                          <span className="text-xs font-medium text-muted-foreground">/{card.overallTotal}</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground leading-tight">
-                        <span>{card.combinedLabel}</span>
-                        {card.overallTotal !== undefined && <span>/ Overall</span>}
-                      </div>
+                      <p className="text-[10px] text-muted-foreground">{card.combinedLabel}</p>
                     </div>
                   )}
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className={`grid gap-2 ${card.stats.length > 3 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              <CardContent className="pb-4">
+                <div className={`grid gap-x-3 gap-y-2 ${card.stats.length > 3 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                   {card.stats.map(s => (
-                    <div key={s.label} className="text-center">
-                      <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
-                      <div className="text-[10px] text-muted-foreground">{s.label}</div>
+                    <div key={s.label} className="text-center bg-muted/40 rounded-lg py-1.5 px-1">
+                      <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
+                      <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">{s.label}</div>
                     </div>
                   ))}
                 </div>
@@ -536,18 +524,20 @@ export default function Dashboard() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Personnel by Company</CardTitle></CardHeader>
-          <CardContent>
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2 border-b">
+            <CardTitle className="text-sm font-semibold">Personnel by Company</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
             {companyCounts.length === 0 ? (
               <p className="text-center text-muted-foreground py-10 text-sm">No data for selected filters</p>
             ) : (
               <ResponsiveContainer width="100%" height={Math.max(260, companyCounts.length * 28)}>
-                <BarChart data={companyCounts} layout="vertical" margin={{ top: 4, right: 30, left: 4, bottom: 4 }}>
-                  <XAxis type="number" tick={{ fontSize: 10 }} />
-                  <YAxis dataKey="name" type="category" tick={{ fontSize: 9 }} width={120} />
-                  <Tooltip />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                <BarChart data={companyCounts} layout="vertical" margin={{ top: 4, right: 36, left: 4, bottom: 4 }}>
+                  <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 9 }} width={120} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                  <Bar dataKey="count" radius={[0, 6, 6, 0]}>
                     {companyCounts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Bar>
                 </BarChart>
@@ -556,9 +546,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Pass &amp; Status Overview</CardTitle></CardHeader>
-          <CardContent>
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2 border-b">
+            <CardTitle className="text-sm font-semibold">Pass &amp; Status Overview</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={[
                 { category: 'RLIC Valid', count: validRlic },
@@ -568,10 +560,10 @@ export default function Dashboard() {
                 { category: 'Medical OK', count: medicalAccepted },
                 { category: 'Training', count: trainingDone },
               ]} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <XAxis dataKey="category" tick={{ fontSize: 9 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                <XAxis dataKey="category" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                   {['#10b981','#ef4444','#3b82f6','#f97316','#8b5cf6','#06b6d4'].map((c, i) => (
                     <Cell key={i} fill={c} />
                   ))}
@@ -581,11 +573,12 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Personnel by Department</CardTitle></CardHeader>
-          <CardContent>
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2 border-b">
+            <CardTitle className="text-sm font-semibold">Personnel by Department</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
             {(() => {
-              // Merge case-insensitive department names; use the canonical label from allDepartments or first-seen casing
               const deptMap = new Map();
               for (const emp of filtered) {
                 const raw = (emp.department || '').trim();
@@ -602,10 +595,10 @@ export default function Dashboard() {
               return (
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={deptData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                       {deptData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Bar>
                   </BarChart>
@@ -615,12 +608,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Location / Mobilized</CardTitle></CardHeader>
-          <CardContent>
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2 border-b">
+            <CardTitle className="text-sm font-semibold">Location / Mobilized</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
             {(() => {
               const locationCounts = [...new Set(filtered.map(e => e.current_location).filter(Boolean))]
-                .map((loc, i) => ({ name: loc, value: filtered.filter(e => e.current_location === loc).length }))
+                .map((loc) => ({ name: loc, value: filtered.filter(e => e.current_location === loc).length }))
                 .filter(l => l.value > 0)
                 .sort((a, b) => b.value - a.value);
               const unknown = filtered.filter(e => !e.current_location).length;
@@ -629,10 +624,11 @@ export default function Dashboard() {
               return (
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
-                    <Pie data={locationCounts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, value }) => `${name}: ${value}`} labelLine={true}>
+                    <Pie data={locationCounts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={82} innerRadius={36}
+                      label={({ name, value }) => `${name}: ${value}`} labelLine>
                       {locationCounts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
                   </PieChart>
                 </ResponsiveContainer>
               );
@@ -640,10 +636,12 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Top Positions / Designations</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
+        <Card className="lg:col-span-2 border shadow-sm">
+          <CardHeader className="pb-2 border-b">
+            <CardTitle className="text-sm font-semibold">Top Positions / Designations</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart
                 data={(() => {
                   const posMap = new Map();
@@ -653,15 +651,15 @@ export default function Dashboard() {
                     if (!posMap.has(key)) posMap.set(key, { name: e.designation_org_chart.trim(), count: 0 });
                     posMap.get(key).count++;
                   }
-                  return [...posMap.values()].sort((a, b) => b.count - a.count).slice(0, 10).map(d => ({ name: d.name.substring(0, 16), count: d.count }));
+                  return [...posMap.values()].sort((a, b) => b.count - a.count).slice(0, 12).map(d => ({ name: d.name.substring(0, 20), count: d.count }));
                 })()}
-                margin={{ top: 5, right: 10, left: -20, bottom: 40 }}
+                margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
                 layout="vertical"
               >
-                <XAxis type="number" tick={{ fontSize: 9 }} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 8 }} width={110} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#06b6d4" radius={[0, 4, 4, 0]} />
+                <XAxis type="number" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis dataKey="name" type="category" tick={{ fontSize: 9 }} width={140} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                <Bar dataKey="count" fill="#6366f1" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

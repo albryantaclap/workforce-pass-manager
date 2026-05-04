@@ -35,20 +35,21 @@ export default function Sidebar() {
   const { isAdmin, isOwner, canEdit, isSuperAdminOnly } = usePermissions();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar text-sidebar-foreground flex flex-col">
-      <div className="flex items-center gap-3 px-6 py-6 border-b border-sidebar-border">
-        <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center">
-          <HardHat className="w-5 h-5 text-sidebar-primary-foreground" />
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar text-sidebar-foreground flex flex-col shadow-xl">
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sidebar-primary to-blue-400 flex items-center justify-center shadow-md">
+          <HardHat className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="font-bold text-sm tracking-wide">GSO QATAR</h1>
-          <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest">Workforce Management</p>
+          <h1 className="font-extrabold text-sm tracking-wide text-sidebar-foreground">GSO QATAR</h1>
+          <p className="text-[9px] text-sidebar-foreground/40 uppercase tracking-[0.12em] mt-0.5">Workforce Management</p>
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.filter(item => {
-          // Super admin only sees DB Backup and Admin Panel
           if (isSuperAdminOnly) {
             return item.path === '/database-backup' || item.path === '/admin';
           }
@@ -58,43 +59,49 @@ export default function Sidebar() {
           if (item.path === '/employees/new') return canEdit;
           return true;
         }).map((item) => {
-          const isActive = location.pathname === item.path || 
+          const isActive = location.pathname === item.path ||
             (item.path !== '/' && location.pathname.startsWith(item.path));
           return (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
                 isActive
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/25'
-                  : 'text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent'
+                  ? 'bg-sidebar-primary text-white shadow-md shadow-sidebar-primary/30'
+                  : 'text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent'
               )}
             >
-              <item.icon className="w-4 h-4" />
-              {item.label}
+              <item.icon className={cn('w-4 h-4 shrink-0', isActive ? 'opacity-100' : 'opacity-70')} />
+              <span className="truncate">{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="px-4 py-4 border-t border-sidebar-border space-y-3">
+      {/* Footer */}
+      <div className="px-4 py-4 border-t border-sidebar-border">
         {user && (
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-sidebar-foreground/80 truncate">{user.full_name || user.email}</p>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-sidebar-foreground/80 uppercase">
+                {(user.full_name || user.email || '?').charAt(0)}
+              </span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-sidebar-foreground/80 truncate">{user.full_name || user.email}</p>
               <p className="text-[10px] text-sidebar-foreground/40">{ROLE_LABELS[user.role] || user.role}</p>
             </div>
             <button
               onClick={() => logout()}
-              className="ml-2 flex-shrink-0 p-1.5 rounded-md text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+              className="shrink-0 p-1.5 rounded-lg text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
               title="Logout"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
-        <p className="text-[10px] text-sidebar-foreground/40 text-center">© 2026 Workforce Manager</p>
+        <p className="text-[9px] text-sidebar-foreground/30 text-center mt-3">© 2026 Workforce Manager</p>
       </div>
     </aside>
   );
