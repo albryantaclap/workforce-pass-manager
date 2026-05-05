@@ -230,7 +230,8 @@ export default function MasterList() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        {/* Row 1: dropdowns & selects */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-3">
           <div className="relative xl:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input placeholder="Name, QID, PP, PID..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} className="pl-9" />
@@ -251,18 +252,8 @@ export default function MasterList() {
               {rlicStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <MultiSelect
-            options={pidStatusOptions}
-            value={pidStatusFilter}
-            onChange={setPidStatusFilter}
-            placeholder="PID Status"
-          />
-          <MultiSelect
-            options={allGpStatusOptions}
-            value={gpStatusFilter}
-            onChange={setGpStatusFilter}
-            placeholder="GP Statuses"
-          />
+          <MultiSelect options={pidStatusOptions} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="PID Status" />
+          <MultiSelect options={allGpStatusOptions} value={gpStatusFilter} onChange={setGpStatusFilter} placeholder="GP Statuses" />
           <Select value={medicalResultFilter} onValueChange={setMedicalResultFilter}>
             <SelectTrigger><SelectValue placeholder="Medical Result" /></SelectTrigger>
             <SelectContent>
@@ -295,32 +286,40 @@ export default function MasterList() {
               {trainingStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Row 2: date range filters — all 4 on one line */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <p className="text-[10px] font-medium text-muted-foreground mb-1">Training Scheduled</p>
             <div className="flex items-center gap-1">
-              <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-8" title="Training Scheduled From" />
-              <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-8" title="Training Scheduled To" />
+              <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-8" title="From" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-8" title="To" />
             </div>
           </div>
           <div>
             <p className="text-[10px] font-medium text-muted-foreground mb-1">Medical TR Approved</p>
             <div className="flex items-center gap-1">
-              <Input type="date" value={medicalTrApprovedFrom} onChange={e => setMedicalTrApprovedFrom(e.target.value)} className="text-xs h-8" title="Medical TR Approved From" />
-              <Input type="date" value={medicalTrApprovedTo} onChange={e => setMedicalTrApprovedTo(e.target.value)} className="text-xs h-8" title="Medical TR Approved To" />
+              <Input type="date" value={medicalTrApprovedFrom} onChange={e => setMedicalTrApprovedFrom(e.target.value)} className="text-xs h-8" title="From" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input type="date" value={medicalTrApprovedTo} onChange={e => setMedicalTrApprovedTo(e.target.value)} className="text-xs h-8" title="To" />
             </div>
           </div>
           <div>
             <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Received</p>
             <div className="flex items-center gap-1">
-              <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8" title="Gate Pass Received From" />
-              <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8" title="Gate Pass Received To" />
+              <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8" title="From" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8" title="To" />
             </div>
           </div>
           <div>
             <p className="text-[10px] font-medium text-muted-foreground mb-1">Project ID Issue</p>
             <div className="flex items-center gap-1">
-              <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8" title="Project ID Issue From" />
-              <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-8" title="Project ID Issue To" />
+              <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8" title="From" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-8" title="To" />
             </div>
           </div>
         </div>
