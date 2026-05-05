@@ -280,9 +280,9 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
           <div class="chart-title">🏗️ Personnel by Department</div>
           ${deptBarHTML}
         </div>
-        <div class="chart-box">
+        <div class="chart-box" style="grid-column:1/-1">
           <div class="chart-title">👤 Counts by Position</div>
-          ${posBarHTML}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">${posBarHTML}</div>
         </div>
       </div>
 
