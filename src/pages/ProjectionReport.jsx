@@ -30,46 +30,103 @@ const BUILT_IN_PID  = new Set(['VALID PID PASS',  'EXPIRED PID PASS',  'SOON TO 
 function getEmployeeCounts(emp) {
   const counts = ZERO_ROW();
 
-  // Medical
-  const ftw = (emp.ftw_result || '').trim().toUpperCase();
-  if (ftw === 'ACCEPTED') {
+  // -------------------------
+  // MEDICAL
+  // -------------------------
+  const ftw = (emp.ftw_result || '')
+    .trim()
+    .toUpperCase();
+
+  if (
+    ftw === 'ACCEPTED' ||
+    ftw === 'APPROVED'
+  ) {
     counts.ftw = 1;
-  } else {
-    // Everything not accepted = pending (waiting, re-assess, rejected, blank)
+  }
+  else if (
+    ftw === 'PENDING' ||
+    ftw === 'UNDER PROCESS' ||
+    ftw === 'WAITING' ||
+    ftw === 'FOR MEDICAL'
+  ) {
     counts.pendingMedical = 1;
   }
 
-  // Gatepass
-  // Custom statuses (not built-in) like "UNDER PROCESS" → GP Under Process
-  const rlicStatus = (emp.rlic_status || '').trim().toUpperCase();
-  if (rlicStatus && !BUILT_IN_RLIC.has(rlicStatus)) {
+  // -------------------------
+  // GATEPASS
+  // -------------------------
+  const rlicStatus = (emp.rlic_status || '')
+    .trim()
+    .toUpperCase();
+
+  if (
+    rlicStatus === 'UNDER PROCESS' ||
+    rlicStatus === 'PROCESSING' ||
+    rlicStatus === 'PENDING' ||
+    rlicStatus === 'FOR APPROVAL'
+  ) {
     counts.gpUnder = 1;
-  } else {
-    // Derive from expiry date
-    const effectiveRlic = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
-    if (effectiveRlic === 'VALID RLIC PASS' || effectiveRlic === 'SOON TO EXPIRE') {
+  }
+  else {
+    const effectiveRlic = computePassStatus(
+      emp.gate_pass_expiry,
+      'rlic',
+      emp.rlic_status
+    );
+
+    if (
+      effectiveRlic === 'VALID RLIC PASS' ||
+      effectiveRlic === 'SOON TO EXPIRE'
+    ) {
       counts.validGP = 1;
     }
   }
 
-  // Training — based purely on training_status value
-  const training = (emp.training_status || '').trim().toUpperCase();
+  // -------------------------
+  // TRAINING
+  // -------------------------
+  const training = (emp.training_status || '')
+    .trim()
+    .toUpperCase();
+
   if (training === 'DONE') {
     counts.trainingDone = 1;
-  } else if (training === 'ON-GOING' || training === 'ONGOING' || training === 'ON GOING') {
+  }
+  else if (
+    training === 'ON-GOING' ||
+    training === 'ONGOING' ||
+    training === 'ON GOING'
+  ) {
     counts.trainingOnGoing = 1;
-  } else if (training === 'SCHEDULED') {
+  }
+  else if (training === 'SCHEDULED') {
     counts.trainingScheduled = 1;
   }
 
-  // PID — count only Valid or Soon-to-Expire entries
-  const pidStatus = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
-  if (pidStatus === 'VALID PID PASS' || pidStatus === 'SOON TO EXPIRE') {
+  // -------------------------
+  // PID
+  // -------------------------
+  const pidStatus = computePassStatus(
+    emp.pid_expiry,
+    'pid',
+    emp.pid_status
+  );
+
+  if (
+    pidStatus === 'VALID PID PASS' ||
+    pidStatus === 'SOON TO EXPIRE'
+  ) {
     counts.pid = 1;
   }
 
-  // Camp location
-  if ((emp.current_location || '').trim().toUpperCase() === 'COMO CAMP') {
+  // -------------------------
+  // CAMP
+  // -------------------------
+  if (
+    (emp.current_location || '')
+      .trim()
+      .toUpperCase() === 'COMO CAMP'
+  ) {
     counts.camp = 1;
   }
 
