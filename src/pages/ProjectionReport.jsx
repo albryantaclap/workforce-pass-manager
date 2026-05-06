@@ -30,87 +30,59 @@ const BUILT_IN_PID  = new Set(['VALID PID PASS',  'EXPIRED PID PASS',  'SOON TO 
 function getEmployeeCounts(emp) {
   const counts = ZERO_ROW();
 
-  // -------------------------
-  // MEDICAL
-  // -------------------------
-const ftw = (
-  emp.ftw_result ||
-  emp.medical_status ||
-  ''
-)
-  .trim()
-  .toUpperCase();
+  const ftw = (emp.ftw_result || '').trim().toUpperCase();
 
-// ACCEPTED
-if (
-  ftw === 'ACCEPTED' ||
-  ftw === 'APPROVED'
-) {
-  counts.ftw = 1;
-}
+  // Dashboard logic:
+  // Accepted = ACCEPTED only
+  if (ftw === 'ACCEPTED') {
+    counts.ftw = 1;
+  }
 
-// PENDING MEDICAL
-if (
-  ftw === 'WAITING TR' ||
-  ftw === 'RE-ASSESS' ||
-  ftw === 'REASSESS' ||
-  ftw === 'NEW'
-) {
-  counts.pendingMedical = 1;
-}
+  // Pending Medical = Waiting TR + Re-Assess + New
+  // In dashboard, Waiting TR is stored as WAITING TR APPROVAL
+  // New = blank ftw_result
+  if (
+    ftw === 'WAITING TR APPROVAL' ||
+    ftw === 'RE-ASSESS' ||
+    !emp.ftw_result
+  ) {
+    counts.pendingMedical = 1;
+  }
 
-// -------------------------
-// GATEPASS
-// ONLY UNDER PROCESS
-// -------------------------
-const rlicStatus = (
-  emp.rlic_status || ''
-)
-  .trim()
-  .toUpperCase();
+  // Gatepass logic should use the same computed status as Dashboard
+  const effectiveRlic = computePassStatus(
+    emp.gate_pass_expiry,
+    'rlic',
+    emp.rlic_status
+  );
 
-if (rlicStatus === 'UNDER PROCESS') {
-  counts.gpUnder = 1;
-}
+  // Count only Under Process
+  if (effectiveRlic === 'UNDER PROCESS') {
+    counts.gpUnder = 1;
+  }
 
-// VALID GATEPASS
-const effectiveRlic = computePassStatus(
-  emp.gate_pass_expiry,
-  'rlic',
-  emp.rlic_status
-);
+  // Dashboard Total Valid = Valid + Soon
+  if (
+    effectiveRlic === 'VALID RLIC PASS' ||
+    effectiveRlic === 'SOON TO EXPIRE'
+  ) {
+    counts.validGP = 1;
+  }
 
-if (
-  effectiveRlic === 'VALID RLIC PASS' ||
-  effectiveRlic === 'SOON TO EXPIRE'
-) {
-  counts.validGP = 1;
-}
-
-  // -------------------------
-  // TRAINING
-  // -------------------------
-  const training = (emp.training_status || '')
-    .trim()
-    .toUpperCase();
+  const training = (emp.training_status || '').trim().toUpperCase();
 
   if (training === 'DONE') {
     counts.trainingDone = 1;
-  }
-  else if (
+  } else if (
     training === 'ON-GOING' ||
     training === 'ONGOING' ||
     training === 'ON GOING'
   ) {
     counts.trainingOnGoing = 1;
-  }
-  else if (training === 'SCHEDULED') {
+  } else if (training === 'SCHEDULED') {
     counts.trainingScheduled = 1;
   }
 
-  // -------------------------
-  // PID
-  // -------------------------
   const pidStatus = computePassStatus(
     emp.pid_expiry,
     'pid',
@@ -124,14 +96,7 @@ if (
     counts.pid = 1;
   }
 
-  // -------------------------
-  // CAMP
-  // -------------------------
-  if (
-    (emp.current_location || '')
-      .trim()
-      .toUpperCase() === 'COMO CAMP'
-  ) {
+  if ((emp.current_location || '').trim().toUpperCase() === 'COMO CAMP') {
     counts.camp = 1;
   }
 
