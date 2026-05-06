@@ -310,10 +310,38 @@ export default function ProjectionReport() {
   const [showPreview, setShowPreview] = useState(false);
 
   // Load all employees — same query key as Dashboard so cache is shared
-  const { data: employees = [], isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => base44.entities.Employee.list('-created_date', 2000),
-  });
+ const {
+  data: employees = [],
+  isLoading,
+  refetch,
+  isFetching
+} = useQuery({
+  queryKey: ['employees'],
+
+  queryFn: async () => {
+    const data = await base44.entities.Employee.list(
+      '-updated_date',
+      5000
+    );
+
+    return Array.isArray(data) ? data : [];
+  },
+
+  // Auto refresh every 15 seconds
+  refetchInterval: 15000,
+
+  // Refresh when user returns to browser tab
+  refetchOnWindowFocus: true,
+
+  // Data considered fresh for 5 seconds
+  staleTime: 5000,
+
+  // Keep cache in memory for 5 minutes
+  gcTime: 1000 * 60 * 5,
+
+  // Retry failed requests
+  retry: 2,
+});
 
   const today = format(new Date(), 'dd-MM-yyyy');
 
