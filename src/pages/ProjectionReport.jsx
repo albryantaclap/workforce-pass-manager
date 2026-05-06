@@ -30,17 +30,20 @@ const BUILT_IN_PID  = new Set(['VALID PID PASS',  'EXPIRED PID PASS',  'SOON TO 
 function getEmployeeCounts(emp) {
   const counts = ZERO_ROW();
 
-  const ftw = (emp.ftw_result || '').trim().toUpperCase();
+  // =========================
+  // MEDICAL
+  // =========================
+  const ftw = (emp.ftw_result || '')
+    .trim()
+    .toUpperCase();
 
-  // Dashboard logic:
-  // Accepted = ACCEPTED only
+  // FTW / APPROVED
   if (ftw === 'ACCEPTED') {
     counts.ftw = 1;
   }
 
-  // Pending Medical = Waiting TR + Re-Assess + New
-  // In dashboard, Waiting TR is stored as WAITING TR APPROVAL
-  // New = blank ftw_result
+  // Pending Medical
+  // Waiting TR + Re-Assess + New ONLY
   if (
     ftw === 'WAITING TR APPROVAL' ||
     ftw === 'RE-ASSESS' ||
@@ -49,19 +52,31 @@ function getEmployeeCounts(emp) {
     counts.pendingMedical = 1;
   }
 
-  // Gatepass logic should use the same computed status as Dashboard
+  // =========================
+  // GATEPASS
+  // =========================
   const effectiveRlic = computePassStatus(
     emp.gate_pass_expiry,
     'rlic',
     emp.rlic_status
   );
 
-  // Count only Under Process
-  if (effectiveRlic === 'UNDER PROCESS') {
+  const rawRlic = (emp.rlic_status || '')
+    .trim()
+    .toUpperCase();
+
+  // GP UNDER PROCESS
+  // Include:
+  // UNDER PROCESS + DVC SENT
+  if (
+    rawRlic === 'UNDER PROCESS' ||
+    rawRlic === 'DVC SENT'
+  ) {
     counts.gpUnder = 1;
   }
 
-  // Dashboard Total Valid = Valid + Soon
+  // VALID GATEPASS
+  // Valid + Soon
   if (
     effectiveRlic === 'VALID RLIC PASS' ||
     effectiveRlic === 'SOON TO EXPIRE'
@@ -69,20 +84,30 @@ function getEmployeeCounts(emp) {
     counts.validGP = 1;
   }
 
-  const training = (emp.training_status || '').trim().toUpperCase();
+  // =========================
+  // TRAINING
+  // =========================
+  const training = (emp.training_status || '')
+    .trim()
+    .toUpperCase();
 
   if (training === 'DONE') {
     counts.trainingDone = 1;
-  } else if (
+  }
+  else if (
     training === 'ON-GOING' ||
     training === 'ONGOING' ||
     training === 'ON GOING'
   ) {
     counts.trainingOnGoing = 1;
-  } else if (training === 'SCHEDULED') {
+  }
+  else if (training === 'SCHEDULED') {
     counts.trainingScheduled = 1;
   }
 
+  // =========================
+  // PID
+  // =========================
   const pidStatus = computePassStatus(
     emp.pid_expiry,
     'pid',
@@ -96,7 +121,14 @@ function getEmployeeCounts(emp) {
     counts.pid = 1;
   }
 
-  if ((emp.current_location || '').trim().toUpperCase() === 'COMO CAMP') {
+  // =========================
+  // CAMP
+  // =========================
+  if (
+    (emp.current_location || '')
+      .trim()
+      .toUpperCase() === 'COMO CAMP'
+  ) {
     counts.camp = 1;
   }
 
