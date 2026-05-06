@@ -33,54 +33,59 @@ function getEmployeeCounts(emp) {
   // -------------------------
   // MEDICAL
   // -------------------------
-  const ftw = (emp.ftw_result || '')
-    .trim()
-    .toUpperCase();
+const ftw = (
+  emp.ftw_result ||
+  emp.medical_status ||
+  ''
+)
+  .trim()
+  .toUpperCase();
 
-  if (
-    ftw === 'ACCEPTED' ||
-    ftw === 'APPROVED'
-  ) {
-    counts.ftw = 1;
-  }
-  else if (
-    ftw === 'PENDING' ||
-    ftw === 'UNDER PROCESS' ||
-    ftw === 'WAITING' ||
-    ftw === 'FOR MEDICAL'
-  ) {
-    counts.pendingMedical = 1;
-  }
+// ACCEPTED
+if (
+  ftw === 'ACCEPTED' ||
+  ftw === 'APPROVED'
+) {
+  counts.ftw = 1;
+}
 
-  // -------------------------
-  // GATEPASS
-  // -------------------------
-  const rlicStatus = (emp.rlic_status || '')
-    .trim()
-    .toUpperCase();
+// PENDING MEDICAL
+if (
+  ftw === 'WAITING TR' ||
+  ftw === 'RE-ASSESS' ||
+  ftw === 'REASSESS' ||
+  ftw === 'NEW'
+) {
+  counts.pendingMedical = 1;
+}
 
-  if (
-    rlicStatus === 'UNDER PROCESS' ||
-    rlicStatus === 'PROCESSING' ||
-    rlicStatus === 'PENDING' ||
-    rlicStatus === 'FOR APPROVAL'
-  ) {
-    counts.gpUnder = 1;
-  }
-  else {
-    const effectiveRlic = computePassStatus(
-      emp.gate_pass_expiry,
-      'rlic',
-      emp.rlic_status
-    );
+// -------------------------
+// GATEPASS
+// ONLY UNDER PROCESS
+// -------------------------
+const rlicStatus = (
+  emp.rlic_status || ''
+)
+  .trim()
+  .toUpperCase();
 
-    if (
-      effectiveRlic === 'VALID RLIC PASS' ||
-      effectiveRlic === 'SOON TO EXPIRE'
-    ) {
-      counts.validGP = 1;
-    }
-  }
+if (rlicStatus === 'UNDER PROCESS') {
+  counts.gpUnder = 1;
+}
+
+// VALID GATEPASS
+const effectiveRlic = computePassStatus(
+  emp.gate_pass_expiry,
+  'rlic',
+  emp.rlic_status
+);
+
+if (
+  effectiveRlic === 'VALID RLIC PASS' ||
+  effectiveRlic === 'SOON TO EXPIRE'
+) {
+  counts.validGP = 1;
+}
 
   // -------------------------
   // TRAINING
