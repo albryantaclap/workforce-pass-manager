@@ -375,33 +375,21 @@ export default function ProjectionReport() {
   refetch,
   isFetching
 } = useQuery({
-  queryKey: ['employees'],
+  queryKey: ['employees-active'],
 
-  queryFn: async () => {
-    const data = await base44.entities.Employee.list(
-      '-updated_date',
-      5000
-    );
+  queryFn: () =>
+    base44.entities.Employee.filter(
+      { is_active: true },
+      '-created_date',
+      10000
+    ),
 
-    return Array.isArray(data) ? data : [];
-  },
-
-  // Auto refresh every 15 seconds
   refetchInterval: 15000,
-
-  // Refresh when user returns to browser tab
   refetchOnWindowFocus: true,
-
-  // Data considered fresh for 5 seconds
   staleTime: 5000,
-
-  // Keep cache in memory for 5 minutes
   gcTime: 1000 * 60 * 5,
-
-  // Retry failed requests
   retry: 2,
 });
-
   const today = format(new Date(), 'dd-MM-yyyy');
 
   // Compute company data from live employee records
