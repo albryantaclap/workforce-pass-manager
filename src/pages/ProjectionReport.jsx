@@ -208,7 +208,7 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
     <div class="company-block">
       <table>
         <tbody>
-          <tr><td colspan="10" class="${hdrClass}">${company}</td></tr>
+          <tr><td colspan="11" class="${hdrClass}">${company}</td></tr>
           <tr>
             <td class="hdr-group"></td>
             <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
@@ -246,65 +246,173 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
       </table>
     </div>`;
 }
-
 function buildGrandTotalHTML(companyData) {
+
+  // CATEGORY MAPPING
+  const COMPANY_CATEGORIES = {
+    'ANION': 'CATHODIC',
+    'GOOD HIRING': 'CIVIL',
+    'AUTO XPERT': 'DRIVERS AND OPERATORS',
+    'GSO LOGISTICS': 'DRIVERS AND OPERATORS',
+    'KHALED PROJECTS': 'DRIVERS AND OPERATORS',
+    'ENERSERVE (GSO)': 'ELECTRICAL',
+    'LMV E AND I': 'ELECTRICAL',
+    'MEGATRONICS (GSO)': 'ELECTRICAL',
+    'NTC (GSO)': 'ELECTRICAL',
+    'AL JABER (GSO)': 'HEAVY LIFT',
+    'SEA QUEEN': 'INSTRUMENTATION',
+    'CRYSTAL': 'PIPELINE',
+    'SIGEL (GSO)': 'PIPELINE',
+    'SWAN GLOBAL (GSO)': 'PIPELINE',
+    'ZEAL-IT': 'RIGGERS',
+    'AL-RAMSHA (GSO)': 'ROTARY',
+    'WENMA': 'SCAFFOLDING',
+    'QSS': 'SECURITY',
+    'ALTHAF (GSO)': 'STEEL STRUCTURE',
+    'METAL WORLD': 'STEEL STRUCTURE',
+    'MIR (GSO)': 'STEEL STRUCTURE',
+    'ITELLIGENT': 'TELECOMMUNICATION',
+    'GSO QATAR': ''
+  };
+
   const companies = Object.keys(companyData).sort();
+
   const grandTotal = ZERO_ROW();
   const companyTotals = {};
+
   for (const co of companies) {
     companyTotals[co] = sumRows(companyData[co]);
-    for (const k of Object.keys(grandTotal)) grandTotal[k] += companyTotals[co][k];
+
+    for (const k of Object.keys(grandTotal)) {
+      grandTotal[k] += companyTotals[co][k];
+    }
   }
-  const companyRows = companies.map(co => `
+
+  const companyRows = companies.map((co, index) => `
     <tr>
       <td class="left">${co}</td>
+
+      <!-- CATEGORY COLUMN -->
+      <td class="left">
+        <input
+          type="text"
+          value="${COMPANY_CATEGORIES[co] || ''}"
+          style="
+            width:100%;
+            border:none;
+            background:transparent;
+            outline:none;
+            font-size:11px;
+            font-family:Arial;
+          "
+        />
+      </td>
+
       <td class="c-medical num">${c(companyTotals[co].pendingMedical)}</td>
       <td class="c-medical num">${c(companyTotals[co].ftw)}</td>
+
       <td class="c-gatepass num">${c(companyTotals[co].gpUnder)}</td>
       <td class="c-gatepass num">${c(companyTotals[co].validGP)}</td>
+
       <td class="c-training num">${c(companyTotals[co].trainingScheduled)}</td>
       <td class="c-training num">${c(companyTotals[co].trainingOnGoing)}</td>
       <td class="c-training num">${c(companyTotals[co].trainingDone)}</td>
+
       <td class="c-pid num">${c(companyTotals[co].pid)}</td>
       <td class="c-camp num">${c(companyTotals[co].camp)}</td>
-    </tr>`).join('');
+    </tr>
+  `).join('');
+
   return `
     <div class="company-block">
       <table>
         <tbody>
-          <tr><td colspan="10" class="hdr-company grand">GRAND TOTAL — ALL COMPANIES</td></tr>
+
+          <!-- TITLE -->
+          <tr>
+            <td colspan="11" class="hdr-company grand">
+              GRAND TOTAL — ALL COMPANIES
+            </td>
+          </tr>
+
+          <!-- GROUP HEADER -->
           <tr>
             <td class="hdr-group"></td>
+            <td class="hdr-group"></td>
+
             <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
+
             <td colspan="2" class="hdr-group g-gatepass">GATEPASS</td>
+
             <td colspan="3" class="hdr-group g-training">TRAINING</td>
+
             <td class="hdr-group g-pid">PID</td>
+
             <td class="hdr-group g-camp">CAMP</td>
           </tr>
+
+          <!-- COLUMN HEADER -->
           <tr>
-            <td class="hdr-col left" style="width:18%">COMPANY</td>
-            <td class="hdr-col c-medical" style="width:9%">PENDING MEDICAL</td>
-            <td class="hdr-col c-medical" style="width:9%">FTW / APPROVED</td>
-            <td class="hdr-col c-gatepass" style="width:9%">GP UNDER PROCESS</td>
-            <td class="hdr-col c-gatepass" style="width:9%">VALID GATEPASS</td>
-            <td class="hdr-col c-training" style="width:9%">SCHEDULED</td>
-            <td class="hdr-col c-training" style="width:9%">ON-GOING</td>
-            <td class="hdr-col c-training" style="width:9%">COMPLETED</td>
-            <td class="hdr-col c-pid" style="width:9%">PID</td>
-            <td class="hdr-col c-camp" style="width:9%">CAMP</td>
+            <td class="hdr-col left" style="width:18%">
+              COMPANY
+            </td>
+
+            <td class="hdr-col left" style="width:16%">
+              CATEGORY
+            </td>
+
+            <td class="hdr-col c-medical">PENDING MEDICAL</td>
+
+            <td class="hdr-col c-medical">FTW / APPROVED</td>
+
+            <td class="hdr-col c-gatepass">GP UNDER PROCESS</td>
+
+            <td class="hdr-col c-gatepass">VALID GATEPASS</td>
+
+            <td class="hdr-col c-training">SCHEDULED</td>
+
+            <td class="hdr-col c-training">ON-GOING</td>
+
+            <td class="hdr-col c-training">COMPLETED</td>
+
+            <td class="hdr-col c-pid">PID</td>
+
+            <td class="hdr-col c-camp">CAMP</td>
           </tr>
+
           ${companyRows}
+
+          <!-- GRAND TOTAL -->
           <tr class="grand-total-row">
+
             <td class="left">GRAND TOTAL</td>
-            <td class="num">${grandTotal.pendingMedical || ''}</td><td class="num">${grandTotal.ftw || ''}</td>
-            <td class="num">${grandTotal.gpUnder || ''}</td><td class="num">${grandTotal.validGP || ''}</td>
-            <td class="num">${grandTotal.trainingScheduled || ''}</td><td class="num">${grandTotal.trainingOnGoing || ''}</td>
+
+            <td></td>
+
+            <td class="num">${grandTotal.pendingMedical || ''}</td>
+
+            <td class="num">${grandTotal.ftw || ''}</td>
+
+            <td class="num">${grandTotal.gpUnder || ''}</td>
+
+            <td class="num">${grandTotal.validGP || ''}</td>
+
+            <td class="num">${grandTotal.trainingScheduled || ''}</td>
+
+            <td class="num">${grandTotal.trainingOnGoing || ''}</td>
+
             <td class="num">${grandTotal.trainingDone || ''}</td>
-            <td class="num">${grandTotal.pid || ''}</td><td class="num">${grandTotal.camp || ''}</td>
+
+            <td class="num">${grandTotal.pid || ''}</td>
+
+            <td class="num">${grandTotal.camp || ''}</td>
+
           </tr>
+
         </tbody>
       </table>
-    </div>`;
+    </div>
+  `;
 }
 
 function buildReportHTML(companyData, displayDate, selectedCompany) {

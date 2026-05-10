@@ -12,5 +12,6 @@
       "default": "user",
       "description": "User role: owner = Super Administrator (full access), admin = Admin (view & edit), user = View only"
     }
-  }
+  },
+  "required": []
 }

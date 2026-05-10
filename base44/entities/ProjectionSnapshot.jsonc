@@ -1,0 +1,23 @@
+{
+  "name": "ProjectionSnapshot",
+  "type": "object",
+  "properties": {
+    "snapshot_date": {
+      "type": "string",
+      "format": "date",
+      "description": "The date this snapshot was taken (YYYY-MM-DD)"
+    },
+    "report_data": {
+      "type": "object",
+      "description": "The full computed company data snapshot"
+    },
+    "total_personnel": {
+      "type": "number",
+      "description": "Total active personnel count at time of snapshot"
+    }
+  },
+  "required": [
+    "snapshot_date",
+    "report_data"
+  ]
+}
