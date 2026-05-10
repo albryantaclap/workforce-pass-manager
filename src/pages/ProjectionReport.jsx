@@ -275,7 +275,12 @@ function buildGrandTotalHTML(companyData) {
     'GSO QATAR': ''
   };
 
-  const companies = Object.keys(companyData).sort();
+const companies = Object.keys(companyData).sort((a, b) => {
+  const categoryA = COMPANY_CATEGORIES[a] || '';
+  const categoryB = COMPANY_CATEGORIES[b] || '';
+
+  return categoryA.localeCompare(categoryB);
+});
 
   const grandTotal = ZERO_ROW();
   const companyTotals = {};
