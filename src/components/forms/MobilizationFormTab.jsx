@@ -203,9 +203,9 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
                   {/* QatarEnergy LNG logo */}
                   <td style={{ width: '90px', padding: '4px 6px', verticalAlign: 'middle', borderRight: '1.5px solid #333', textAlign: 'center' }}>
                     <img
-                      src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/d1f8aeb83_Logo.png"
+                      src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/5c7e00d8a_image.png"
                       alt="QatarEnergy LNG"
-                      style={{ height: '44px', objectFit: 'contain' }}
+                      style={{ height: '52px', objectFit: 'contain' }}
                     />
                   </td>
                   {/* Center: project title + form name */}
