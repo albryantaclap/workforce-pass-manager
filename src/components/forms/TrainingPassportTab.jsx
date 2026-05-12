@@ -13,7 +13,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   const cardStyle = {
     width: '90mm',
     height: '124mm',
-    border: '1.5px solid #000',
+    border: '1px solid #000',
     fontFamily: 'Arial, Helvetica, sans-serif',
     boxSizing: 'border-box',
     backgroundColor: '#fff',
@@ -24,7 +24,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
 
   const topSectionStyle = {
     backgroundColor: '#fff',
-    borderBottom: '1.5px solid #000',
+    borderBottom: '1px solid #000',
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
@@ -36,8 +36,8 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
 
   const photoBoxStyle = {
     width: '36mm',
-    height: '36mm',
-    border: '1.5px solid #000',
+    height: '34mm',
+    border: '1px solid #000',
     backgroundColor: '#fff',
     display: 'flex',
     alignItems: 'center',
@@ -46,6 +46,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
     position: 'relative',
     overflow: 'hidden',
     boxSizing: 'border-box',
+    marginBottom: '2mm',
   };
 
   const logoAreaStyle = {
@@ -58,7 +59,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
 
   const fieldRowStyle = {
     display: 'flex',
-    borderBottom: '1px solid #000',
+    borderBottom: '0.75px solid #000',
     height: '6.5mm',
     alignItems: 'stretch',
     boxSizing: 'border-box',
@@ -67,9 +68,9 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
 
   const labelStyle = {
     fontWeight: 'bold',
-    fontSize: '9px',
+    fontSize: '10.8px',
     padding: '1px 3px',
-    borderRight: '1px solid #000',
+    borderRight: '0.75px solid #000',
     width: '28mm',
     flexShrink: 0,
     display: 'flex',
@@ -79,7 +80,8 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   };
 
   const valueStyle = {
-    fontSize: '9px',
+    fontSize: '10.8px',
+    fontWeight: 'bold',
     padding: '1px 3px',
     flex: 1,
     display: 'flex',
@@ -109,13 +111,13 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
         <div style={photoBoxStyle}>
           {person?.photo_url && !isEmpty
             ? <img src={person.photo_url} alt="Photo" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0 }} />
-            : <span style={{ fontSize: '8px', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>PHOTO</span>
+            : <span style={{ fontSize: '9.6px', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>PHOTO</span>
           }
         </div>
         <div style={logoAreaStyle}>
           <img
-            src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/5e4874233_image.png"
-            alt="TR Logo"
+            src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/d1f8aeb83_Logo.png"
+            alt="GSO Qatar Logo"
             style={{ height: '56px', objectFit: 'contain' }}
           />
         </div>
@@ -134,7 +136,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
         })}
         {/* Signature row — taller than normal rows */}
         <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '10mm', flex: 1 }}>
-          <div style={{ ...labelStyle, backgroundColor: '#d9d9d9', alignItems: 'flex-start', paddingTop: '3px' }}>SIGNATURE:</div>
+          <div style={{ ...labelStyle, backgroundColor: '#d9d9d9', alignItems: 'flex-start', paddingTop: '3px', fontSize: '10.8px', fontWeight: 'bold' }}>SIGNATURE:</div>
           <div style={{ ...valueStyle, backgroundColor: '#fff' }}></div>
         </div>
       </div>
