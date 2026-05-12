@@ -27,11 +27,19 @@ function LookupSection({ type, label, hint }) {
   const [newLabel, setNewLabel] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const deletedType = `${type}_deleted`;
 
   const { data: dbEntries = [] } = useQuery({
     queryKey: ['lookups', type],
     queryFn: () => base44.entities.Lookup.filter({ type }),
   });
+
+  const { data: deletedEntries = [] } = useQuery({
+    queryKey: ['lookups', deletedType],
+    queryFn: () => base44.entities.Lookup.filter({ type: deletedType }),
+  });
+
+  const deletedValues = new Set(deletedEntries.map(e => e.value));
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Lookup.create(data),
@@ -51,6 +59,22 @@ function LookupSection({ type, label, hint }) {
     },
   });
 
+  const hideBuiltInMutation = useMutation({
+    mutationFn: ({ value, lbl }) => base44.entities.Lookup.create({ type: deletedType, value, label: lbl }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lookups', deletedType] });
+      toast({ title: `Built-in entry hidden` });
+    },
+  });
+
+  const restoreBuiltInMutation = useMutation({
+    mutationFn: (id) => base44.entities.Lookup.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lookups', deletedType] });
+      toast({ title: `Entry restored` });
+    },
+  });
+
   const handleAdd = (e) => {
     e.preventDefault();
     if (!newValue.trim()) return;
@@ -60,6 +84,8 @@ function LookupSection({ type, label, hint }) {
   };
 
   const statics = DEFAULTS[type] || [];
+  const visibleStatics = statics.filter(s => !deletedValues.has(s.value));
+  const hiddenStatics = statics.filter(s => deletedValues.has(s.value));
 
   return (
     <div className="space-y-4">
@@ -74,12 +100,44 @@ function LookupSection({ type, label, hint }) {
 
       <div className="space-y-1">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Built-in entries</p>
-        {statics.map(s => (
+        {visibleStatics.map(s => (
           <div key={s.value} className="flex items-center justify-between px-3 py-2 rounded bg-muted/30 text-sm">
             <span className="uppercase">{s.label}</span>
-            <span className="text-xs text-muted-foreground font-mono uppercase">{s.value}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-mono uppercase">{s.value}</span>
+              <Button
+                variant="ghost" size="icon" className="h-6 w-6 text-destructive"
+                onClick={() => hideBuiltInMutation.mutate({ value: s.value, lbl: s.label })}
+                disabled={hideBuiltInMutation.isPending}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </div>
         ))}
+
+        {hiddenStatics.length > 0 && (
+          <>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-4 mb-2">Hidden built-in entries</p>
+            {hiddenStatics.map(s => {
+              const deletedRecord = deletedEntries.find(e => e.value === s.value);
+              return (
+                <div key={s.value} className="flex items-center justify-between px-3 py-2 rounded bg-muted/10 border border-dashed text-sm opacity-60">
+                  <span className="uppercase line-through">{s.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-mono uppercase">{s.value}</span>
+                    <Button
+                      variant="ghost" size="sm" className="h-6 text-xs text-primary"
+                      onClick={() => deletedRecord && restoreBuiltInMutation.mutate(deletedRecord.id)}
+                    >
+                      Restore
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
 
         {dbEntries.length > 0 && (
           <>
@@ -106,7 +164,7 @@ export default function LookupsManager() {
   return (
     <Card className="p-6">
       <p className="text-xs text-muted-foreground mb-4">
-        Manage reference lists used in the personnel form. Built-in entries cannot be removed. Custom entries are added on top.
+        Manage reference lists used in the personnel form. Built-in entries can be hidden (and restored). Custom entries are added on top.
       </p>
       <Tabs defaultValue="company">
         <TabsList className="mb-4 flex-wrap h-auto gap-1">
