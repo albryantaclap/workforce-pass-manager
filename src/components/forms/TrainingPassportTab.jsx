@@ -67,7 +67,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
 
   const labelStyle = {
     fontWeight: 'bold',
-    fontSize: '7px',
+    fontSize: '9px',
     padding: '1px 3px',
     borderRight: '1px solid #000',
     width: '28mm',
@@ -79,7 +79,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   };
 
   const valueStyle = {
-    fontSize: '7px',
+    fontSize: '9px',
     padding: '1px 3px',
     flex: 1,
     display: 'flex',
@@ -116,7 +116,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
           <img
             src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/5e4874233_image.png"
             alt="TR Logo"
-            style={{ height: '28px', objectFit: 'contain' }}
+            style={{ height: '56px', objectFit: 'contain' }}
           />
         </div>
       </div>
