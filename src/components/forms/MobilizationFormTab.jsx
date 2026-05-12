@@ -223,20 +223,12 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
                     </div>
                   </td>
                   {/* TR TEAM logo */}
-                  <td style={{ width: '110px', padding: '4px 6px', verticalAlign: 'middle', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                      {/* TR TEAM graphic */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <div style={{ width: '32px', height: '32px', backgroundColor: '#1e3a5f', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '13px', fontStyle: 'italic' }}>
-                          tr
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                          <div style={{ fontWeight: '900', fontSize: '11px', color: '#1e3a5f', letterSpacing: '2px', lineHeight: '1' }}>TEAM</div>
-                          <div style={{ fontSize: '5px', color: '#555', lineHeight: '1.2', maxWidth: '64px' }}>one team, one goal<br/>working together for success</div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '6px', fontWeight: 'bold', color: '#1e3a5f', letterSpacing: '0.5px' }}>TÉCNICAS REUNIDAS</div>
-                    </div>
+                  <td style={{ width: '120px', padding: '4px 6px', verticalAlign: 'middle', textAlign: 'center' }}>
+                    <img
+                      src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/501aa6495_image.png"
+                      alt="Tecnicas Reunidas TEAM"
+                      style={{ height: '52px', objectFit: 'contain' }}
+                    />
                   </td>
                 </tr>
               </tbody>
