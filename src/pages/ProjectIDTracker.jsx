@@ -72,8 +72,7 @@ export default function ProjectIDTracker() {
   const [trainingScheduledTo, setTrainingScheduledTo] = useState('');
   const [trApprovedFrom, setTrApprovedFrom] = useState('');
   const [trApprovedTo, setTrApprovedTo] = useState('');
-  const [gpReceivedFrom, setGpReceivedFrom] = useState('');
-  const [gpReceivedTo, setGpReceivedTo] = useState('');
+  const [gpIssueDate, setGpIssueDate] = useState('');
   const [pidIssueFrom, setPidIssueFrom] = useState('');
   const [pidIssueTo, setPidIssueTo] = useState('');
   const [page, setPage] = useState(0);
@@ -125,13 +124,12 @@ export default function ProjectIDTracker() {
     const trDate = normalizeDate(e.ftw_approved_date) || '';
     const matchesTrFrom = !trApprovedFrom || trDate >= trApprovedFrom;
     const matchesTrTo = !trApprovedTo || trDate <= trApprovedTo;
-    const gpDate = normalizeDate(e.gate_pass_received_date) || '';
-    const matchesGpFrom = !gpReceivedFrom || gpDate >= gpReceivedFrom;
-    const matchesGpTo = !gpReceivedTo || gpDate <= gpReceivedTo;
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass && matchesMedical && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpFrom && matchesGpTo;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, pidStatusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, trainingStatusFilter, gatePassFilter, rlicStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo]);
+    const gpIssueDateVal = normalizeDate(e.gate_pass_issue_date) || '';
+    const matchesGpIssue = !gpIssueDate || gpIssueDateVal === gpIssueDate;
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass && matchesMedical && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpIssue;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, pidStatusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, trainingStatusFilter, gatePassFilter, rlicStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate]);
 
-  useEffect(() => { setPage(0); }, [companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, statusFilter, trainingFilter, gatePassFilter, search, pidIssueFrom, pidIssueTo, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo]);
+  useEffect(() => { setPage(0); }, [companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, statusFilter, trainingFilter, gatePassFilter, search, pidIssueFrom, pidIssueTo, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const pagedRows = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
@@ -175,7 +173,7 @@ export default function ProjectIDTracker() {
     toast({ title: `Filled "${field}" for ${filtered.length} rows` });
   };
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || pidStatusFilter.length > 0 || departmentFilter.length > 0 || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!pidIssueFrom || !!pidIssueTo || trainingFilter !== 'all' || gatePassFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpReceivedFrom || !!gpReceivedTo;
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || pidStatusFilter.length > 0 || departmentFilter.length > 0 || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!pidIssueFrom || !!pidIssueTo || trainingFilter !== 'all' || gatePassFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueDate;
 
   const pidBulkFields = [
     { key: 'pid_status', label: 'PID Status', type: 'select', options: allStatusOptions },
@@ -217,8 +215,8 @@ export default function ProjectIDTracker() {
       </div>
 
       <TrackerFilters
-        filters={{ companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo }}
-        setters={{ setCompanyFilter, setPositionFilter, setDepartmentFilter, setRlicStatusFilter, setTrainingStatusFilter, setPidStatusFilter, setMedicalResultFilter, setTrainingScheduledFrom, setTrainingScheduledTo, setTrApprovedFrom, setTrApprovedTo, setGpReceivedFrom, setGpReceivedTo, setPidIssueFrom, setPidIssueTo }}
+        filters={{ companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate, pidIssueFrom, pidIssueTo }}
+        setters={{ setCompanyFilter, setPositionFilter, setDepartmentFilter, setRlicStatusFilter, setTrainingStatusFilter, setPidStatusFilter, setMedicalResultFilter, setTrainingScheduledFrom, setTrainingScheduledTo, setTrApprovedFrom, setTrApprovedTo, setGpIssueDate, setPidIssueFrom, setPidIssueTo }}
         options={{ companies: companyOptions, positions, departments: departmentOptions, rlicStatuses: rlicStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: allStatusOptions, medicalResults: medicalResultOptions }}
         totalFiltered={filtered.length}
         totalAll={employees.length}

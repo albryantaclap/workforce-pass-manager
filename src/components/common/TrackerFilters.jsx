@@ -21,7 +21,7 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
     rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter,
     trainingScheduledFrom, trainingScheduledTo,
     trApprovedFrom, trApprovedTo,
-    gpReceivedFrom, gpReceivedTo,
+    gpIssueDate,
     pidIssueFrom, pidIssueTo,
   } = filters;
 
@@ -30,7 +30,7 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
     setRlicStatusFilter, setTrainingStatusFilter, setPidStatusFilter, setMedicalResultFilter,
     setTrainingScheduledFrom, setTrainingScheduledTo,
     setTrApprovedFrom, setTrApprovedTo,
-    setGpReceivedFrom, setGpReceivedTo,
+    setGpIssueDate,
     setPidIssueFrom, setPidIssueTo,
   } = setters;
 
@@ -40,7 +40,7 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
     medicalResultFilter.length > 0 ||
     !!trainingScheduledFrom || !!trainingScheduledTo ||
     !!trApprovedFrom || !!trApprovedTo ||
-    !!gpReceivedFrom || !!gpReceivedTo ||
+    !!gpIssueDate ||
     !!pidIssueFrom || !!pidIssueTo;
 
   const clearFilters = () => {
@@ -49,7 +49,7 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
     setMedicalResultFilter([]);
     setTrainingScheduledFrom(''); setTrainingScheduledTo('');
     setTrApprovedFrom(''); setTrApprovedTo('');
-    setGpReceivedFrom(''); setGpReceivedTo('');
+    setGpIssueDate('');
     setPidIssueFrom(''); setPidIssueTo('');
   };
 
@@ -117,11 +117,8 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
             </div>
           </div>
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Received</p>
-            <div className="flex gap-1.5">
-              <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8" />
-              <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8" />
-            </div>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Issue Date</p>
+            <Input type="date" value={gpIssueDate} onChange={e => setGpIssueDate(e.target.value)} className="text-xs h-8" />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Issue</p>
