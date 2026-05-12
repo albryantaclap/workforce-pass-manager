@@ -28,6 +28,8 @@ export default function Dashboard() {
   const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
   const [trainingScheduledTo, setTrainingScheduledTo] = useState('');
   const [gpIssueDate, setGpIssueDate] = useState('');
+  const [gpReceivedFrom, setGpReceivedFrom] = useState('');
+  const [gpReceivedTo, setGpReceivedTo] = useState('');
   const [pidIssueFrom, setPidIssueFrom] = useState('');
   const [pidIssueTo, setPidIssueTo] = useState('');
   const [showReport, setShowReport] = useState(false);
@@ -235,14 +237,17 @@ export default function Dashboard() {
       const matchTrTo = !trApprovedTo || trDate <= trApprovedTo;
       const gpIssueDateVal = normalizeDate(e.gate_pass_issue_date) || '';
       const matchGpIssue = !gpIssueDate || gpIssueDateVal === gpIssueDate;
+      const gpReceivedVal = normalizeDate(e.gate_pass_received_date) || '';
+      const matchGpReceivedFrom = !gpReceivedFrom || gpReceivedVal >= gpReceivedFrom;
+      const matchGpReceivedTo = !gpReceivedTo || gpReceivedVal <= gpReceivedTo;
       const pidDate = normalizeDate(e.pid_issue_date) || '';
       const matchPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
       const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-      return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpIssue && matchPidFrom && matchPidTo;
+      return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpIssue && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueDate, pidIssueFrom, pidIssueTo]);
+  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
-  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter !== 'all' || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueDate || !!pidIssueFrom || !!pidIssueTo;
+  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter !== 'all' || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueDate || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -370,6 +375,7 @@ export default function Dashboard() {
     setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]);
     setMedicalResultFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
     setTrApprovedFrom(''); setTrApprovedTo(''); setGpIssueDate('');
+    setGpReceivedFrom(''); setGpReceivedTo('');
     setPidIssueFrom(''); setPidIssueTo('');
   };
 
@@ -453,7 +459,7 @@ export default function Dashboard() {
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 border-t">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 border-t">
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Training Scheduled</p>
               <div className="flex gap-1.5">
@@ -471,6 +477,13 @@ export default function Dashboard() {
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Issue Date</p>
               <Input type="date" value={gpIssueDate} onChange={e => setGpIssueDate(e.target.value)} className="text-xs h-8" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Received</p>
+              <div className="flex gap-1.5">
+                <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8" />
+              </div>
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Issue</p>

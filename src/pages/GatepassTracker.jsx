@@ -56,6 +56,8 @@ export default function GatepassTracker() {
   const [trApprovedFrom, setTrApprovedFrom] = useState('');
   const [trApprovedTo, setTrApprovedTo] = useState('');
   const [gpIssueDate, setGpIssueDate] = useState('');
+  const [gpReceivedFrom, setGpReceivedFrom] = useState('');
+  const [gpReceivedTo, setGpReceivedTo] = useState('');
   const [pidIssueFrom, setPidIssueFrom] = useState('');
   const [pidIssueTo, setPidIssueTo] = useState('');
   // kept for list tab local search
@@ -104,11 +106,14 @@ export default function GatepassTracker() {
     const matchesTrTo = !trApprovedTo || trDate <= trApprovedTo;
     const gpIssueDateVal = (e.gate_pass_issue_date || '').substring(0, 10);
     const matchesGpIssue = !gpIssueDate || gpIssueDateVal === gpIssueDate;
+    const gpReceivedVal = (e.gate_pass_received_date || '').substring(0, 10);
+    const matchesGpReceivedFrom = !gpReceivedFrom || gpReceivedVal >= gpReceivedFrom;
+    const matchesGpReceivedTo = !gpReceivedTo || gpReceivedVal <= gpReceivedTo;
     const pidDate = (e.pid_issue_date || '').substring(0, 10);
     const matchesPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
     const matchesPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesUpdatedFrom && matchesUpdatedTo && matchesMedical && matchesTraining && matchesPid && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpIssue && matchesPidFrom && matchesPidTo;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, rlicStatusFilter, departmentFilter, updatedFrom, updatedTo, medicalResultFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate, pidIssueFrom, pidIssueTo]);
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesUpdatedFrom && matchesUpdatedTo && matchesMedical && matchesTraining && matchesPid && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpIssue && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidFrom && matchesPidTo;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, rlicStatusFilter, departmentFilter, updatedFrom, updatedTo, medicalResultFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   const stats = useMemo(() => {
     return allStatusOptions.map(s => ({
@@ -149,7 +154,7 @@ export default function GatepassTracker() {
     toast({ title: `Filled "${field}" for ${filtered.length} rows` });
   };
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || rlicStatusFilter.length > 0 || departmentFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!updatedFrom || !!updatedTo || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueDate || !!pidIssueFrom || !!pidIssueTo;
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || rlicStatusFilter.length > 0 || departmentFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!updatedFrom || !!updatedTo || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueDate || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const gateBulkFields = [
     { key: 'rlic_status', label: 'RLIC Status', type: 'select', options: allStatusOptions },
@@ -193,8 +198,8 @@ export default function GatepassTracker() {
       </div>
 
       <TrackerFilters
-        filters={{ companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate, pidIssueFrom, pidIssueTo }}
-        setters={{ setCompanyFilter, setPositionFilter, setDepartmentFilter, setRlicStatusFilter, setTrainingStatusFilter, setPidStatusFilter, setMedicalResultFilter, setTrainingScheduledFrom, setTrainingScheduledTo, setTrApprovedFrom, setTrApprovedTo, setGpIssueDate, setPidIssueFrom, setPidIssueTo }}
+        filters={{ companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo }}
+        setters={{ setCompanyFilter, setPositionFilter, setDepartmentFilter, setRlicStatusFilter, setTrainingStatusFilter, setPidStatusFilter, setMedicalResultFilter, setTrainingScheduledFrom, setTrainingScheduledTo, setTrApprovedFrom, setTrApprovedTo, setGpIssueDate, setGpReceivedFrom, setGpReceivedTo, setPidIssueFrom, setPidIssueTo }}
         options={{ companies: companyOptions, positions, departments: departmentOptions, rlicStatuses: allStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: pidStatusOptions, medicalResults: medicalResultOptions }}
         totalFiltered={filtered.length}
         totalAll={employees.length}

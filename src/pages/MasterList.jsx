@@ -69,15 +69,17 @@ export default function MasterList() {
   const [medicalTrApprovedFrom, setMedicalTrApprovedFrom] = useState(saved.medicalTrApprovedFrom || '');
   const [medicalTrApprovedTo, setMedicalTrApprovedTo] = useState(saved.medicalTrApprovedTo || '');
   const [gpIssueDate, setGpIssueDate] = useState(saved.gpIssueDate || '');
+  const [gpReceivedFrom, setGpReceivedFrom] = useState(saved.gpReceivedFrom || '');
+  const [gpReceivedTo, setGpReceivedTo] = useState(saved.gpReceivedTo || '');
   const [pidIssueFrom, setPidIssueFrom] = useState(saved.pidIssueFrom || '');
   const [pidIssueTo, setPidIssueTo] = useState(saved.pidIssueTo || '');
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueDate, pidIssueFrom, pidIssueTo });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueDate, pidIssueFrom, pidIssueTo]);
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   // Reset page on filter changes
-  useEffect(() => { setPage(0); }, [companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueDate, pidIssueFrom, pidIssueTo]);
+  useEffect(() => { setPage(0); }, [companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -106,7 +108,7 @@ export default function MasterList() {
     updateMutation.mutate({ id, data: { [field]: value } });
   };
 
-  const hasActiveFilters = searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter !== 'all' || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueDate || pidIssueFrom || pidIssueTo;
+  const hasActiveFilters = searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter !== 'all' || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueDate || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo;
 
   const masterBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: medicalResultOptions },
@@ -170,12 +172,15 @@ export default function MasterList() {
       const matchesMedicalTrApprovedTo = !medicalTrApprovedTo || (empMedTrApproved && empMedTrApproved <= medicalTrApprovedTo);
       const empGpIssue = emp.gate_pass_issue_date ? emp.gate_pass_issue_date.substring(0, 10) : '';
       const matchesGpIssueDate = !gpIssueDate || empGpIssue === gpIssueDate;
+      const empGpReceived = emp.gate_pass_received_date ? emp.gate_pass_received_date.substring(0, 10) : '';
+      const matchesGpReceivedFrom = !gpReceivedFrom || (empGpReceived && empGpReceived >= gpReceivedFrom);
+      const matchesGpReceivedTo = !gpReceivedTo || (empGpReceived && empGpReceived <= gpReceivedTo);
       const empPidIssue = emp.pid_issue_date ? emp.pid_issue_date.substring(0, 10) : '';
       const matchesPidIssueFrom = !pidIssueFrom || (empPidIssue && empPidIssue >= pidIssueFrom);
       const matchesPidIssueTo = !pidIssueTo || (empPidIssue && empPidIssue <= pidIssueTo);
-      return matchesSearch && matchesCompany && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesTrainingScheduledFrom && matchesTrainingScheduledTo && matchesMedicalTrApprovedFrom && matchesMedicalTrApprovedTo && matchesGpIssueDate && matchesPidIssueFrom && matchesPidIssueTo;
+      return matchesSearch && matchesCompany && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesTrainingScheduledFrom && matchesTrainingScheduledTo && matchesMedicalTrApprovedFrom && matchesMedicalTrApprovedTo && matchesGpIssueDate && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidIssueFrom && matchesPidIssueTo;
     });
-  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueDate, pidIssueFrom, pidIssueTo]);
+  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const pagedRows = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
@@ -287,7 +292,7 @@ export default function MasterList() {
         </div>
 
         {/* Row 2: date range filters — all 4 on one line */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <p className="text-[10px] font-medium text-muted-foreground mb-1">Training Scheduled</p>
             <div className="flex items-center gap-1">
@@ -309,6 +314,14 @@ export default function MasterList() {
             <Input type="date" value={gpIssueDate} onChange={e => setGpIssueDate(e.target.value)} className="text-xs h-8" />
           </div>
           <div>
+            <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Received</p>
+            <div className="flex items-center gap-1">
+              <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8" title="From" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8" title="To" />
+            </div>
+          </div>
+          <div>
             <p className="text-[10px] font-medium text-muted-foreground mb-1">Project ID Issue</p>
             <div className="flex items-center gap-1">
               <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8" title="From" />
@@ -319,7 +332,7 @@ export default function MasterList() {
         </div>
         {hasActiveFilters && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter('all'); setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueDate(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter('all'); setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueDate(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
