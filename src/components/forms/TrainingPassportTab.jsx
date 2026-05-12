@@ -121,7 +121,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
       </div>
 
       {/* Data fields */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         {fields.map(({ label, value }) => {
           const rowBg = GRAY_ROWS.has(label) ? '#d9d9d9' : '#fff';
           return (
