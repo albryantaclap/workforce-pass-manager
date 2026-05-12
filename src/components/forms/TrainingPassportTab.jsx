@@ -10,7 +10,7 @@ const TODAY = format(new Date(), 'dd-MM-yyyy');
 function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   const cardStyle = {
     width: '90mm',
-    height: '148mm',
+    height: 'auto',
     border: '1.5px solid #000',
     fontFamily: 'Arial, Helvetica, sans-serif',
     boxSizing: 'border-box',
@@ -132,7 +132,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
           );
         })}
         {/* Signature row — last row */}
-        <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '8mm', minHeight: '8mm', maxHeight: '8mm' }}>
+        <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '7mm', minHeight: '7mm', maxHeight: '7mm' }}>
           <div style={{ ...labelStyle, backgroundColor: '#d9d9d9' }}>SIGNATURE:</div>
           <div style={{ ...valueStyle, backgroundColor: '#fff' }}></div>
         </div>
