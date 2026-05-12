@@ -11,21 +11,35 @@ import { Search, GraduationCap, Eye, Pencil } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { COMPANIES, TRAINING_STATUSES, formatDate } from '@/utils/constants';
+import { COMPANIES, TRAINING_STATUSES, formatDate, computePassStatus, normalizeDate } from '@/utils/constants';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
+import TrackerFilters from '../components/common/TrackerFilters';
 import { useToast } from '@/components/ui/use-toast';
 
 const COLORS = ['#10b981', '#f59e0b', '#94a3b8'];
 
 export default function TrainingTracker() {
-  const { trainingStatusOptions, departmentOptions } = useLookupOptions();
+  const { trainingStatusOptions, departmentOptions, rlicStatusOptions, pidStatusOptions, medicalResultOptions, companyOptions } = useLookupOptions();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
+  const [departmentFilter, setDepartmentFilter] = useState([]);
+  const [rlicStatusFilter, setRlicStatusFilter] = useState([]);
+  const [trainingStatusFilter, setTrainingStatusFilter] = useState([]);
+  const [pidStatusFilter, setPidStatusFilter] = useState([]);
+  const [medicalResultFilter, setMedicalResultFilter] = useState([]);
+  const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
+  const [trainingScheduledTo, setTrainingScheduledTo] = useState('');
+  const [trApprovedFrom, setTrApprovedFrom] = useState('');
+  const [trApprovedTo, setTrApprovedTo] = useState('');
+  const [gpReceivedFrom, setGpReceivedFrom] = useState('');
+  const [gpReceivedTo, setGpReceivedTo] = useState('');
+  const [pidIssueFrom, setPidIssueFrom] = useState('');
+  const [pidIssueTo, setPidIssueTo] = useState('');
+  // list-tab local filters
   const [statusFilter, setStatusFilter] = useState('all');
-  const [departmentFilter, setDepartmentFilter] = useState('all');
   const [scheduledDateFrom, setScheduledDateFrom] = useState('');
   const [scheduledDateTo, setScheduledDateTo] = useState('');
   const [startDateFrom, setStartDateFrom] = useState('');
@@ -44,16 +58,34 @@ export default function TrainingTracker() {
     const empCompany = (e.company || '').trim().toUpperCase();
     const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
-    const matchesStatus = statusFilter === 'all' || e.training_status === statusFilter;
-    const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
+    // panel training filter merged with list-tab single select
+    const matchesStatus = (trainingStatusFilter.length > 0 ? trainingStatusFilter.includes(e.training_status) : (statusFilter === 'all' || e.training_status === statusFilter));
+    const matchesDepartment = departmentFilter.length === 0 || departmentFilter.includes(e.department);
     const empScheduled = e.training_date_scheduled ? e.training_date_scheduled.substring(0, 10) : '';
-    const matchesScheduledFrom = !scheduledDateFrom || (empScheduled && empScheduled >= scheduledDateFrom);
-    const matchesScheduledTo = !scheduledDateTo || (empScheduled && empScheduled <= scheduledDateTo);
+    // panel scheduled range merged with list-tab scheduled range
+    const schedFrom = trainingScheduledFrom || scheduledDateFrom;
+    const schedTo = trainingScheduledTo || scheduledDateTo;
+    const matchesScheduledFrom = !schedFrom || (empScheduled && empScheduled >= schedFrom);
+    const matchesScheduledTo = !schedTo || (empScheduled && empScheduled <= schedTo);
     const empStart = e.training_date_start ? e.training_date_start.substring(0, 10) : '';
     const matchesStartFrom = !startDateFrom || (empStart && empStart >= startDateFrom);
     const matchesStartTo = !startDateTo || (empStart && empStart <= startDateTo);
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesScheduledFrom && matchesScheduledTo && matchesStartFrom && matchesStartTo;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, scheduledDateFrom, scheduledDateTo, startDateFrom, startDateTo]);
+    const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+    const matchesRlic = rlicStatusFilter.length === 0 || rlicStatusFilter.includes(effectiveRlic);
+    const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
+    const matchesPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
+    const matchesMedical = medicalResultFilter.length === 0 || medicalResultFilter.includes(e.ftw_result);
+    const trDate = normalizeDate(e.ftw_approved_date) || '';
+    const matchesTrFrom = !trApprovedFrom || trDate >= trApprovedFrom;
+    const matchesTrTo = !trApprovedTo || trDate <= trApprovedTo;
+    const gpDate = normalizeDate(e.gate_pass_received_date) || '';
+    const matchesGpFrom = !gpReceivedFrom || gpDate >= gpReceivedFrom;
+    const matchesGpTo = !gpReceivedTo || gpDate <= gpReceivedTo;
+    const pidDate = normalizeDate(e.pid_issue_date) || '';
+    const matchesPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
+    const matchesPidTo = !pidIssueTo || pidDate <= pidIssueTo;
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesScheduledFrom && matchesScheduledTo && matchesStartFrom && matchesStartTo && matchesRlic && matchesPid && matchesMedical && matchesTrFrom && matchesTrTo && matchesGpFrom && matchesGpTo && matchesPidFrom && matchesPidTo;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, trainingStatusFilter, departmentFilter, scheduledDateFrom, scheduledDateTo, startDateFrom, startDateTo, rlicStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   const stats = useMemo(() => trainingStatusOptions.map((s) => ({
     name: s.label,
@@ -99,57 +131,13 @@ export default function TrainingTracker() {
         <ExportButton getData={getExportData} filename="training_data.csv" />
       </div>
 
-      {/* Shared Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Filter by Company</p>
-            <MultiSelect options={COMPANIES.map(c => ({ value: c.value, label: c.label }))} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Filter by Position</p>
-            <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="All Positions" />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Filter by Department</p>
-            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-              <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Departments</SelectItem>
-                {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3 mt-3">
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Training Scheduled Date — From</p>
-            <Input type="date" value={scheduledDateFrom} onChange={e => setScheduledDateFrom(e.target.value)} className="w-full" />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Training Scheduled Date — To</p>
-            <Input type="date" value={scheduledDateTo} onChange={e => setScheduledDateTo(e.target.value)} className="w-full" />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Training Start Date — From</p>
-            <Input type="date" value={startDateFrom} onChange={e => setStartDateFrom(e.target.value)} className="w-full" />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Training Start Date — To</p>
-            <Input type="date" value={startDateTo} onChange={e => setStartDateTo(e.target.value)} className="w-full" />
-          </div>
-          <div className="flex items-end">
-            {(scheduledDateFrom || scheduledDateTo || startDateFrom || startDateTo) && (
-              <Button variant="ghost" size="sm" onClick={() => { setScheduledDateFrom(''); setScheduledDateTo(''); setStartDateFrom(''); setStartDateTo(''); }} className="text-muted-foreground">
-                Clear Dates
-              </Button>
-            )}
-          </div>
-        </div>
-        {(companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || startDateFrom || startDateTo) && (
-          <p className="text-xs text-muted-foreground mt-2">Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> personnel</p>
-        )}
-      </Card>
+      <TrackerFilters
+        filters={{ companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo }}
+        setters={{ setCompanyFilter, setPositionFilter, setDepartmentFilter, setRlicStatusFilter, setTrainingStatusFilter, setPidStatusFilter, setMedicalResultFilter, setTrainingScheduledFrom, setTrainingScheduledTo, setTrApprovedFrom, setTrApprovedTo, setGpReceivedFrom, setGpReceivedTo, setPidIssueFrom, setPidIssueTo }}
+        options={{ companies: companyOptions, positions, departments: departmentOptions, rlicStatuses: rlicStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: pidStatusOptions, medicalResults: medicalResultOptions }}
+        totalFiltered={filtered.length}
+        totalAll={employees.length}
+      />
 
       <Tabs defaultValue="list">
         <TabsList>

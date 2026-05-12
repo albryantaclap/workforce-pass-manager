@@ -18,6 +18,7 @@ import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
 import BulkEditBar from '../components/common/BulkEditBar';
+import TrackerFilters from '../components/common/TrackerFilters';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
@@ -62,10 +63,21 @@ export default function ProjectIDTracker() {
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
-  const [statusFilter, setStatusFilter] = useState([]);
-  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState([]);
+  const [rlicStatusFilter, setRlicStatusFilter] = useState([]);
+  const [trainingStatusFilter, setTrainingStatusFilter] = useState([]);
+  const [pidStatusFilter, setPidStatusFilter] = useState([]);
+  const [medicalResultFilter, setMedicalResultFilter] = useState([]);
+  const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
+  const [trainingScheduledTo, setTrainingScheduledTo] = useState('');
+  const [trApprovedFrom, setTrApprovedFrom] = useState('');
+  const [trApprovedTo, setTrApprovedTo] = useState('');
+  const [gpReceivedFrom, setGpReceivedFrom] = useState('');
+  const [gpReceivedTo, setGpReceivedTo] = useState('');
   const [pidIssueFrom, setPidIssueFrom] = useState('');
   const [pidIssueTo, setPidIssueTo] = useState('');
+  // list-tab local filters
+  const [statusFilter, setStatusFilter] = useState([]);
   const [trainingFilter, setTrainingFilter] = useState('all');
   const [gatePassFilter, setGatePassFilter] = useState([]);
   const [editMode, setEditMode] = useState(false);
@@ -79,7 +91,7 @@ export default function ProjectIDTracker() {
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
   });
 
-  const { pidStatusOptions: allStatusOptions, rlicStatusOptions, trainingStatusOptions, departmentOptions } = useLookupOptions();
+  const { pidStatusOptions: allStatusOptions, rlicStatusOptions, trainingStatusOptions, departmentOptions, medicalResultOptions, companyOptions } = useLookupOptions();
 
   const getEffectivePid = (e) => computePassStatus(e.pid_expiry, 'pid', e.pid_status);
 
@@ -91,16 +103,31 @@ export default function ProjectIDTracker() {
     const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
     const matchesPosition = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
     const effectivePid = getEffectivePid(e);
-    const matchesStatus = statusFilter.length === 0 || statusFilter.includes(effectivePid);
-    const matchesDepartment = departmentFilter === 'all' || e.department === departmentFilter;
+    // panel pid filter + list-tab status filter merged
+    const mergedPid = [...new Set([...pidStatusFilter, ...statusFilter])];
+    const matchesStatus = mergedPid.length === 0 || mergedPid.includes(effectivePid);
+    const matchesDepartment = departmentFilter.length === 0 || departmentFilter.includes(e.department);
     const issueDate = normalizeDate(e.pid_issue_date);
     const matchesIssueFrom = !pidIssueFrom || (issueDate && issueDate >= pidIssueFrom);
     const matchesIssueTo = !pidIssueTo || (issueDate && issueDate <= pidIssueTo);
-    const matchesTraining = trainingFilter === 'all' || e.training_status === trainingFilter;
+    // panel training filter + list-tab training filter merged
+    const matchesTraining = (trainingStatusFilter.length > 0 ? trainingStatusFilter.includes(e.training_status) : (trainingFilter === 'all' || e.training_status === trainingFilter));
     const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
-    const matchesGatePass = gatePassFilter.length === 0 || gatePassFilter.includes(effectiveRlic);
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, gatePassFilter]);
+    // panel rlic filter + list-tab gate pass filter merged
+    const mergedRlic = [...new Set([...rlicStatusFilter, ...gatePassFilter])];
+    const matchesGatePass = mergedRlic.length === 0 || mergedRlic.includes(effectiveRlic);
+    const matchesMedical = medicalResultFilter.length === 0 || medicalResultFilter.includes(e.ftw_result);
+    const trainSchedDate = (e.training_date_scheduled || '').substring(0, 10);
+    const matchesTrainSchedFrom = !trainingScheduledFrom || trainSchedDate >= trainingScheduledFrom;
+    const matchesTrainSchedTo = !trainingScheduledTo || trainSchedDate <= trainingScheduledTo;
+    const trDate = normalizeDate(e.ftw_approved_date) || '';
+    const matchesTrFrom = !trApprovedFrom || trDate >= trApprovedFrom;
+    const matchesTrTo = !trApprovedTo || trDate <= trApprovedTo;
+    const gpDate = normalizeDate(e.gate_pass_received_date) || '';
+    const matchesGpFrom = !gpReceivedFrom || gpDate >= gpReceivedFrom;
+    const matchesGpTo = !gpReceivedTo || gpDate <= gpReceivedTo;
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass && matchesMedical && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpFrom && matchesGpTo;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, pidStatusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, trainingStatusFilter, gatePassFilter, rlicStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo]);
 
   const stats = useMemo(() => {
     return allStatusOptions.map(s => ({
@@ -141,7 +168,7 @@ export default function ProjectIDTracker() {
     toast({ title: `Filled "${field}" for ${filtered.length} rows` });
   };
 
-  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || departmentFilter !== 'all' || !!pidIssueFrom || !!pidIssueTo || trainingFilter !== 'all' || gatePassFilter.length > 0;
+  const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || pidStatusFilter.length > 0 || departmentFilter.length > 0 || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!pidIssueFrom || !!pidIssueTo || trainingFilter !== 'all' || gatePassFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpReceivedFrom || !!gpReceivedTo;
 
   const pidBulkFields = [
     { key: 'pid_status', label: 'PID Status', type: 'select', options: allStatusOptions },
@@ -182,32 +209,13 @@ export default function ProjectIDTracker() {
         </div>
       </div>
 
-      {/* Shared Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Filter by Company</p>
-            <MultiSelect options={COMPANIES.map(c => ({ value: c.value, label: c.label }))} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Filter by Position</p>
-            <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="All Positions" />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Filter by Department</p>
-            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-              <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Departments</SelectItem>
-                {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        {(companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all') && (
-          <p className="text-xs text-muted-foreground mt-2">Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> personnel</p>
-        )}
-      </Card>
+      <TrackerFilters
+        filters={{ companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo }}
+        setters={{ setCompanyFilter, setPositionFilter, setDepartmentFilter, setRlicStatusFilter, setTrainingStatusFilter, setPidStatusFilter, setMedicalResultFilter, setTrainingScheduledFrom, setTrainingScheduledTo, setTrApprovedFrom, setTrApprovedTo, setGpReceivedFrom, setGpReceivedTo, setPidIssueFrom, setPidIssueTo }}
+        options={{ companies: companyOptions, positions, departments: departmentOptions, rlicStatuses: rlicStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: allStatusOptions, medicalResults: medicalResultOptions }}
+        totalFiltered={filtered.length}
+        totalAll={employees.length}
+      />
 
       <Tabs defaultValue="list">
         <TabsList>
