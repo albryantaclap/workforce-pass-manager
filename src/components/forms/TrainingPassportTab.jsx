@@ -35,8 +35,8 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   };
 
   const photoBoxStyle = {
-    width: '28mm',
-    height: '100%',
+    width: '36mm',
+    height: '36mm',
     border: '1.5px solid #000',
     backgroundColor: '#fff',
     display: 'flex',
@@ -133,7 +133,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
           );
         })}
         {/* Signature row — taller than normal rows */}
-        <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '14mm', flex: 1 }}>
+        <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '10mm', flex: 1 }}>
           <div style={{ ...labelStyle, backgroundColor: '#d9d9d9', alignItems: 'flex-start', paddingTop: '3px' }}>SIGNATURE:</div>
           <div style={{ ...valueStyle, backgroundColor: '#fff' }}></div>
         </div>
