@@ -150,7 +150,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
 
 export default function TrainingPassportTab({ selectedPersonnel }) {
   const [craft, setCraft] = useState('');
-  const [dateIssued, setDateIssued] = useState('');
+  const [dateIssued, setDateIssued] = useState(null);
   const [dateEmployment, setDateEmployment] = useState('');
 
   const handlePrint = () => window.print();
