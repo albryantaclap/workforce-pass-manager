@@ -6,16 +6,14 @@ import { format } from 'date-fns';
 
 const TODAY = format(new Date(), 'dd-MM-yyyy');
 
-// Section header style matching the template's bold dark blue header bars
 const SectionHeader = ({ number, title, colSpan = 12 }) => (
   <tr>
     <td colSpan={colSpan} style={{
       backgroundColor: '#1e3a5f',
       color: 'white',
       fontWeight: 'bold',
-      fontSize: '9.5px',
-      padding: '4px 7px',
-      borderBottom: '1px solid #1e3a5f',
+      fontSize: '8.5px',
+      padding: '2.5px 6px',
       letterSpacing: '0.2px',
     }}>
       {number}. {title}
@@ -23,28 +21,41 @@ const SectionHeader = ({ number, title, colSpan = 12 }) => (
   </tr>
 );
 
-// Checkbox cell matching the template
 const CB = ({ checked }) => (
   <span style={{
     display: 'inline-block',
-    width: '10px', height: '10px',
+    width: '9px', height: '9px',
     border: '1px solid #333',
     textAlign: 'center',
-    lineHeight: '9px',
-    fontSize: '8px',
+    lineHeight: '8px',
+    fontSize: '7px',
     verticalAlign: 'middle',
     marginRight: '2px',
-    flexShrink: 0,
     backgroundColor: 'white',
+    flexShrink: 0,
   }}>
     {checked ? '✓' : ''}
   </span>
 );
 
-// Bold field label style
-const label = (txt) => <strong style={{ fontSize: '8.5px' }}>{txt}</strong>;
+const StampCircle = () => (
+  <div style={{
+    position: 'absolute',
+    right: '6px',
+    bottom: '4px',
+    width: '38px',
+    height: '38px',
+    borderRadius: '50%',
+    border: '1px solid #aaa',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '6.5px',
+    color: '#888',
+    backgroundColor: 'white',
+  }}>Stamp</div>
+);
 
-// Training items — exactly as in the template (6 columns per row)
 const TRAINING_ITEMS = [
   ['SHES Induction', 'Chemical Awareness', 'Respiratory Protection', 'Bus Captain', 'LOTO', 'POSC'],
   ['Dispensing Fuel', 'Fire & Muster Warden', 'Spill Pre & Response', 'Heat Stress', 'LORO CP', 'PTW'],
@@ -58,8 +69,7 @@ const THIRD_PARTY_ITEMS = [
 ];
 const PPE_ITEMS = ['Coverall', 'Safety Shoes', 'Helmet', 'Safety Glass (Clear & Dark)', 'Hand Gloves', 'Water Bottle'];
 
-// Thin cell border
-const B = '1px solid #aaa';
+const B = '0.75px solid #aaa';
 const BB = '1px solid #333';
 
 export default function MobilizationFormTab({ selectedPersonnel }) {
@@ -70,9 +80,6 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
   const [licenseDate, setLicenseDate] = useState('');
   const [licenseType, setLicenseType] = useState('');
   const [prevLicense, setPrevLicense] = useState(false);
-  const [deptName, setDeptName] = useState('');
-  const [deptDept, setDeptDept] = useState('');
-  const [deptDate, setDeptDate] = useState('');
   const [medicalComments, setMedicalComments] = useState('');
   const [trainings, setTrainings] = useState({});
   const [thirdParty, setThirdParty] = useState({});
@@ -99,9 +106,12 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
 
   const people = selectedPersonnel.length > 0 ? selectedPersonnel : [{}];
 
+  const tdH = { padding: '2px 5px', fontSize: '8.5px', verticalAlign: 'middle' };
+  const tdB = { ...tdH, fontWeight: 'bold' };
+
   return (
     <div className="space-y-4">
-      {/* Controls panel */}
+      {/* ── CONTROLS (no-print) ── */}
       <div className="no-print bg-white border rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Mobilization Form</h3>
@@ -122,7 +132,7 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
           <div><label className="text-xs font-medium block mb-1">Staff Number</label>
             <Input value={staffNo} onChange={e => setStaffNo(e.target.value)} placeholder="Override staff no…" /></div>
           <div><label className="text-xs font-medium block mb-1">Trade</label>
-            <Input value={trade} onChange={e => setTrade(e.target.value)} placeholder="Override trade…" /></div>
+            <Input value={trade} onChange={e => setTrade(e.target.value)} placeholder="e.g. Electrician" /></div>
           <div><label className="text-xs font-medium block mb-1">License Issued Date</label>
             <Input type="date" value={licenseDate} onChange={e => setLicenseDate(e.target.value)} /></div>
           <div><label className="text-xs font-medium block mb-1">Type of License</label>
@@ -132,10 +142,8 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
           <div><label className="text-xs font-medium block mb-1">Prepared By (Part 6)</label>
             <Input value={preparedBy} onChange={e => setPreparedBy(e.target.value)} /></div>
         </div>
-
-        {/* Training checkboxes in controls */}
         <div>
-          <p className="text-xs font-medium mb-2">Training Ticks (applies to all forms)</p>
+          <p className="text-xs font-medium mb-1">Training Ticks (applies to all forms)</p>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-1">
             {TRAINING_ITEMS.flat().filter(Boolean).map(item => (
               <label key={item} className="flex items-center gap-1 text-xs cursor-pointer">
@@ -144,7 +152,7 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
               </label>
             ))}
           </div>
-          <p className="text-xs font-medium mt-2 mb-1">Third Party</p>
+          <p className="text-xs font-medium mt-2 mb-1">Third Party Certificate Verification</p>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-1">
             {THIRD_PARTY_ITEMS.flat().filter(Boolean).map(item => (
               <label key={item} className="flex items-center gap-1 text-xs cursor-pointer">
@@ -162,72 +170,91 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
               </label>
             ))}
           </div>
+          <div className="flex flex-wrap gap-4 mt-2">
+            <label className="flex items-center gap-1 text-xs cursor-pointer">
+              <input type="checkbox" checked={isFirstQatar} onChange={e => setIsFirstQatar(e.target.checked)} className="w-3 h-3" />
+              Is first in Qatar
+            </label>
+            <label className="flex items-center gap-1 text-xs cursor-pointer">
+              <input type="checkbox" checked={isLessSixMonths} onChange={e => setIsLessSixMonths(e.target.checked)} className="w-3 h-3" />
+              Is experience less than 6 months
+            </label>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+            <div><label className="text-xs font-medium block mb-1">NIW Start Date</label>
+              <Input type="date" value={niwStart} onChange={e => setNiwStart(e.target.value)} /></div>
+            <div><label className="text-xs font-medium block mb-1">NIW End Date</label>
+              <Input type="date" value={niwEnd} onChange={e => setNiwEnd(e.target.value)} /></div>
+            <div><label className="text-xs font-medium block mb-1">Armband (Y/N)</label>
+              <Input value={niwArmband} onChange={e => setNiwArmband(e.target.value)} /></div>
+            <div><label className="text-xs font-medium block mb-1">Name of Supervisor</label>
+              <Input value={niwSupervisor} onChange={e => setNiwSupervisor(e.target.value)} /></div>
+          </div>
         </div>
       </div>
 
-      {/* ===== PRINTABLE FORMS — one per person ===== */}
+      {/* ── PRINTABLE FORMS — one per person ── */}
       {people.map((person, idx) => {
-        const firstName = person.name ? person.name.split(' ')[0] : '';
-        const lastName = person.name ? person.name.split(' ').slice(1).join(' ') : '';
+        const firstName = person.name ? person.name.split(' ')[0] : '<Personnel First Name>';
+        const lastName = person.name ? person.name.split(' ').slice(1).join(' ') : '<Personnel Last Name>';
         const pid = projectIdNumber || person.pid || '';
         const sNo = staffNo || person.staff_no || '';
         const tradeVal = trade || person.designation_org_chart || '';
         const medComment = medicalComments || person.ftw_remarks || '';
-        const doctorName = person.ftw_doctor || '';
-        const medDate = person.ftw_approved_date || '';
-
-        const tdH = { padding: '3px 5px', fontSize: '8.5px', verticalAlign: 'middle' };
-        const tdB = { ...tdH, fontWeight: 'bold' };
+        const doctorName = person.ftw_doctor || '<Doctor Name>';
+        const medDate = person.ftw_approved_date ? fmtDate(person.ftw_approved_date) : '';
+        const nationality = person.nationality || '<Nationality>';
 
         return (
           <div
             key={idx}
-            className="printable-area bg-white text-black"
+            className="printable-area"
             style={{
               fontFamily: 'Arial, Helvetica, sans-serif',
               fontSize: '8.5px',
+              color: '#000',
+              backgroundColor: '#fff',
               width: '210mm',
-              minHeight: '297mm',
+              height: '297mm',
               margin: '0 auto 20px',
-              padding: '7mm 9mm',
+              padding: '6mm 8mm 4mm',
               boxSizing: 'border-box',
               border: '1px solid #ccc',
               pageBreakAfter: idx < people.length - 1 ? 'always' : 'auto',
+              breakAfter: idx < people.length - 1 ? 'page' : 'auto',
+              overflow: 'hidden',
             }}
           >
 
             {/* ── HEADER ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #333', marginBottom: '4px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #333', marginBottom: '3px' }}>
               <tbody>
                 <tr>
-                  {/* QatarEnergy LNG logo */}
-                  <td style={{ width: '90px', padding: '4px 6px', verticalAlign: 'middle', borderRight: '1.5px solid #333', textAlign: 'center' }}>
+                  <td style={{ width: '85px', padding: '3px 5px', verticalAlign: 'middle', borderRight: '1.5px solid #333', textAlign: 'center' }}>
                     <img
                       src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/5c7e00d8a_image.png"
                       alt="QatarEnergy LNG"
-                      style={{ height: '52px', objectFit: 'contain' }}
+                      style={{ height: '48px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
                     />
                   </td>
-                  {/* Center: project title + form name */}
                   <td style={{ textAlign: 'center', verticalAlign: 'middle', borderRight: '1.5px solid #333', padding: '0' }}>
-                    <div style={{ padding: '5px 8px 4px', lineHeight: '1.35' }}>
-                      <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1e3a5f', letterSpacing: '0.3px' }}>
+                    <div style={{ padding: '4px 8px 2px', lineHeight: '1.4' }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: '#1e3a5f', letterSpacing: '0.3px' }}>
                         EPCC FOR THE NORTH FIELD EXPANSION PROJECT (NFXP)
                       </div>
-                      <div style={{ fontWeight: 'bold', fontSize: '10px', color: '#1e3a5f' }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '9.5px', color: '#1e3a5f' }}>
                         EPC 3, 4 &amp; BOP
                       </div>
                     </div>
-                    <div style={{ backgroundColor: '#c0000c', color: 'white', fontWeight: 'bold', fontSize: '11px', padding: '4px 8px', letterSpacing: '0.5px' }}>
+                    <div style={{ backgroundColor: '#c0000c', color: 'white', fontWeight: 'bold', fontSize: '10.5px', padding: '3px 8px', letterSpacing: '0.5px' }}>
                       EMPLOYEE MOBILIZATION FORM
                     </div>
                   </td>
-                  {/* TR TEAM logo */}
-                  <td style={{ width: '120px', padding: '4px 6px', verticalAlign: 'middle', textAlign: 'center' }}>
+                  <td style={{ width: '110px', padding: '3px 5px', verticalAlign: 'middle', textAlign: 'center' }}>
                     <img
                       src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/501aa6495_image.png"
                       alt="Tecnicas Reunidas TEAM"
-                      style={{ height: '52px', objectFit: 'contain' }}
+                      style={{ height: '48px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
                     />
                   </td>
                 </tr>
@@ -235,19 +262,19 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
             </table>
 
             {/* ── PROJECT TITLE ROW ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #333', marginBottom: '4px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '2px' }}>
               <tbody>
                 <tr>
-                  <td style={{ padding: '4px 8px', fontSize: '8.5px' }}>
+                  <td style={{ ...tdH, borderRight: B }}>
                     <strong>Project title:</strong>&nbsp;
                     {['EPC3', 'EPC4', 'BOP'].map(p => (
-                      <span key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginRight: '10px' }}>
-                        <span style={{ display: 'inline-block', width: '11px', height: '11px', borderRadius: '50%', border: '1px solid #333', backgroundColor: projectType === p ? '#333' : 'white', verticalAlign: 'middle' }} />
-                        &nbsp;{p}
+                      <span key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginRight: '8px' }}>
+                        <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', border: '1px solid #333', backgroundColor: projectType === p ? '#333' : 'white', verticalAlign: 'middle' }} />
+                        &nbsp;{p}&nbsp;<span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', border: '1px solid #333', backgroundColor: 'white', verticalAlign: 'middle', visibility: 'hidden' }} />
                       </span>
                     ))}
                   </td>
-                  <td style={{ padding: '4px 8px', fontSize: '8.5px', textAlign: 'right', borderLeft: '1px solid #333', width: '40%' }}>
+                  <td style={{ ...tdH, width: '38%' }}>
                     <strong>(Project ID Number:</strong>&nbsp;{pid}&nbsp;<strong>)</strong>
                   </td>
                 </tr>
@@ -255,28 +282,28 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
             </table>
 
             {/* ── INSTRUCTIONS BOX ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #333', marginBottom: '3px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '2px' }}>
               <tbody>
                 <tr>
-                  <td style={{ padding: '4px 6px', fontSize: '7.5px', lineHeight: '1.5', color: '#222' }}>
-                    <em><strong>For new request:</strong> Complete part 1 to 5, attach RLIC Security Pass copy with access code 31, QID or Passport copy. Soft copy of photo and excel sheet need to be provided to Security Badge office.</em><br />
-                    <em><strong>For renewal:</strong> Complete part 1 and 5 only including Project ID Number, attach RLIC Security Pass copy with access code 31, QID or Passport copy to Security Badge office. Expired Project ID should be returned back before collecting the new ID.</em>
+                  <td style={{ padding: '3px 6px', fontSize: '7.2px', lineHeight: '1.55', color: '#222' }}>
+                    <span style={{ textDecoration: 'underline' }}><em><strong>For new request:</strong> Complete part 1 to 5, attach RLIC Security Pass copy with access code 31, QID or Passport copy. Soft copy of photo and excel sheet need to be provided to Security Badge office.</em></span><br />
+                    <span style={{ textDecoration: 'underline' }}><em><strong>For renewal:</strong> Complete part 1 and 5 only including Project ID Number, attach RLIC Security Pass copy with access code 31, QID or Passport copy to Security Badge office. Expired Project ID should be returned back before collecting the new ID.</em></span>
                   </td>
                 </tr>
               </tbody>
             </table>
 
             {/* ── PART 1: PERSONAL DETAILS ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '3px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '2px' }}>
               <tbody>
                 <SectionHeader number="1" title="Personal Details:" colSpan={6} />
                 <tr style={{ borderBottom: B }}>
-                  <td style={{ ...tdB, width: '72px', borderRight: B }}>First Name:</td>
-                  <td style={{ ...tdH, width: '90px', borderRight: BB }}>{firstName}</td>
-                  <td style={{ ...tdB, width: '72px', borderRight: B }}>Last Name:</td>
-                  <td style={{ ...tdH, width: '90px', borderRight: BB }}>{lastName}</td>
-                  <td style={{ ...tdB, width: '72px', borderRight: B }}>Nationality:</td>
-                  <td style={{ ...tdH }}>{person.nationality || ''}</td>
+                  <td style={{ ...tdB, width: '14%', borderRight: B }}>First Name:</td>
+                  <td style={{ ...tdH, width: '19%', borderRight: BB, backgroundColor: '#ffff00', fontWeight: 'bold' }}>{firstName}</td>
+                  <td style={{ ...tdB, width: '12%', borderRight: B }}>Last Name:</td>
+                  <td style={{ ...tdH, width: '19%', borderRight: BB, backgroundColor: '#ffff00', fontWeight: 'bold' }}>{lastName}</td>
+                  <td style={{ ...tdB, width: '14%', borderRight: B }}>Nationality:</td>
+                  <td style={{ ...tdH, backgroundColor: '#ffff00', fontWeight: 'bold' }}>{nationality}</td>
                 </tr>
                 <tr style={{ borderBottom: B }}>
                   <td style={{ ...tdB, borderRight: B }}>Qatar ID No:</td>
@@ -294,85 +321,92 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
                 <tr style={{ borderBottom: B }}>
                   <td style={{ ...tdB, borderRight: B }}>License Issued Date:</td>
                   <td style={{ ...tdH, borderRight: BB }}>{fmtDate(licenseDate)}</td>
-                  <td style={{ ...tdB, borderRight: B }}>Type of License:</td>
-                  <td colSpan={3} style={{ ...tdH }}>{licenseType}</td>
+                  <td colSpan={2} style={{ ...tdB, borderRight: BB }}>Type of License:&nbsp;<span style={{ fontWeight: 'normal' }}>{licenseType}</span></td>
+                  <td colSpan={2} style={{ ...tdH }}></td>
                 </tr>
                 <tr>
                   <td colSpan={6} style={{ ...tdH }}>
                     <strong>Previous License Details</strong> <em>(Attach copy):</em>&nbsp;
-                    <label style={{ cursor: 'pointer' }}>
-                      <CB checked={prevLicense} /> Yes
-                    </label>
+                    <span style={{ marginLeft: '4px' }}><CB checked={prevLicense} /> yes</span>
                   </td>
                 </tr>
               </tbody>
             </table>
 
             {/* ── PART 2: DEPT APPROVAL ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '3px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '2px' }}>
               <tbody>
-                <SectionHeader number="2" title="Concerned Department Approval (If required)" colSpan={4} />
+                <SectionHeader number="2" title="Concerned Department approval (If required)" colSpan={4} />
                 <tr>
-                  <td style={{ ...tdH, width: '25%', borderRight: B }}><strong>Name:</strong> {deptName}</td>
-                  <td style={{ ...tdH, width: '25%', borderRight: B }}><strong>Department:</strong> {deptDept}</td>
-                  <td style={{ ...tdH, width: '25%', borderRight: B }}><strong>Date:</strong> {deptDate}</td>
+                  <td style={{ ...tdH, width: '25%', borderRight: B }}><strong>Name:</strong></td>
+                  <td style={{ ...tdH, width: '25%', borderRight: B }}><strong>Department:</strong></td>
+                  <td style={{ ...tdH, width: '25%', borderRight: B }}><strong>Date:</strong></td>
                   <td style={{ ...tdH, width: '25%' }}><strong>Signature:</strong></td>
                 </tr>
               </tbody>
             </table>
 
             {/* ── PART 3: MEDICAL ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '3px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '2px' }}>
               <tbody>
                 <SectionHeader number="3" title="Medical" colSpan={4} />
                 <tr style={{ borderBottom: B }}>
-                  <td style={{ ...tdB, width: '150px', borderRight: B }}>Fit to Work Done (Y/N):</td>
-                  <td style={{ ...tdH, width: '100px', borderRight: BB }}>{person.ftw_result ? 'YES' : 'YES'}</td>
-                  <td style={{ ...tdB, width: '150px', borderRight: B }}>Fit to Work Status (Fit / Unfit):</td>
-                  <td style={{ ...tdH }}>{person.ftw_result === 'ACCEPTED' ? 'FIT TO WORK' : (person.ftw_result || 'FIT TO WORK')}</td>
+                  <td style={{ ...tdB, width: '22%', borderRight: B }}>Fit to Work Done (Y/N):</td>
+                  <td style={{ ...tdH, width: '15%', borderRight: BB, fontWeight: 'bold' }}>YES</td>
+                  <td style={{ ...tdB, width: '30%', borderRight: B }}>Fit to Work Status (Fit / Unfit):</td>
+                  <td style={{ ...tdH, fontWeight: 'bold' }}>
+                    {person.ftw_result === 'ACCEPTED' ? 'FIT TO WORK' : (person.ftw_result || 'FIT TO WORK')}
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: B, position: 'relative' }}>
+                  <td colSpan={4} style={{ ...tdH, lineHeight: '1.7', paddingRight: '50px', position: 'relative', minHeight: '22px' }}>
+                    <strong>Comments (if any):</strong> {medComment}
+                    <div style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6px', color: '#888', backgroundColor: 'white' }}>Stamp</div>
+                  </td>
                 </tr>
                 <tr>
-                  <td colSpan={4} style={{ ...tdH, lineHeight: '1.6' }}>
-                    <strong>Comments (if any):</strong> {medComment}
-                    {doctorName && <span style={{ marginLeft: '20px' }}><strong>Doctor Name:</strong> {doctorName}</span>}
-                    {medDate && <span style={{ marginLeft: '20px' }}><strong>Date:</strong> {medDate}</span>}
+                  <td colSpan={4} style={{ ...tdH, lineHeight: '1.7' }}>
+                    <strong>Doctor Name:</strong> {doctorName}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <strong>Date:</strong> {medDate}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <strong>Signature &amp; Stamp:</strong>
                   </td>
                 </tr>
               </tbody>
             </table>
 
             {/* ── PART 4: TRAINING ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '3px', fontSize: '8px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '2px', fontSize: '8px' }}>
+              <colgroup>
+                {[...Array(6)].map((_, i) => <col key={i} style={{ width: '16.66%' }} />)}
+              </colgroup>
               <tbody>
-                <SectionHeader number="4" title="Training Details (Tick which are applicable as per the Trade and work scope)" colSpan={12} />
+                <SectionHeader number="4" title="Training Details (Tick which are applicable as per the Trade and work scope)" colSpan={6} />
                 {TRAINING_ITEMS.map((row, ri) => (
                   <tr key={ri} style={{ borderBottom: B }}>
                     {row.map((item, ci) => (
-                      <React.Fragment key={ci}>
-                        <td style={{ padding: '2px 3px', borderRight: B, width: ci < 5 ? 'auto' : undefined }}>
-                          {item ? (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                              <CB checked={!!trainings[item]} />{item}
-                            </span>
-                          ) : null}
-                        </td>
-                      </React.Fragment>
+                      <td key={ci} style={{ padding: '2px 3px', borderRight: ci < 5 ? B : 'none', fontSize: '7.8px' }}>
+                        {item ? (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                            <CB checked={!!trainings[item]} />{item}
+                          </span>
+                        ) : null}
+                      </td>
                     ))}
                   </tr>
                 ))}
 
-                {/* Third Party */}
-                <tr style={{ borderBottom: B, borderTop: BB }}>
-                  <td colSpan={12} style={{ ...tdB, padding: '3px 5px', fontSize: '8.5px', backgroundColor: '#f0f0f0' }}>
+                {/* Third Party header */}
+                <tr>
+                  <td colSpan={6} style={{ padding: '2px 5px', fontWeight: 'bold', fontSize: '8px', backgroundColor: '#f0f0f0', borderTop: BB, borderBottom: B }}>
                     Third Party Certificate Verification
                   </td>
                 </tr>
                 {THIRD_PARTY_ITEMS.map((row, ri) => (
                   <tr key={ri} style={{ borderBottom: B }}>
                     {row.map((item, ci) => (
-                      <td key={ci} style={{ padding: '2px 3px', borderRight: ci < 5 ? B : 'none' }}>
+                      <td key={ci} style={{ padding: '2px 3px', borderRight: ci < 5 ? B : 'none', fontSize: '7.8px' }}>
                         {item ? (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                             <CB checked={!!thirdParty[item]} />{item}
                           </span>
                         ) : null}
@@ -382,73 +416,82 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
                 ))}
 
                 {/* NIW */}
-                <tr style={{ borderBottom: B, borderTop: BB }}>
-                  <td colSpan={12} style={{ padding: '3px 5px' }}>
-                    <strong>New Worker Identification (NIW):</strong>&nbsp;&nbsp;
-                    <CB checked={isFirstQatar} /> Is first in Qatar&nbsp;&nbsp;&nbsp;
+                <tr style={{ borderTop: BB, borderBottom: B }}>
+                  <td colSpan={3} style={{ padding: '2px 5px', fontSize: '8px', borderRight: B }}>
+                    <strong>New Worker Identification (NIW)</strong>&nbsp;&nbsp;
+                    <CB checked={isFirstQatar} /> Is first in Qatar
+                  </td>
+                  <td colSpan={3} style={{ padding: '2px 5px', fontSize: '8px' }}>
                     <CB checked={isLessSixMonths} /> Is experience less than 6 months
                   </td>
                 </tr>
                 <tr style={{ borderBottom: BB }}>
-                  <td colSpan={3} style={{ padding: '2px 5px', borderRight: B }}><strong>Start Date:</strong> {fmtDate(niwStart)}</td>
-                  <td colSpan={3} style={{ padding: '2px 5px', borderRight: B }}><strong>End Date:</strong> {fmtDate(niwEnd)}</td>
-                  <td colSpan={3} style={{ padding: '2px 5px', borderRight: B }}><strong>Armband (Y/N):</strong> {niwArmband}</td>
-                  <td colSpan={3} style={{ padding: '2px 5px' }}><strong>Name of Supervisor:</strong> {niwSupervisor}</td>
+                  <td style={{ padding: '2px 5px', borderRight: B, fontSize: '8px' }}><strong>Start Date:</strong> {fmtDate(niwStart)}</td>
+                  <td style={{ padding: '2px 5px', borderRight: B, fontSize: '8px' }}><strong>End Date:</strong> {fmtDate(niwEnd)}</td>
+                  <td style={{ padding: '2px 5px', borderRight: B, fontSize: '8px' }}><strong>Armband (Y/N):</strong> {niwArmband}</td>
+                  <td colSpan={3} style={{ padding: '2px 5px', fontSize: '8px' }}><strong>Name of Supervisor:</strong> {niwSupervisor}</td>
                 </tr>
 
                 {/* PPE */}
                 <tr style={{ borderBottom: B }}>
-                  <td colSpan={12} style={{ padding: '2px 5px', fontStyle: 'italic', fontSize: '7.5px', fontWeight: 'bold', backgroundColor: '#f8f8f8' }}>
+                  <td colSpan={6} style={{ padding: '2px 5px', fontStyle: 'italic', fontSize: '7.5px', fontWeight: 'bold' }}>
                     PPE Verification (All PPE must be project approved and minimum 2 coveralls must be given):
                   </td>
                 </tr>
-                <tr style={{ borderBottom: BB }}>
+                <tr style={{ borderBottom: B }}>
                   {PPE_ITEMS.map((item, i) => (
-                    <td key={i} style={{ padding: '2px 3px', borderRight: i < PPE_ITEMS.length - 1 ? B : 'none' }}>
+                    <td key={i} style={{ padding: '2px 3px', borderRight: i < PPE_ITEMS.length - 1 ? B : 'none', fontSize: '7.8px' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                         <CB checked={!!ppe[item]} />{item}
                       </span>
                     </td>
                   ))}
                 </tr>
+
+                {/* Confirm row */}
+                <tr style={{ borderBottom: B }}>
+                  <td colSpan={6} style={{ padding: '2px 5px', lineHeight: '1.5', fontSize: '7.5px', paddingRight: '50px', position: 'relative' }}>
+                    <strong>I confirm the below are done:</strong><br />
+                    1) Required training are completed; 2) Safety Passport &amp; Helmet stickers issued; 3) Verified PPE; 4) NIW Armband <em>(if required)</em>
+                    <div style={{ position: 'absolute', right: '6px', top: '4px', width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6px', color: '#888', backgroundColor: 'white' }}>Stamp</div>
+                  </td>
+                </tr>
                 <tr>
-                  <td colSpan={12} style={{ padding: '3px 5px', lineHeight: '1.5', fontSize: '7.5px' }}>
-                    <strong>I confirm the below are done:</strong> 1) Required training are completed; 2) Safety Passport &amp; Helmet stickers issued; 3) Verified PPE; 4) NIW Armband (if required)<br />
-                    <strong>Name:</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <strong>Signature:</strong>
+                  <td colSpan={6} style={{ padding: '2px 5px', fontSize: '8.5px' }}>
+                    <strong>Name:</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <strong>Date:</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <strong>Signature &amp; Stamp:</strong>
                   </td>
                 </tr>
               </tbody>
             </table>
 
             {/* ── PART 5: EMPLOYEE DECLARATION ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '3px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '2px' }}>
               <tbody>
-                <SectionHeader number="5" title="Employee declaration: (Training department need to ensure that it is signed in their presence)" colSpan={2} />
+                <SectionHeader number="5" title="Employee declaration: (Training department need to ensure that it is signed in their presence)" colSpan={3} />
                 <tr style={{ borderBottom: B }}>
-                  <td colSpan={2} style={{ ...tdH, lineHeight: '1.6', fontSize: '8px' }}>
-                    I acknowledge that I have completed the above trainings and received the Safety Passport, Helmet sticker, Info cards and NIW Armband (if required). I am fully aware about the risk of my job, and I agree to comply with the rules and regulation implemented on my work location. I will be responsible for myself during my job at the project.
+                  <td colSpan={3} style={{ ...tdH, fontSize: '7.8px', lineHeight: '1.55', paddingRight: '50px', position: 'relative' }}>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I acknowledge that I have completed the above trainings and received the Safety Passport, Helmet sticker, Info cards and NIW Armband (if required). I am fully aware about the risk of my job, and I agree to comply with the rules and regulation implemented on my work location. I will be responsible for myself during my job at the project.
+                    <div style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6px', color: '#888', backgroundColor: 'white' }}>Stamp</div>
                   </td>
                 </tr>
                 <tr>
-                  <td style={{ ...tdH, borderRight: B, width: '50%' }}>
-                    <strong>Name:</strong> {person.name || ''}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                  </td>
-                  <td style={{ ...tdH }}>
-                    <strong>Signature:</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <strong>Date:</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                  </td>
+                  <td style={{ ...tdH, borderRight: B, width: '40%' }}><strong>Name:</strong> {person.name || ''}</td>
+                  <td style={{ ...tdH, borderRight: B, width: '30%' }}><strong>Date:</strong></td>
+                  <td style={{ ...tdH, width: '30%' }}><strong>Signature:</strong></td>
                 </tr>
               </tbody>
             </table>
 
             {/* ── PART 6: PROJECT ID PREPARED BY ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '3px' }}>
               <tbody>
                 <SectionHeader number="6" title="Project ID prepared by:" colSpan={3} />
                 <tr style={{ borderBottom: B }}>
-                  <td colSpan={3} style={{ ...tdH, fontSize: '8px', lineHeight: '1.6' }}>
-                    I hereby acknowledge that the mandatory requirements to issue Project ID for the above employee has been completed as per this form and attached documents. The Project ID has been prepared and is ready for collection.
+                  <td colSpan={3} style={{ ...tdH, fontSize: '7.8px', lineHeight: '1.55', paddingRight: '50px', position: 'relative' }}>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I hereby acknowledge that the mandatory requirements to issue Project ID for the above employee has been completed as per this form and attached documents. The Project ID has been prepared and is ready for collection.
+                    <div style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6px', color: '#888', backgroundColor: 'white' }}>Stamp</div>
                   </td>
                 </tr>
                 <tr>
@@ -459,21 +502,36 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
               </tbody>
             </table>
 
+            {/* ── FOOTER DOCUMENT REFERENCE ── */}
+            <div style={{ fontSize: '6.5px', color: '#333', lineHeight: '1.5', borderTop: '0.5px solid #aaa', paddingTop: '2px' }}>
+              Document Reference: NFXP3-TRSA-SH-PRC-00006-ATT27, NFXP4-TWJV-SH-PRC-00006-ATT27, NFXP4-TWJV-SH-PRC-00025-TMP07, NFXP3-TRSA-SH-PRC-00025-TMP07, NFXP4-TWJV-SH-PRC-00076-TMP01, NFXP3-TRSA-SH-PRC-00076-TMP01<br />
+              <strong>Doc. No: NFXP-TR-SHES-433</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              <strong>Rev.:01</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              <strong>Date: 21/12/2025</strong>
+            </div>
+
           </div>
         );
       })}
 
       <style>{`
         @media print {
-          @page { size: A4 portrait; margin: 7mm 9mm; }
+          @page { size: A4 portrait; margin: 0; }
           .no-print { display: none !important; }
           body * { visibility: hidden !important; }
           .printable-area, .printable-area * { visibility: visible !important; }
           html, body { margin: 0 !important; padding: 0 !important; background: white !important; }
           .printable-area {
-            position: absolute !important; top: 0 !important; left: 0 !important;
-            width: 100% !important; margin: 0 !important; padding: 0 !important;
-            border: none !important; box-shadow: none !important;
+            position: relative !important;
+            top: auto !important; left: auto !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            margin: 0 auto !important;
+            padding: 6mm 8mm 4mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            page-break-after: always !important;
+            break-after: page !important;
           }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
