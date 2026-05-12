@@ -11,6 +11,11 @@ const COMPANIES = [
 ];
 const DEPARTMENTS = ['Electrical','Mechanical','Civil','Services'];
 
+const GP_STATUSES = ['VALID RLIC PASS','EXPIRED RLIC PASS','SOON TO EXPIRE','NO RLIC PASS'];
+const TRAINING_STATUSES = ['DONE','PENDING','NOT REQUIRED'];
+const PID_STATUSES = ['VALID PID PASS','EXPIRED PID PASS','SOON TO EXPIRE','NO PID PASS'];
+const MEDICAL_RESULTS = ['ACCEPTED','REJECTED','WAITING TR APPROVAL','RE-ASSESS'];
+
 export default function FormFilters({
   employees, search, setSearch,
   filterCompany, setFilterCompany,
@@ -18,6 +23,10 @@ export default function FormFilters({
   filterGpDate, setFilterGpDate,
   filterTrainingDate, setFilterTrainingDate,
   filterPidDate, setFilterPidDate,
+  filterGpStatus, setFilterGpStatus,
+  filterTrainingStatus, setFilterTrainingStatus,
+  filterPidStatus, setFilterPidStatus,
+  filterMedicalResult, setFilterMedicalResult,
   selectedPersonnel, addPersonnel, removePersonnel, clearPersonnel
 }) {
   // Auto-populate from filters
@@ -29,13 +38,17 @@ export default function FormFilters({
     if (filterGpDate) results = results.filter(e => e.gate_pass_received_date === filterGpDate);
     if (filterTrainingDate) results = results.filter(e => e.training_date_scheduled === filterTrainingDate);
     if (filterPidDate) results = results.filter(e => e.pid_issue_date === filterPidDate);
+    if (filterGpStatus) results = results.filter(e => e.rlic_status === filterGpStatus);
+    if (filterTrainingStatus) results = results.filter(e => e.training_status === filterTrainingStatus);
+    if (filterPidStatus) results = results.filter(e => e.pid_status === filterPidStatus);
+    if (filterMedicalResult) results = results.filter(e => e.ftw_result === filterMedicalResult);
 
-    const hasActiveFilter = filterCompany || filterDepartment || filterGpDate || filterTrainingDate || filterPidDate;
+    const hasActiveFilter = filterCompany || filterDepartment || filterGpDate || filterTrainingDate || filterPidDate || filterGpStatus || filterTrainingStatus || filterPidStatus || filterMedicalResult;
     if (hasActiveFilter && results.length > 0) {
       results.forEach(emp => addPersonnel(emp));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterCompany, filterDepartment, filterGpDate, filterTrainingDate, filterPidDate, employees]);
+  }, [filterCompany, filterDepartment, filterGpDate, filterTrainingDate, filterPidDate, filterGpStatus, filterTrainingStatus, filterPidStatus, filterMedicalResult, employees]);
 
   const searchFiltered = search
     ? employees.filter(e =>
@@ -80,6 +93,42 @@ export default function FormFilters({
         <div>
           <label className="text-xs font-medium block mb-1">PID Issue Date</label>
           <Input type="date" value={filterPidDate} onChange={e => { clearPersonnel(); setFilterPidDate(e.target.value); }} className="h-9" />
+        </div>
+      </div>
+
+      {/* Status filter row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div>
+          <label className="text-xs font-medium block mb-1">Gate Pass Status</label>
+          <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            value={filterGpStatus} onChange={e => { clearPersonnel(); setFilterGpStatus(e.target.value); }}>
+            <option value="">All statuses...</option>
+            {GP_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium block mb-1">Training Status</label>
+          <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            value={filterTrainingStatus} onChange={e => { clearPersonnel(); setFilterTrainingStatus(e.target.value); }}>
+            <option value="">All statuses...</option>
+            {TRAINING_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium block mb-1">Project ID Status</label>
+          <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            value={filterPidStatus} onChange={e => { clearPersonnel(); setFilterPidStatus(e.target.value); }}>
+            <option value="">All statuses...</option>
+            {PID_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium block mb-1">Medical Result</label>
+          <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            value={filterMedicalResult} onChange={e => { clearPersonnel(); setFilterMedicalResult(e.target.value); }}>
+            <option value="">ALL RESULTS</option>
+            {MEDICAL_RESULTS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
         </div>
       </div>
 

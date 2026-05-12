@@ -25,6 +25,10 @@ export default function Forms() {
   const [filterGpDate, setFilterGpDate] = useState('');
   const [filterTrainingDate, setFilterTrainingDate] = useState('');
   const [filterPidDate, setFilterPidDate] = useState('');
+  const [filterGpStatus, setFilterGpStatus] = useState('');
+  const [filterTrainingStatus, setFilterTrainingStatus] = useState('');
+  const [filterPidStatus, setFilterPidStatus] = useState('');
+  const [filterMedicalResult, setFilterMedicalResult] = useState('');
   const [selectedPersonnel, setSelectedPersonnel] = useState([]);
 
   const addPersonnel = (emp) => {
@@ -63,6 +67,14 @@ export default function Forms() {
         setFilterTrainingDate={setFilterTrainingDate}
         filterPidDate={filterPidDate}
         setFilterPidDate={setFilterPidDate}
+        filterGpStatus={filterGpStatus}
+        setFilterGpStatus={setFilterGpStatus}
+        filterTrainingStatus={filterTrainingStatus}
+        setFilterTrainingStatus={setFilterTrainingStatus}
+        filterPidStatus={filterPidStatus}
+        setFilterPidStatus={setFilterPidStatus}
+        filterMedicalResult={filterMedicalResult}
+        setFilterMedicalResult={setFilterMedicalResult}
         selectedPersonnel={selectedPersonnel}
         addPersonnel={addPersonnel}
         removePersonnel={removePersonnel}
