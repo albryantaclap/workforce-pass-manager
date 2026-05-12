@@ -104,14 +104,22 @@ export default function Forms() {
 
       <style>{`
         @media print {
+          @page { size: A4 portrait; margin: 0; }
           .no-print { display: none !important; }
           body * { visibility: hidden !important; }
           .printable-area, .printable-area * { visibility: visible !important; }
           html, body { margin: 0 !important; padding: 0 !important; background: white !important; }
           .printable-area {
-            position: absolute !important; top: 0 !important; left: 0 !important;
-            width: 100% !important; margin: 0 !important; padding: 0 !important;
-            border: none !important; box-shadow: none !important;
+            position: relative !important;
+            top: auto !important; left: auto !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            margin: 0 auto !important;
+            padding: 5mm 8mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            page-break-after: always !important;
+            break-after: page !important;
           }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }

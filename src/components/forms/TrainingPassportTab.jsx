@@ -236,17 +236,22 @@ export default function TrainingPassportTab({ selectedPersonnel }) {
 
       <style>{`
         @media print {
-          @page { size: A4 portrait; margin: 5mm 8mm; }
+          @page { size: A4 portrait; margin: 0; }
           .no-print { display: none !important; }
           body * { visibility: hidden !important; }
           .printable-area, .printable-area * { visibility: visible !important; }
           html, body { margin: 0 !important; padding: 0 !important; background: white !important; }
           .printable-area {
             position: relative !important;
-            width: 100% !important; height: auto !important;
-            margin: 0 !important; padding: 0 !important;
-            border: none !important; box-shadow: none !important;
-            page-break-after: always;
+            top: auto !important; left: auto !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            margin: 0 auto !important;
+            padding: 5mm 8mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            page-break-after: always !important;
+            break-after: page !important;
           }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
