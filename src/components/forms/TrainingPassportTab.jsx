@@ -10,7 +10,7 @@ const TODAY = format(new Date(), 'dd-MM-yyyy');
 function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   const cardStyle = {
     width: '90mm',
-    height: '130mm',
+    height: '138mm',
     border: '1.5px solid #000',
     fontFamily: 'Arial, Helvetica, sans-serif',
     boxSizing: 'border-box',
@@ -28,7 +28,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     padding: '5px 6px 5px 6px',
-    minHeight: '50mm',
+    minHeight: '40mm',
     position: 'relative',
     boxSizing: 'border-box',
   };
