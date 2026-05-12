@@ -202,7 +202,7 @@ export default function TrainingPassportTab({ selectedPersonnel }) {
             width: '210mm',
             height: '297mm',
             margin: '0 auto 12px',
-            padding: '10mm 8mm',
+            padding: '5mm 8mm',
             boxSizing: 'border-box',
             backgroundColor: 'white',
             border: '1px solid #ccc',
@@ -238,7 +238,7 @@ export default function TrainingPassportTab({ selectedPersonnel }) {
           .printable-area {
             position: absolute !important; top: 0 !important; left: 0 !important;
             width: 210mm !important; height: 297mm !important;
-            margin: 0 !important; padding: 10mm 8mm !important;
+            margin: 0 !important; padding: 5mm 8mm !important;
             border: none !important; box-shadow: none !important;
           }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
