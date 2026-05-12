@@ -11,8 +11,8 @@ const TODAY = format(new Date(), 'dd-MM-yyyy');
 // Top section: 38mm, 9 data rows × 6.5mm = 58.5mm, signature 12mm → ~108.5mm total ✓
 function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   const cardStyle = {
-    width: '90mm',
-    height: '124mm',
+    width: '76mm',
+    height: '115mm',
     border: '1px solid #000',
     fontFamily: 'Arial, Helvetica, sans-serif',
     boxSizing: 'border-box',
@@ -135,7 +135,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
           );
         })}
         {/* Signature row — taller than normal rows */}
-        <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '10mm', flex: 1 }}>
+        <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '6.5mm', flex: 1 }}>
           <div style={{ ...labelStyle, backgroundColor: '#d9d9d9', alignItems: 'flex-start', paddingTop: '3px', fontSize: '10.8px', fontWeight: 'bold' }}>SIGNATURE:</div>
           <div style={{ ...valueStyle, backgroundColor: '#fff' }}></div>
         </div>
