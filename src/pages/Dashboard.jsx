@@ -316,13 +316,14 @@ export default function Dashboard() {
     },
     {
       title: 'Gate Pass (RLIC)', icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50', path: '/gatepass',
-      combined: validRlic + filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length,
-      combinedLabel: 'Total Valid',
-      overallTotal: validRlic + filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length + expiredRlic,
+      combined: validRlic,
+      combinedLabel: 'Valid',
+      overallTotal: filtered.length,
       stats: [
         { label: 'Valid', value: validRlic, color: 'text-green-600' },
         { label: 'Soon', value: filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
         { label: 'Expired', value: expiredRlic, color: 'text-red-600' },
+        { label: 'No Pass', value: filtered.filter(e => getRlic(e) === 'NO RLIC PASS').length, color: 'text-slate-500' },
         ...customRlicCounts,
       ],
     },
@@ -343,13 +344,14 @@ export default function Dashboard() {
     },
     {
       title: 'Project ID', icon: BadgeCheck, color: 'text-purple-600', bg: 'bg-purple-50', path: '/project-id',
-      combined: validPid + filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length,
-      combinedLabel: 'Total Valid',
-      overallTotal: validPid + filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length + expiredPid,
+      combined: validPid,
+      combinedLabel: 'Valid',
+      overallTotal: filtered.length,
       stats: [
         { label: 'Valid', value: validPid, color: 'text-green-600' },
         { label: 'Soon', value: filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length, color: 'text-amber-600' },
         { label: 'Expired', value: expiredPid, color: 'text-red-600' },
+        { label: 'No Pass', value: filtered.filter(e => getPid(e) === 'NO PID PASS').length, color: 'text-slate-500' },
         ...customPidStatuses
           .filter(s => !['VALID PID PASS', 'EXPIRED PID PASS', 'SOON TO EXPIRE', 'NO PID PASS'].includes(s.value))
           .map(s => ({
