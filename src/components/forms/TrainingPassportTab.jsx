@@ -6,11 +6,13 @@ import { format } from 'date-fns';
 
 const TODAY = format(new Date(), 'dd-MM-yyyy');
 
-// Single passport card — pixel-perfect match to uploaded template
+// Single passport card — fits 4 per A4 page (2×2)
+// Card total height budget: (297mm - 20mm padding - 3×6mm gaps) / 2 = ~124mm
+// Top section: 38mm, 9 data rows × 6.5mm = 58.5mm, signature 12mm → ~108.5mm total ✓
 function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   const cardStyle = {
     width: '90mm',
-    height: 'auto',
+    height: '124mm',
     border: '1.5px solid #000',
     fontFamily: 'Arial, Helvetica, sans-serif',
     boxSizing: 'border-box',
@@ -20,22 +22,21 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
     overflow: 'hidden',
   };
 
-  // Top section: gray background, photo left, TR logo top-right
   const topSectionStyle = {
     backgroundColor: '#fff',
     borderBottom: '1.5px solid #000',
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    padding: '5px 6px 5px 6px',
-    minHeight: '40mm',
-    position: 'relative',
+    padding: '4px 5px',
+    height: '38mm',
+    flexShrink: 0,
     boxSizing: 'border-box',
   };
 
   const photoBoxStyle = {
-    width: '34mm',
-    height: '42mm',
+    width: '28mm',
+    height: '100%',
     border: '1.5px solid #000',
     backgroundColor: '#fff',
     display: 'flex',
@@ -44,6 +45,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
     flexShrink: 0,
     position: 'relative',
     overflow: 'hidden',
+    boxSizing: 'border-box',
   };
 
   const logoAreaStyle = {
@@ -57,32 +59,31 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   const fieldRowStyle = {
     display: 'flex',
     borderBottom: '1px solid #000',
-    minHeight: '7mm',
+    height: '6.5mm',
     alignItems: 'stretch',
     boxSizing: 'border-box',
+    flexShrink: 0,
   };
 
   const labelStyle = {
     fontWeight: 'bold',
-    fontSize: '7.5px',
-    padding: '2px 4px',
+    fontSize: '7px',
+    padding: '1px 3px',
     borderRight: '1px solid #000',
     width: '28mm',
     flexShrink: 0,
     display: 'flex',
     alignItems: 'center',
     whiteSpace: 'nowrap',
-    backgroundColor: '#fff',
     boxSizing: 'border-box',
   };
 
   const valueStyle = {
-    fontSize: '7.5px',
-    padding: '2px 4px',
+    fontSize: '7px',
+    padding: '1px 3px',
     flex: 1,
     display: 'flex',
     alignItems: 'center',
-    backgroundColor: '#fff',
     wordBreak: 'break-word',
     boxSizing: 'border-box',
   };
@@ -103,25 +104,25 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
 
   return (
     <div style={cardStyle}>
-      {/* Top section: gray bg, photo box left, TR logo top-right */}
+      {/* Top section: photo left, TR logo top-right */}
       <div style={topSectionStyle}>
         <div style={photoBoxStyle}>
           {person?.photo_url && !isEmpty
             ? <img src={person.photo_url} alt="Photo" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0 }} />
-            : <span style={{ fontSize: '9px', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>PHOTO</span>
+            : <span style={{ fontSize: '8px', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>PHOTO</span>
           }
         </div>
         <div style={logoAreaStyle}>
           <img
             src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/5e4874233_image.png"
             alt="TR Logo"
-            style={{ height: '30px', objectFit: 'contain' }}
+            style={{ height: '28px', objectFit: 'contain' }}
           />
         </div>
       </div>
 
       {/* Data fields */}
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         {fields.map(({ label, value }) => {
           const rowBg = GRAY_ROWS.has(label) ? '#d9d9d9' : '#fff';
           return (
@@ -131,9 +132,9 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
             </div>
           );
         })}
-        {/* Signature row — last row */}
-        <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '7mm', minHeight: '7mm', maxHeight: '7mm' }}>
-          <div style={{ ...labelStyle, backgroundColor: '#d9d9d9' }}>SIGNATURE:</div>
+        {/* Signature row — taller than normal rows */}
+        <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '14mm', flex: 1 }}>
+          <div style={{ ...labelStyle, backgroundColor: '#d9d9d9', alignItems: 'flex-start', paddingTop: '3px' }}>SIGNATURE:</div>
           <div style={{ ...valueStyle, backgroundColor: '#fff' }}></div>
         </div>
       </div>
@@ -207,8 +208,9 @@ export default function TrainingPassportTab({ selectedPersonnel }) {
             border: '1px solid #ccc',
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gridTemplateRows: '1fr 1fr',
+            gridTemplateRows: 'auto auto',
             gap: '6mm',
+            alignContent: 'start',
             pageBreakAfter: pi < pages.length - 1 ? 'always' : 'auto',
           }}
         >
