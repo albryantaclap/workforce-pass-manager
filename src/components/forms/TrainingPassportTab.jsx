@@ -131,10 +131,10 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
             </div>
           );
         })}
-        {/* Signature row — last row, no bottom border */}
-        <div style={{ ...fieldRowStyle, borderBottom: 'none', flex: 1 }}>
-          <div style={labelStyle}>SIGNATURE:</div>
-          <div style={valueStyle}></div>
+        {/* Signature row — last row */}
+        <div style={{ ...fieldRowStyle, borderBottom: 'none', minHeight: '14mm', flex: 1 }}>
+          <div style={{ ...labelStyle, backgroundColor: '#fff' }}>SIGNATURE:</div>
+          <div style={{ ...valueStyle, backgroundColor: '#fff' }}></div>
         </div>
       </div>
     </div>
