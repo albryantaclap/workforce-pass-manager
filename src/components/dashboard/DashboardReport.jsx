@@ -101,10 +101,8 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
   const getPid = e => computePassStatus(e.pid_expiry, 'pid', e.pid_status);
   const statusOverview = [
     { label: 'RLIC Valid', count: filtered.filter(e => getRlic(e) === 'VALID RLIC PASS').length },
-    { label: 'RLIC Soon', count: filtered.filter(e => getRlic(e) === 'SOON TO EXPIRE').length },
     { label: 'RLIC Expired', count: filtered.filter(e => getRlic(e) === 'EXPIRED RLIC PASS').length },
     { label: 'PID Valid', count: filtered.filter(e => getPid(e) === 'VALID PID PASS').length },
-    { label: 'PID Soon', count: filtered.filter(e => getPid(e) === 'SOON TO EXPIRE').length },
     { label: 'PID Expired', count: filtered.filter(e => getPid(e) === 'EXPIRED PID PASS').length },
     { label: 'Medical OK', count: filtered.filter(e => e.ftw_result === 'ACCEPTED').length },
     { label: 'Training Done', count: filtered.filter(e => e.training_status === 'DONE').length },
@@ -152,10 +150,9 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
   const maxPos = Math.max(...positionCounts.map(c => c.count), 1);
   const maxStatus = Math.max(...statusOverview.map(c => c.count), 1);
   const statusColorFn = (label) => {
-    if (label === 'RLIC Valid' || label === 'PID Valid' || label === 'Medical OK' || label === 'Training Done') return '#10b981';
-    if (label === 'RLIC Expired' || label === 'PID Expired') return '#ef4444';
-    if (label === 'RLIC Soon' || label === 'PID Soon') return '#f59e0b';
-    return '#94a3b8';
+    if (label.includes('Valid') || label.includes('Medical OK') || label.includes('Training Done')) return '#10b981';
+    if (label.includes('Expired')) return '#ef4444';
+    return '#f59e0b';
   };
 
   // Location / Mobilized counts
