@@ -197,39 +197,82 @@ export default function MobilizationFormTab({ selectedPersonnel }) {
           >
 
             {/* ── HEADER ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '4px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #333', marginBottom: '4px' }}>
               <tbody>
                 <tr>
-                  <td style={{ width: '110px', verticalAlign: 'middle' }}>
+                  {/* QatarEnergy LNG logo */}
+                  <td style={{ width: '90px', padding: '4px 6px', verticalAlign: 'middle', borderRight: '1.5px solid #333', textAlign: 'center' }}>
                     <img
                       src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/d1f8aeb83_Logo.png"
-                      alt="GSO Qatar"
-                      style={{ height: '38px', objectFit: 'contain' }}
+                      alt="QatarEnergy LNG"
+                      style={{ height: '44px', objectFit: 'contain' }}
                     />
                   </td>
-                  <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px', color: '#1e3a5f' }}>MOBILIZATION FORM</div>
-                  </td>
-                  <td style={{ textAlign: 'right', verticalAlign: 'top', fontSize: '8px', color: '#444', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginBottom: '2px' }}>
-                      <span style={{ fontWeight: 'bold' }}>Project title:</span>
-                      {['EPC3', 'EPC4', 'BOP'].map(p => (
-                        <span key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                          <CB checked={projectType === p} /> {p}
-                        </span>
-                      ))}
+                  {/* Center: project title + form name */}
+                  <td style={{ textAlign: 'center', verticalAlign: 'middle', borderRight: '1.5px solid #333', padding: '0' }}>
+                    <div style={{ padding: '5px 8px 4px', lineHeight: '1.35' }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1e3a5f', letterSpacing: '0.3px' }}>
+                        EPCC FOR THE NORTH FIELD EXPANSION PROJECT (NFXP)
+                      </div>
+                      <div style={{ fontWeight: 'bold', fontSize: '10px', color: '#1e3a5f' }}>
+                        EPC 3, 4 &amp; BOP
+                      </div>
                     </div>
-                    <div><span style={{ fontWeight: 'bold' }}>Project ID Number:</span> {pid}</div>
+                    <div style={{ backgroundColor: '#c0000c', color: 'white', fontWeight: 'bold', fontSize: '11px', padding: '4px 8px', letterSpacing: '0.5px' }}>
+                      EMPLOYEE MOBILIZATION FORM
+                    </div>
+                  </td>
+                  {/* TR TEAM logo */}
+                  <td style={{ width: '110px', padding: '4px 6px', verticalAlign: 'middle', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                      {/* TR TEAM graphic */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <div style={{ width: '32px', height: '32px', backgroundColor: '#1e3a5f', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '13px', fontStyle: 'italic' }}>
+                          tr
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <div style={{ fontWeight: '900', fontSize: '11px', color: '#1e3a5f', letterSpacing: '2px', lineHeight: '1' }}>TEAM</div>
+                          <div style={{ fontSize: '5px', color: '#555', lineHeight: '1.2', maxWidth: '64px' }}>one team, one goal<br/>working together for success</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '6px', fontWeight: 'bold', color: '#1e3a5f', letterSpacing: '0.5px' }}>TÉCNICAS REUNIDAS</div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* ── PROJECT TITLE ROW ── */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #333', marginBottom: '4px' }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '4px 8px', fontSize: '8.5px' }}>
+                    <strong>Project title:</strong>&nbsp;
+                    {['EPC3', 'EPC4', 'BOP'].map(p => (
+                      <span key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginRight: '10px' }}>
+                        <span style={{ display: 'inline-block', width: '11px', height: '11px', borderRadius: '50%', border: '1px solid #333', backgroundColor: projectType === p ? '#333' : 'white', verticalAlign: 'middle' }} />
+                        &nbsp;{p}
+                      </span>
+                    ))}
+                  </td>
+                  <td style={{ padding: '4px 8px', fontSize: '8.5px', textAlign: 'right', borderLeft: '1px solid #333', width: '40%' }}>
+                    <strong>(Project ID Number:</strong>&nbsp;{pid}&nbsp;<strong>)</strong>
                   </td>
                 </tr>
               </tbody>
             </table>
 
             {/* ── INSTRUCTIONS BOX ── */}
-            <div style={{ border: '1px solid #333', padding: '4px 6px', fontSize: '7.5px', marginBottom: '4px', lineHeight: '1.5', color: '#222' }}>
-              <em><strong>For new request:</strong> Complete part 1 to 5, attach RLIC Security Pass copy with access code 31, QID or Passport copy. Soft copy of photo and excel sheet need to be provided to Security Badge office.</em><br />
-              <em><strong>For renewal:</strong> Complete part 1 and 5 only including Project ID Number, attach RLIC Security Pass copy with access code 31, QID or Passport copy to Security Badge office. Expired Project ID should be returned back before collecting the new ID.</em>
-            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #333', marginBottom: '3px' }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '4px 6px', fontSize: '7.5px', lineHeight: '1.5', color: '#222' }}>
+                    <em><strong>For new request:</strong> Complete part 1 to 5, attach RLIC Security Pass copy with access code 31, QID or Passport copy. Soft copy of photo and excel sheet need to be provided to Security Badge office.</em><br />
+                    <em><strong>For renewal:</strong> Complete part 1 and 5 only including Project ID Number, attach RLIC Security Pass copy with access code 31, QID or Passport copy to Security Badge office. Expired Project ID should be returned back before collecting the new ID.</em>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
             {/* ── PART 1: PERSONAL DETAILS ── */}
             <table style={{ width: '100%', borderCollapse: 'collapse', border: BB, marginBottom: '3px' }}>
