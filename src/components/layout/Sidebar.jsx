@@ -24,7 +24,7 @@ const navItems = [
   { label: 'Deleted Personnel', path: '/deleted-personnel', icon: Trash2 },
   { label: 'Activity Log', path: '/activity-log', icon: Activity },
   { label: 'Team Chat', path: '/chat', icon: MessageCircle },
-  { label: 'Transmittal Form', path: '/transmittal', icon: FileText },
+  { label: 'Forms', path: '/forms', icon: FileText },
   { label: 'DB Backup', path: '/database-backup', icon: HardDrive },
   { label: 'Admin Panel', path: '/admin', icon: Shield },
 ];
