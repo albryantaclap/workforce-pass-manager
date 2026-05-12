@@ -116,8 +116,8 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
         </div>
         <div style={logoAreaStyle}>
           <img
-            src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/d1f8aeb83_Logo.png"
-            alt="GSO Qatar Logo"
+            src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/e1a744b04_image.png"
+            alt="Tecnicas Reunidas Logo"
             style={{ height: '56px', objectFit: 'contain' }}
           />
         </div>
