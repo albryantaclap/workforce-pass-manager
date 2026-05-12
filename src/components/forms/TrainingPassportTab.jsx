@@ -22,7 +22,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
 
   // Top section: gray background, photo left, TR logo top-right
   const topSectionStyle = {
-    backgroundColor: '#d9d9d9',
+    backgroundColor: '#fff',
     borderBottom: '1.5px solid #000',
     display: 'flex',
     alignItems: 'flex-start',
@@ -87,6 +87,8 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
     boxSizing: 'border-box',
   };
 
+  const GRAY_ROWS = new Set(['NAME:', 'NATIONALITY:', 'COMPANY:', 'POSITION:', 'DATE OF EMPLOYMENT:']);
+
   const fields = [
     { label: 'NAME:', value: isEmpty ? '' : (person?.name || '') },
     { label: 'ID NO:', value: isEmpty ? '' : (person?.qid_no || '') },
@@ -111,7 +113,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
         </div>
         <div style={logoAreaStyle}>
           <img
-            src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/efa7343f3_image.png"
+            src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/5e4874233_image.png"
             alt="TR Logo"
             style={{ height: '30px', objectFit: 'contain' }}
           />
@@ -120,12 +122,15 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
 
       {/* Data fields */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {fields.map(({ label, value }) => (
-          <div key={label} style={fieldRowStyle}>
-            <div style={labelStyle}>{label}</div>
-            <div style={valueStyle}>{value}</div>
-          </div>
-        ))}
+        {fields.map(({ label, value }) => {
+          const rowBg = GRAY_ROWS.has(label) ? '#d9d9d9' : '#fff';
+          return (
+            <div key={label} style={fieldRowStyle}>
+              <div style={{ ...labelStyle, backgroundColor: rowBg }}>{label}</div>
+              <div style={{ ...valueStyle, backgroundColor: rowBg }}>{value}</div>
+            </div>
+          );
+        })}
         {/* Signature row — last row, no bottom border */}
         <div style={{ ...fieldRowStyle, borderBottom: 'none', flex: 1 }}>
           <div style={labelStyle}>SIGNATURE:</div>
