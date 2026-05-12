@@ -6,95 +6,85 @@ import { format } from 'date-fns';
 
 const TODAY = format(new Date(), 'dd-MM-yyyy');
 
-// TR logo SVG matching the Técnicas Reunidas logo from the template
-const TRLogo = () => (
-  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
-    {/* Helmet icon - simplified version matching the template */}
-    <svg width="36" height="28" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Hard hat shape */}
-      <path d="M4 20 Q4 10 18 8 Q32 10 32 20 Z" fill="#1a3c6e" />
-      <rect x="2" y="20" width="32" height="3" rx="1.5" fill="#1a3c6e" />
-      <rect x="14" y="4" width="8" height="6" rx="2" fill="#1a3c6e" />
-    </svg>
-    <div style={{ fontSize: '5.5px', fontWeight: '700', color: '#1a3c6e', letterSpacing: '0.3px', lineHeight: '1.1', textAlign: 'center' }}>
-      TÉCNICAS<br/>REUNIDAS
-    </div>
-  </div>
-);
-
-// Single passport card — exactly matching the uploaded template layout
+// Single passport card — pixel-perfect match to uploaded template
 function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
-  const S = {
-    card: {
-      width: '92mm',
-      height: '128mm',
-      border: '2.5px solid #222',
-      fontFamily: 'Arial, Helvetica, sans-serif',
-      fontSize: '9.5px',
-      boxSizing: 'border-box',
-      backgroundColor: 'white',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden',
-    },
-    topSection: {
-      display: 'flex',
-      borderBottom: '2px solid #222',
-      minHeight: '52mm',
-    },
-    photoBox: {
-      width: '38mm',
-      borderRight: '2px solid #222',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: '9px',
-      color: '#888',
-      backgroundColor: '#fff',
-      flexShrink: 0,
-      position: 'relative',
-    },
-    logoArea: {
-      flex: 1,
-      display: 'flex',
-      alignItems: 'flex-start',
-      justifyContent: 'flex-end',
-      padding: '5px 6px 4px 4px',
-    },
-    fieldRow: {
-      display: 'flex',
-      borderBottom: '1.5px solid #222',
-      minHeight: '8.5mm',
-      alignItems: 'stretch',
-    },
-    fieldLabel: {
-      fontWeight: 'bold',
-      fontSize: '8px',
-      padding: '3px 4px',
-      borderRight: '1.5px solid #222',
-      width: '30mm',
-      flexShrink: 0,
-      display: 'flex',
-      alignItems: 'center',
-      whiteSpace: 'nowrap',
-      backgroundColor: '#fff',
-    },
-    fieldValue: {
-      fontSize: '8px',
-      padding: '3px 5px',
-      flex: 1,
-      display: 'flex',
-      alignItems: 'center',
-      wordBreak: 'break-word',
-      backgroundColor: '#fff',
-    },
-    signatureRow: {
-      display: 'flex',
-      flex: 1,
-      borderBottom: 'none',
-      minHeight: '12mm',
-      alignItems: 'stretch',
-    },
+  const cardStyle = {
+    width: '90mm',
+    height: '130mm',
+    border: '1.5px solid #000',
+    fontFamily: 'Arial, Helvetica, sans-serif',
+    boxSizing: 'border-box',
+    backgroundColor: '#fff',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  };
+
+  // Top section: gray background, photo left, TR logo top-right
+  const topSectionStyle = {
+    backgroundColor: '#d9d9d9',
+    borderBottom: '1.5px solid #000',
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    padding: '5px 6px 5px 6px',
+    minHeight: '50mm',
+    position: 'relative',
+    boxSizing: 'border-box',
+  };
+
+  const photoBoxStyle = {
+    width: '34mm',
+    height: '42mm',
+    border: '1.5px solid #000',
+    backgroundColor: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    position: 'relative',
+    overflow: 'hidden',
+  };
+
+  const logoAreaStyle = {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    flex: 1,
+    paddingLeft: '4px',
+  };
+
+  const fieldRowStyle = {
+    display: 'flex',
+    borderBottom: '1px solid #000',
+    minHeight: '9mm',
+    alignItems: 'stretch',
+    boxSizing: 'border-box',
+  };
+
+  const labelStyle = {
+    fontWeight: 'bold',
+    fontSize: '7.5px',
+    padding: '2px 4px',
+    borderRight: '1px solid #000',
+    width: '28mm',
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    whiteSpace: 'nowrap',
+    backgroundColor: '#fff',
+    boxSizing: 'border-box',
+  };
+
+  const valueStyle = {
+    fontSize: '7.5px',
+    padding: '2px 4px',
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    wordBreak: 'break-word',
+    boxSizing: 'border-box',
   };
 
   const fields = [
@@ -110,32 +100,36 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   ];
 
   return (
-    <div style={S.card}>
-      {/* Top: Photo + Logo */}
-      <div style={S.topSection}>
-        <div style={S.photoBox}>
+    <div style={cardStyle}>
+      {/* Top section: gray bg, photo box left, TR logo top-right */}
+      <div style={topSectionStyle}>
+        <div style={photoBoxStyle}>
           {person?.photo_url && !isEmpty
             ? <img src={person.photo_url} alt="Photo" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0 }} />
-            : <span style={{ fontSize: '10px', color: '#aaa', letterSpacing: '1px' }}>PHOTO</span>
+            : <span style={{ fontSize: '9px', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>PHOTO</span>
           }
         </div>
-        <div style={S.logoArea}>
-          <TRLogo />
+        <div style={logoAreaStyle}>
+          <img
+            src="https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/efa7343f3_image.png"
+            alt="TR Logo"
+            style={{ height: '30px', objectFit: 'contain' }}
+          />
         </div>
       </div>
 
       {/* Data fields */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {fields.map(({ label, value }) => (
-          <div key={label} style={S.fieldRow}>
-            <div style={S.fieldLabel}>{label}</div>
-            <div style={S.fieldValue}>{value}</div>
+          <div key={label} style={fieldRowStyle}>
+            <div style={labelStyle}>{label}</div>
+            <div style={valueStyle}>{value}</div>
           </div>
         ))}
-        {/* Signature row — last, no bottom border from outer */}
-        <div style={{ ...S.signatureRow, borderBottom: 'none' }}>
-          <div style={{ ...S.fieldLabel, borderBottom: 'none' }}>SIGNATURE:</div>
-          <div style={{ ...S.fieldValue, borderBottom: 'none' }}></div>
+        {/* Signature row — last row, no bottom border */}
+        <div style={{ ...fieldRowStyle, borderBottom: 'none', flex: 1 }}>
+          <div style={labelStyle}>SIGNATURE:</div>
+          <div style={valueStyle}></div>
         </div>
       </div>
     </div>
