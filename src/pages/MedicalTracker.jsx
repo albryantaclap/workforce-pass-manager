@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
@@ -43,6 +43,8 @@ export default function MedicalTracker() {
   const [pidIssueTo, setPidIssueTo] = useState('');
   const [resultFilter, setResultFilter] = useState('all');
   const [editMode, setEditMode] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -112,6 +114,11 @@ export default function MedicalTracker() {
     const matchesPidTo = !pidIssueTo || pidDate <= pidIssueTo;
     return matchesSearch && matchesCompany && matchesPosition && matchesResult && matchesDepartment && matchesTrFrom && matchesTrTo && matchesRlic && matchesTraining && matchesPid && matchesTrainSchedFrom && matchesTrainSchedTo && matchesGpFrom && matchesGpTo && matchesPidFrom && matchesPidTo;
   }), [employees, search, companyFilter, positionFilter, resultFilter, medicalResultFilter, departmentFilter, trApprovedFrom, trApprovedTo, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+
+  useEffect(() => { setPage(0); }, [companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, resultFilter, search, trApprovedFrom, trApprovedTo, trainingScheduledFrom, trainingScheduledTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pagedRows = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
 
   const stats = useMemo(() => allMedicalResults.map(r => ({
     name: r.label,
@@ -337,7 +344,7 @@ export default function MedicalTracker() {
                     Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(12).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
                     <TableRow><TableCell colSpan={12} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
-                  ) : filtered.map(emp => (
+                  ) : pagedRows.map(emp => (
                     <TableRow key={emp.id} className="hover:bg-muted/30">
                       <TableCell className="text-xs font-medium"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                       <TableCell className="text-xs">{emp.company}</TableCell>
@@ -366,8 +373,19 @@ export default function MedicalTracker() {
               </Table>
               </div>
             </div>
-            <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
-              Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> records
+            <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-xs text-muted-foreground">
+                Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)}</strong> of <strong>{filtered.length}</strong> filtered · <strong>{employees.length}</strong> total active
+              </span>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(0)} disabled={page === 0}>«</Button>
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>‹ Prev</Button>
+                  <span className="text-xs px-2">Page {page + 1} / {totalPages}</span>
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>Next ›</Button>
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}>»</Button>
+                </div>
+              )}
             </div>
           </Card>
         </TabsContent>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
@@ -76,6 +76,8 @@ export default function ProjectIDTracker() {
   const [gpReceivedTo, setGpReceivedTo] = useState('');
   const [pidIssueFrom, setPidIssueFrom] = useState('');
   const [pidIssueTo, setPidIssueTo] = useState('');
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
   // list-tab local filters
   const [statusFilter, setStatusFilter] = useState([]);
   const [trainingFilter, setTrainingFilter] = useState('all');
@@ -128,6 +130,11 @@ export default function ProjectIDTracker() {
     const matchesGpTo = !gpReceivedTo || gpDate <= gpReceivedTo;
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass && matchesMedical && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpFrom && matchesGpTo;
   }), [employees, search, companyFilter, positionFilter, statusFilter, pidStatusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, trainingStatusFilter, gatePassFilter, rlicStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo]);
+
+  useEffect(() => { setPage(0); }, [companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, statusFilter, trainingFilter, gatePassFilter, search, pidIssueFrom, pidIssueTo, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpReceivedFrom, gpReceivedTo]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pagedRows = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
 
   const stats = useMemo(() => {
     return allStatusOptions.map(s => ({
@@ -403,7 +410,7 @@ export default function ProjectIDTracker() {
                     Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(12).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
                     <TableRow><TableCell colSpan={13} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
-                  ) : filtered.map(emp => {
+                  ) : pagedRows.map(emp => {
                     const days = daysUntil(emp.pid_expiry);
                     return (
                       <TableRow key={emp.id} className="hover:bg-muted/30">
@@ -448,8 +455,19 @@ export default function ProjectIDTracker() {
               </Table>
               </div>
             </div>
-            <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
-              Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> records
+            <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-xs text-muted-foreground">
+                Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)}</strong> of <strong>{filtered.length}</strong> filtered · <strong>{employees.length}</strong> total active
+              </span>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(0)} disabled={page === 0}>«</Button>
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>‹ Prev</Button>
+                  <span className="text-xs px-2">Page {page + 1} / {totalPages}</span>
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>Next ›</Button>
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}>»</Button>
+                </div>
+              )}
             </div>
           </Card>
         </TabsContent>
