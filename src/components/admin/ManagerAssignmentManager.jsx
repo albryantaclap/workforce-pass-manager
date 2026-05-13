@@ -8,13 +8,25 @@ import { Plus, Trash2 } from 'lucide-react';
 import MultiSelect from '@/components/common/MultiSelect';
 import { toast } from 'sonner';
 
-const COMPANY_OPTIONS = [
+const BUILT_IN_COMPANIES = [
   'GSO QATAR', 'ITELLIGENT', 'ANION', 'SEA QUEEN', 'LMV E AND I',
   'METAL WORLD', 'ASMA', 'FIT', 'SPRAY CON', 'EMKAN', 'ENERTEC',
   'CRYSTAL', 'MEGATRONICS (GSO)', 'ENERSERVE (GSO)', 'ENERTEC (GSO)',
   'NTC (GSO)', 'MIR (GSO)', 'ALTAF (GSO)', 'SWAN GLOBAL (GSO)',
   'SIGEL (GSO)', 'AL-RAMSHA (GSO)', 'ALTHAF (GSO)', 'ZEAL-IT'
 ];
+
+const getCompanyOptions = (lookups) => {
+  const customCompanies = lookups
+    .filter(l => l.type === 'company')
+    .map(l => l.value)
+    .filter(v => !BUILT_IN_COMPANIES.includes(v));
+
+  return [
+    ...BUILT_IN_COMPANIES.map(c => ({ label: c, value: c, category: 'Built-in' })),
+    ...customCompanies.map(c => ({ label: c, value: c, category: 'Custom' }))
+  ];
+};
 
 export default function ManagerAssignmentManager() {
   const [newManager, setNewManager] = useState('');
@@ -26,6 +38,13 @@ export default function ManagerAssignmentManager() {
     queryKey: ['managerAssignments'],
     queryFn: () => base44.entities.ManagerAssignment.list(),
   });
+
+  const { data: lookups = [] } = useQuery({
+    queryKey: ['lookups'],
+    queryFn: () => base44.entities.Lookup.list(),
+  });
+
+  const companyOptions = getCompanyOptions(lookups);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.ManagerAssignment.create(data),
@@ -94,13 +113,28 @@ export default function ManagerAssignmentManager() {
           </div>
           <div>
             <label className="text-sm font-medium">Assign Companies</label>
-            <MultiSelect
-              options={COMPANY_OPTIONS}
-              value={selectedCompanies}
-              onChange={setSelectedCompanies}
-              placeholder="Select companies..."
-              className="mt-1"
-            />
+            <div className="mt-1 space-y-2">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Built-in Entries</p>
+                <MultiSelect
+                  options={companyOptions.filter(c => c.category === 'Built-in')}
+                  value={selectedCompanies}
+                  onChange={setSelectedCompanies}
+                  placeholder="Select built-in companies..."
+                />
+              </div>
+              {companyOptions.filter(c => c.category === 'Custom').length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">Custom Entries</p>
+                  <MultiSelect
+                    options={companyOptions.filter(c => c.category === 'Custom')}
+                    value={selectedCompanies}
+                    onChange={setSelectedCompanies}
+                    placeholder="Select custom companies..."
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <Button onClick={handleCreate} disabled={createMutation.isPending}>
             <Plus className="w-4 h-4 mr-2" />
