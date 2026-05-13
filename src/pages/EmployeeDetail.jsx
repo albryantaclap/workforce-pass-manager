@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Pencil, User, Briefcase, FileText, Shield } from 'lucide-react';
+import { ArrowLeft, Pencil, User, Briefcase, FileText, Shield, BookOpen } from 'lucide-react';
 import StatusBadge from '../components/common/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/utils/constants';
@@ -146,8 +146,22 @@ export default function EmployeeDetail() {
               </div>
             </div>
           </div>
-        </div>
-      </Card>
-    </div>
-  );
-}
+          </div>
+          </Card>
+
+          {/* Training */}
+          <Card className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+          <BookOpen className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold">Training</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <InfoRow label="Training Status" value={emp.training_status} />
+          <InfoRow label="Training Date Scheduled" value={formatDate(emp.training_date_scheduled)} />
+          <InfoRow label="Training Date Started" value={formatDate(emp.training_date_start)} />
+          <InfoRow label="Training Date End" value={formatDate(emp.training_date_end)} />
+          </div>
+          </Card>
+          </div>
+          );
+          }
