@@ -113,28 +113,13 @@ export default function ManagerAssignmentManager() {
           </div>
           <div>
             <label className="text-sm font-medium">Assign Companies</label>
-            <div className="mt-1 space-y-2">
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground mb-2">Built-in Entries</p>
-                <MultiSelect
-                  options={companyOptions.filter(c => c.category === 'Built-in')}
-                  value={selectedCompanies}
-                  onChange={setSelectedCompanies}
-                  placeholder="Select built-in companies..."
-                />
-              </div>
-              {companyOptions.filter(c => c.category === 'Custom').length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Custom Entries</p>
-                  <MultiSelect
-                    options={companyOptions.filter(c => c.category === 'Custom')}
-                    value={selectedCompanies}
-                    onChange={setSelectedCompanies}
-                    placeholder="Select custom companies..."
-                  />
-                </div>
-              )}
-            </div>
+            <MultiSelect
+              options={companyOptions}
+              value={selectedCompanies}
+              onChange={setSelectedCompanies}
+              placeholder="Select companies..."
+              className="mt-1"
+            />
           </div>
           <Button onClick={handleCreate} disabled={createMutation.isPending}>
             <Plus className="w-4 h-4 mr-2" />
