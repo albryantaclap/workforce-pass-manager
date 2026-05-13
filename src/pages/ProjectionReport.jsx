@@ -159,20 +159,20 @@ const PRINT_CSS = `
   .wrap { padding: 16px; }
   .report-title { text-align: center; font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; }
   .report-date { text-align: center; font-size: 14px; color: #475569; margin-bottom: 16px; }
-  .company-block { margin-bottom: 24px; page-break-inside: avoid; margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; }
-  table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; margin: 0; padding: 0; }
-  td { border: 1px solid black; padding: 4px 5px; text-align: center; word-break: break-word; }
-   td.left { text-align: left; word-break: break-word; }
-  td.num { font-size: 14px; font-weight: 400; line-height: 1.1; padding: 4px 3px; }
-  .hdr-company { background: #fde047; font-weight: 700; font-size: 15px; text-align: center; letter-spacing: 2px; padding: 6px; }
+  .company-block { margin-bottom: 24px; page-break-inside: avoid; margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; display: block; overflow-x: visible; }
+  table { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 11px; margin: 0; padding: 0; box-sizing: border-box; }
+  td { border: 1px solid black; padding: 3px 2px; text-align: center; word-break: break-word; font-size: 10px; }
+  td.left { text-align: left; }
+  td.num { font-size: 13px; font-weight: 400; line-height: 1; padding: 3px 2px; }
+  .hdr-company { background: #fde047; font-weight: 700; font-size: 14px; text-align: center; letter-spacing: 1px; padding: 4px 2px; }
   .hdr-company.grand { background: #1e293b; color: white; }
-  .hdr-group { font-weight: 700; font-size: 10px; text-align: center; padding: 3px; }
+  .hdr-group { font-weight: 700; font-size: 9px; text-align: center; padding: 2px; }
   .g-medical  { background: #bfdbfe; }
   .g-gatepass { background: #bbf7d0; }
   .g-training { background: #fed7aa; }
   .g-pid      { background: #e9d5ff; }
   .g-camp     { background: #fce7f3; }
-  .hdr-col { background: #f1f5f9; font-weight: 700; font-size: 10px; text-align: center; padding: 4px 3px; }
+  .hdr-col { background: #f1f5f9; font-weight: 700; font-size: 9px; text-align: center; padding: 3px 2px; }
   .c-medical  { background: #eff6ff; }
   .c-gatepass { background: #f0fdf4; }
   .c-training { background: #fff7ed; }
@@ -181,7 +181,7 @@ const PRINT_CSS = `
   .row-total { background: #1e293b; color: white; font-weight: 700; }
   .grand-total-row { background: #1e293b; color: white; font-weight: 700; }
   @media print {
-    @page { size: A3 landscape; margin: 10mm; }
+    @page { size: A3 landscape; margin: 5mm; }
     body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .company-block { page-break-inside: avoid; }
   }
