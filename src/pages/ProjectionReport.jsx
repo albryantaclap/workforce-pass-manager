@@ -286,7 +286,12 @@ function buildGrandTotalHTML(companyData, assignments = []) {
 const companies = Object.keys(companyData).sort((a, b) => {
   const categoryA = COMPANY_CATEGORIES[a] || '';
   const categoryB = COMPANY_CATEGORIES[b] || '';
+  const managerA = (managerMap[a] || '').toUpperCase();
+  const managerB = (managerMap[b] || '').toUpperCase();
 
+  // First sort by manager name A-Z, then by category
+  const managerCompare = managerA.localeCompare(managerB);
+  if (managerCompare !== 0) return managerCompare;
   return categoryA.localeCompare(categoryB);
 });
 
