@@ -159,8 +159,8 @@ const PRINT_CSS = `
   .wrap { padding: 16px; }
   .report-title { text-align: center; font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; }
   .report-date { text-align: center; font-size: 14px; color: #475569; margin-bottom: 16px; }
-  .company-block { margin-bottom: 24px; page-break-inside: avoid; }
-  table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+  .company-block { margin-bottom: 24px; page-break-inside: avoid; margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; margin: 0; padding: 0; }
   td { border: 1px solid black; padding: 4px 5px; text-align: center; word-break: break-word; }
    td.left { text-align: left; word-break: break-word; }
   td.num { font-size: 14px; font-weight: 400; line-height: 1.1; padding: 4px 3px; }
