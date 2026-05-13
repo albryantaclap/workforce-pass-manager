@@ -403,7 +403,7 @@ export default function TransmittalForm() {
                     type="text"
                     value={getHardCopyValue(emp.id)}
                     onChange={e => updateHardCopy(emp.id, e.target.value)}
-                    style={{ width: '100%', border: '1px solid #ccc', padding: '3px 6px', textAlign: 'center', fontFamily: 'Arial', fontSize: '10px', backgroundColor: 'white', boxSizing: 'border-box' }}
+                    style={{ width: '100%', border: '1px solid #ccc', padding: '3px 6px', textAlign: 'center', fontFamily: 'Arial', fontSize: '10px', backgroundColor: 'white', boxSizing: 'border-box', pointerEvents: 'auto', cursor: 'text' }}
                   />
                 </td>
                 <td style={{ padding: '3px 6px', textAlign: 'center' }}>-</td>
