@@ -88,6 +88,7 @@ export default function TransmittalForm() {
   // Personnel search & selection
   const [search, setSearch] = useState('');
   const [selectedPersonnel, setSelectedPersonnel] = useState([]);
+  const [hardCopyEdits, setHardCopyEdits] = useState({});
 
   const { data: employees = [] } = useQuery({
     queryKey: ['employees-active'],
@@ -124,6 +125,19 @@ export default function TransmittalForm() {
 
   const removePersonnel = (id) => {
     setSelectedPersonnel(prev => prev.filter(p => p.id !== id));
+    setHardCopyEdits(prev => {
+      const newEdits = { ...prev };
+      delete newEdits[id];
+      return newEdits;
+    });
+  };
+
+  const updateHardCopy = (empId, value) => {
+    setHardCopyEdits(prev => ({ ...prev, [empId]: value }));
+  };
+
+  const getHardCopyValue = (empId) => {
+    return hardCopyEdits[empId] !== undefined ? hardCopyEdits[empId] : hardCopyLabel;
   };
 
   const handlePrint = () => {
@@ -384,7 +398,14 @@ export default function TransmittalForm() {
                 <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999', fontFamily: 'monospace' }}>{emp.qid_no || ''}</td>
                 <td style={{ padding: '3px 6px', borderRight: '1px solid #999' }}>{emp.name}{emp.position_application ? ` - ${emp.position_application}` : ''}</td>
                 <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>1</td>
-                <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>{hardCopyLabel}</td>
+                <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>
+                  <input
+                    type="text"
+                    value={getHardCopyValue(emp.id)}
+                    onChange={e => updateHardCopy(emp.id, e.target.value)}
+                    style={{ width: '100%', border: 'none', padding: '2px', textAlign: 'center', fontFamily: 'Arial', fontSize: '10px', backgroundColor: 'transparent' }}
+                  />
+                </td>
                 <td style={{ padding: '3px 6px', textAlign: 'center' }}>-</td>
               </tr>
             ))}
