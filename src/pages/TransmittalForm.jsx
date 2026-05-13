@@ -398,12 +398,12 @@ export default function TransmittalForm() {
                 <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999', fontFamily: 'monospace' }}>{emp.qid_no || ''}</td>
                 <td style={{ padding: '3px 6px', borderRight: '1px solid #999' }}>{emp.name}{emp.position_application ? ` - ${emp.position_application}` : ''}</td>
                 <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>1</td>
-                <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #999' }}>
+                <td style={{ padding: '0px', textAlign: 'center', borderRight: '1px solid #999' }}>
                   <input
                     type="text"
                     value={getHardCopyValue(emp.id)}
                     onChange={e => updateHardCopy(emp.id, e.target.value)}
-                    style={{ width: '100%', border: 'none', padding: '2px', textAlign: 'center', fontFamily: 'Arial', fontSize: '10px', backgroundColor: 'transparent' }}
+                    style={{ width: '100%', border: '1px solid #ccc', padding: '3px 6px', textAlign: 'center', fontFamily: 'Arial', fontSize: '10px', backgroundColor: 'white', boxSizing: 'border-box' }}
                   />
                 </td>
                 <td style={{ padding: '3px 6px', textAlign: 'center' }}>-</td>
