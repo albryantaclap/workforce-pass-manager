@@ -291,49 +291,49 @@ export default function MasterList() {
           </Select>
         </div>
 
-        {/* Row 2: date range filters — all 4 on one line */}
-         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">Training Scheduled</p>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-8" title="From" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-8" title="To" />
-            </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">Medical TR Approved</p>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={medicalTrApprovedFrom} onChange={e => setMedicalTrApprovedFrom(e.target.value)} className="text-xs h-8" title="From" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={medicalTrApprovedTo} onChange={e => setMedicalTrApprovedTo(e.target.value)} className="text-xs h-8" title="To" />
-            </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Issue</p>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={gpIssueFrom} onChange={e => setGpIssueFrom(e.target.value)} className="text-xs h-8" title="From" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={gpIssueTo} onChange={e => setGpIssueTo(e.target.value)} className="text-xs h-8" title="To" />
-            </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Received</p>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8" title="From" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8" title="To" />
-            </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">Project ID Issue</p>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8" title="From" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-8" title="To" />
-            </div>
-          </div>
-        </div>
+        {/* Row 2: date range filters */}
+         <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-5 lg:gap-3">
+           <div>
+             <p className="text-[10px] font-medium text-muted-foreground mb-1">Training Scheduled</p>
+             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+               <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
+               <span className="hidden sm:block text-muted-foreground text-xs">–</span>
+               <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
+             </div>
+           </div>
+           <div>
+             <p className="text-[10px] font-medium text-muted-foreground mb-1">Medical TR Approved</p>
+             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+               <Input type="date" value={medicalTrApprovedFrom} onChange={e => setMedicalTrApprovedFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
+               <span className="hidden sm:block text-muted-foreground text-xs">–</span>
+               <Input type="date" value={medicalTrApprovedTo} onChange={e => setMedicalTrApprovedTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
+             </div>
+           </div>
+           <div>
+             <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Issue</p>
+             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+               <Input type="date" value={gpIssueFrom} onChange={e => setGpIssueFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
+               <span className="hidden sm:block text-muted-foreground text-xs">–</span>
+               <Input type="date" value={gpIssueTo} onChange={e => setGpIssueTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
+             </div>
+           </div>
+           <div>
+             <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Received</p>
+             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+               <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
+               <span className="hidden sm:block text-muted-foreground text-xs">–</span>
+               <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
+             </div>
+           </div>
+           <div>
+             <p className="text-[10px] font-medium text-muted-foreground mb-1">Project ID Issue</p>
+             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+               <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
+               <span className="hidden sm:block text-muted-foreground text-xs">–</span>
+               <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
+             </div>
+           </div>
+         </div>
         {hasActiveFilters && (
           <div className="mt-3 flex justify-end">
             <Button variant="outline" size="sm" onClick={() => { setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter([]); setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
