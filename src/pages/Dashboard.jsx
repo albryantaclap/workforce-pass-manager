@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [trainingStatusFilter, setTrainingStatusFilter] = useState([]);
   const [pidStatusFilter, setPidStatusFilter] = useState([]);
   const [medicalResultFilter, setMedicalResultFilter] = useState([]);
+  const [locationFilter, setLocationFilter] = useState([]);
   const [trApprovedFrom, setTrApprovedFrom] = useState('');
   const [trApprovedTo, setTrApprovedTo] = useState('');
   const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
@@ -66,6 +67,10 @@ export default function Dashboard() {
   const { data: customTrainingStatuses = [] } = useQuery({
     queryKey: ['lookups', 'training_status'],
     queryFn: () => base44.entities.Lookup.filter({ type: 'training_status' }),
+  });
+  const { data: lookupLocations = [] } = useQuery({
+    queryKey: ['lookups', 'location'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'location' }),
   });
 
   const allCompanyOptions = useMemo(() => {
@@ -219,6 +224,32 @@ export default function Dashboard() {
     return allOptions;
   }, [customTrainingStatuses]);
 
+  const allLocationOptions = useMemo(() => {
+    const allLocs = [];
+    const seen = new Set();
+
+    // Add built-in locations
+    const LOCATIONS = ['QATAR', 'COMO CAMP', 'OTHER'];
+    LOCATIONS.forEach(l => {
+      const key = l.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allLocs.push({ value: l, label: l });
+      }
+    });
+
+    // Add custom lookup locations
+    lookupLocations.forEach(l => {
+      const key = l.value.toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        allLocs.push({ value: l.value, label: l.label });
+      }
+    });
+
+    return allLocs;
+  }, [lookupLocations]);
+
   const filtered = useMemo(() => {
     return employees.filter(e => {
       if (e.is_active === false) return false;
@@ -227,6 +258,7 @@ export default function Dashboard() {
       const matchCo = effectiveCompanyFilter.length === 0 || effectiveCompanyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
       const matchPos = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
       const matchDept = departmentFilter.length === 0 || departmentFilter.includes(e.department);
+      const matchLocation = locationFilter.length === 0 || locationFilter.includes(e.current_location);
       const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
       const matchRlic = rlicStatusFilter.length === 0 || rlicStatusFilter.includes(effectiveRlic);
       const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
@@ -248,11 +280,11 @@ export default function Dashboard() {
       const pidDate = normalizeDate(e.pid_issue_date) || '';
       const matchPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
       const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-      return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo;
+      return matchCo && matchPos && matchDept && matchLocation && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManager, filteredCompanies]);
+  }, [employees, companyFilter, positionFilter, departmentFilter, locationFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManager, filteredCompanies]);
 
-  const hasFilter = selectedManager || companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
+  const hasFilter = selectedManager || companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || locationFilter.length > 0 || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -377,7 +409,7 @@ export default function Dashboard() {
 
   const clearFilters = () => {
     setSelectedManager('');
-    setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter([]);
+    setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter([]); setLocationFilter([]);
     setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]);
     setMedicalResultFilter([]); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
     setTrApprovedFrom(''); setTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo('');
@@ -442,7 +474,7 @@ export default function Dashboard() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Status</p>
               <MultiSelect options={allRlicOptions} value={rlicStatusFilter} onChange={setRlicStatusFilter} placeholder="All statuses..." />
@@ -458,6 +490,10 @@ export default function Dashboard() {
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical Result</p>
               <MultiSelect options={allMedicalResultOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="All results..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Location</p>
+              <MultiSelect options={allLocationOptions} value={locationFilter} onChange={setLocationFilter} placeholder="All locations..." />
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 border-t">
