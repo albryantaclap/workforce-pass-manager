@@ -18,11 +18,11 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 export default function Dashboard() {
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
-  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState([]);
   const [rlicStatusFilter, setRlicStatusFilter] = useState([]);
   const [trainingStatusFilter, setTrainingStatusFilter] = useState([]);
   const [pidStatusFilter, setPidStatusFilter] = useState([]);
-  const [medicalResultFilter, setMedicalResultFilter] = useState('all');
+  const [medicalResultFilter, setMedicalResultFilter] = useState([]);
   const [trApprovedFrom, setTrApprovedFrom] = useState('');
   const [trApprovedTo, setTrApprovedTo] = useState('');
   const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
@@ -223,13 +223,13 @@ export default function Dashboard() {
       const empCompany = (e.company || '').trim().toUpperCase();
       const matchCo = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
       const matchPos = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
-      const matchDept = departmentFilter === 'all' || e.department === departmentFilter;
+      const matchDept = departmentFilter.length === 0 || departmentFilter.includes(e.department);
       const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
       const matchRlic = rlicStatusFilter.length === 0 || rlicStatusFilter.includes(effectiveRlic);
       const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
       const matchPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
       const matchTraining = trainingStatusFilter.length === 0 || trainingStatusFilter.includes(e.training_status);
-      const matchMedResult = medicalResultFilter === 'all' || e.ftw_result === medicalResultFilter;
+      const matchMedResult = medicalResultFilter.length === 0 || medicalResultFilter.includes(e.ftw_result);
       const trainSchedDate = normalizeDate(e.training_date_scheduled) || '';
       const matchTrainSchedFrom = !trainingScheduledFrom || trainSchedDate >= trainingScheduledFrom;
       const matchTrainSchedTo = !trainingScheduledTo || trainSchedDate <= trainingScheduledTo;
@@ -249,7 +249,7 @@ export default function Dashboard() {
     });
   }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
-  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter !== 'all' || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter !== 'all' || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
+  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -373,9 +373,9 @@ export default function Dashboard() {
   ];
 
   const clearFilters = () => {
-    setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter('all');
+    setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter([]);
     setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]);
-    setMedicalResultFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
+    setMedicalResultFilter([]); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
     setTrApprovedFrom(''); setTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo('');
     setGpReceivedFrom(''); setGpReceivedTo('');
     setPidIssueFrom(''); setPidIssueTo('');
@@ -428,13 +428,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Department</p>
-              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ALL DEPARTMENTS</SelectItem>
-                  {allDepartmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <MultiSelect options={allDepartmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="All departments..." />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -452,13 +446,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical Result</p>
-              <Select value={medicalResultFilter} onValueChange={setMedicalResultFilter}>
-                <SelectTrigger><SelectValue placeholder="All Results" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ALL RESULTS</SelectItem>
-                  {allMedicalResultOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <MultiSelect options={allMedicalResultOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="All results..." />
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 border-t">

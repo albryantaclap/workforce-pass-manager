@@ -59,10 +59,10 @@ export default function MasterList() {
   const [locationFilter, setLocationFilter] = useState(saved.locationFilter || 'all');
   const [dirFilter, setDirFilter] = useState(saved.dirFilter || 'all');
   const [positionFilter, setPositionFilter] = useState(saved.positionFilter || []);
-  const [departmentFilter, setDepartmentFilter] = useState(saved.departmentFilter || 'all');
+  const [departmentFilter, setDepartmentFilter] = useState(saved.departmentFilter || []);
   const [pidStatusFilter, setPidStatusFilter] = useState(saved.pidStatusFilter || []);
   const [gpStatusFilter, setGpStatusFilter] = useState(saved.gpStatusFilter || []);
-  const [medicalResultFilter, setMedicalResultFilter] = useState(saved.medicalResultFilter || 'all');
+  const [medicalResultFilter, setMedicalResultFilter] = useState(saved.medicalResultFilter || []);
   const [trainingStatusFilter, setTrainingStatusFilter] = useState(saved.trainingStatusFilter || 'all');
   const [trainingScheduledFrom, setTrainingScheduledFrom] = useState(saved.trainingScheduledFrom || '');
   const [trainingScheduledTo, setTrainingScheduledTo] = useState(saved.trainingScheduledTo || '');
@@ -109,7 +109,7 @@ export default function MasterList() {
     updateMutation.mutate({ id, data: { [field]: value } });
   };
 
-  const hasActiveFilters = searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter !== 'all' || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter !== 'all' || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo;
+  const hasActiveFilters = searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo;
 
   const masterBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: medicalResultOptions },
@@ -160,10 +160,10 @@ export default function MasterList() {
       const matchesLocation = locationFilter === 'all' || emp.current_location === locationFilter;
       const matchesDir = dirFilter === 'all' || emp.dir_indir === dirFilter;
       const matchesPosition = positionFilter.length === 0 || positionFilter.includes(emp.designation_org_chart);
-      const matchesDepartment = departmentFilter === 'all' || emp.department === departmentFilter;
+      const matchesDepartment = departmentFilter.length === 0 || departmentFilter.includes(emp.department);
       const effectivePid = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
       const matchesPidStatus = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
-      const matchesMedicalResult = medicalResultFilter === 'all' || (medicalResultFilter === 'NEW' ? !emp.ftw_result : emp.ftw_result === medicalResultFilter);
+      const matchesMedicalResult = medicalResultFilter.length === 0 || medicalResultFilter.includes(emp.ftw_result) || (medicalResultFilter.includes('NEW') && !emp.ftw_result);
       const matchesTrainingStatus = trainingStatusFilter === 'all' || emp.training_status === trainingStatusFilter;
       const empTrainScheduled = emp.training_date_scheduled ? emp.training_date_scheduled.substring(0, 10) : '';
       const matchesTrainingScheduledFrom = !trainingScheduledFrom || (empTrainScheduled && empTrainScheduled >= trainingScheduledFrom);
@@ -243,13 +243,7 @@ export default function MasterList() {
           </div>
           <MultiSelect options={uniqueCompanies} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" />
           <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="Filter by position" />
-          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger><SelectValue placeholder="Department" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">ALL DEPARTMENTS</SelectItem>
-              {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <MultiSelect options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="Filter by department" />
           <Select value={rlicFilter} onValueChange={setRlicFilter}>
             <SelectTrigger><SelectValue placeholder="RLIC Status" /></SelectTrigger>
             <SelectContent>
@@ -259,14 +253,7 @@ export default function MasterList() {
           </Select>
           <MultiSelect options={pidStatusOptions} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="PID Status" />
           <MultiSelect options={allGpStatusOptions} value={gpStatusFilter} onChange={setGpStatusFilter} placeholder="GP Statuses" />
-          <Select value={medicalResultFilter} onValueChange={setMedicalResultFilter}>
-            <SelectTrigger><SelectValue placeholder="Medical Result" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Medical Results</SelectItem>
-              <SelectItem value="NEW">New</SelectItem>
-              {medicalResultOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <MultiSelect options={[{ value: 'NEW', label: 'New' }, ...medicalResultOptions]} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="Medical Result" />
           <div className="flex gap-2">
             <Select value={locationFilter} onValueChange={setLocationFilter}>
               <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
@@ -338,7 +325,7 @@ export default function MasterList() {
         </div>
         {hasActiveFilters && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter('all'); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter('all'); setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter([]); setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
