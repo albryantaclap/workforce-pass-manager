@@ -292,7 +292,7 @@ export default function MasterList() {
         </div>
 
         {/* Row 2: date range filters — all 4 on one line */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           <div>
             <p className="text-[10px] font-medium text-muted-foreground mb-1">Training Scheduled</p>
             <div className="flex items-center gap-1">
