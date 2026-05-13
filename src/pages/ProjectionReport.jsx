@@ -6,6 +6,7 @@ import { Printer, X, FileText, RefreshCw } from 'lucide-react';
 import { computePassStatus } from '@/utils/constants';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import MultiSelect from '@/components/common/MultiSelect';
 
 // ── Column structure ──────────────────────────────────────────────────────────
 const ZERO_ROW = () => ({
@@ -136,7 +137,7 @@ function getEmployeeCounts(emp) {
 }
 
 // ── Build company data structure from live employees ─────────────────────────
-function buildCompanyData(employees, companyFilter) {
+function buildCompanyData(employees, companyFilter, managerFilter = []) {
   const companyData = {};
   for (const emp of employees) {
     if (emp.is_active === false || emp.is_active === null) continue;
@@ -246,7 +247,14 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
       </table>
     </div>`;
 }
-function buildGrandTotalHTML(companyData) {
+function buildGrandTotalHTML(companyData, assignments = []) {
+  // Build manager lookup map
+  const managerMap = {};
+  for (const a of assignments) {
+    for (const co of a.companies) {
+      managerMap[co.trim().toUpperCase()] = a.manager_name;
+    }
+  }
 
   // CATEGORY MAPPING
   const COMPANY_CATEGORIES = {
@@ -313,6 +321,9 @@ const companies = Object.keys(companyData).sort((a, b) => {
         />
       </td>
 
+      <!-- MANAGER ASSIGNED COLUMN -->
+      <td class="left">${managerMap[co] || '—'}</td>
+
       <td class="c-medical num">${c(companyTotals[co].pendingMedical)}</td>
       <td class="c-medical num">${c(companyTotals[co].ftw)}</td>
 
@@ -344,6 +355,7 @@ const companies = Object.keys(companyData).sort((a, b) => {
           <tr>
             <td class="hdr-group"></td>
             <td class="hdr-group"></td>
+            <td class="hdr-group"></td>
 
             <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
 
@@ -364,6 +376,10 @@ const companies = Object.keys(companyData).sort((a, b) => {
 
             <td class="hdr-col left" style="width:16%">
               CATEGORY
+            </td>
+
+            <td class="hdr-col left" style="width:14%">
+              MANAGER ASSIGNED
             </td>
 
             <td class="hdr-col c-medical">PENDING MEDICAL</td>
@@ -388,13 +404,15 @@ const companies = Object.keys(companyData).sort((a, b) => {
           ${companyRows}
 
           <!-- GRAND TOTAL -->
-          <tr class="grand-total-row">
+           <tr class="grand-total-row">
 
-            <td class="left">GRAND TOTAL</td>
+             <td class="left">GRAND TOTAL</td>
 
-            <td></td>
+             <td></td>
 
-            <td class="num">${grandTotal.pendingMedical || ''}</td>
+             <td></td>
+
+             <td class="num">${grandTotal.pendingMedical || ''}</td>
 
             <td class="num">${grandTotal.ftw || ''}</td>
 
@@ -420,9 +438,9 @@ const companies = Object.keys(companyData).sort((a, b) => {
   `;
 }
 
-function buildReportHTML(companyData, displayDate, selectedCompany) {
+function buildReportHTML(companyData, displayDate, selectedCompany, assignments = []) {
   const companies = Object.keys(companyData).sort();
-  const grandHTML = selectedCompany === 'ALL' ? buildGrandTotalHTML(companyData) : '';
+  const grandHTML = selectedCompany === 'ALL' ? buildGrandTotalHTML(companyData, assignments) : '';
   const companyTablesHTML = companies.map(co => buildCompanyTableHTML(co, companyData[co])).join('');
   return `
     <div class="wrap">
@@ -479,41 +497,75 @@ const ALL_COMPANIES = [
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProjectionReport() {
   const [selectedCompany, setSelectedCompany] = useState('ALL');
+  const [selectedManagers, setSelectedManagers] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
 
   // Load all employees — same query key as Dashboard so cache is shared
- const {
-  data: employees = [],
-  isLoading,
-  refetch,
-  isFetching
-} = useQuery({
-  queryKey: ['employees-active'],
+  const {
+   data: employees = [],
+   isLoading,
+   refetch,
+   isFetching
+  } = useQuery({
+   queryKey: ['employees-active'],
 
-  queryFn: () =>
-    base44.entities.Employee.filter(
-      { is_active: true },
-      '-created_date',
-      10000
-    ),
+   queryFn: () =>
+     base44.entities.Employee.filter(
+       { is_active: true },
+       '-created_date',
+       10000
+     ),
 
-  refetchInterval: 15000,
-  refetchOnWindowFocus: true,
-  staleTime: 5000,
-  gcTime: 1000 * 60 * 5,
-  retry: 2,
-});
+   refetchInterval: 15000,
+   refetchOnWindowFocus: true,
+   staleTime: 5000,
+   gcTime: 1000 * 60 * 5,
+   retry: 2,
+  });
+
+  // Load manager assignments
+  const { data: assignments = [] } = useQuery({
+   queryKey: ['managerAssignments'],
+   queryFn: () => base44.entities.ManagerAssignment.list(),
+  });
+
+  // Build manager options and filtered companies
+  const managerOptions = useMemo(() => {
+   return assignments.map(a => ({ value: a.id, label: a.manager_name }));
+  }, [assignments]);
+
+  const filteredCompaniesFromManagers = useMemo(() => {
+   if (selectedManagers.length === 0) return [];
+   const companies = new Set();
+   for (const managerId of selectedManagers) {
+     const mgr = assignments.find(a => a.id === managerId);
+     if (mgr) {
+       mgr.companies.forEach(co => companies.add(co.trim().toUpperCase()));
+     }
+   }
+   return Array.from(companies);
+  }, [selectedManagers, assignments]);
+
   const today = format(new Date(), 'dd-MM-yyyy');
+
+  // Filter employees based on selected managers
+  const filteredEmployees = useMemo(() => {
+    if (selectedManagers.length === 0) return employees;
+    return employees.filter(emp => {
+      const empCo = (emp.company || '').trim().toUpperCase();
+      return filteredCompaniesFromManagers.includes(empCo);
+    });
+  }, [employees, selectedManagers, filteredCompaniesFromManagers]);
 
   // Compute company data from live employee records
   const companyData = useMemo(
-    () => buildCompanyData(employees, selectedCompany),
-    [employees, selectedCompany]
+    () => buildCompanyData(filteredEmployees, selectedCompany),
+    [filteredEmployees, selectedCompany]
   );
 
   const reportHTML = useMemo(
-    () => buildReportHTML(companyData, today, selectedCompany),
-    [companyData, today, selectedCompany]
+    () => buildReportHTML(companyData, today, selectedCompany, assignments),
+    [companyData, today, selectedCompany, assignments]
   );
 
   // Summary totals across all filtered data
@@ -525,7 +577,7 @@ export default function ProjectionReport() {
     }, ZERO_ROW());
   }, [companyData]);
 
-  const activeCount = employees.filter(e => e.is_active !== false && e.is_active !== null).length;
+  const activeCount = filteredEmployees.filter(e => e.is_active !== false && e.is_active !== null).length;
 
   if (isLoading) {
     return (
@@ -556,23 +608,31 @@ export default function ProjectionReport() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4 p-4 bg-card rounded-xl border">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Company:</label>
-          <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-            <SelectTrigger className="w-56">
-              <SelectValue placeholder="All Companies" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Companies</SelectItem>
-              {ALL_COMPANIES.map(co => (
-                <SelectItem key={co} value={co}>{co}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="space-y-3 p-4 bg-card rounded-xl border">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Company:</label>
+            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+              <SelectTrigger className="w-56">
+                <SelectValue placeholder="All Companies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Companies</SelectItem>
+                {ALL_COMPANIES.map(co => (
+                  <SelectItem key={co} value={co}>{co}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="ml-auto text-sm text-muted-foreground">
+            Report date: <strong>{today}</strong>
+          </div>
         </div>
-        <div className="ml-auto text-sm text-muted-foreground">
-          Report date: <strong>{today}</strong>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Manager:</label>
+          <div className="flex-1 max-w-xs">
+            <MultiSelect options={managerOptions} value={selectedManagers} onChange={setSelectedManagers} placeholder="All managers..." />
+          </div>
         </div>
       </div>
 
@@ -594,12 +654,12 @@ export default function ProjectionReport() {
       </div>
 
       {/* Inline report tables */}
-      {employees.length > 0 ? (
+      {filteredEmployees.length > 0 ? (
         <InlineReport reportHTML={reportHTML} />
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
           <FileText className="w-10 h-10 opacity-30" />
-          <p className="font-medium">No employee data found.</p>
+          <p className="font-medium">{selectedManagers.length > 0 ? 'No employee data found for selected managers.' : 'No employee data found.'}</p>
         </div>
       )}
 
