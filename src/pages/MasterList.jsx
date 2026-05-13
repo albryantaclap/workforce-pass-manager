@@ -28,7 +28,18 @@ import { useCurrentUser } from '@/lib/useCurrentUser';
 const STORAGE_KEY = 'masterlist_filters';
 
 function loadFilters() {
-  try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || {};
+    return {
+      ...saved,
+      companyFilter: Array.isArray(saved.companyFilter) ? saved.companyFilter : [],
+      positionFilter: Array.isArray(saved.positionFilter) ? saved.positionFilter : [],
+      departmentFilter: Array.isArray(saved.departmentFilter) ? saved.departmentFilter : [],
+      pidStatusFilter: Array.isArray(saved.pidStatusFilter) ? saved.pidStatusFilter : [],
+      gpStatusFilter: Array.isArray(saved.gpStatusFilter) ? saved.gpStatusFilter : [],
+      medicalResultFilter: Array.isArray(saved.medicalResultFilter) ? saved.medicalResultFilter : [],
+    };
+  } catch { return {}; }
 }
 function saveFilters(f) {
   try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(f)); } catch {}
