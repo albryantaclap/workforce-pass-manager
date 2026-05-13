@@ -421,14 +421,7 @@ export default function Dashboard() {
           )}
         </div>
         <div className="p-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Manager Name</p>
-              <select value={selectedManager} onChange={(e) => setSelectedManager(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                <option value="">All Managers</option>
-                {managers.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Company</p>
               <MultiSelect options={allCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." />
@@ -440,6 +433,13 @@ export default function Dashboard() {
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Department</p>
               <MultiSelect options={allDepartmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="All departments..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Manager Name</p>
+              <select value={selectedManager} onChange={(e) => setSelectedManager(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <option value="">All Managers</option>
+                {managers.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
