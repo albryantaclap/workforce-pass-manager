@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Shield, Users, Trash2, UserPlus, AlertTriangle, List, Crown, Pencil, Eye } from 'lucide-react';
 import LookupsManager from '../components/admin/LookupsManager';
+import ManagerAssignmentManager from '../components/admin/ManagerAssignmentManager';
 import { useToast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -145,11 +146,12 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="users">
-        <TabsList>
-          <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Users</TabsTrigger>
-          <TabsTrigger value="dedup"><AlertTriangle className="w-4 h-4 mr-2" />Duplicates {duplicates.length > 0 && <span className="ml-1 bg-red-100 text-red-700 text-xs px-1.5 rounded-full">{duplicates.length}</span>}</TabsTrigger>
-          <TabsTrigger value="lookups"><List className="w-4 h-4 mr-2" />Lookups</TabsTrigger>
-        </TabsList>
+         <TabsList>
+           <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Users</TabsTrigger>
+           <TabsTrigger value="dedup"><AlertTriangle className="w-4 h-4 mr-2" />Duplicates {duplicates.length > 0 && <span className="ml-1 bg-red-100 text-red-700 text-xs px-1.5 rounded-full">{duplicates.length}</span>}</TabsTrigger>
+           <TabsTrigger value="lookups"><List className="w-4 h-4 mr-2" />Lookups</TabsTrigger>
+           <TabsTrigger value="managers"><Users className="w-4 h-4 mr-2" />Manager Assignments</TabsTrigger>
+         </TabsList>
 
         {/* Users Tab */}
         <TabsContent value="users" className="space-y-4 mt-4">
@@ -327,7 +329,11 @@ export default function AdminPanel() {
         <TabsContent value="lookups" className="mt-4">
           <LookupsManager />
         </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
+
+        <TabsContent value="managers" className="mt-4">
+          <ManagerAssignmentManager />
+        </TabsContent>
+        </Tabs>
+        </div>
+        );
+        }

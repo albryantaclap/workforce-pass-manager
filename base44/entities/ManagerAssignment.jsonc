@@ -1,0 +1,25 @@
+{
+  "name": "ManagerAssignment",
+  "type": "object",
+  "properties": {
+    "manager_name": {
+      "type": "string",
+      "description": "Name of the manager"
+    },
+    "manager_email": {
+      "type": "string",
+      "description": "Email of the manager"
+    },
+    "companies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of company names assigned to this manager"
+    }
+  },
+  "required": [
+    "manager_name",
+    "companies"
+  ]
+}
