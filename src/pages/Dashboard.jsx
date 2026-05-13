@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
+import { useManagerFilter } from '@/hooks/useManagerFilter';
 import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, X, Printer, FileDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import DashboardReport from '@/components/dashboard/DashboardReport';
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
 
 export default function Dashboard() {
+  const { selectedManager, setSelectedManager, filteredCompanies, managers } = useManagerFilter();
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState([]);
@@ -221,7 +223,8 @@ export default function Dashboard() {
     return employees.filter(e => {
       if (e.is_active === false) return false;
       const empCompany = (e.company || '').trim().toUpperCase();
-      const matchCo = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
+      const effectiveCompanyFilter = selectedManager ? filteredCompanies : companyFilter;
+      const matchCo = effectiveCompanyFilter.length === 0 || effectiveCompanyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
       const matchPos = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
       const matchDept = departmentFilter.length === 0 || departmentFilter.includes(e.department);
       const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
@@ -247,9 +250,9 @@ export default function Dashboard() {
       const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
       return matchCo && matchPos && matchDept && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+  }, [employees, companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManager, filteredCompanies]);
 
-  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
+  const hasFilter = selectedManager || companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -373,6 +376,7 @@ export default function Dashboard() {
   ];
 
   const clearFilters = () => {
+    setSelectedManager('');
     setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter([]);
     setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]);
     setMedicalResultFilter([]); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
@@ -418,6 +422,13 @@ export default function Dashboard() {
         </div>
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Manager Name</p>
+              <select value={selectedManager} onChange={(e) => setSelectedManager(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <option value="">All Managers</option>
+                {managers.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Company</p>
               <MultiSelect options={allCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." />
