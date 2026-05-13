@@ -161,8 +161,8 @@ const PRINT_CSS = `
   .report-date { text-align: center; font-size: 14px; color: #475569; margin-bottom: 16px; }
   .company-block { margin-bottom: 24px; page-break-inside: avoid; }
   table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
-  td { border: 1px solid black; padding: 4px 5px; text-align: center; }
-  td.left { text-align: left; }
+  td { border: 1px solid black; padding: 4px 5px; text-align: center; word-break: break-word; }
+   td.left { text-align: left; word-break: break-word; }
   td.num { font-size: 14px; font-weight: 400; line-height: 1.1; padding: 4px 3px; }
   .hdr-company { background: #fde047; font-weight: 700; font-size: 15px; text-align: center; letter-spacing: 2px; padding: 6px; }
   .hdr-company.grand { background: #1e293b; color: white; }
@@ -209,7 +209,7 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
     <div class="company-block">
       <table>
         <tbody>
-          <tr><td colspan="11" class="${hdrClass}">${company}</td></tr>
+          <tr><td colspan="12" class="${hdrClass}">${company}</td></tr>
           <tr>
             <td class="hdr-group"></td>
             <td colspan="2" class="hdr-group g-medical">MEDICAL</td>
@@ -322,7 +322,7 @@ const companies = Object.keys(companyData).sort((a, b) => {
       </td>
 
       <!-- MANAGER ASSIGNED COLUMN -->
-      <td class="left">${managerMap[co] || '—'}</td>
+      <td class="left">${(managerMap[co] || '—').toUpperCase()}</td>
 
       <td class="c-medical num">${c(companyTotals[co].pendingMedical)}</td>
       <td class="c-medical num">${c(companyTotals[co].ftw)}</td>
@@ -346,9 +346,9 @@ const companies = Object.keys(companyData).sort((a, b) => {
 
           <!-- TITLE -->
           <tr>
-            <td colspan="11" class="hdr-company grand">
-              GRAND TOTAL — ALL COMPANIES
-            </td>
+            <td colspan="12" class="hdr-company grand">
+               GRAND TOTAL — ALL COMPANIES
+              </td>
           </tr>
 
           <!-- GROUP HEADER -->
@@ -370,15 +370,15 @@ const companies = Object.keys(companyData).sort((a, b) => {
 
           <!-- COLUMN HEADER -->
           <tr>
-            <td class="hdr-col left" style="width:18%">
+            <td class="hdr-col left" style="width:15%">
               COMPANY
             </td>
 
-            <td class="hdr-col left" style="width:16%">
+            <td class="hdr-col left" style="width:13%">
               CATEGORY
             </td>
 
-            <td class="hdr-col left" style="width:14%">
+            <td class="hdr-col left" style="width:12%">
               MANAGER ASSIGNED
             </td>
 
