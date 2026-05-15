@@ -247,9 +247,6 @@ export default function EmployeeForm() {
             <p className="text-sm text-muted-foreground mt-0.5">Fill in details below</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {isEdit && <SharepointFormButton value={form.sharepoint_url || ''} onChange={v => handleChange('sharepoint_url', v)} />}
-        </div>
         {isEdit && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Status:</span>
@@ -275,7 +272,10 @@ export default function EmployeeForm() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Personal */}
         <Card className="p-6">
-          <h3 className="text-sm font-semibold mb-4 text-primary">Personal Information</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-primary">Personal Information</h3>
+            {isEdit && <SharepointFormButton value={form.sharepoint_url || ''} onChange={v => handleChange('sharepoint_url', v)} />}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Photo Upload */}
             <div className="md:col-span-3 flex items-center gap-4">
