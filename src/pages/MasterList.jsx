@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine } from 'lucide-react';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
+import SharepointDocIcon from '../components/common/SharepointDocIcon';
 import { Skeleton } from '@/components/ui/skeleton';
 import StatusBadge from '../components/common/StatusBadge';
 import {
@@ -363,6 +364,7 @@ export default function MasterList() {
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="bg-muted/50">
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap w-10">Photo</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap w-8">Docs</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Name</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Position (Application)</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Designation (Org Chart)</TableHead>
@@ -412,16 +414,17 @@ export default function MasterList() {
             <TableBody>
               {isLoading ? (
                 Array(8).fill(0).map((_, i) => (
-                  <TableRow key={i}>{Array(42).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                  <TableRow key={i}>{Array(43).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={42} className="text-center py-12 text-muted-foreground">No records found</TableCell>
+                  <TableCell colSpan={43} className="text-center py-12 text-muted-foreground">No records found</TableCell>
                 </TableRow>
               ) : (
                 pagedRows.map((emp) => (
                   <TableRow key={emp.id} className="hover:bg-muted/30">
                     <TableCell className="p-2"><PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size={8} /></TableCell>
+                    <TableCell className="p-1"><SharepointDocIcon emp={emp} canEdit={canEdit} onSave={(id, url) => updateMutation.mutate({ id, data: { sharepoint_url: url } })} /></TableCell>
                     <TableCell className="text-xs font-medium whitespace-nowrap uppercase"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.position_application} field="position_application" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.designation_org_chart} field="designation_org_chart" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>

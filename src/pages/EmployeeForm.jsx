@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Save, Upload, User, UserCheck, UserX, Shield } from 'lucide-react';
+import SharepointFormButton from '@/components/common/SharepointFormButton';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
@@ -245,6 +246,9 @@ export default function EmployeeForm() {
             <h2 className="text-2xl font-bold tracking-tight">{isEdit ? 'Edit Personnel' : 'Add Personnel'}</h2>
             <p className="text-sm text-muted-foreground mt-0.5">Fill in details below</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {isEdit && <SharepointFormButton value={form.sharepoint_url || ''} onChange={v => handleChange('sharepoint_url', v)} />}
         </div>
         {isEdit && (
           <div className="flex items-center gap-2">

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, GraduationCap, Eye, Pencil } from 'lucide-react';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
+import SharepointDocIcon from '../components/common/SharepointDocIcon';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
@@ -236,6 +237,7 @@ export default function TrainingTracker() {
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow className="bg-muted/50">
                     <TableHead className="text-xs bg-muted/50 w-10">Photo</TableHead>
+                    <TableHead className="text-xs bg-muted/50 w-8">Docs</TableHead>
                     <TableHead className="text-xs bg-muted/50">Name</TableHead>
                     <TableHead className="text-xs bg-muted/50">Company</TableHead>
                     <TableHead className="text-xs bg-muted/50">Nationality</TableHead>
@@ -250,12 +252,13 @@ export default function TrainingTracker() {
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(10).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
+                    Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(11).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
                   ) : pagedRows.map(emp => (
                     <TableRow key={emp.id} className="hover:bg-muted/30">
                       <TableCell className="p-2"><PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size={8} /></TableCell>
+                      <TableCell className="p-1"><SharepointDocIcon emp={emp} canEdit={true} onSave={(id, url) => base44.entities.Employee.update(id, { sharepoint_url: url })} /></TableCell>
                       <TableCell className="text-xs font-medium">{emp.name}</TableCell>
                       <TableCell className="text-xs">{emp.company}</TableCell>
                       <TableCell className="text-xs">{emp.nationality}</TableCell>
