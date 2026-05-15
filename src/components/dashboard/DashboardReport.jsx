@@ -127,7 +127,11 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
           <div style="font-size:22px;font-weight:800;color:${border}">${card.combined}</div>
           <div style="font-size:9px;color:#94a3b8">${card.combinedLabel}</div>
         </div>
-
+        ${card.overallTotal !== undefined ? `
+        <div style="text-align:right;border-left:2px solid #e2e8f0;padding-left:10px">
+          <div style="font-size:16px;font-weight:700;color:#94a3b8">${card.overallTotal}</div>
+          <div style="font-size:9px;color:#94a3b8">Overall Total</div>
+        </div>` : ''}
       </div>` : '';
     return `
       <div class="summary-card" style="border-color:${border}">

@@ -351,7 +351,6 @@ export default function Dashboard() {
       title: 'Medical Data', icon: Stethoscope, color: 'text-blue-600', bg: 'bg-blue-50', path: '/medical',
       combined: medicalAccepted,
       combinedLabel: 'Accepted',
-      overallTotal: medicalOverallTotal,
       stats: medicalStatBreakdown,
     },
     {
@@ -559,6 +558,9 @@ export default function Dashboard() {
                     <div className="flex flex-col items-end">
                       <div className="flex items-baseline gap-1">
                         <span className={`text-2xl font-extrabold ${card.color}`}>{card.combined}</span>
+                        {card.overallTotal !== undefined && (
+                          <span className="text-xs font-medium text-muted-foreground">/{card.overallTotal}</span>
+                        )}
                       </div>
                       <p className="text-[10px] text-muted-foreground">{card.combinedLabel}</p>
                     </div>
