@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, UserCheck, UserX, Eye, Pencil, X } from 'lucide-react';
+import { Search, UserCheck, UserX, Eye, Pencil, X, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
@@ -20,6 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
+import { useCurrentUser } from '@/lib/useCurrentUser';
 
 const medicalResultStyles = {
   'ACCEPTED': 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -75,6 +76,7 @@ export default function InactivePersonnel() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { rlicStatusOptions, trainingStatusOptions } = useLookupOptions();
+  const currentUser = useCurrentUser();
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees-inactive'],
@@ -139,6 +141,48 @@ export default function InactivePersonnel() {
       queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       toast({ title: 'Personnel reactivated' });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (emp) => {
+      // Save to DeletedEmployee archive first
+      await base44.entities.DeletedEmployee.create({
+        original_id: emp.id,
+        deleted_by: currentUser?.email || 'unknown',
+        deleted_at: new Date().toISOString(),
+        employee_data: emp,
+        employee_name: emp.name,
+        company: emp.company,
+        department: emp.department,
+        recovered: false,
+      });
+      // Log the deletion
+      await base44.entities.ActivityLog.create({
+        action: 'delete',
+        entity_name: 'Employee',
+        entity_id: emp.id,
+        performed_by: currentUser?.email || 'unknown',
+        record_snapshot: emp,
+        record_name: emp.name,
+      });
+      // Permanently delete the employee record
+      await base44.entities.Employee.delete(emp.id);
+    },
+    onMutate: async (emp) => {
+      await queryClient.cancelQueries({ queryKey: ['employees-inactive'] });
+      const prev = queryClient.getQueryData(['employees-inactive']);
+      queryClient.setQueryData(['employees-inactive'], old => (old || []).filter(e => e.id !== emp.id));
+      return { prev };
+    },
+    onError: (_err, _emp, ctx) => {
+      queryClient.setQueryData(['employees-inactive'], ctx.prev);
+      toast({ title: 'Delete failed', variant: 'destructive' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-employees'] });
+      toast({ title: 'Personnel permanently deleted', description: 'Record moved to Deleted Personnel.' });
     },
   });
 
@@ -331,11 +375,29 @@ export default function InactivePersonnel() {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => reactivateMutation.mutate(emp.id)}
-                                    className="bg-green-600 hover:bg-green-700"
-                                  >
+                                  <AlertDialogAction onClick={() => reactivateMutation.mutate(emp.id)} className="bg-green-600 hover:bg-green-700">
                                     Reactivate
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="outline" className="text-xs h-7 text-red-600 border-red-200 hover:bg-red-50 gap-1">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Permanently Delete Personnel</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will <strong>permanently delete</strong> <strong>{emp.name}</strong> from the system. The record will be moved to the Deleted Personnel archive. This action cannot be undone without manual recovery.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteMutation.mutate(emp)} className="bg-red-600 hover:bg-red-700">
+                                    Delete Permanently
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
