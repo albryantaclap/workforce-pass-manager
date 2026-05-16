@@ -9,6 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RotateCcw, Search, Trash2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 import { computePassStatus } from '@/utils/constants';
@@ -130,6 +134,26 @@ export default function DeletedPersonnel() {
     },
   });
 
+  const permanentDeleteMutation = useMutation({
+    mutationFn: async (record) => {
+      await base44.entities.DeletedEmployee.delete(record.id);
+    },
+    onMutate: async (record) => {
+      await queryClient.cancelQueries({ queryKey: ['deleted-employees'] });
+      const prev = queryClient.getQueryData(['deleted-employees']);
+      queryClient.setQueryData(['deleted-employees'], old => (old || []).filter(r => r.id !== record.id));
+      return { prev };
+    },
+    onError: (_err, _record, ctx) => {
+      queryClient.setQueryData(['deleted-employees'], ctx.prev);
+      toast({ title: 'Deletion failed', variant: 'destructive' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deleted-employees'] });
+      toast({ title: 'Record permanently deleted', description: 'This record cannot be recovered.' });
+    },
+  });
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -223,16 +247,39 @@ export default function DeletedPersonnel() {
                           </TableCell>
                           <TableCell className="text-xs whitespace-nowrap text-muted-foreground">{record.deleted_by || '—'}</TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-1.5 text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-                              onClick={() => recoverMutation.mutate(record)}
-                              disabled={recoverMutation.isPending}
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              Recover
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1.5 text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                                onClick={() => recoverMutation.mutate(record)}
+                                disabled={recoverMutation.isPending}
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                Recover
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="sm" variant="outline" className="text-xs h-8 text-red-600 border-red-200 hover:bg-red-50 gap-1" disabled={permanentDeleteMutation.isPending}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Permanently Delete Record</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to permanently delete <strong>{record.employee_name}</strong>? This action cannot be undone and the record will no longer be recoverable.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => permanentDeleteMutation.mutate(record)} className="bg-red-600 hover:bg-red-700">
+                                      Delete Permanently
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
