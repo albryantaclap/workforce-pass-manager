@@ -161,9 +161,9 @@ const PRINT_CSS = `
   .report-date { text-align: center; font-size: 14px; color: #475569; margin-bottom: 16px; }
   .company-block { margin-bottom: 24px; page-break-inside: avoid; margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; display: block; overflow-x: visible; }
   table { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 11px; margin: 0; padding: 0; box-sizing: border-box; }
-  td { border: 1px solid black; padding: 3px 2px; text-align: center; word-break: break-word; font-size: 10px; }
-  td.left { text-align: left; }
-  td.num { font-size: 13px; font-weight: 400; line-height: 1; padding: 3px 2px; }
+  td { border: 1px solid black; padding: 3px 3px; text-align: center; word-break: break-word; font-size: 10px; }
+  td.left { text-align: left; padding-left: 4px; }
+  td.num { font-size: 12px; font-weight: 500; line-height: 1; padding: 3px 2px; }
   .hdr-company { background: #fde047; font-weight: 700; font-size: 14px; text-align: center; letter-spacing: 1px; padding: 4px 2px; }
   .hdr-company.grand { background: #1e293b; color: white; }
   .hdr-group { font-weight: 700; font-size: 9px; text-align: center; padding: 2px; }
@@ -172,7 +172,7 @@ const PRINT_CSS = `
   .g-training { background: #fed7aa; }
   .g-pid      { background: #e9d5ff; }
   .g-camp     { background: #fce7f3; }
-  .hdr-col { background: #f1f5f9; font-weight: 700; font-size: 9px; text-align: center; padding: 3px 2px; }
+  .hdr-col { background: #f1f5f9; font-weight: 700; font-size: 8.5px; text-align: center; padding: 3px 2px; word-break: break-word; vertical-align: middle; }
   .c-medical  { background: #eff6ff; }
   .c-gatepass { background: #f0fdf4; }
   .c-training { background: #fff7ed; }
@@ -379,35 +379,35 @@ const companies = Object.keys(companyData).sort((a, b) => {
 
           <!-- COLUMN HEADER -->
           <tr>
-            <td class="hdr-col left" style="width:15%">
+            <td class="hdr-col left" style="width:18%">
               COMPANY
             </td>
 
-            <td class="hdr-col left" style="width:13%">
+            <td class="hdr-col left" style="width:14%">
               CATEGORY
             </td>
 
-            <td class="hdr-col left" style="width:12%">
+            <td class="hdr-col left" style="width:11%">
               MANAGER ASSIGNED
             </td>
 
-            <td class="hdr-col c-medical">PENDING MEDICAL</td>
+            <td class="hdr-col c-medical" style="width:7%">PENDING MEDICAL</td>
 
-            <td class="hdr-col c-medical">FTW / APPROVED</td>
+            <td class="hdr-col c-medical" style="width:7%">FTW / APPROVED</td>
 
-            <td class="hdr-col c-gatepass">GP UNDER PROCESS</td>
+            <td class="hdr-col c-gatepass" style="width:7%">GP UNDER PROCESS</td>
 
-            <td class="hdr-col c-gatepass">VALID GATEPASS</td>
+            <td class="hdr-col c-gatepass" style="width:7%">VALID GATEPASS</td>
 
-            <td class="hdr-col c-training">SCHEDULED</td>
+            <td class="hdr-col c-training" style="width:7%">SCHEDULED</td>
 
-            <td class="hdr-col c-training">ON-GOING</td>
+            <td class="hdr-col c-training" style="width:7%">ON-GOING</td>
 
-            <td class="hdr-col c-training">COMPLETED</td>
+            <td class="hdr-col c-training" style="width:7%">COMPLETED</td>
 
-            <td class="hdr-col c-pid">PID</td>
+            <td class="hdr-col c-pid" style="width:4%">PID</td>
 
-            <td class="hdr-col c-camp">CAMP</td>
+            <td class="hdr-col c-camp" style="width:4%">CAMP</td>
           </tr>
 
           ${companyRows}
