@@ -262,7 +262,7 @@ function buildGrandTotalHTML(companyData, assignments = []) {
     'QTRS - ALAVON (GSO)': 'CIVIL',
     'VMANES (GSO)': 'MECHANICAL AND CIVIL',
     'GSO QATAR': '',
-    'INTEGRATED (GSO)': '',
+    'INTEGRATED (GSO)': 'CIVIL',
     'TEXON (GSO)': 'LOGISTICS',
     'SWAN GLOBAL (GSO)': 'PIPELINE',
     'GOOD HIRING': 'CIVIL',
@@ -499,13 +499,7 @@ function InlineReport({ reportHTML }) {
   );
 }
 
-// ── Companies list ────────────────────────────────────────────────────────────
-const ALL_COMPANIES = [
-  'GSO QATAR','ITELLIGENT','ANION','SEA QUEEN','LMV E AND I','METAL WORLD','ASMA','FIT',
-  'SPRAY CON','EMKAN','ENERTEC','CRYSTAL','MEGATRONICS (GSO)','ENERSERVE (GSO)','ENERTEC (GSO)',
-  'NTC (GSO)','MIR (GSO)','ALTAF (GSO)','SWAN GLOBAL (GSO)','SIGEL (GSO)','AL-RAMSHA (GSO)',
-  'ALTHAF (GSO)','ZEAL-IT',
-];
+// ALL_COMPANIES is now derived dynamically from live employee data
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProjectionReport() {
@@ -560,6 +554,15 @@ export default function ProjectionReport() {
   }, [selectedManagers, assignments]);
 
   const today = format(new Date(), 'dd-MM-yyyy');
+
+  // Derive unique sorted company list from live employee data
+  const allCompanies = useMemo(() => {
+    const set = new Set();
+    for (const emp of employees) {
+      if (emp.company) set.add(emp.company.trim().toUpperCase());
+    }
+    return Array.from(set).sort();
+  }, [employees]);
 
   // Filter employees based on selected managers
   const filteredEmployees = useMemo(() => {
@@ -631,7 +634,7 @@ export default function ProjectionReport() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Companies</SelectItem>
-                {ALL_COMPANIES.map(co => (
+                {allCompanies.map(co => (
                   <SelectItem key={co} value={co}>{co}</SelectItem>
                 ))}
               </SelectContent>
