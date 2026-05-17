@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [pidStatusFilter, setPidStatusFilter] = useState([]);
   const [medicalResultFilter, setMedicalResultFilter] = useState([]);
   const [locationFilter, setLocationFilter] = useState([]);
+  const [dirIndirFilter, setDirIndirFilter] = useState('');
   const [trApprovedFrom, setTrApprovedFrom] = useState('');
   const [trApprovedTo, setTrApprovedTo] = useState('');
   const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
@@ -259,6 +260,7 @@ export default function Dashboard() {
       const matchPos = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
       const matchDept = departmentFilter.length === 0 || departmentFilter.includes(e.department);
       const matchLocation = locationFilter.length === 0 || locationFilter.includes(e.current_location);
+      const matchDirIndir = !dirIndirFilter || (e.dir_indir || '').trim().toUpperCase() === dirIndirFilter.toUpperCase();
       const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
       const matchRlic = rlicStatusFilter.length === 0 || rlicStatusFilter.includes(effectiveRlic);
       const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
@@ -280,11 +282,11 @@ export default function Dashboard() {
       const pidDate = normalizeDate(e.pid_issue_date) || '';
       const matchPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
       const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-      return matchCo && matchPos && matchDept && matchLocation && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo;
+      return matchCo && matchPos && matchDept && matchLocation && matchDirIndir && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter, locationFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManager, filteredCompanies]);
+  }, [employees, companyFilter, positionFilter, departmentFilter, locationFilter, dirIndirFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManager, filteredCompanies]);
 
-  const hasFilter = selectedManager || companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || locationFilter.length > 0 || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
+  const hasFilter = selectedManager || companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || locationFilter.length > 0 || !!dirIndirFilter || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -409,6 +411,7 @@ export default function Dashboard() {
   const clearFilters = () => {
     setSelectedManager('');
     setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter([]); setLocationFilter([]);
+    setDirIndirFilter('');
     setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]);
     setMedicalResultFilter([]); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
     setTrApprovedFrom(''); setTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo('');
@@ -452,7 +455,7 @@ export default function Dashboard() {
           )}
         </div>
         <div className="p-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Company</p>
               <MultiSelect options={allCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." />
@@ -470,6 +473,14 @@ export default function Dashboard() {
               <select value={selectedManager} onChange={(e) => setSelectedManager(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                 <option value="">All Managers</option>
                 {managers.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">DIR / INDIR</p>
+              <select value={dirIndirFilter} onChange={(e) => setDirIndirFilter(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <option value="">All</option>
+                <option value="DIR">DIR</option>
+                <option value="INDIR">INDIR</option>
               </select>
             </div>
           </div>
