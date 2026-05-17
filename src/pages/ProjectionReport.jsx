@@ -258,6 +258,9 @@ function buildGrandTotalHTML(companyData, assignments = []) {
 
   // CATEGORY MAPPING
   const COMPANY_CATEGORIES = {
+    'KM STEEL - MOSTAFA (GSO)': 'STEEL STRUCTURE',
+    'QTRS - ALAVON (GSO)': 'CIVIL',
+    'VMANES (GSO)': 'MECHANICAL AND CIVIL',
     'GSO QATAR': '',
     'INTEGRATED (GSO)': '',
     'TEXON (GSO)': 'LOGISTICS',
@@ -277,6 +280,7 @@ function buildGrandTotalHTML(companyData, assignments = []) {
     'AL-RAMSHA (GSO)': 'ROTARY',
     'METAL WORLD': 'STEEL STRUCTURE',
     'ALTHAF (GSO)': 'STEEL STRUCTURE',
+    'ALTAF (GSO)': 'STEEL STRUCTURE',
     'ARKAN GULF (GSO)': 'ELECTRICAL (NEW)',
     'ANION': 'CATHODIC',
     'ENERSERVE (GSO)': 'ELECTRICAL',
