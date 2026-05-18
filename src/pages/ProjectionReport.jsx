@@ -158,7 +158,11 @@ function buildCompanyData(employees, companyFilter, extraFilters = {}) {
 
     // Extra filters
     if (positionFilter.length > 0 && !positionFilter.includes(emp.designation_org_chart)) continue;
-    if (departmentFilter.length > 0 && !departmentFilter.includes(emp.department)) continue;
+    if (departmentFilter.length > 0) {
+      const empDept = (emp.department || '').trim().toLowerCase();
+      const match = departmentFilter.some(d => d.trim().toLowerCase() === empDept);
+      if (!match) continue;
+    }
     if (dirFilter !== 'all' && emp.dir_indir !== dirFilter) continue;
     if (locationFilter !== 'all' && emp.current_location !== locationFilter) continue;
     if (trainingStatusFilter !== 'all' && emp.training_status !== trainingStatusFilter) continue;
@@ -642,13 +646,19 @@ export default function ProjectionReport() {
     return Array.from(set).sort().map(p => ({ value: p, label: p }));
   }, [employees]);
 
-  // Department options
-  const departmentOptions = [
-    { value: 'Electrical', label: 'Electrical' },
-    { value: 'Mechanical', label: 'Mechanical' },
-    { value: 'Civil', label: 'Civil' },
-    { value: 'Services', label: 'Services' },
-  ];
+  // Department options — derived dynamically from live employee data, deduplicated by normalized value
+  const departmentOptions = useMemo(() => {
+    const seen = new Map();
+    for (const emp of employees) {
+      const raw = emp.department;
+      if (!raw) continue;
+      const normalized = raw.trim();
+      if (!normalized) continue;
+      const key = normalized.toLowerCase();
+      if (!seen.has(key)) seen.set(key, normalized);
+    }
+    return Array.from(seen.values()).sort().map(d => ({ value: d, label: d }));
+  }, [employees]);
 
   // GP status options (RLIC)
   const gpStatusOptions = [
