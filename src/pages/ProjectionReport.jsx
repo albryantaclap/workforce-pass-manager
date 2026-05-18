@@ -255,9 +255,57 @@ const PRINT_CSS = `
   }
 `;
 
+// ── Designation hierarchy for sorting ────────────────────────────────────────
+const DESIGNATION_HIERARCHY = [
+  'GENERAL MANAGER',
+  'OPERATIONS MANAGER',
+  'PROJECT MANAGER',
+  'CONSTRUCTION MANAGER',
+  'COMMERCIAL MANAGER',
+  'ENGINEER',
+  'ENGINEERS',
+  'SUPERVISOR',
+  'SUPERVISORS',
+  'COORDINATOR',
+  'COORDINATORS',
+  'TECHNICIAN',
+  'TECHNICIANS',
+  'OPERATOR',
+  'OPERATORS',
+  'DRIVER',
+  'DRIVERS',
+  'HELPER',
+  'HELPERS',
+  'LABOR',
+  'LABOUR',
+  'UNSPECIFIED',
+];
+
+function getDesignationRank(desig) {
+  const upper = desig.trim().toUpperCase();
+  // Exact match first
+  const exact = DESIGNATION_HIERARCHY.indexOf(upper);
+  if (exact !== -1) return exact;
+  // Partial/contains match (e.g. "CIVIL ENGINEER" should rank near ENGINEER)
+  for (let i = 0; i < DESIGNATION_HIERARCHY.length; i++) {
+    if (upper.includes(DESIGNATION_HIERARCHY[i])) return i;
+  }
+  // Unknown designations go before UNSPECIFIED but after known ones
+  return DESIGNATION_HIERARCHY.length - 1;
+}
+
+function sortDesignations(designations) {
+  return [...designations].sort((a, b) => {
+    const rankA = getDesignationRank(a);
+    const rankB = getDesignationRank(b);
+    if (rankA !== rankB) return rankA - rankB;
+    return a.localeCompare(b); // alphabetical tiebreak
+  });
+}
+
 // ── Table HTML builder ────────────────────────────────────────────────────────
 function buildCompanyTableHTML(company, rows, isGrand = false) {
-  const designations = Object.keys(rows).sort();
+  const designations = sortDesignations(Object.keys(rows));
   const totals = sumRows(rows);
   const hdrClass = isGrand ? 'hdr-company grand' : 'hdr-company';
   const dataRows = designations.map(d => `
