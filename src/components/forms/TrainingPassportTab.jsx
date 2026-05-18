@@ -35,7 +35,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   };
 
   const photoBoxStyle = {
-    width: '40mm',
+    width: '38mm',
     height: '38mm',
     border: '1px solid #000',
     backgroundColor: '#fff',
