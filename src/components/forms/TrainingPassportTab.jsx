@@ -11,8 +11,8 @@ const TODAY = format(new Date(), 'dd-MM-yyyy');
 // Top section: 38mm, 9 data rows × 6.5mm = 58.5mm, signature 12mm → ~108.5mm total ✓
 function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   const cardStyle = {
-    width: '85mm',
-    height: '125mm',
+    width: '105mm',
+    height: '176mm',
     border: '1px solid #000',
     fontFamily: 'Arial, Helvetica, sans-serif',
     boxSizing: 'border-box',
@@ -29,14 +29,14 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     padding: '4px 5px',
-    height: '42mm',
+    height: '58mm',
     flexShrink: 0,
     boxSizing: 'border-box',
   };
 
   const photoBoxStyle = {
-    width: '40mm',
-    height: '38mm',
+    width: '55mm',
+    height: '53mm',
     border: '1px solid #000',
     backgroundColor: '#fff',
     display: 'flex',
