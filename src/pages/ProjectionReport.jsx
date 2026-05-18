@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Printer, X, FileText, RefreshCw } from 'lucide-react';
 import { computePassStatus } from '@/utils/constants';
 import { format } from 'date-fns';
@@ -137,12 +138,61 @@ function getEmployeeCounts(emp) {
 }
 
 // ── Build company data structure from live employees ─────────────────────────
-function buildCompanyData(employees, companyFilter, managerFilter = []) {
+function buildCompanyData(employees, companyFilter, extraFilters = {}) {
+  const {
+    positionFilter = [], departmentFilter = [], dirFilter = 'all',
+    gpStatusFilter = [], medicalResultFilter = [], locationFilter = 'all',
+    trainingStatusFilter = 'all',
+    trainingScheduledFrom = '', trainingScheduledTo = '',
+    medicalTrApprovedFrom = '', medicalTrApprovedTo = '',
+    gpIssueFrom = '', gpIssueTo = '',
+    gpReceivedFrom = '', gpReceivedTo = '',
+    pidIssueFrom = '', pidIssueTo = '',
+  } = extraFilters;
+
   const companyData = {};
   for (const emp of employees) {
     if (emp.is_active === false || emp.is_active === null) continue;
     const co = (emp.company || 'UNKNOWN').trim().toUpperCase();
     if (companyFilter !== 'ALL' && co !== companyFilter.toUpperCase()) continue;
+
+    // Extra filters
+    if (positionFilter.length > 0 && !positionFilter.includes(emp.designation_org_chart)) continue;
+    if (departmentFilter.length > 0 && !departmentFilter.includes(emp.department)) continue;
+    if (dirFilter !== 'all' && emp.dir_indir !== dirFilter) continue;
+    if (locationFilter !== 'all' && emp.current_location !== locationFilter) continue;
+    if (trainingStatusFilter !== 'all' && emp.training_status !== trainingStatusFilter) continue;
+
+    const effectiveRlic = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
+    if (gpStatusFilter.length > 0 && !gpStatusFilter.includes(effectiveRlic)) continue;
+
+    const ftwResult = emp.ftw_result || '';
+    if (medicalResultFilter.length > 0) {
+      const matchesMed = medicalResultFilter.includes(ftwResult) || (medicalResultFilter.includes('NEW') && !emp.ftw_result);
+      if (!matchesMed) continue;
+    }
+
+    // Date range filters
+    const trainSched = emp.training_date_scheduled ? emp.training_date_scheduled.substring(0, 10) : '';
+    if (trainingScheduledFrom && (!trainSched || trainSched < trainingScheduledFrom)) continue;
+    if (trainingScheduledTo && (!trainSched || trainSched > trainingScheduledTo)) continue;
+
+    const medApproved = emp.ftw_approved_date ? emp.ftw_approved_date.substring(0, 10) : '';
+    if (medicalTrApprovedFrom && (!medApproved || medApproved < medicalTrApprovedFrom)) continue;
+    if (medicalTrApprovedTo && (!medApproved || medApproved > medicalTrApprovedTo)) continue;
+
+    const gpIssue = emp.gate_pass_issue_date ? emp.gate_pass_issue_date.substring(0, 10) : '';
+    if (gpIssueFrom && (!gpIssue || gpIssue < gpIssueFrom)) continue;
+    if (gpIssueTo && (!gpIssue || gpIssue > gpIssueTo)) continue;
+
+    const gpReceived = emp.gate_pass_received_date ? emp.gate_pass_received_date.substring(0, 10) : '';
+    if (gpReceivedFrom && (!gpReceived || gpReceived < gpReceivedFrom)) continue;
+    if (gpReceivedTo && (!gpReceived || gpReceived > gpReceivedTo)) continue;
+
+    const pidIssue = emp.pid_issue_date ? emp.pid_issue_date.substring(0, 10) : '';
+    if (pidIssueFrom && (!pidIssue || pidIssue < pidIssueFrom)) continue;
+    if (pidIssueTo && (!pidIssue || pidIssue > pidIssueTo)) continue;
+
     const desig = (emp.designation_org_chart || emp.position_application || 'UNSPECIFIED').trim().toUpperCase();
     if (!companyData[co]) companyData[co] = {};
     if (!companyData[co][desig]) companyData[co][desig] = ZERO_ROW();
@@ -507,6 +557,25 @@ export default function ProjectionReport() {
   const [selectedManagers, setSelectedManagers] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
 
+  // Extended filters
+  const [positionFilter, setPositionFilter] = useState([]);
+  const [departmentFilter, setDepartmentFilter] = useState([]);
+  const [dirFilter, setDirFilter] = useState('all');
+  const [gpStatusFilter, setGpStatusFilter] = useState([]);
+  const [medicalResultFilter, setMedicalResultFilter] = useState([]);
+  const [locationFilter, setLocationFilter] = useState('all');
+  const [trainingStatusFilter, setTrainingStatusFilter] = useState('all');
+  const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
+  const [trainingScheduledTo, setTrainingScheduledTo] = useState('');
+  const [medicalTrApprovedFrom, setMedicalTrApprovedFrom] = useState('');
+  const [medicalTrApprovedTo, setMedicalTrApprovedTo] = useState('');
+  const [gpIssueFrom, setGpIssueFrom] = useState('');
+  const [gpIssueTo, setGpIssueTo] = useState('');
+  const [gpReceivedFrom, setGpReceivedFrom] = useState('');
+  const [gpReceivedTo, setGpReceivedTo] = useState('');
+  const [pidIssueFrom, setPidIssueFrom] = useState('');
+  const [pidIssueTo, setPidIssueTo] = useState('');
+
   // Load all employees — same query key as Dashboard so cache is shared
   const {
    data: employees = [],
@@ -564,6 +633,54 @@ export default function ProjectionReport() {
     return Array.from(set).sort();
   }, [employees]);
 
+  // Derive unique positions list
+  const allPositions = useMemo(() => {
+    const set = new Set();
+    for (const emp of employees) {
+      if (emp.designation_org_chart) set.add(emp.designation_org_chart);
+    }
+    return Array.from(set).sort().map(p => ({ value: p, label: p }));
+  }, [employees]);
+
+  // Department options
+  const departmentOptions = [
+    { value: 'Electrical', label: 'Electrical' },
+    { value: 'Mechanical', label: 'Mechanical' },
+    { value: 'Civil', label: 'Civil' },
+    { value: 'Services', label: 'Services' },
+  ];
+
+  // GP status options (RLIC)
+  const gpStatusOptions = [
+    { value: 'VALID RLIC PASS', label: 'Valid RLIC Pass' },
+    { value: 'EXPIRED RLIC PASS', label: 'Expired RLIC Pass' },
+    { value: 'SOON TO EXPIRE', label: 'Soon to Expire' },
+    { value: 'NO RLIC PASS', label: 'No RLIC Pass' },
+  ];
+
+  // Medical result options
+  const medicalResultOptions = [
+    { value: 'NEW', label: 'New' },
+    { value: 'ACCEPTED', label: 'Accepted' },
+    { value: 'REJECTED', label: 'Rejected' },
+    { value: 'WAITING TR APPROVAL', label: 'Waiting TR Approval' },
+    { value: 'RE-ASSESS', label: 'Re-Assess' },
+  ];
+
+  // Location options
+  const locationOptions = [
+    { value: 'QATAR', label: 'Qatar' },
+    { value: 'COMO CAMP', label: 'Como Camp' },
+    { value: 'OTHER', label: 'Other' },
+  ];
+
+  // Training status options
+  const trainingStatusOptions = [
+    { value: 'DONE', label: 'Done' },
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'NOT REQUIRED', label: 'Not Required' },
+  ];
+
   // Filter employees based on selected managers
   const filteredEmployees = useMemo(() => {
     if (selectedManagers.length === 0) return employees;
@@ -573,10 +690,20 @@ export default function ProjectionReport() {
     });
   }, [employees, selectedManagers, filteredCompaniesFromManagers]);
 
+  const extraFilters = useMemo(() => ({
+    positionFilter, departmentFilter, dirFilter,
+    gpStatusFilter, medicalResultFilter, locationFilter, trainingStatusFilter,
+    trainingScheduledFrom, trainingScheduledTo,
+    medicalTrApprovedFrom, medicalTrApprovedTo,
+    gpIssueFrom, gpIssueTo,
+    gpReceivedFrom, gpReceivedTo,
+    pidIssueFrom, pidIssueTo,
+  }), [positionFilter, departmentFilter, dirFilter, gpStatusFilter, medicalResultFilter, locationFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+
   // Compute company data from live employee records
   const companyData = useMemo(
-    () => buildCompanyData(filteredEmployees, selectedCompany),
-    [filteredEmployees, selectedCompany]
+    () => buildCompanyData(filteredEmployees, selectedCompany, extraFilters),
+    [filteredEmployees, selectedCompany, extraFilters]
   );
 
   const reportHTML = useMemo(
@@ -624,30 +751,134 @@ export default function ProjectionReport() {
       </div>
 
       {/* Filters */}
-      <div className="space-y-3 p-4 bg-card rounded-xl border">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Company:</label>
+      <div className="p-4 bg-card rounded-xl border space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filters</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">Report date: <strong>{today}</strong></span>
+            {(selectedCompany !== 'ALL' || selectedManagers.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || dirFilter !== 'all' || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || locationFilter !== 'all' || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo) && (
+              <Button variant="outline" size="sm" onClick={() => {
+                setSelectedCompany('ALL'); setSelectedManagers([]); setPositionFilter([]); setDepartmentFilter([]);
+                setDirFilter('all'); setGpStatusFilter([]); setMedicalResultFilter([]); setLocationFilter('all');
+                setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
+                setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo('');
+                setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo('');
+                setPidIssueFrom(''); setPidIssueTo('');
+              }} className="gap-1 h-7 text-xs"><X className="w-3.5 h-3.5" /> Clear Filters</Button>
+            )}
+          </div>
+        </div>
+
+        {/* Row 1: dropdowns */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Company</label>
             <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-              <SelectTrigger className="w-56">
-                <SelectValue placeholder="All Companies" />
-              </SelectTrigger>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All companies..." /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Companies</SelectItem>
-                {allCompanies.map(co => (
-                  <SelectItem key={co} value={co}>{co}</SelectItem>
-                ))}
+                <SelectItem value="ALL">All companies...</SelectItem>
+                {allCompanies.map(co => <SelectItem key={co} value={co}>{co}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div className="ml-auto text-sm text-muted-foreground">
-            Report date: <strong>{today}</strong>
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Position / Designation</label>
+            <MultiSelect options={allPositions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." className="h-8 text-xs" />
+          </div>
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Department</label>
+            <MultiSelect options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="All departments..." className="h-8 text-xs" />
+          </div>
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Manager Name</label>
+            <MultiSelect options={managerOptions} value={selectedManagers} onChange={setSelectedManagers} placeholder="All Managers" className="h-8 text-xs" />
+          </div>
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">DIR / INDIR</label>
+            <Select value={dirFilter} onValueChange={setDirFilter}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="DIR">DIR</SelectItem>
+                <SelectItem value="INDIR">INDIR</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Manager:</label>
-          <div className="flex-1 max-w-xs">
-            <MultiSelect options={managerOptions} value={selectedManagers} onChange={setSelectedManagers} placeholder="All managers..." />
+
+        {/* Row 2: status filters */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Gate Pass Status</label>
+            <MultiSelect options={gpStatusOptions} value={gpStatusFilter} onChange={setGpStatusFilter} placeholder="All statuses..." className="h-8 text-xs" />
+          </div>
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Training Status</label>
+            <Select value={trainingStatusFilter} onValueChange={setTrainingStatusFilter}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All statuses..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses...</SelectItem>
+                {trainingStatusOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Medical Result</label>
+            <MultiSelect options={medicalResultOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="All results..." className="h-8 text-xs" />
+          </div>
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Location</label>
+            <Select value={locationFilter} onValueChange={setLocationFilter}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All locations..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All locations...</SelectItem>
+                {locationOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Row 3: date ranges */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div>
+            <p className="text-[10px] font-medium text-muted-foreground mb-1">Training Scheduled</p>
+            <div className="flex items-center gap-1">
+              <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-8 flex-1" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-8 flex-1" />
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium text-muted-foreground mb-1">Medical TR Approved</p>
+            <div className="flex items-center gap-1">
+              <Input type="date" value={medicalTrApprovedFrom} onChange={e => setMedicalTrApprovedFrom(e.target.value)} className="text-xs h-8 flex-1" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input type="date" value={medicalTrApprovedTo} onChange={e => setMedicalTrApprovedTo(e.target.value)} className="text-xs h-8 flex-1" />
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Issue</p>
+            <div className="flex items-center gap-1">
+              <Input type="date" value={gpIssueFrom} onChange={e => setGpIssueFrom(e.target.value)} className="text-xs h-8 flex-1" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input type="date" value={gpIssueTo} onChange={e => setGpIssueTo(e.target.value)} className="text-xs h-8 flex-1" />
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Received</p>
+            <div className="flex items-center gap-1">
+              <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8 flex-1" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8 flex-1" />
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium text-muted-foreground mb-1">Project ID Issue</p>
+            <div className="flex items-center gap-1">
+              <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8 flex-1" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-8 flex-1" />
+            </div>
           </div>
         </div>
       </div>
