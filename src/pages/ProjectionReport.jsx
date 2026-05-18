@@ -256,42 +256,79 @@ const PRINT_CSS = `
 `;
 
 // ── Designation hierarchy for sorting ────────────────────────────────────────
-const DESIGNATION_HIERARCHY = [
-  'GENERAL MANAGER',
-  'OPERATIONS MANAGER',
-  'PROJECT MANAGER',
-  'CONSTRUCTION MANAGER',
-  'COMMERCIAL MANAGER',
-  'ENGINEER',
-  'ENGINEERS',
-  'SUPERVISOR',
-  'SUPERVISORS',
-  'COORDINATOR',
-  'COORDINATORS',
-  'TECHNICIAN',
-  'TECHNICIANS',
-  'OPERATOR',
-  'OPERATORS',
-  'DRIVER',
-  'DRIVERS',
-  'HELPER',
-  'HELPERS',
-  'LABOR',
-  'LABOUR',
-  'UNSPECIFIED',
+// Each entry: [keyword, rank]. Lower rank = higher seniority.
+// Keyword is checked as a substring of the designation (uppercase).
+const DESIGNATION_KEYWORD_RANKS = [
+  // Top management
+  ['GENERAL MANAGER', 0],
+  ['OPERATIONS MANAGER', 1],
+  ['PROJECT MANAGER', 2],
+  ['CONSTRUCTION MANAGER', 3],
+  ['COMMERCIAL MANAGER', 4],
+  ['DEPUTY MANAGER', 5],
+  ['MANAGER', 6],
+  // Engineers
+  ['SENIOR ENGINEER', 10],
+  ['LEAD ENGINEER', 10],
+  ['PRINCIPAL ENGINEER', 10],
+  ['ENGINEER', 11],
+  // Supervisors / Foremen
+  ['GENERAL FOREMAN', 20],
+  ['SENIOR FOREMAN', 21],
+  ['FOREMAN', 22],
+  ['SUPERVISOR', 23],
+  // Coordinators / Inspectors / Officers
+  ['COORDINATOR', 30],
+  ['INSPECTOR', 31],
+  ['OFFICER', 32],
+  ['PLANNER', 33],
+  ['SCHEDULER', 34],
+  ['ADMINISTRATOR', 35],
+  ['ADMIN', 35],
+  // Technicians
+  ['SENIOR TECHNICIAN', 40],
+  ['LEAD TECHNICIAN', 40],
+  ['TECHNICIAN', 41],
+  ['MECHANIC', 42],
+  ['ELECTRICIAN', 43],
+  ['WELDER', 44],
+  ['FITTER', 45],
+  ['RIGGER', 46],
+  ['SCAFFOLDER', 47],
+  ['PAINTER', 48],
+  ['MASON', 49],
+  ['CARPENTER', 50],
+  ['PLUMBER', 51],
+  ['BLASTER', 52],
+  // Operators
+  ['CRANE OPERATOR', 60],
+  ['EQUIPMENT OPERATOR', 60],
+  ['HEAVY EQUIPMENT', 60],
+  ['OPERATOR', 61],
+  // Drivers
+  ['DRIVER', 70],
+  // Safety / Fire / Security
+  ['SAFETY OFFICER', 32],
+  ['HSE OFFICER', 32],
+  ['SHES OFFICER', 32],
+  ['FIRE WATCHER', 75],
+  ['SECURITY', 76],
+  // General labor / helpers / unspecified
+  ['HELPER', 80],
+  ['LABOUR', 90],
+  ['LABOR', 90],
+  ['UNSPECIFIED', 99],
 ];
 
 function getDesignationRank(desig) {
   const upper = desig.trim().toUpperCase();
-  // Exact match first
-  const exact = DESIGNATION_HIERARCHY.indexOf(upper);
-  if (exact !== -1) return exact;
-  // Partial/contains match (e.g. "CIVIL ENGINEER" should rank near ENGINEER)
-  for (let i = 0; i < DESIGNATION_HIERARCHY.length; i++) {
-    if (upper.includes(DESIGNATION_HIERARCHY[i])) return i;
+  let bestRank = 95; // default for unknown
+  for (const [keyword, rank] of DESIGNATION_KEYWORD_RANKS) {
+    if (upper.includes(keyword)) {
+      if (rank < bestRank) bestRank = rank;
+    }
   }
-  // Unknown designations go before UNSPECIFIED but after known ones
-  return DESIGNATION_HIERARCHY.length - 1;
+  return bestRank;
 }
 
 function sortDesignations(designations) {
@@ -299,7 +336,7 @@ function sortDesignations(designations) {
     const rankA = getDesignationRank(a);
     const rankB = getDesignationRank(b);
     if (rankA !== rankB) return rankA - rankB;
-    return a.localeCompare(b); // alphabetical tiebreak
+    return a.localeCompare(b); // alphabetical tiebreak within same rank
   });
 }
 
