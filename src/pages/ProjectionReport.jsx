@@ -163,16 +163,30 @@ function buildCompanyData(employees, companyFilter, extraFilters = {}) {
       const match = departmentFilter.some(d => d.trim().toLowerCase() === empDept);
       if (!match) continue;
     }
-    if (dirFilter !== 'all' && emp.dir_indir !== dirFilter) continue;
-    if (locationFilter !== 'all' && emp.current_location !== locationFilter) continue;
-    if (trainingStatusFilter !== 'all' && emp.training_status !== trainingStatusFilter) continue;
+    if (dirFilter !== 'all') {
+      const empDir = (emp.dir_indir || '').trim().toUpperCase();
+      if (empDir !== dirFilter.toUpperCase()) continue;
+    }
+    if (locationFilter !== 'all') {
+      const empLoc = (emp.current_location || '').trim().toUpperCase();
+      if (empLoc !== locationFilter.toUpperCase()) continue;
+    }
+    if (trainingStatusFilter !== 'all') {
+      const empTraining = (emp.training_status || '').trim().toUpperCase();
+      if (empTraining !== trainingStatusFilter.toUpperCase()) continue;
+    }
 
     const effectiveRlic = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
-    if (gpStatusFilter.length > 0 && !gpStatusFilter.includes(effectiveRlic)) continue;
+    if (gpStatusFilter.length > 0) {
+      const empRlic = (effectiveRlic || '').trim().toUpperCase();
+      const match = gpStatusFilter.some(s => s.trim().toUpperCase() === empRlic);
+      if (!match) continue;
+    }
 
-    const ftwResult = emp.ftw_result || '';
+    const ftwResult = (emp.ftw_result || '').trim().toUpperCase();
     if (medicalResultFilter.length > 0) {
-      const matchesMed = medicalResultFilter.includes(ftwResult) || (medicalResultFilter.includes('NEW') && !emp.ftw_result);
+      const matchesMed = medicalResultFilter.some(r => r.trim().toUpperCase() === ftwResult)
+        || (medicalResultFilter.some(r => r.trim().toUpperCase() === 'NEW') && !emp.ftw_result);
       if (!matchesMed) continue;
     }
 
