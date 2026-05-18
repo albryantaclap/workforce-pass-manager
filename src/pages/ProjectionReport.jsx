@@ -167,13 +167,13 @@ function buildCompanyData(employees, companyFilter, extraFilters = {}) {
       const empDir = (emp.dir_indir || '').trim().toUpperCase();
       if (empDir !== dirFilter.toUpperCase()) continue;
     }
-    if (locationFilter !== 'all') {
+    if (locationFilter.length > 0) {
       const empLoc = (emp.current_location || '').trim().toUpperCase();
-      if (empLoc !== locationFilter.toUpperCase()) continue;
+      if (!locationFilter.some(l => l.trim().toUpperCase() === empLoc)) continue;
     }
-    if (trainingStatusFilter !== 'all') {
+    if (trainingStatusFilter.length > 0) {
       const empTraining = (emp.training_status || '').trim().toUpperCase();
-      if (empTraining !== trainingStatusFilter.toUpperCase()) continue;
+      if (!trainingStatusFilter.some(t => t.trim().toUpperCase() === empTraining)) continue;
     }
 
     const effectiveRlic = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
@@ -581,8 +581,8 @@ export default function ProjectionReport() {
   const [dirFilter, setDirFilter] = useState('all');
   const [gpStatusFilter, setGpStatusFilter] = useState([]);
   const [medicalResultFilter, setMedicalResultFilter] = useState([]);
-  const [locationFilter, setLocationFilter] = useState('all');
-  const [trainingStatusFilter, setTrainingStatusFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState([]);
+  const [trainingStatusFilter, setTrainingStatusFilter] = useState([]);
   const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
   const [trainingScheduledTo, setTrainingScheduledTo] = useState('');
   const [medicalTrApprovedFrom, setMedicalTrApprovedFrom] = useState('');
@@ -674,36 +674,55 @@ export default function ProjectionReport() {
     return Array.from(seen.values()).sort().map(d => ({ value: d, label: d }));
   }, [employees]);
 
-  // GP status options (RLIC)
-  const gpStatusOptions = [
-    { value: 'VALID RLIC PASS', label: 'Valid RLIC Pass' },
-    { value: 'EXPIRED RLIC PASS', label: 'Expired RLIC Pass' },
-    { value: 'SOON TO EXPIRE', label: 'Soon to Expire' },
-    { value: 'NO RLIC PASS', label: 'No RLIC Pass' },
-  ];
+  // GP status options — derived from live data (computed effective RLIC status)
+  const gpStatusOptions = useMemo(() => {
+    const seen = new Map();
+    for (const emp of employees) {
+      const val = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
+      if (!val) continue;
+      const key = val.trim().toUpperCase();
+      if (!seen.has(key)) seen.set(key, val.trim());
+    }
+    return Array.from(seen.values()).sort().map(v => ({ value: v, label: v }));
+  }, [employees]);
 
-  // Medical result options
-  const medicalResultOptions = [
-    { value: 'NEW', label: 'New' },
-    { value: 'ACCEPTED', label: 'Accepted' },
-    { value: 'REJECTED', label: 'Rejected' },
-    { value: 'WAITING TR APPROVAL', label: 'Waiting TR Approval' },
-    { value: 'RE-ASSESS', label: 'Re-Assess' },
-  ];
+  // Medical result options — derived from live data
+  const medicalResultOptions = useMemo(() => {
+    const seen = new Map();
+    seen.set('NEW', 'NEW'); // always include NEW for employees with no ftw_result
+    for (const emp of employees) {
+      if (!emp.ftw_result) continue;
+      const key = emp.ftw_result.trim().toUpperCase();
+      if (!seen.has(key)) seen.set(key, emp.ftw_result.trim());
+    }
+    return Array.from(seen.values()).sort().map(v => ({ value: v, label: v }));
+  }, [employees]);
 
-  // Location options
-  const locationOptions = [
-    { value: 'QATAR', label: 'Qatar' },
-    { value: 'COMO CAMP', label: 'Como Camp' },
-    { value: 'OTHER', label: 'Other' },
-  ];
+  // Location options — derived from live data
+  const locationOptions = useMemo(() => {
+    const seen = new Map();
+    for (const emp of employees) {
+      if (!emp.current_location) continue;
+      const normalized = emp.current_location.trim();
+      if (!normalized) continue;
+      const key = normalized.toUpperCase();
+      if (!seen.has(key)) seen.set(key, normalized);
+    }
+    return Array.from(seen.values()).sort().map(v => ({ value: v, label: v }));
+  }, [employees]);
 
-  // Training status options
-  const trainingStatusOptions = [
-    { value: 'DONE', label: 'Done' },
-    { value: 'PENDING', label: 'Pending' },
-    { value: 'NOT REQUIRED', label: 'Not Required' },
-  ];
+  // Training status options — derived from live data
+  const trainingStatusOptions = useMemo(() => {
+    const seen = new Map();
+    for (const emp of employees) {
+      if (!emp.training_status) continue;
+      const normalized = emp.training_status.trim();
+      if (!normalized) continue;
+      const key = normalized.toUpperCase();
+      if (!seen.has(key)) seen.set(key, normalized);
+    }
+    return Array.from(seen.values()).sort().map(v => ({ value: v, label: v }));
+  }, [employees]);
 
   // Filter employees based on selected managers
   const filteredEmployees = useMemo(() => {
@@ -780,11 +799,11 @@ export default function ProjectionReport() {
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filters</span>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">Report date: <strong>{today}</strong></span>
-            {(selectedCompany !== 'ALL' || selectedManagers.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || dirFilter !== 'all' || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || locationFilter !== 'all' || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo) && (
+            {(selectedCompany !== 'ALL' || selectedManagers.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || dirFilter !== 'all' || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || locationFilter.length > 0 || trainingStatusFilter.length > 0 || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo) && (
               <Button variant="outline" size="sm" onClick={() => {
                 setSelectedCompany('ALL'); setSelectedManagers([]); setPositionFilter([]); setDepartmentFilter([]);
-                setDirFilter('all'); setGpStatusFilter([]); setMedicalResultFilter([]); setLocationFilter('all');
-                setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
+                setDirFilter('all'); setGpStatusFilter([]); setMedicalResultFilter([]); setLocationFilter([]);
+                setTrainingStatusFilter([]); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
                 setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo('');
                 setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo('');
                 setPidIssueFrom(''); setPidIssueTo('');
@@ -838,13 +857,7 @@ export default function ProjectionReport() {
           </div>
           <div>
             <label className="text-[10px] font-medium text-muted-foreground block mb-1">Training Status</label>
-            <Select value={trainingStatusFilter} onValueChange={setTrainingStatusFilter}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All statuses..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses...</SelectItem>
-                {trainingStatusOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <MultiSelect options={trainingStatusOptions} value={trainingStatusFilter} onChange={setTrainingStatusFilter} placeholder="All statuses..." className="h-8 text-xs" />
           </div>
           <div>
             <label className="text-[10px] font-medium text-muted-foreground block mb-1">Medical Result</label>
@@ -852,13 +865,7 @@ export default function ProjectionReport() {
           </div>
           <div>
             <label className="text-[10px] font-medium text-muted-foreground block mb-1">Location</label>
-            <Select value={locationFilter} onValueChange={setLocationFilter}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All locations..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All locations...</SelectItem>
-                {locationOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <MultiSelect options={locationOptions} value={locationFilter} onChange={setLocationFilter} placeholder="All locations..." className="h-8 text-xs" />
           </div>
         </div>
 
