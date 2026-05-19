@@ -159,11 +159,15 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
   const dirCount = filtered.filter(e => (e.dir_indir || '').trim().toUpperCase() === 'DIR').length;
   const indirCount = filtered.filter(e => (e.dir_indir || '').trim().toUpperCase() === 'INDIR').length;
 
-  // Location / Mobilized counts
+  // Location / Mobilized counts — exclude dir_indir values that bleed into location field
+  const DIRINDIR_VALUES = new Set(['DIR', 'INDIR']);
   const locationCounts = Object.entries(
     filtered.reduce((acc, e) => {
-      const loc = e.current_location || 'Unknown';
-      acc[loc] = (acc[loc] || 0) + 1;
+      const loc = (e.current_location || 'Unknown').trim().toUpperCase();
+      // Skip values that are actually DIR/INDIR classifications, not real locations
+      if (DIRINDIR_VALUES.has(loc)) return acc;
+      const display = e.current_location ? e.current_location.trim() : 'Unknown';
+      acc[display] = (acc[display] || 0) + 1;
       return acc;
     }, {})
   ).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
@@ -214,10 +218,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
           <div style="font-size:9px;color:#475569;font-weight:600;margin-bottom:2px">INDIR</div>
           <div style="font-size:16px;font-weight:800;color:#334155">${indirCount}</div>
         </div>
-        <div style="flex:1;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:6px 10px;text-align:center">
-          <div style="font-size:9px;color:#16a34a;font-weight:600;margin-bottom:2px">TOTAL</div>
-          <div style="font-size:16px;font-weight:800;color:#15803d">${filtered.length}</div>
-        </div>
+
       </div>`;
     locationPieHTML = `
       <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
