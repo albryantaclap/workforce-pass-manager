@@ -13,7 +13,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   const cardStyle = {
     width: '85mm',
     height: '125mm',
-    border: '1px solid #000',
+    border: '3px double #000',
     fontFamily: 'Arial, Helvetica, sans-serif',
     boxSizing: 'border-box',
     backgroundColor: '#fff',
