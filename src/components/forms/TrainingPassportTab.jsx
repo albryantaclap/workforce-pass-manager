@@ -190,15 +190,16 @@ export default function TrainingPassportTab({ selectedPersonnel }) {
             width: '210mm',
             height: '297mm',
             margin: '0 auto 12px',
-            padding: '5mm 8mm',
+            padding: '10mm',
             boxSizing: 'border-box',
             backgroundColor: 'white',
             border: '1px solid #ccc',
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gridTemplateRows: 'auto auto',
-            gap: '6mm',
+            gap: '10mm',
             alignContent: 'start',
+            justifyContent: 'center',
             pageBreakAfter: pi < pages.length - 1 ? 'always' : 'auto',
           }}
         >
@@ -229,7 +230,7 @@ export default function TrainingPassportTab({ selectedPersonnel }) {
             width: 210mm !important;
             height: 297mm !important;
             margin: 0 auto !important;
-            padding: 5mm 8mm !important;
+            padding: 10mm !important;
             border: none !important;
             box-shadow: none !important;
             page-break-after: always !important;
