@@ -155,6 +155,10 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
     return '#f59e0b';
   };
 
+  // DIR / INDIR counts
+  const dirCount = filtered.filter(e => (e.dir_indir || '').trim().toUpperCase() === 'DIR').length;
+  const indirCount = filtered.filter(e => (e.dir_indir || '').trim().toUpperCase() === 'INDIR').length;
+
   // Location / Mobilized counts
   const locationCounts = Object.entries(
     filtered.reduce((acc, e) => {
@@ -200,10 +204,28 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter) {
         <span style="color:#475569">${item.name}</span>
         <span style="font-weight:700;color:#1e293b;margin-left:auto">${item.count}</span>
       </div>`).join('');
+    const dirIndirHTML = `
+      <div style="display:flex;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0">
+        <div style="flex:1;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 10px;text-align:center">
+          <div style="font-size:9px;color:#3b82f6;font-weight:600;margin-bottom:2px">DIR</div>
+          <div style="font-size:16px;font-weight:800;color:#1d4ed8">${dirCount}</div>
+        </div>
+        <div style="flex:1;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;text-align:center">
+          <div style="font-size:9px;color:#475569;font-weight:600;margin-bottom:2px">INDIR</div>
+          <div style="font-size:16px;font-weight:800;color:#334155">${indirCount}</div>
+        </div>
+        <div style="flex:1;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:6px 10px;text-align:center">
+          <div style="font-size:9px;color:#16a34a;font-weight:600;margin-bottom:2px">TOTAL</div>
+          <div style="font-size:16px;font-weight:800;color:#15803d">${filtered.length}</div>
+        </div>
+      </div>`;
     locationPieHTML = `
-      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
         <svg width="160" height="160" viewBox="0 0 160 160">${svgSlices}${svgLabels}</svg>
-        <div style="flex:1;min-width:100px">${legendHTML}</div>
+        <div style="flex:1;min-width:100px">
+          ${legendHTML}
+          ${dirIndirHTML}
+        </div>
       </div>`;
   } else {
     locationPieHTML = '<p style="color:#94a3b8;font-size:10px">No data</p>';

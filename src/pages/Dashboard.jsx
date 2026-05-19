@@ -453,12 +453,7 @@ export default function Dashboard() {
               <span className="text-xs font-medium opacity-80">INDIR</span>
               <span className="font-bold text-lg leading-none">{indirCount}</span>
             </div>
-            {dirIndirUnknown > 0 && (
-              <div className="flex items-center gap-1.5 bg-muted text-muted-foreground rounded-xl px-3 py-2">
-                <span className="text-xs font-medium">N/A</span>
-                <span className="font-bold text-lg leading-none">{dirIndirUnknown}</span>
-              </div>
-            )}
+
           </div>
         </div>
       </div>
