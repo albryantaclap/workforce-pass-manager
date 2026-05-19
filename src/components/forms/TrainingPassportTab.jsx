@@ -219,7 +219,7 @@ export default function TrainingPassportTab({ selectedPersonnel }) {
 
       <style>{`
         @media print {
-          @page { size: A4 portrait; margin: 0; }
+          @page { size: A4 portrait; margin: 12mm; }
           .no-print { display: none !important; }
           body * { visibility: hidden !important; }
           .printable-area, .printable-area * { visibility: visible !important; }
@@ -227,10 +227,10 @@ export default function TrainingPassportTab({ selectedPersonnel }) {
           .printable-area {
             position: relative !important;
             top: auto !important; left: auto !important;
-            width: 210mm !important;
-            height: 297mm !important;
-            margin: 0 auto !important;
-            padding: 10mm !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
             border: none !important;
             box-shadow: none !important;
             page-break-after: always !important;
