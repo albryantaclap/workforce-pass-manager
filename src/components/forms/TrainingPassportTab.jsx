@@ -72,7 +72,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
     fontWeight: 'bold',
     fontSize: '10.8px',
     padding: '1px 3px',
-    borderRight: '0.75px solid #000',
+
     width: '38mm',
     flexShrink: 0,
     display: 'flex',
