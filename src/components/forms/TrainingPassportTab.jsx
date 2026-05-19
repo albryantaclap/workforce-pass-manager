@@ -140,7 +140,7 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
         })}
         {/* Signature row — taller than normal rows */}
         <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '6.5mm', flex: 1 }}>
-          <div style={{ ...labelStyle, backgroundColor: '#d9d9d9', alignItems: 'flex-start', paddingTop: '3px', fontSize: '10.8px', fontWeight: 'bold' }}>SIGNATURE:</div>
+          <div style={{ ...labelStyle, backgroundColor: '#fff', alignItems: 'flex-start', paddingTop: '3px', fontSize: '10.8px', fontWeight: 'bold' }}>SIGNATURE:</div>
           <div style={{ ...valueStyle, backgroundColor: '#fff' }}></div>
         </div>
       </div>
