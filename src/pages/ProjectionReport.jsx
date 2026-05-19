@@ -413,7 +413,7 @@ function buildGrandTotalHTML(companyData, assignments = []) {
   const COMPANY_CATEGORIES = {
     'KM STEEL - MOSTAFA (GSO)': 'STEEL STRUCTURE',
     'QTRS - ALAVON (GSO)': 'CIVIL',
-    'VMANES (GSO)': 'MECHANICAL AND CIVIL',
+    'VMANES (GSO)': 'MECHANICAL & CIVIL',
     'GSO QATAR': '',
     'INTEGRATED (GSO)': 'STEEL STRUCTURE & CIVIL',
     'TEXON (GSO)': 'LOGISTICS',
@@ -422,25 +422,25 @@ function buildGrandTotalHTML(companyData, assignments = []) {
     'GSO LOGISTICS': 'DRIVERS AND OPERATORS',
     'KHALED PROJECTS': 'DRIVERS AND OPERATORS',
     'AUTO XPERT': 'DRIVERS AND OPERATORS',
-    'SIGEL (GSO)': 'MECHANICAL - PIPELINE - STEEL',
-    'CRYSTAL': 'MECHANICAL - PIPELINE - STEEL',
+    'SIGEL (GSO)': 'MECHANICAL - PIPELINE',
+    'CRYSTAL': 'MECHANICAL - PIPELINE',
     'ZEAL-IT': 'RIGGERS',
     'QSS': 'SECURITY',
     'INFINITY (GSO)': 'STEEL STRUCTURE & CIVIL',
     'WENMA': 'SCAFFOLDING',
     'MIR (GSO)': 'STEEL STRUCTURE',
     'AL JABER (GSO)': 'HEAVY LIFT',
-    'AL-RAMSHA (GSO)': 'ROTARY',
+    'AL-RAMSHA (GSO)': 'MECHANICAL - ROTARY',
     'METAL WORLD': 'MECHANICAL & STEEL STRUCTURE',
     'ALTHAF (GSO)': 'STEEL STRUCTURE',
     'ALTAF (GSO)': 'STEEL STRUCTURE',
     'ARKAN GULF (GSO)': 'ELECTRICAL (NEW)',
     'ANION': 'CATHODIC',
-    'ENERSERVE (GSO)': 'ELECTRICAL',
+    'ENERSERVE (GSO)': 'MECHANICAL & ELECTRICAL',
     'LMV E AND I': 'ELECTRICAL',
     'MEGATRONICS (GSO)': 'STEEL STRUCTURE & ELECTRICAL',
     'NTC (GSO)': 'ELECTRICAL',
-    'SEA QUEEN': 'INSTRUMENTATION',
+    'SEA QUEEN': 'MECHANICAL & INSTRUMENTATION',
     'ITELLIGENT': 'TELECOMMUNICATION',
   };
 
@@ -472,19 +472,8 @@ const companies = Object.keys(companyData).sort((a, b) => {
       <td class="left">${co}</td>
 
       <!-- CATEGORY COLUMN -->
-      <td class="left">
-        <input
-          type="text"
-          value="${COMPANY_CATEGORIES[co] || ''}"
-          style="
-            width:100%;
-            border:none;
-            background:transparent;
-            outline:none;
-            font-size:11px;
-            font-family:Arial;
-          "
-        />
+      <td class="left" style="white-space:nowrap; font-size:10px; padding: 3px 5px;">
+        ${COMPANY_CATEGORIES[co] || ''}
       </td>
 
       <!-- MANAGER ASSIGNED COLUMN -->
@@ -540,7 +529,7 @@ const companies = Object.keys(companyData).sort((a, b) => {
               COMPANY
             </td>
 
-            <td class="hdr-col left" style="width:14%">
+            <td class="hdr-col left" style="width:20%">
               CATEGORY
             </td>
 
@@ -548,19 +537,19 @@ const companies = Object.keys(companyData).sort((a, b) => {
               MANAGER ASSIGNED
             </td>
 
-            <td class="hdr-col c-medical" style="width:7%">PENDING MEDICAL</td>
+            <td class="hdr-col c-medical" style="width:6%">PENDING MEDICAL</td>
 
-            <td class="hdr-col c-medical" style="width:7%">FTW / APPROVED</td>
+            <td class="hdr-col c-medical" style="width:6%">FTW / APPROVED</td>
 
-            <td class="hdr-col c-gatepass" style="width:7%">GP UNDER PROCESS</td>
+            <td class="hdr-col c-gatepass" style="width:6%">GP UNDER PROCESS</td>
 
-            <td class="hdr-col c-gatepass" style="width:7%">VALID GATEPASS</td>
+            <td class="hdr-col c-gatepass" style="width:6%">VALID GATEPASS</td>
 
-            <td class="hdr-col c-training" style="width:7%">SCHEDULED</td>
+            <td class="hdr-col c-training" style="width:6%">SCHEDULED</td>
 
-            <td class="hdr-col c-training" style="width:7%">ON-GOING</td>
+            <td class="hdr-col c-training" style="width:6%">ON-GOING</td>
 
-            <td class="hdr-col c-training" style="width:7%">COMPLETED</td>
+            <td class="hdr-col c-training" style="width:6%">COMPLETED</td>
 
             <td class="hdr-col c-pid" style="width:4%">PID</td>
 
