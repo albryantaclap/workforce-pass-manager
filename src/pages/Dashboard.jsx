@@ -310,6 +310,9 @@ export default function Dashboard() {
   }
 
   const total = filtered.length;
+  const dirCount = filtered.filter(e => (e.dir_indir || '').trim().toUpperCase() === 'DIR').length;
+  const indirCount = filtered.filter(e => (e.dir_indir || '').trim().toUpperCase() === 'INDIR').length;
+  const dirIndirUnknown = total - dirCount - indirCount;
   const getRlic = e => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
   const getPid = e => computePassStatus(e.pid_expiry, 'pid', e.pid_status);
   const validRlic = filtered.filter(e => getRlic(e) === 'VALID RLIC PASS').length;
@@ -436,10 +439,26 @@ export default function Dashboard() {
           <Button variant="outline" size="sm" onClick={() => setShowReport(true)} className="gap-1.5">
             <Printer className="w-4 h-4" /> Print / PDF
           </Button>
-          <div className="flex items-center gap-2 bg-primary text-primary-foreground rounded-xl px-4 py-2 shadow-md shadow-primary/25">
-            <Users className="w-4 h-4" />
-            <span className="font-bold text-lg leading-none">{total}</span>
-            <span className="text-xs opacity-80">Personnel</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-primary text-primary-foreground rounded-xl px-4 py-2 shadow-md shadow-primary/25">
+              <Users className="w-4 h-4" />
+              <span className="font-bold text-lg leading-none">{total}</span>
+              <span className="text-xs opacity-80">Total</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-blue-600 text-white rounded-xl px-3 py-2 shadow-md shadow-blue-600/25">
+              <span className="text-xs font-medium opacity-80">DIR</span>
+              <span className="font-bold text-lg leading-none">{dirCount}</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-slate-600 text-white rounded-xl px-3 py-2 shadow-md shadow-slate-600/25">
+              <span className="text-xs font-medium opacity-80">INDIR</span>
+              <span className="font-bold text-lg leading-none">{indirCount}</span>
+            </div>
+            {dirIndirUnknown > 0 && (
+              <div className="flex items-center gap-1.5 bg-muted text-muted-foreground rounded-xl px-3 py-2">
+                <span className="text-xs font-medium">N/A</span>
+                <span className="font-bold text-lg leading-none">{dirIndirUnknown}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
