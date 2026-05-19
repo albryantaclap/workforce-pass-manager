@@ -11,8 +11,8 @@ const TODAY = format(new Date(), 'dd-MM-yyyy');
 // Top section: 38mm, 9 data rows × 6.5mm = 58.5mm, signature 12mm → ~108.5mm total ✓
 function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
   const cardStyle = {
-    width: '90mm',
-    height: '133.5mm',
+    width: '85mm',
+    height: '125mm',
     border: '3px double #000',
     fontFamily: 'Arial, Helvetica, sans-serif',
     boxSizing: 'border-box',
@@ -195,10 +195,10 @@ export default function TrainingPassportTab({ selectedPersonnel }) {
             backgroundColor: 'white',
             border: '1px solid #ccc',
             display: 'grid',
-            gridTemplateColumns: '90mm 90mm',
-            gridTemplateRows: '133.5mm 133.5mm',
+            gridTemplateColumns: '1fr 1fr',
+            gridTemplateRows: 'auto auto',
             gap: '10mm',
-            alignContent: 'center',
+            alignContent: 'start',
             justifyContent: 'center',
             pageBreakAfter: pi < pages.length - 1 ? 'always' : 'auto',
           }}
