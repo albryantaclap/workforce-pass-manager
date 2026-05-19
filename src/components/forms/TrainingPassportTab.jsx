@@ -57,40 +57,23 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
     paddingLeft: '4px',
   };
 
-  const AUTO_HEIGHT_ROWS = new Set(['NAME:', 'POSITION:']);
-
   const fieldRowStyle = {
-    display: 'flex',
     borderBottom: '0.75px solid #000',
     minHeight: '6.5mm',
-    alignItems: 'stretch',
     boxSizing: 'border-box',
-    flexShrink: 0,
-  };
-
-  const labelStyle = {
-    fontWeight: 'bold',
-    fontSize: '10.8px',
-    padding: '1px 3px',
-
-    width: '38mm',
     flexShrink: 0,
     display: 'flex',
     alignItems: 'center',
-    whiteSpace: 'nowrap',
-    boxSizing: 'border-box',
+    padding: '1px 4px',
   };
 
-  const valueStyle = {
+  const inlineTextStyle = {
     fontSize: '10.8px',
     fontWeight: 'bold',
-    padding: '1px 3px',
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
+    whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
     overflowWrap: 'break-word',
-    boxSizing: 'border-box',
+    lineHeight: '1.3',
   };
 
   const GRAY_ROWS = new Set(['NAME:', 'NATIONALITY:', 'COMPANY:', 'POSITION:', 'DATE OF EMPLOYMENT:']);
@@ -130,18 +113,17 @@ function PassportCard({ person, craft, dateIssued, dateEmployment, isEmpty }) {
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         {fields.map(({ label, value }) => {
           const rowBg = GRAY_ROWS.has(label) ? '#d9d9d9' : '#fff';
-          const isAutoHeight = AUTO_HEIGHT_ROWS.has(label);
           return (
-            <div key={label} style={{ ...fieldRowStyle, height: isAutoHeight ? 'auto' : '6.5mm', minHeight: '6.5mm' }}>
-              <div style={{ ...labelStyle, backgroundColor: rowBg, alignItems: isAutoHeight ? 'flex-start' : 'center', paddingTop: isAutoHeight ? '2px' : '1px' }}>{label}</div>
-              <div style={{ ...valueStyle, backgroundColor: rowBg, alignItems: isAutoHeight ? 'flex-start' : 'center', paddingTop: isAutoHeight ? '2px' : '1px', flexWrap: 'wrap' }}>{value}</div>
+            <div key={label} style={{ ...fieldRowStyle, backgroundColor: rowBg }}>
+              <span style={inlineTextStyle}>
+                <span style={{ fontWeight: 'bold' }}>{label}</span>{' '}{value}
+              </span>
             </div>
           );
         })}
-        {/* Signature row — taller than normal rows */}
-        <div style={{ ...fieldRowStyle, borderBottom: 'none', height: '6.5mm', flex: 1 }}>
-          <div style={{ ...labelStyle, backgroundColor: '#fff', alignItems: 'flex-start', paddingTop: '3px', fontSize: '10.8px', fontWeight: 'bold' }}>SIGNATURE:</div>
-          <div style={{ ...valueStyle, backgroundColor: '#fff' }}></div>
+        {/* Signature row */}
+        <div style={{ ...fieldRowStyle, borderBottom: 'none', flex: 1, alignItems: 'flex-start', paddingTop: '3px', backgroundColor: '#fff' }}>
+          <span style={{ ...inlineTextStyle, fontWeight: 'bold' }}>SIGNATURE:</span>
         </div>
       </div>
     </div>
