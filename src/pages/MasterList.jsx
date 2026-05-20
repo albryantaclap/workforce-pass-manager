@@ -257,29 +257,29 @@ export default function MasterList() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input placeholder="Name, QID, PP, PID..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} className="pl-9" />
           </div>
-          <MultiSelect options={uniqueCompanies} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" />
-          <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="Filter by position" />
-          <MultiSelect options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="Filter by department" />
+          <MultiSelect options={uniqueCompanies} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" className="dropdown-company" />
+          <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="Filter by position" className="dropdown-position" />
+          <MultiSelect options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="Filter by department" className="dropdown-department" />
           <Select value={rlicFilter} onValueChange={setRlicFilter}>
-            <SelectTrigger><SelectValue placeholder="RLIC Status" /></SelectTrigger>
+            <SelectTrigger className="dropdown-status"><SelectValue placeholder="RLIC Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All RLIC</SelectItem>
               {rlicStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <MultiSelect options={pidStatusOptions} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="PID Status" />
-          <MultiSelect options={allGpStatusOptions} value={gpStatusFilter} onChange={setGpStatusFilter} placeholder="GP Statuses" />
-          <MultiSelect options={[{ value: 'NEW', label: 'New' }, ...medicalResultOptions]} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="Medical Result" />
+          <MultiSelect options={pidStatusOptions} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="PID Status" className="dropdown-status" />
+          <MultiSelect options={allGpStatusOptions} value={gpStatusFilter} onChange={setGpStatusFilter} placeholder="GP Statuses" className="dropdown-status" />
+          <MultiSelect options={[{ value: 'NEW', label: 'New' }, ...medicalResultOptions]} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="Medical Result" className="dropdown-status" />
           <div className="flex gap-2">
             <Select value={locationFilter} onValueChange={setLocationFilter}>
-              <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
+              <SelectTrigger className="dropdown-location"><SelectValue placeholder="Location" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
                 {locationOptions.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={dirFilter} onValueChange={setDirFilter}>
-              <SelectTrigger className="w-28"><SelectValue placeholder="Type" /></SelectTrigger>
+              <SelectTrigger className="w-28 dropdown-location"><SelectValue placeholder="Type" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="DIR">DIR</SelectItem>
@@ -288,13 +288,13 @@ export default function MasterList() {
             </Select>
           </div>
           <Select value={trainingStatusFilter} onValueChange={setTrainingStatusFilter}>
-             <SelectTrigger><SelectValue placeholder="Training Status" /></SelectTrigger>
+             <SelectTrigger className="dropdown-training"><SelectValue placeholder="Training Status" /></SelectTrigger>
              <SelectContent>
                <SelectItem value="all">All Training Status</SelectItem>
                {trainingStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
              </SelectContent>
            </Select>
-           <select value={selectedManager} onChange={(e) => setSelectedManager(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+           <select value={selectedManager} onChange={(e) => setSelectedManager(e.target.value)} className="dropdown-manager w-full h-9 rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-purple-400">
              <option value="">Manager Name</option>
              {managers.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
            </select>
@@ -360,7 +360,7 @@ export default function MasterList() {
       <Card className="overflow-hidden">
         <div className="table-scroll-x">
           <div className="table-scroll-y h-[560px]">
-          <Table>
+          <Table className="table-list-view">
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="bg-muted/50">
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap w-10">Photo</TableHead>

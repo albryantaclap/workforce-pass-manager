@@ -71,15 +71,15 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Company</p>
-            <MultiSelect options={options.companies} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." />
+            <MultiSelect options={options.companies} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." className="dropdown-company" />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Position / Designation</p>
-            <MultiSelect options={options.positions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." />
+            <MultiSelect options={options.positions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." className="dropdown-position" />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Department</p>
-            <MultiSelect options={options.departments} value={departmentFilter} onChange={setDepartmentFilter} placeholder="All departments..." />
+            <MultiSelect options={options.departments} value={departmentFilter} onChange={setDepartmentFilter} placeholder="All departments..." className="dropdown-department" />
           </div>
         </div>
 
@@ -87,19 +87,19 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Status</p>
-            <MultiSelect options={options.rlicStatuses} value={rlicStatusFilter} onChange={setRlicStatusFilter} placeholder="All statuses..." />
+            <MultiSelect options={options.rlicStatuses} value={rlicStatusFilter} onChange={setRlicStatusFilter} placeholder="All statuses..." className="dropdown-status" />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Training Status</p>
-            <MultiSelect options={options.trainingStatuses} value={trainingStatusFilter} onChange={setTrainingStatusFilter} placeholder="All statuses..." />
+            <MultiSelect options={options.trainingStatuses} value={trainingStatusFilter} onChange={setTrainingStatusFilter} placeholder="All statuses..." className="dropdown-training" />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Status</p>
-            <MultiSelect options={options.pidStatuses} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="All statuses..." />
+            <MultiSelect options={options.pidStatuses} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="All statuses..." className="dropdown-status" />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical Result</p>
-            <MultiSelect options={options.medicalResults} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="All results..." />
+            <MultiSelect options={options.medicalResults} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="All results..." className="dropdown-status" />
           </div>
         </div>
 

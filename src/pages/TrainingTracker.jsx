@@ -222,7 +222,7 @@ export default function TrainingTracker() {
                 <Input placeholder="Search name or QID..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-44 dropdown-training"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   {trainingStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
@@ -233,7 +233,7 @@ export default function TrainingTracker() {
           <Card className="overflow-hidden">
             <div className="table-scroll-x">
               <div className="table-scroll-y h-[560px]">
-              <Table>
+              <Table className="table-list-view">
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow className="bg-muted/50">
                     <TableHead className="text-xs bg-muted/50 w-10">Photo</TableHead>

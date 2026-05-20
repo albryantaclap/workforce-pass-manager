@@ -337,6 +337,7 @@ export default function GatepassTracker() {
                 value={statusFilter}
                 onChange={setStatusFilter}
                 placeholder="All Statuses"
+                className="dropdown-status"
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-3 mt-3 items-end">
@@ -360,7 +361,7 @@ export default function GatepassTracker() {
           <Card className="overflow-hidden">
             <div className="table-scroll-x">
               <div className="table-scroll-y h-[560px]">
-              <Table>
+              <Table className="table-list-view">
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow className="bg-muted/50">
                     <TableHead className="text-xs bg-muted/50 w-10">Photo</TableHead>

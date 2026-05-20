@@ -121,6 +121,69 @@
   border-radius: 4px;
 }
 
+/* ── Table / List view — unified font size ── */
+.table-list-view th,
+.table-list-view td {
+  font-size: 11px !important;
+}
+
+/* ── Colored dropdown variants ── */
+/* Company → soft blue */
+.dropdown-company {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+}
+.dropdown-company:hover { background-color: #dbeafe !important; }
+.dropdown-company:focus-within { box-shadow: 0 0 0 1px #3b82f6 !important; }
+
+/* Department → soft green */
+.dropdown-department {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+.dropdown-department:hover { background-color: #dcfce7 !important; }
+.dropdown-department:focus-within { box-shadow: 0 0 0 1px #22c55e !important; }
+
+/* Status (gate pass / RLIC / PID / medical) → soft orange */
+.dropdown-status {
+  background-color: #fff7ed !important;
+  border-color: #fed7aa !important;
+}
+.dropdown-status:hover { background-color: #ffedd5 !important; }
+.dropdown-status:focus-within { box-shadow: 0 0 0 1px #f97316 !important; }
+
+/* Training → soft teal */
+.dropdown-training {
+  background-color: #f0fdfa !important;
+  border-color: #99f6e4 !important;
+}
+.dropdown-training:hover { background-color: #ccfbf1 !important; }
+.dropdown-training:focus-within { box-shadow: 0 0 0 1px #14b8a6 !important; }
+
+/* Manager → soft purple */
+.dropdown-manager {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+.dropdown-manager:hover { background-color: #f3e8ff !important; }
+.dropdown-manager:focus-within { box-shadow: 0 0 0 1px #a855f7 !important; }
+
+/* Position → soft indigo */
+.dropdown-position {
+  background-color: #eef2ff !important;
+  border-color: #c7d2fe !important;
+}
+.dropdown-position:hover { background-color: #e0e7ff !important; }
+.dropdown-position:focus-within { box-shadow: 0 0 0 1px #6366f1 !important; }
+
+/* Location → soft amber */
+.dropdown-location {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+.dropdown-location:hover { background-color: #fef3c7 !important; }
+.dropdown-location:focus-within { box-shadow: 0 0 0 1px #f59e0b !important; }
+
 /* Compact date picker inputs — consistent across all modules */
 input[type="date"] {
   font-size: 0.75rem;   /* text-xs */

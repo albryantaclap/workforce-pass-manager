@@ -358,6 +358,7 @@ export default function ProjectIDTracker() {
                 value={statusFilter}
                 onChange={setStatusFilter}
                 placeholder="All Statuses"
+                className="dropdown-status"
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-3 mt-3 items-end">
@@ -375,7 +376,7 @@ export default function ProjectIDTracker() {
               <div className="flex-1">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Training Status</p>
                 <Select value={trainingFilter} onValueChange={setTrainingFilter}>
-                  <SelectTrigger className="text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+                  <SelectTrigger className="text-xs dropdown-training"><SelectValue placeholder="All" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
                     {trainingStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
@@ -384,7 +385,7 @@ export default function ProjectIDTracker() {
               </div>
               <div className="flex-1">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Gate Pass Status</p>
-                <MultiSelect options={rlicStatusOptions} value={gatePassFilter} onChange={setGatePassFilter} placeholder="All Gate Pass" />
+                <MultiSelect options={rlicStatusOptions} value={gatePassFilter} onChange={setGatePassFilter} placeholder="All Gate Pass" className="dropdown-status" />
               </div>
             </div>
           </Card>
@@ -394,7 +395,7 @@ export default function ProjectIDTracker() {
           <Card className="overflow-hidden">
             <div className="table-scroll-x">
               <div className="table-scroll-y h-[560px]">
-              <Table>
+              <Table className="table-list-view">
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow className="bg-muted/50">
                     <TableHead className="text-xs bg-muted/50 w-10">Photo</TableHead>

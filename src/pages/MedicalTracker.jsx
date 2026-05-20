@@ -294,7 +294,7 @@ export default function MedicalTracker() {
                 <Input placeholder="Search name or QID..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
               </div>
               <Select value={resultFilter} onValueChange={setResultFilter}>
-                <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Result" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-40 dropdown-status"><SelectValue placeholder="Result" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Results</SelectItem>
                   {allMedicalResults.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
@@ -322,7 +322,7 @@ export default function MedicalTracker() {
           <Card className="overflow-hidden">
             <div className="table-scroll-x">
               <div className="table-scroll-y h-[560px]">
-              <Table>
+              <Table className="table-list-view">
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow className="bg-muted/50">
                     <TableHead className="text-xs bg-muted/50 w-10">Photo</TableHead>
