@@ -1,14 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, X } from 'lucide-react';
 
-const COMPANIES = [
-  'GSO QATAR','ITELLIGENT','ANION','SEA QUEEN','LMV E AND I','METAL WORLD','ASMA','FIT',
-  'SPRAY CON','EMKAN','ENERTEC','CRYSTAL','MEGATRONICS (GSO)','ENERSERVE (GSO)',
-  'ENERTEC (GSO)','NTC (GSO)','MIR (GSO)','ALTAF (GSO)','SWAN GLOBAL (GSO)',
-  'SIGEL (GSO)','AL-RAMSHA (GSO)','ALTHAF (GSO)','ZEAL-IT'
-];
+
 const DEPARTMENTS = ['Electrical','Mechanical','Civil','Services'];
 
 const GP_STATUSES = ['VALID RLIC PASS','EXPIRED RLIC PASS','SOON TO EXPIRE','NO RLIC PASS'];
@@ -50,6 +45,17 @@ export default function FormFilters({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterCompany, filterDepartment, filterGpDate, filterTrainingDate, filterPidDate, filterGpStatus, filterTrainingStatus, filterPidStatus, filterMedicalResult, employees]);
 
+  const companyOptions = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    for (const e of employees) {
+      const val = (e.company || '').trim();
+      const key = val.toUpperCase();
+      if (val && !seen.has(key)) { seen.add(key); result.push(val); }
+    }
+    return result.sort();
+  }, [employees]);
+
   const searchFiltered = search
     ? employees.filter(e =>
         !selectedPersonnel.find(p => p.id === e.id) && (
@@ -71,7 +77,7 @@ export default function FormFilters({
           <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={filterCompany} onChange={e => { clearPersonnel(); setFilterCompany(e.target.value); }}>
             <option value="">All Companies</option>
-            {COMPANIES.map(c => <option key={c} value={c}>{c}</option>)}
+            {companyOptions.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
