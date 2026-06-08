@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Folder, Image, ChevronRight, Loader2, ArrowLeft, HardDrive, Search } from 'lucide-react';
@@ -25,9 +25,12 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
   const [drives, setDrives] = useState([]);
   const [selectedDrive, setSelectedDrive] = useState(null);
   const [items, setItems] = useState([]);
+  const [nextLink, setNextLink] = useState(null);
   const [breadcrumb, setBreadcrumb] = useState([]); // [{id, name}]
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [searching, setSearching] = useState(false);
+  const searchTimeout = React.useRef(null);
 
   useEffect(() => {
     if (open) loadDrives();
@@ -63,15 +66,40 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
   const loadFolder = async (driveId, itemId, crumbs) => {
     setLoading(true);
     setError(null);
+    setSearch('');
     try {
-      const { items } = await call({ action: 'listFiles', driveId, itemId });
-      setItems(items);
+      const res = await call({ action: 'listFiles', driveId, itemId });
+      setItems(res.items || []);
+      setNextLink(res.nextLink || null);
       setBreadcrumb(crumbs);
-      setSearch('');
     } catch (e) {
       setError(e.message);
     }
     setLoading(false);
+  };
+
+  const handleSearch = (value) => {
+    setSearch(value);
+    clearTimeout(searchTimeout.current);
+    if (!value.trim()) {
+      // reload current folder
+      const parentId = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].id : null;
+      loadFolder(selectedDrive.id, parentId, breadcrumb);
+      return;
+    }
+    searchTimeout.current = setTimeout(async () => {
+      setSearching(true);
+      setError(null);
+      try {
+        const parentId = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].id : null;
+        const res = await call({ action: 'searchFiles', driveId: selectedDrive.id, itemId: parentId, query: value });
+        setItems(res.items || []);
+        setNextLink(null);
+      } catch (e) {
+        setError(e.message);
+      }
+      setSearching(false);
+    }, 500);
   };
 
   const openFolder = (item) => {
@@ -103,10 +131,6 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
       setError(e.message);
     }
     setLoading(false);
-  };
-
-  const getThumbnail = (item) => {
-    return item.thumbnails?.[0]?.small?.url || null;
   };
 
   return (
@@ -145,7 +169,7 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
             <Input
               placeholder="Search files and folders..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => handleSearch(e.target.value)}
               className="pl-8 text-xs h-8"
             />
           </div>
@@ -154,7 +178,7 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
         {error && <p className="text-xs text-destructive">{error}</p>}
 
         <div className="flex-1 overflow-y-auto min-h-0">
-          {loading ? (
+          {(loading || searching) ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
@@ -174,27 +198,41 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
             </div>
           ) : (
             // File/folder list
-            <div className="grid grid-cols-3 gap-2 p-1">
-              {items.filter(i => (i.folder || isImage(i)) && (!search || i.name.toLowerCase().includes(search.toLowerCase()))).map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => item.folder ? openFolder(item) : selectImage(item)}
-                  className="flex flex-col items-center gap-2 p-3 rounded-lg border hover:bg-accent text-center group"
-                >
-                  {item.folder ? (
-                    <Folder className="w-10 h-10 text-amber-400" />
-                  ) : getThumbnail(item) ? (
-                    <img src={getThumbnail(item)} alt={item.name} className="w-16 h-16 object-cover rounded" />
-                  ) : (
-                    <Image className="w-10 h-10 text-blue-400" />
-                  )}
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground truncate w-full text-center">{item.name}</span>
-                </button>
-              ))}
-              {items.filter(i => (i.folder || isImage(i)) && (!search || i.name.toLowerCase().includes(search.toLowerCase()))).length === 0 && (
-                <p className="col-span-3 text-center text-sm text-muted-foreground py-8">No images or folders found here.</p>
+            <>
+              <div className="grid grid-cols-3 gap-2 p-1">
+                {items.filter(i => i.folder || isImage(i)).map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => item.folder ? openFolder(item) : selectImage(item)}
+                    className="flex flex-col items-center gap-2 p-3 rounded-lg border hover:bg-accent text-center group"
+                  >
+                    {item.folder ? (
+                      <Folder className="w-10 h-10 text-amber-400" />
+                    ) : (
+                      <Image className="w-10 h-10 text-blue-400" />
+                    )}
+                    <span className="text-xs text-muted-foreground group-hover:text-foreground truncate w-full text-center">{item.name}</span>
+                  </button>
+                ))}
+                {items.filter(i => i.folder || isImage(i)).length === 0 && (
+                  <p className="col-span-3 text-center text-sm text-muted-foreground py-8">No images or folders found here.</p>
+                )}
+              </div>
+              {nextLink && !search && (
+                <div className="flex justify-center py-2">
+                  <Button variant="outline" size="sm" onClick={async () => {
+                    setLoading(true);
+                    try {
+                      const parentId = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].id : null;
+                      const res = await call({ action: 'listFiles', driveId: selectedDrive.id, itemId: parentId });
+                      setItems(prev => [...prev, ...(res.items || [])]);
+                      setNextLink(res.nextLink || null);
+                    } catch (e) { setError(e.message); }
+                    setLoading(false);
+                  }}>Load more</Button>
+                </div>
               )}
-            </div>
+            </>
           )}
         </div>
 

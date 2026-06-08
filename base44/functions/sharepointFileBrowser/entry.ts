@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { action, driveId, itemId, path } = await req.json();
+    const { action, driveId, itemId, path, query } = await req.json();
 
     const { accessToken } = await base44.asServiceRole.connectors.getConnection("share_point");
 
@@ -33,20 +33,25 @@ Deno.serve(async (req) => {
       } else {
         url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root/children`;
       }
-      url += '?$top=500&$select=id,name,file,folder,thumbnails&$expand=thumbnails';
+      // No thumbnail expand — too slow for large folders
+      url += '?$top=200&$select=id,name,file,folder';
+      const res = await fetch(url, { headers });
+      const data = await res.json();
+      return Response.json({ items: data.value || [], nextLink: data['@odata.nextLink'] || null });
+    }
 
-      // Paginate up to 5 pages (max 2500 items) to avoid timeouts
-      const allItems = [];
-      let nextUrl = url;
-      let pages = 0;
-      while (nextUrl && pages < 5) {
-        const res = await fetch(nextUrl, { headers });
-        const data = await res.json();
-        if (data.value) allItems.push(...data.value);
-        nextUrl = data['@odata.nextLink'] || null;
-        pages++;
+    if (action === 'searchFiles') {
+      const searchQuery = query || '';
+      let url;
+      if (itemId) {
+        url = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/search(q='${encodeURIComponent(searchQuery)}')`;
+      } else {
+        url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root/search(q='${encodeURIComponent(searchQuery)}')`;
       }
-      return Response.json({ items: allItems });
+      url += '?$top=100&$select=id,name,file,folder';
+      const res = await fetch(url, { headers });
+      const data = await res.json();
+      return Response.json({ items: (data.value || []).filter(i => i.file || i.folder) });
     }
 
     if (action === 'getDownloadUrl') {
