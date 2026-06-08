@@ -67,14 +67,8 @@ export default function PhotoUrlField({ photoUrl, name, onChange }) {
           )}
         </div>
 
-        {/* Upload / SharePoint */}
+        {/* SharePoint */}
         <div className="flex items-center gap-2 flex-wrap">
-          <label className="cursor-pointer">
-            <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-            <Button type="button" variant="outline" size="sm" disabled={uploading} asChild>
-              <span><Upload className="w-3.5 h-3.5 mr-1.5" />{uploading ? 'Uploading...' : 'Upload File'}</span>
-            </Button>
-          </label>
           <Button type="button" variant="outline" size="sm" onClick={() => setShowPicker(true)}>
             <FolderOpen className="w-3.5 h-3.5 mr-1.5" /> Browse SharePoint
           </Button>
