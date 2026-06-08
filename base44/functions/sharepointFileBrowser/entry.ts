@@ -53,10 +53,16 @@ Deno.serve(async (req) => {
       const meta = await metaRes.json();
 
       const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-      const imageBytes = await imgRes.arrayBuffer();
+      const imageBytes = new Uint8Array(await imgRes.arrayBuffer());
 
-      // Return as base64 so frontend can upload it to Base44 storage
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(imageBytes)));
+      // Safe base64 encoding that handles large files
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < imageBytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...imageBytes.subarray(i, i + chunkSize));
+      }
+      const base64 = btoa(binary);
+
       return Response.json({
         base64,
         contentType,
