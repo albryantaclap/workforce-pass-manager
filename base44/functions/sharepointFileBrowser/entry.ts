@@ -40,18 +40,17 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'getDownloadUrl') {
-      // Get the download URL from Graph API
-      const metaRes = await fetch(
-        `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}?$select=id,name,file,@microsoft.graph.downloadUrl`,
-        { headers }
-      );
-      const data = await metaRes.json();
-      const downloadUrl = data['@microsoft.graph.downloadUrl'];
-      if (!downloadUrl) return Response.json({ error: 'No download URL' }, { status: 404 });
+      // Use the /content endpoint which redirects directly to the file bytes
+      const contentUrl = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/content`;
+      const imgRes = await fetch(contentUrl, { headers });
+      if (!imgRes.ok) {
+        const errText = await imgRes.text();
+        return Response.json({ error: `Failed to fetch image: ${imgRes.status} ${errText}` }, { status: 502 });
+      }
 
-      // Proxy the image bytes back to the frontend
-      const imgRes = await fetch(downloadUrl);
-      if (!imgRes.ok) return Response.json({ error: 'Failed to fetch image' }, { status: 502 });
+      // Get filename from meta
+      const metaRes = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}?$select=name`, { headers });
+      const meta = await metaRes.json();
 
       const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
       const imageBytes = await imgRes.arrayBuffer();
@@ -61,7 +60,7 @@ Deno.serve(async (req) => {
       return Response.json({
         base64,
         contentType,
-        fileName: data.name || 'photo.jpg'
+        fileName: meta.name || 'photo.jpg'
       });
     }
 
