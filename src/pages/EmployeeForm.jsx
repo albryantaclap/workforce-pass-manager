@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Upload, User, UserCheck, UserX, Shield } from 'lucide-react';
+import { ArrowLeft, Save, Link2, User, UserCheck, UserX, Shield } from 'lucide-react';
 import SharepointFormButton from '@/components/common/SharepointFormButton';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
@@ -78,7 +78,7 @@ export default function EmployeeForm() {
   const empId = isEdit ? pathParts[pathParts.indexOf('edit') - 1] : null;
   const { toast } = useToast();
   const [form, setForm] = useState(emptyForm);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showPhotoUrlInput, setShowPhotoUrlInput] = useState(false);
 
   const { data: existingEmp } = useQuery({
     queryKey: ['employee', empId],
@@ -216,15 +216,7 @@ export default function EmployeeForm() {
 
   const tf = { form, onChange: handleChange };
 
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploadingPhoto(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    handleChange('photo_url', file_url);
-    setUploadingPhoto(false);
-    toast({ title: 'Photo uploaded' });
-  };
+
 
   if (!canEdit) {
     return (
@@ -277,24 +269,30 @@ export default function EmployeeForm() {
             {isEdit && <SharepointFormButton value={form.sharepoint_url || ''} onChange={v => handleChange('sharepoint_url', v)} />}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Photo Upload */}
+            {/* Photo URL */}
             <div className="md:col-span-3 flex items-center gap-4">
               <div className="w-20 h-20 rounded-full border-2 border-dashed border-border overflow-hidden flex items-center justify-center bg-muted flex-shrink-0">
                 {form.photo_url ? (
-                  <img src={form.photo_url} alt="Photo" className="w-full h-full object-cover" />
+                  <img src={form.photo_url} alt="Photo" className="w-full h-full object-cover" onError={e => { e.target.style.display='none'; }} />
                 ) : (
                   <User className="w-8 h-8 text-muted-foreground" />
                 )}
               </div>
-              <div>
-                <Label className="text-xs block mb-1.5">Profile Photo (2×2)</Label>
-                <label className="cursor-pointer">
-                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                  <Button type="button" variant="outline" size="sm" disabled={uploadingPhoto} asChild>
-                    <span><Upload className="w-3.5 h-3.5 mr-2" />{uploadingPhoto ? 'Uploading...' : 'Upload Photo'}</span>
-                  </Button>
-                </label>
-                <p className="text-[11px] text-muted-foreground mt-1">Recommended: 2×2 passport-size photo</p>
+              <div className="flex-1">
+                <Label className="text-xs block mb-1.5">Profile Photo URL (SharePoint)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="Paste SharePoint photo URL..."
+                    value={form.photo_url || ''}
+                    onChange={e => handleChange('photo_url', e.target.value)}
+                    className="text-xs"
+                  />
+                  {form.photo_url && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleChange('photo_url', '')} className="text-xs text-destructive shrink-0">Clear</Button>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Paste a direct SharePoint image link (no credits used)</p>
               </div>
             </div>
             <TextInput field="sl_no" label="SL No" type="number" {...tf} />
