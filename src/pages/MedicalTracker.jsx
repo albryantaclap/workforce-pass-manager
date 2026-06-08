@@ -90,24 +90,35 @@ export default function MedicalTracker() {
 
   const positions = useMemo(() => [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p })), [employees]);
 
-  // Filter positions by selected departments and/or companies
+  // Cascade positions by company, department, gate pass status, and PID status
   const filteredPositions = useMemo(() => {
-    if (departmentFilter.length === 0 && companyFilter.length === 0) return positions;
-    const deptSet = departmentFilter.length > 0 ? new Set(departmentFilter.map(d => d.trim().toLowerCase())) : null;
+    const hasFilter = companyFilter.length > 0 || departmentFilter.length > 0 || rlicStatusFilter.length > 0 || pidStatusFilter.length > 0;
+    if (!hasFilter) return positions;
     const coSet = companyFilter.length > 0 ? new Set(companyFilter.map(c => c.trim().toUpperCase())) : null;
+    const deptSet = departmentFilter.length > 0 ? new Set(departmentFilter.map(d => d.trim().toLowerCase())) : null;
     const seen = new Set();
     return employees
-      .filter(e => e.designation_org_chart &&
-        (!deptSet || deptSet.has((e.department || '').trim().toLowerCase())) &&
-        (!coSet || coSet.has((e.company || '').trim().toUpperCase())))
+      .filter(e => {
+        if (!e.designation_org_chart) return false;
+        if (coSet && !coSet.has((e.company || '').trim().toUpperCase())) return false;
+        if (deptSet && !deptSet.has((e.department || '').trim().toLowerCase())) return false;
+        if (rlicStatusFilter.length > 0 && !rlicStatusFilter.includes(computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status))) return false;
+        if (pidStatusFilter.length > 0 && !pidStatusFilter.includes(computePassStatus(e.pid_expiry, 'pid', e.pid_status))) return false;
+        return true;
+      })
       .map(e => e.designation_org_chart.trim())
       .filter(p => { if (seen.has(p)) return false; seen.add(p); return true; })
       .sort()
       .map(p => ({ value: p, label: p }));
-  }, [employees, departmentFilter, companyFilter]);
+  }, [employees, companyFilter, departmentFilter, rlicStatusFilter, pidStatusFilter]);
 
-  // Reset position filter when department or company changes
-  useEffect(() => { setPositionFilter([]); }, [departmentFilter, companyFilter]);
+  // Reset position when any parent filter changes; keep only valid selections
+  useEffect(() => {
+    if (positionFilter.length === 0) return;
+    const valid = new Set(filteredPositions.map(p => p.value));
+    const still = positionFilter.filter(p => valid.has(p));
+    if (still.length !== positionFilter.length) setPositionFilter(still);
+  }, [filteredPositions]);
 
   const filtered = useMemo(() => employees.filter(e => {
     const matchesSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.qid_no?.includes(search);
