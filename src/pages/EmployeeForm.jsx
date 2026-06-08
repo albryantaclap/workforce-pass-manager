@@ -7,9 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Link2, User, UserCheck, UserX, Shield } from 'lucide-react';
+import { ArrowLeft, Save, Upload, User, UserCheck, UserX, Shield } from 'lucide-react';
 import SharepointFormButton from '@/components/common/SharepointFormButton';
-import PhotoUrlField from '@/components/common/PhotoUrlField';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
@@ -79,7 +78,7 @@ export default function EmployeeForm() {
   const empId = isEdit ? pathParts[pathParts.indexOf('edit') - 1] : null;
   const { toast } = useToast();
   const [form, setForm] = useState(emptyForm);
-  const [showPhotoUrlInput, setShowPhotoUrlInput] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const { data: existingEmp } = useQuery({
     queryKey: ['employee', empId],
@@ -217,7 +216,15 @@ export default function EmployeeForm() {
 
   const tf = { form, onChange: handleChange };
 
-
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    handleChange('photo_url', file_url);
+    setUploadingPhoto(false);
+    toast({ title: 'Photo uploaded' });
+  };
 
   if (!canEdit) {
     return (
@@ -270,12 +277,26 @@ export default function EmployeeForm() {
             {isEdit && <SharepointFormButton value={form.sharepoint_url || ''} onChange={v => handleChange('sharepoint_url', v)} />}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Photo URL */}
-            <PhotoUrlField
-              photoUrl={form.photo_url || ''}
-              name={form.name || ''}
-              onChange={url => handleChange('photo_url', url)}
-            />
+            {/* Photo Upload */}
+            <div className="md:col-span-3 flex items-center gap-4">
+              <div className="w-20 h-20 rounded-full border-2 border-dashed border-border overflow-hidden flex items-center justify-center bg-muted flex-shrink-0">
+                {form.photo_url ? (
+                  <img src={form.photo_url} alt="Photo" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+              <div>
+                <Label className="text-xs block mb-1.5">Profile Photo (2×2)</Label>
+                <label className="cursor-pointer">
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                  <Button type="button" variant="outline" size="sm" disabled={uploadingPhoto} asChild>
+                    <span><Upload className="w-3.5 h-3.5 mr-2" />{uploadingPhoto ? 'Uploading...' : 'Upload Photo'}</span>
+                  </Button>
+                </label>
+                <p className="text-[11px] text-muted-foreground mt-1">Recommended: 2×2 passport-size photo</p>
+              </div>
+            </div>
             <TextInput field="sl_no" label="SL No" type="number" {...tf} />
             <div className="md:col-span-2"><TextInput field="name" label="Full Name *" required {...tf} /></div>
             <TextInput field="position_application" label="Position (Application)" {...tf} />
