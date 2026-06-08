@@ -4,6 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Folder, Image, ChevronRight, Loader2, ArrowLeft, HardDrive } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
+function base64ToFile(base64, fileName, contentType) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new File([bytes], fileName, { type: contentType });
+}
+
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
 
 function isImage(item) {
@@ -81,9 +88,13 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
 
   const selectImage = async (item) => {
     setLoading(true);
+    setError(null);
     try {
-      const { downloadUrl } = await call({ action: 'getDownloadUrl', driveId: selectedDrive.id, itemId: item.id });
-      onSelect(downloadUrl);
+      const { base64, contentType, fileName } = await call({ action: 'getDownloadUrl', driveId: selectedDrive.id, itemId: item.id });
+      // Convert base64 to File and upload to Base44 storage for a stable embeddable URL
+      const file = base64ToFile(base64, fileName, contentType);
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      onSelect(file_url);
       onClose();
     } catch (e) {
       setError(e.message);
