@@ -33,10 +33,18 @@ Deno.serve(async (req) => {
       } else {
         url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root/children`;
       }
-      url += '?$select=id,name,file,folder,@microsoft.graph.downloadUrl,thumbnails&$expand=thumbnails';
-      const res = await fetch(url, { headers });
-      const data = await res.json();
-      return Response.json({ items: data.value || [] });
+      url += '?$top=999&$select=id,name,file,folder,@microsoft.graph.downloadUrl,thumbnails&$expand=thumbnails';
+
+      // Paginate through all results using @odata.nextLink
+      const allItems = [];
+      let nextUrl = url;
+      while (nextUrl) {
+        const res = await fetch(nextUrl, { headers });
+        const data = await res.json();
+        if (data.value) allItems.push(...data.value);
+        nextUrl = data['@odata.nextLink'] || null;
+      }
+      return Response.json({ items: allItems });
     }
 
     if (action === 'getDownloadUrl') {
