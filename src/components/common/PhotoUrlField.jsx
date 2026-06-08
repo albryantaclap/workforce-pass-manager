@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { User, Upload } from 'lucide-react';
+import { User, Upload, FolderOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
+import SharePointFilePicker from './SharePointFilePicker';
 
 export default function PhotoUrlField({ photoUrl, name, onChange }) {
   const [imgError, setImgError] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
   // Reset error when URL changes
   useEffect(() => { setImgError(false); }, [photoUrl]);
@@ -65,16 +67,24 @@ export default function PhotoUrlField({ photoUrl, name, onChange }) {
           )}
         </div>
 
-        {/* Upload fallback */}
-        <div className="flex items-center gap-3">
+        {/* Upload / SharePoint */}
+        <div className="flex items-center gap-2 flex-wrap">
           <label className="cursor-pointer">
             <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
             <Button type="button" variant="outline" size="sm" disabled={uploading} asChild>
               <span><Upload className="w-3.5 h-3.5 mr-1.5" />{uploading ? 'Uploading...' : 'Upload File'}</span>
             </Button>
           </label>
-          <span className="text-[11px] text-muted-foreground">or paste a direct image URL above</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowPicker(true)}>
+            <FolderOpen className="w-3.5 h-3.5 mr-1.5" /> Browse SharePoint
+          </Button>
         </div>
+
+        <SharePointFilePicker
+          open={showPicker}
+          onClose={() => setShowPicker(false)}
+          onSelect={(url) => { onChange(url); setImgError(false); }}
+        />
 
         {imgError && photoUrl && (
           <p className="text-[11px] text-destructive">
