@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
@@ -82,6 +82,22 @@ export default function GatepassTracker() {
   const getEffectiveRlic = (e) => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
 
   const positions = useMemo(() => [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p })), [employees]);
+
+  // Filter positions by selected departments
+  const filteredPositions = useMemo(() => {
+    if (departmentFilter.length === 0) return positions;
+    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
+    const seen = new Set();
+    return employees
+      .filter(e => e.designation_org_chart && e.department && deptSet.has((e.department || '').trim().toLowerCase()))
+      .map(e => e.designation_org_chart.trim())
+      .filter(p => { if (seen.has(p)) return false; seen.add(p); return true; })
+      .sort()
+      .map(p => ({ value: p, label: p }));
+  }, [employees, departmentFilter]);
+
+  // Reset position filter when department changes
+  useEffect(() => { setPositionFilter([]); }, [departmentFilter]);
 
   const filtered = useMemo(() => employees.filter(e => {
     const matchesSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.qid_no?.includes(search) || e.staff_no?.toLowerCase().includes(search.toLowerCase());
@@ -202,7 +218,7 @@ export default function GatepassTracker() {
       <TrackerFilters
         filters={{ companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo }}
         setters={{ setCompanyFilter, setPositionFilter, setDepartmentFilter, setRlicStatusFilter, setTrainingStatusFilter, setPidStatusFilter, setMedicalResultFilter, setTrainingScheduledFrom, setTrainingScheduledTo, setTrApprovedFrom, setTrApprovedTo, setGpIssueDate, setGpReceivedFrom, setGpReceivedTo, setPidIssueFrom, setPidIssueTo }}
-        options={{ companies: companyOptions, positions, departments: departmentOptions, rlicStatuses: allStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: pidStatusOptions, medicalResults: medicalResultOptions }}
+        options={{ companies: companyOptions, positions: filteredPositions, departments: departmentOptions, rlicStatuses: allStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: pidStatusOptions, medicalResults: medicalResultOptions }}
         totalFiltered={filtered.length}
         totalAll={employees.length}
       />

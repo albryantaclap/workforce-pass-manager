@@ -103,6 +103,22 @@ export default function ProjectIDTracker() {
 
   const positions = useMemo(() => [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort().map(p => ({ value: p, label: p })), [employees]);
 
+  // Filter positions by selected departments
+  const filteredPositions = useMemo(() => {
+    if (departmentFilter.length === 0) return positions;
+    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
+    const seen = new Set();
+    return employees
+      .filter(e => e.designation_org_chart && e.department && deptSet.has((e.department || '').trim().toLowerCase()))
+      .map(e => e.designation_org_chart.trim())
+      .filter(p => { if (seen.has(p)) return false; seen.add(p); return true; })
+      .sort()
+      .map(p => ({ value: p, label: p }));
+  }, [employees, departmentFilter]);
+
+  // Reset position filter when department changes
+  useEffect(() => { setPositionFilter([]); }, [departmentFilter]);
+
   const filtered = useMemo(() => employees.filter(e => {
     const matchesSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.pid?.includes(search) || e.qid_no?.includes(search);
     const empCompany = (e.company || '').trim().toUpperCase();
@@ -226,7 +242,7 @@ export default function ProjectIDTracker() {
       <TrackerFilters
         filters={{ companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo }}
         setters={{ setCompanyFilter, setPositionFilter, setDepartmentFilter, setRlicStatusFilter, setTrainingStatusFilter, setPidStatusFilter, setMedicalResultFilter, setTrainingScheduledFrom, setTrainingScheduledTo, setTrApprovedFrom, setTrApprovedTo, setGpIssueFrom, setGpIssueTo, setGpReceivedFrom, setGpReceivedTo, setPidIssueFrom, setPidIssueTo }}
-        options={{ companies: companyOptions, positions, departments: departmentOptions, rlicStatuses: rlicStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: allStatusOptions, medicalResults: medicalResultOptions }}
+        options={{ companies: companyOptions, positions: filteredPositions, departments: departmentOptions, rlicStatuses: rlicStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: allStatusOptions, medicalResults: medicalResultOptions }}
         totalFiltered={filtered.length}
         totalAll={employees.length}
       />

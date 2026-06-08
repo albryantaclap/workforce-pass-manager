@@ -158,6 +158,22 @@ export default function MasterList() {
     return pos.map(p => ({ value: p, label: p }));
   }, [employees]);
 
+  // Filter positions by selected departments
+  const filteredPositions = useMemo(() => {
+    if (departmentFilter.length === 0) return positions;
+    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
+    const seen = new Set();
+    return employees
+      .filter(e => e.designation_org_chart && e.department && deptSet.has((e.department || '').trim().toLowerCase()))
+      .map(e => e.designation_org_chart.trim())
+      .filter(p => { if (seen.has(p)) return false; seen.add(p); return true; })
+      .sort()
+      .map(p => ({ value: p, label: p }));
+  }, [employees, departmentFilter]);
+
+  // Reset position filter when department changes
+  useEffect(() => { setPositionFilter([]); }, [departmentFilter]);
+
   const filtered = useMemo(() => {
     return employees.filter((emp) => {
       // All fetched records are already active — no need to re-check is_active here
@@ -258,7 +274,7 @@ export default function MasterList() {
             <Input placeholder="Name, QID, PP, PID..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} className="pl-9" />
           </div>
           <MultiSelect options={uniqueCompanies} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" className="dropdown-company" />
-          <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="Filter by position" className="dropdown-position" />
+          <MultiSelect options={filteredPositions} value={positionFilter} onChange={setPositionFilter} placeholder="Filter by position" className="dropdown-position" />
           <MultiSelect options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="Filter by department" className="dropdown-department" />
           <Select value={rlicFilter} onValueChange={setRlicFilter}>
             <SelectTrigger className="dropdown-status"><SelectValue placeholder="RLIC Status" /></SelectTrigger>

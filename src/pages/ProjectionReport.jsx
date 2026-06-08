@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -734,6 +734,22 @@ export default function ProjectionReport() {
     return Array.from(set).sort().map(p => ({ value: p, label: p }));
   }, [employees]);
 
+  // Filter positions by selected departments
+  const filteredPositions = useMemo(() => {
+    if (departmentFilter.length === 0) return allPositions;
+    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
+    const seen = new Set();
+    return employees
+      .filter(e => e.designation_org_chart && e.department && deptSet.has((e.department || '').trim().toLowerCase()))
+      .map(e => e.designation_org_chart.trim())
+      .filter(p => { if (seen.has(p)) return false; seen.add(p); return true; })
+      .sort()
+      .map(p => ({ value: p, label: p }));
+  }, [employees, departmentFilter]);
+
+  // Reset position filter when department changes
+  useEffect(() => { setPositionFilter([]); }, [departmentFilter]);
+
   // Department options — derived dynamically from live employee data, deduplicated by normalized value
   const departmentOptions = useMemo(() => {
     const seen = new Map();
@@ -900,7 +916,7 @@ export default function ProjectionReport() {
           </div>
           <div>
             <label className="text-[10px] font-medium text-muted-foreground block mb-1">Position / Designation</label>
-            <MultiSelect options={allPositions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." className="h-8 text-xs" />
+            <MultiSelect options={filteredPositions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." className="h-8 text-xs" />
           </div>
           <div>
             <label className="text-[10px] font-medium text-muted-foreground block mb-1">Department</label>
