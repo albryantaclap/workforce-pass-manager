@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Save, Link2, User, UserCheck, UserX, Shield } from 'lucide-react';
 import SharepointFormButton from '@/components/common/SharepointFormButton';
+import PhotoUrlField from '@/components/common/PhotoUrlField';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
@@ -270,31 +271,11 @@ export default function EmployeeForm() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Photo URL */}
-            <div className="md:col-span-3 flex items-center gap-4">
-              <div className="w-20 h-20 rounded-full border-2 border-dashed border-border overflow-hidden flex items-center justify-center bg-muted flex-shrink-0">
-                {form.photo_url ? (
-                  <img src={form.photo_url} alt="Photo" className="w-full h-full object-cover" onError={e => { e.target.style.display='none'; }} />
-                ) : (
-                  <User className="w-8 h-8 text-muted-foreground" />
-                )}
-              </div>
-              <div className="flex-1">
-                <Label className="text-xs block mb-1.5">Profile Photo URL (SharePoint)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="url"
-                    placeholder="Paste SharePoint photo URL..."
-                    value={form.photo_url || ''}
-                    onChange={e => handleChange('photo_url', e.target.value)}
-                    className="text-xs"
-                  />
-                  {form.photo_url && (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => handleChange('photo_url', '')} className="text-xs text-destructive shrink-0">Clear</Button>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">Paste a direct SharePoint image link (no credits used)</p>
-              </div>
-            </div>
+            <PhotoUrlField
+              photoUrl={form.photo_url || ''}
+              name={form.name || ''}
+              onChange={url => handleChange('photo_url', url)}
+            />
             <TextInput field="sl_no" label="SL No" type="number" {...tf} />
             <div className="md:col-span-2"><TextInput field="name" label="Full Name *" required {...tf} /></div>
             <TextInput field="position_application" label="Position (Application)" {...tf} />
