@@ -13,6 +13,7 @@ import MultiSelect from '@/components/common/MultiSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, computePassStatus, formatDate, normalizeDate } from '@/utils/constants';
 import DashboardReport from '@/components/dashboard/DashboardReport';
+import ReportConfigModal from '@/components/dashboard/ReportConfigModal';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
 
@@ -38,6 +39,8 @@ export default function Dashboard() {
   const [pidIssueFrom, setPidIssueFrom] = useState('');
   const [pidIssueTo, setPidIssueTo] = useState('');
   const [showReport, setShowReport] = useState(false);
+  const [showReportConfig, setShowReportConfig] = useState(false);
+  const [reportConfig, setReportConfig] = useState(null);
 
   // Only fetch active employees for the dashboard — dedicated filter avoids the 2000 list cap
   const { data: employees = [], isLoading } = useQuery({
@@ -455,7 +458,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <Button variant="outline" size="sm" onClick={() => setShowReport(true)} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => setShowReportConfig(true)} className="gap-1.5">
             <Printer className="w-4 h-4" /> Print / PDF
           </Button>
           <div className="flex items-center gap-2">
@@ -770,12 +773,20 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {showReport && (
+      {showReportConfig && (
+        <ReportConfigModal
+          filtered={filtered}
+          onClose={() => setShowReportConfig(false)}
+          onGenerate={(cfg) => { setReportConfig(cfg); setShowReportConfig(false); setShowReport(true); }}
+        />
+      )}
+      {showReport && reportConfig && (
         <DashboardReport
           filtered={filtered}
           categoryCards={categoryCards}
           onClose={() => setShowReport(false)}
           companyFilter={companyFilter}
+          config={reportConfig}
         />
       )}
     </div>
