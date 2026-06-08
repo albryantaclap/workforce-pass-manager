@@ -734,21 +734,23 @@ export default function ProjectionReport() {
     return Array.from(set).sort().map(p => ({ value: p, label: p }));
   }, [employees]);
 
-  // Filter positions by selected departments
+  // Filter positions by selected departments and/or company
   const filteredPositions = useMemo(() => {
-    if (departmentFilter.length === 0) return allPositions;
-    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
+    if (departmentFilter.length === 0 && selectedCompany === 'ALL') return allPositions;
+    const deptSet = departmentFilter.length > 0 ? new Set(departmentFilter.map(d => d.trim().toLowerCase())) : null;
     const seen = new Set();
     return employees
-      .filter(e => e.designation_org_chart && e.department && deptSet.has((e.department || '').trim().toLowerCase()))
+      .filter(e => e.designation_org_chart &&
+        (!deptSet || deptSet.has((e.department || '').trim().toLowerCase())) &&
+        (selectedCompany === 'ALL' || (e.company || '').trim().toUpperCase() === selectedCompany.toUpperCase()))
       .map(e => e.designation_org_chart.trim())
       .filter(p => { if (seen.has(p)) return false; seen.add(p); return true; })
       .sort()
       .map(p => ({ value: p, label: p }));
-  }, [employees, departmentFilter]);
+  }, [employees, departmentFilter, selectedCompany, allPositions]);
 
-  // Reset position filter when department changes
-  useEffect(() => { setPositionFilter([]); }, [departmentFilter]);
+  // Reset position filter when department or company changes
+  useEffect(() => { setPositionFilter([]); }, [departmentFilter, selectedCompany]);
 
   // Department options — derived dynamically from live employee data, deduplicated by normalized value
   const departmentOptions = useMemo(() => {
