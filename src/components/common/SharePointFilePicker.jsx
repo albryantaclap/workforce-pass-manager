@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Folder, Image, ChevronRight, Loader2, ArrowLeft, HardDrive } from 'lucide-react';
+import { Folder, Image, ChevronRight, Loader2, ArrowLeft, HardDrive, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { base44 } from '@/api/base44Client';
 
 function base64ToFile(base64, fileName, contentType) {
@@ -26,6 +27,7 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
   const [items, setItems] = useState([]);
   const [breadcrumb, setBreadcrumb] = useState([]); // [{id, name}]
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (open) loadDrives();
@@ -65,6 +67,7 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
       const { items } = await call({ action: 'listFiles', driveId, itemId });
       setItems(items);
       setBreadcrumb(crumbs);
+      setSearch('');
     } catch (e) {
       setError(e.message);
     }
@@ -136,6 +139,18 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
           </div>
         )}
 
+        {selectedDrive && (
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search files and folders..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-8 text-xs h-8"
+            />
+          </div>
+        )}
+
         {error && <p className="text-xs text-destructive">{error}</p>}
 
         <div className="flex-1 overflow-y-auto min-h-0">
@@ -160,7 +175,7 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
           ) : (
             // File/folder list
             <div className="grid grid-cols-3 gap-2 p-1">
-              {items.filter(i => i.folder || isImage(i)).map(item => (
+              {items.filter(i => (i.folder || isImage(i)) && (!search || i.name.toLowerCase().includes(search.toLowerCase()))).map(item => (
                 <button
                   key={item.id}
                   onClick={() => item.folder ? openFolder(item) : selectImage(item)}
@@ -176,7 +191,7 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
                   <span className="text-xs text-muted-foreground group-hover:text-foreground truncate w-full text-center">{item.name}</span>
                 </button>
               ))}
-              {items.filter(i => i.folder || isImage(i)).length === 0 && (
+              {items.filter(i => (i.folder || isImage(i)) && (!search || i.name.toLowerCase().includes(search.toLowerCase()))).length === 0 && (
                 <p className="col-span-3 text-center text-sm text-muted-foreground py-8">No images or folders found here.</p>
               )}
             </div>
