@@ -33,16 +33,18 @@ Deno.serve(async (req) => {
       } else {
         url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root/children`;
       }
-      url += '?$top=999&$select=id,name,file,folder,@microsoft.graph.downloadUrl,thumbnails&$expand=thumbnails';
+      url += '?$top=500&$select=id,name,file,folder,thumbnails&$expand=thumbnails';
 
-      // Paginate through all results using @odata.nextLink
+      // Paginate up to 5 pages (max 2500 items) to avoid timeouts
       const allItems = [];
       let nextUrl = url;
-      while (nextUrl) {
+      let pages = 0;
+      while (nextUrl && pages < 5) {
         const res = await fetch(nextUrl, { headers });
         const data = await res.json();
         if (data.value) allItems.push(...data.value);
         nextUrl = data['@odata.nextLink'] || null;
+        pages++;
       }
       return Response.json({ items: allItems });
     }
