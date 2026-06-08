@@ -198,7 +198,7 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
             </div>
           ) : (
             // File/folder list
-            <>
+            <div>
               <div className="grid grid-cols-3 gap-2 p-1">
                 {items.filter(i => i.folder || isImage(i)).map(item => (
                   <button
@@ -223,8 +223,7 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
                   <Button variant="outline" size="sm" onClick={async () => {
                     setLoading(true);
                     try {
-                      const parentId = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].id : null;
-                      const res = await call({ action: 'listFiles', driveId: selectedDrive.id, itemId: parentId });
+                      const res = await call({ action: 'listFiles', driveId: selectedDrive.id, itemId: breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].id : null, nextLink });
                       setItems(prev => [...prev, ...(res.items || [])]);
                       setNextLink(res.nextLink || null);
                     } catch (e) { setError(e.message); }
@@ -232,7 +231,7 @@ export default function SharePointFilePicker({ open, onClose, onSelect }) {
                   }}>Load more</Button>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 

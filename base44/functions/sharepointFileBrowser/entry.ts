@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { action, driveId, itemId, path, query } = await req.json();
+    const { action, driveId, itemId, path, query, nextLink } = await req.json();
 
     const { accessToken } = await base44.asServiceRole.connectors.getConnection("share_point");
 
@@ -28,13 +28,14 @@ Deno.serve(async (req) => {
 
     if (action === 'listFiles') {
       let url;
-      if (itemId) {
-        url = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/children`;
+      if (nextLink) {
+        // Use the nextLink directly for pagination
+        url = nextLink;
+      } else if (itemId) {
+        url = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/children?$top=200&$select=id,name,file,folder`;
       } else {
-        url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root/children`;
+        url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root/children?$top=200&$select=id,name,file,folder`;
       }
-      // No thumbnail expand — too slow for large folders
-      url += '?$top=200&$select=id,name,file,folder';
       const res = await fetch(url, { headers });
       const data = await res.json();
       return Response.json({ items: data.value || [], nextLink: data['@odata.nextLink'] || null });
