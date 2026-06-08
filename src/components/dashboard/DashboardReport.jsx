@@ -130,13 +130,8 @@ const CSS = `
   th { background: #f1f5f9; text-align: left; padding: 5px 7px; border: 1px solid #cbd5e1; font-size: 10px; font-weight: 600; }
   td { padding: 4px 7px; border: 1px solid #cbd5e1; font-size: 10px; }
   tr:nth-child(even) td { background: #f8fafc; }
-  .summary-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; justify-content: center; }
-  .summary-card { border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; flex: 0 1 calc(25% - 8px); min-width: 200px; }
-  .summary-grid > .summary-card:only-child { flex: 0 1 auto; }
-  .summary-grid > .summary-card:nth-last-child(2):nth-child(2) { flex: 0 1 calc(50% - 5px); }
-  .summary-grid > .summary-card:nth-last-child(2):nth-child(2) ~ .summary-card { flex: 0 1 calc(50% - 5px); }
-  .summary-grid > .summary-card:nth-child(3):nth-last-child(3),
-  .summary-grid > .summary-card:nth-child(3):nth-last-child(3) ~ .summary-card { flex: 0 1 calc(33.33% - 7px); }
+  .summary-grid { display: flex; flex-wrap: nowrap; gap: 10px; margin-bottom: 20px; justify-content: center; align-items: stretch; }
+  .summary-card { border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; flex: 1 1 0; min-width: 0; }
   .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
   .card-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
   .card-title { font-size: 10px; font-weight: 700; color: #475569; }
