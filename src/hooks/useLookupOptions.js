@@ -18,7 +18,43 @@ const DEPARTMENTS_BASE = [
 ];
 
 /**
+ * Merges built-in constants with DB lookup records.
+ * - DB records with is_builtin=true override the label of the matching built-in.
+ * - DB records with is_deleted=true remove the built-in from options entirely.
+ * - Custom DB records (is_builtin=false) that are not deleted are appended.
+ */
+function mergeLookups(base, allDbEntries) {
+  // Map all DB records by uppercase value for O(1) lookup
+  const dbByValue = {};
+  allDbEntries.forEach(c => {
+    dbByValue[c.value.toUpperCase()] = c;
+  });
+
+  const baseValueSet = new Set(base.map(b => b.value.toUpperCase()));
+
+  // Process base (built-in) entries — apply DB label override, exclude if soft-deleted
+  const baseEntries = base
+    .filter(b => {
+      const db = dbByValue[b.value.toUpperCase()];
+      return !db || !db.is_deleted;
+    })
+    .map(b => {
+      const db = dbByValue[b.value.toUpperCase()];
+      const lbl = (db?.is_builtin && db?.label) ? db.label.toUpperCase() : b.label.toUpperCase();
+      return { value: b.value, label: lbl };
+    });
+
+  // Custom entries: DB records that are NOT built-in overrides and NOT deleted
+  const customEntries = allDbEntries
+    .filter(c => !c.is_builtin && !c.is_deleted && !baseValueSet.has(c.value.toUpperCase()))
+    .map(c => ({ value: c.value, label: c.label.toUpperCase() }));
+
+  return [...baseEntries, ...customEntries];
+}
+
+/**
  * Fetches all lookup types and merges with built-in constants.
+ * Respects soft-delete (is_deleted) and built-in label overrides (is_builtin).
  * Returns options arrays ready to pass to InlineEditCell or select dropdowns.
  */
 export function useLookupOptions() {
@@ -34,44 +70,36 @@ export function useLookupOptions() {
   );
 
   const [
-    { data: customCompanies = [] },
-    { data: customCompanyTypes = [] },
-    { data: customLocations = [] },
-    { data: customDepartments = [] },
-    { data: customRlicStatuses = [] },
-    { data: customPidStatuses = [] },
-    { data: customMedicalResults = [] },
-    { data: customTrainingStatuses = [] },
+    { data: dbCompanies = [] },
+    { data: dbCompanyTypes = [] },
+    { data: dbLocations = [] },
+    { data: dbDepartments = [] },
+    { data: dbRlicStatuses = [] },
+    { data: dbPidStatuses = [] },
+    { data: dbMedicalResults = [] },
+    { data: dbTrainingStatuses = [] },
   ] = queries;
 
-  const merge = (base, custom) => {
-     const baseValues = new Set(base.map(b => b.value.toUpperCase()));
-     const extras = custom
-       .filter(c => !baseValues.has(c.value.toUpperCase()))
-       .map(c => ({ value: c.value, label: c.label.toUpperCase() }));
-     return [...base, ...extras];
-   };
-
   return useMemo(() => ({
-    companyOptions: merge(COMPANIES.map(c => ({ value: c.value, label: c.label.toUpperCase() })), customCompanies),
-    companyTypeOptions: merge(COMPANY_TYPES, customCompanyTypes),
-    locationOptions: merge(LOCATIONS.map(l => ({ value: l.toUpperCase(), label: l.toUpperCase() })), customLocations),
-    departmentOptions: merge(DEPARTMENTS_BASE, customDepartments),
-    rlicStatusOptions: merge(
+    companyOptions: mergeLookups(COMPANIES.map(c => ({ value: c.value, label: c.label.toUpperCase() })), dbCompanies),
+    companyTypeOptions: mergeLookups(COMPANY_TYPES, dbCompanyTypes),
+    locationOptions: mergeLookups(LOCATIONS.map(l => ({ value: l.toUpperCase(), label: l.toUpperCase() })), dbLocations),
+    departmentOptions: mergeLookups(DEPARTMENTS_BASE, dbDepartments),
+    rlicStatusOptions: mergeLookups(
       RLIC_STATUSES.map(s => ({ value: s.value, label: s.label.toUpperCase() })),
-      customRlicStatuses
+      dbRlicStatuses
     ),
-    pidStatusOptions: merge(
+    pidStatusOptions: mergeLookups(
       PID_STATUSES.map(s => ({ value: s.value, label: s.label.toUpperCase() })),
-      customPidStatuses
+      dbPidStatuses
     ),
-    medicalResultOptions: merge(
+    medicalResultOptions: mergeLookups(
       MEDICAL_RESULTS.map(s => ({ value: s.value, label: s.label.toUpperCase() })),
-      customMedicalResults
+      dbMedicalResults
     ),
-    trainingStatusOptions: merge(
+    trainingStatusOptions: mergeLookups(
       TRAINING_STATUSES.map(s => ({ value: s.value, label: s.label.toUpperCase() })),
-      customTrainingStatuses
+      dbTrainingStatuses
     ),
-  }), [customCompanies, customCompanyTypes, customLocations, customDepartments, customRlicStatuses, customPidStatuses, customMedicalResults, customTrainingStatuses]);
+  }), [dbCompanies, dbCompanyTypes, dbLocations, dbDepartments, dbRlicStatuses, dbPidStatuses, dbMedicalResults, dbTrainingStatuses]);
 }

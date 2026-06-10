@@ -11,7 +11,8 @@
         "department",
         "rlic_status",
         "pid_status",
-        "ftw_result"
+        "ftw_result",
+        "training_status"
       ],
       "description": "Lookup category"
     },
@@ -22,6 +23,29 @@
     "label": {
       "type": "string",
       "description": "Display label"
+    },
+    "is_builtin": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if this record is a DB override for a built-in constant entry"
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete flag \u2014 deleted entries are hidden from dropdowns but retained for history"
+    },
+    "deleted_by": {
+      "type": "string",
+      "description": "Email of user who soft-deleted this entry"
+    },
+    "deleted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of soft deletion"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of user who last updated this entry"
     }
   },
   "required": [
