@@ -215,6 +215,7 @@ export default function MedicalTracker() {
         options={{ companies: companyOptions, positions: filteredPositions, departments: departmentOptions, rlicStatuses: rlicStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: pidStatusOptions, medicalResults: allMedicalResults }}
         totalFiltered={filtered.length}
         totalAll={employees.length}
+        employees={employees}
       />
 
       <Tabs defaultValue="list">

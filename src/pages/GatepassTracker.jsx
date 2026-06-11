@@ -235,6 +235,7 @@ export default function GatepassTracker() {
         options={{ companies: companyOptions, positions: filteredPositions, departments: departmentOptions, rlicStatuses: allStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: pidStatusOptions, medicalResults: medicalResultOptions }}
         totalFiltered={filtered.length}
         totalAll={employees.length}
+        employees={employees}
       />
 
       <Tabs defaultValue="list">

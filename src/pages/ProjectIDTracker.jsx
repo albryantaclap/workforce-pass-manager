@@ -259,6 +259,7 @@ export default function ProjectIDTracker() {
         options={{ companies: companyOptions, positions: filteredPositions, departments: departmentOptions, rlicStatuses: rlicStatusOptions, trainingStatuses: trainingStatusOptions, pidStatuses: allStatusOptions, medicalResults: medicalResultOptions }}
         totalFiltered={filtered.length}
         totalAll={employees.length}
+        employees={employees}
       />
 
       <Tabs defaultValue="list">

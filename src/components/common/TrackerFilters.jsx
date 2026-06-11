@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +14,9 @@ import MultiSelect from '@/components/common/MultiSelect';
  *   options: { companies, positions, departments, rlicStatuses, trainingStatuses, pidStatuses, medicalResults }
  *   totalFiltered: number
  *   totalAll: number
+ *   employees: Employee[] — used for cascading company options based on department selection
  */
-export default function TrackerFilters({ filters, setters, options, totalFiltered, totalAll }) {
+export default function TrackerFilters({ filters, setters, options, totalFiltered, totalAll, employees = [] }) {
   const {
     companyFilter, positionFilter, departmentFilter,
     rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter,
@@ -35,6 +36,26 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
     setGpReceivedFrom, setGpReceivedTo,
     setPidIssueFrom, setPidIssueTo,
   } = setters;
+
+  // Cascading company options: when department is selected, only show companies with employees in that dept
+  const cascadedCompanyOptions = useMemo(() => {
+    if (departmentFilter.length === 0) return options.companies;
+    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
+    const validCompanies = new Set(
+      employees
+        .filter(e => deptSet.has((e.department || '').trim().toLowerCase()))
+        .map(e => (e.company || '').trim().toUpperCase())
+    );
+    return options.companies.filter(c => validCompanies.has(c.value.trim().toUpperCase()));
+  }, [options.companies, departmentFilter, employees]);
+
+  // Reset company selections that are no longer valid after department filter changes
+  useEffect(() => {
+    if (companyFilter.length === 0) return;
+    const validSet = new Set(cascadedCompanyOptions.map(c => c.value.trim().toUpperCase()));
+    const still = companyFilter.filter(cf => validSet.has(cf.trim().toUpperCase()));
+    if (still.length !== companyFilter.length) setters.setCompanyFilter(still);
+  }, [cascadedCompanyOptions]);
 
   const hasFilter =
     companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 ||
@@ -71,7 +92,7 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Company</p>
-            <MultiSelect options={options.companies} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." className="dropdown-company" />
+            <MultiSelect options={cascadedCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." className="dropdown-company" />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Position / Designation</p>

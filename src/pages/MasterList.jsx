@@ -153,6 +153,26 @@ export default function MasterList() {
     return vals.map(v => { const c = COMPANIES.find(x => x.value === v); return { value: v, label: c ? c.label : v }; });
   }, [employees]);
 
+  // Cascading company options: when department is selected, only show companies with employees in that dept
+  const cascadedCompanyOptions = useMemo(() => {
+    if (departmentFilter.length === 0) return uniqueCompanies;
+    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
+    const validCompanies = new Set(
+      employees
+        .filter(e => deptSet.has((e.department || '').trim().toLowerCase()))
+        .map(e => (e.company || '').trim().toUpperCase())
+    );
+    return uniqueCompanies.filter(c => validCompanies.has(c.value.trim().toUpperCase()));
+  }, [uniqueCompanies, departmentFilter, employees]);
+
+  // Reset company selections that are no longer valid after department filter changes
+  useEffect(() => {
+    if (companyFilter.length === 0) return;
+    const validSet = new Set(cascadedCompanyOptions.map(c => c.value.trim().toUpperCase()));
+    const still = companyFilter.filter(cf => validSet.has(cf.trim().toUpperCase()));
+    if (still.length !== companyFilter.length) setCompanyFilter(still);
+  }, [cascadedCompanyOptions]);
+
   const positions = useMemo(() => {
     const pos = [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort();
     return pos.map(p => ({ value: p, label: p }));
@@ -287,7 +307,7 @@ export default function MasterList() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input placeholder="Name, QID, PP, PID..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} className="pl-9" />
           </div>
-          <MultiSelect options={uniqueCompanies} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" className="dropdown-company" />
+          <MultiSelect options={cascadedCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" className="dropdown-company" />
           <MultiSelect options={filteredPositions} value={positionFilter} onChange={setPositionFilter} placeholder="Filter by position" className="dropdown-position" />
           <MultiSelect options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="Filter by department" className="dropdown-department" />
           <Select value={rlicFilter} onValueChange={setRlicFilter}>

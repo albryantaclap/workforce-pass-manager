@@ -725,6 +725,24 @@ export default function ProjectionReport() {
     return Array.from(set).sort();
   }, [employees]);
 
+  // Cascading company options: when department is selected, only show companies with employees in that dept
+  const cascadedCompanies = useMemo(() => {
+    if (departmentFilter.length === 0) return allCompanies;
+    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
+    const validCompanies = new Set(
+      employees
+        .filter(e => deptSet.has((e.department || '').trim().toLowerCase()))
+        .map(e => (e.company || '').trim().toUpperCase())
+    );
+    return allCompanies.filter(co => validCompanies.has(co));
+  }, [allCompanies, departmentFilter, employees]);
+
+  // Reset selected company if it's no longer valid after department filter changes
+  useEffect(() => {
+    if (selectedCompany === 'ALL') return;
+    if (!cascadedCompanies.includes(selectedCompany)) setSelectedCompany('ALL');
+  }, [cascadedCompanies]);
+
   // Derive unique positions list
   const allPositions = useMemo(() => {
     const set = new Set();
@@ -922,7 +940,7 @@ export default function ProjectionReport() {
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All companies..." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All companies...</SelectItem>
-                {allCompanies.map(co => <SelectItem key={co} value={co}>{co}</SelectItem>)}
+                {cascadedCompanies.map(co => <SelectItem key={co} value={co}>{co}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

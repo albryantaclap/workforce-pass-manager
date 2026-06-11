@@ -88,6 +88,26 @@ export default function Dashboard() {
     return result;
   }, [lookupCompanies]);
 
+  // Cascading company options: when department is selected, only show companies with employees in that dept
+  const cascadedCompanyOptions = useMemo(() => {
+    if (departmentFilter.length === 0) return allCompanyOptions;
+    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
+    const validCompanies = new Set(
+      employees
+        .filter(e => deptSet.has((e.department || '').trim().toLowerCase()))
+        .map(e => (e.company || '').trim().toUpperCase())
+    );
+    return allCompanyOptions.filter(c => validCompanies.has(c.value.trim().toUpperCase()));
+  }, [allCompanyOptions, departmentFilter, employees]);
+
+  // Reset company selections that are no longer valid after department filter changes
+  useEffect(() => {
+    if (companyFilter.length === 0) return;
+    const validSet = new Set(cascadedCompanyOptions.map(c => c.value.trim().toUpperCase()));
+    const still = companyFilter.filter(cf => validSet.has(cf.trim().toUpperCase()));
+    if (still.length !== companyFilter.length) setCompanyFilter(still);
+  }, [cascadedCompanyOptions]);
+
   const allDepartmentOptions = useMemo(() => {
     const allDepts = [];
     const seen = new Set();
@@ -505,7 +525,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Company</p>
-              <MultiSelect options={allCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." />
+              <MultiSelect options={cascadedCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." />
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Position / Designation</p>
