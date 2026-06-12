@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Save, Upload, User, UserCheck, UserX, Shield } from 'lucide-react';
 import SharepointFormButton from '@/components/common/SharepointFormButton';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, computePassStatus } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
@@ -79,6 +79,26 @@ export default function EmployeeForm() {
   const { toast } = useToast();
   const [form, setForm] = useState(emptyForm);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [statusWarning, setStatusWarning] = useState('');
+
+  // Special (non-date-derivable) statuses — never auto-overwrite these
+  const RLIC_SPECIAL = new Set([
+    'HOLDING ACTIVE GP', 'WAITING MOI APPROVAL', 'DVC / SS - TR',
+    'VALID / RENEWAL UNDER PROCESS', 'REJECTED', 'RECALLED W/ VALID',
+    'DVC SENT', 'UNDER PROCESS',
+  ]);
+  const PID_SPECIAL = new Set([
+    'RENEWAL UNDER PROCESS', 'RECALLED', 'NO PID PASS',
+  ]);
+
+  const autoCalcRlic = (expiryDate, storedStatus) => {
+    if (storedStatus && RLIC_SPECIAL.has(storedStatus.toUpperCase())) return storedStatus;
+    return computePassStatus(expiryDate, 'rlic', null);
+  };
+  const autoCalcPid = (expiryDate, storedStatus) => {
+    if (storedStatus && PID_SPECIAL.has(storedStatus.toUpperCase())) return storedStatus;
+    return computePassStatus(expiryDate, 'pid', null);
+  };
 
   const { data: existingEmp } = useQuery({
     queryKey: ['employee', empId],
@@ -183,7 +203,11 @@ export default function EmployeeForm() {
   useEffect(() => {
     if (existingEmp && existingEmp.length > 0) {
       const emp = existingEmp[0];
-      setForm({ ...emptyForm, ...Object.fromEntries(Object.entries(emp).filter(([_, v]) => v !== null && v !== undefined)) });
+      const base = { ...emptyForm, ...Object.fromEntries(Object.entries(emp).filter(([_, v]) => v !== null && v !== undefined)) };
+      // Auto-recalculate statuses on form open
+      base.rlic_status = autoCalcRlic(base.gate_pass_expiry, base.rlic_status);
+      base.pid_status = autoCalcPid(base.pid_expiry, base.pid_status);
+      setForm(base);
     }
   }, [existingEmp]);
 
@@ -205,6 +229,28 @@ export default function EmployeeForm() {
 
   const TEXT_FIELDS = ['name','position_application','designation_org_chart','nationality','religion','contact_details','sponsor','remarks','qid_no','pp_no','ftw_doctor','ftw_mobile','ftw_remarks','staff_no','pid'];
   const UPPERCASE_FIELDS = ['department'];
+
+  const validateStatusAgainstExpiry = (statusField, statusValue, expiryDate, type) => {
+    const BUILT_IN_RLIC = new Set(['VALID RLIC PASS', 'EXPIRED RLIC PASS', 'SOON TO EXPIRE', 'NO RLIC PASS']);
+    const BUILT_IN_PID = new Set(['VALID PID PASS', 'EXPIRED PID PASS', 'SOON TO EXPIRE', 'NO PID PASS']);
+    const builtIn = type === 'rlic' ? BUILT_IN_RLIC : BUILT_IN_PID;
+    // Only validate built-in statuses
+    if (!builtIn.has(statusValue)) return '';
+    const validStatus = type === 'rlic' ? 'VALID RLIC PASS' : 'VALID PID PASS';
+    const expiredStatus = type === 'rlic' ? 'EXPIRED RLIC PASS' : 'EXPIRED PID PASS';
+    const noPassStatus = type === 'rlic' ? 'NO RLIC PASS' : 'NO PID PASS';
+    if (!expiryDate && statusValue !== noPassStatus) {
+      return 'Please set the expiry date before selecting this status.';
+    }
+    if (expiryDate) {
+      const calculated = computePassStatus(expiryDate, type, null);
+      if (calculated !== statusValue) {
+        return `The selected status does not match the expiry date. Please correct the expiry date or status. (Expected: ${calculated})`;
+      }
+    }
+    return '';
+  };
+
   const handleChange = (field, value) => {
     let processed = value;
     if (TEXT_FIELDS.includes(field) && typeof value === 'string') {
@@ -212,9 +258,44 @@ export default function EmployeeForm() {
     } else if (UPPERCASE_FIELDS.includes(field) && typeof value === 'string') {
       processed = value.toUpperCase();
     }
-    setForm(prev => ({ ...prev, [field]: processed }));
+
+    setStatusWarning('');
+
+    setForm(prev => {
+      const next = { ...prev, [field]: processed };
+
+      // Auto-recalculate RLIC status when gate pass expiry changes
+      if (field === 'gate_pass_expiry') {
+        next.rlic_status = autoCalcRlic(processed, prev.rlic_status);
+      }
+      // Auto-recalculate PID status when PID expiry changes
+      if (field === 'pid_expiry') {
+        next.pid_status = autoCalcPid(processed, prev.pid_status);
+      }
+      // Validate when user manually changes RLIC status
+      if (field === 'rlic_status') {
+        const warning = validateStatusAgainstExpiry(field, processed, prev.gate_pass_expiry, 'rlic');
+        if (warning) setStatusWarning(warning);
+      }
+      // Validate when user manually changes PID status
+      if (field === 'pid_status') {
+        const warning = validateStatusAgainstExpiry(field, processed, prev.pid_expiry, 'pid');
+        if (warning) setStatusWarning(warning);
+      }
+
+      return next;
+    });
   };
-  const handleSubmit = (e) => { e.preventDefault(); saveMutation.mutate(form); };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Block save if there's an active status warning
+    if (statusWarning) {
+      toast({ title: 'Status Mismatch', description: statusWarning, variant: 'destructive' });
+      return;
+    }
+    saveMutation.mutate(form);
+  };
 
   const tf = { form, onChange: handleChange };
 
@@ -364,6 +445,11 @@ export default function EmployeeForm() {
             <TextInput field="gate_pass_expiry" label="Expiry Date" type="date" {...tf} />
             <SelectInput field="rlic_status" label="RLIC Status" options={allRlicStatuses} {...tf} />
           </div>
+          {statusWarning && (form.rlic_status) && (
+            <div className="mt-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+              ⚠️ {statusWarning}
+            </div>
+          )}
         </Card>
 
         {/* Training */}
@@ -387,6 +473,11 @@ export default function EmployeeForm() {
             <TextInput field="pid_projected_date" label="Projected PID Date" type="date" {...tf} />
             <SelectInput field="pid_status" label="PID Status" options={allPidStatuses} {...tf} />
           </div>
+          {statusWarning && (form.pid_status) && (
+            <div className="mt-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+              ⚠️ {statusWarning}
+            </div>
+          )}
         </Card>
 
         <div className="flex justify-end gap-3">
