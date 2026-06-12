@@ -646,7 +646,7 @@ export default function Dashboard() {
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="pb-4 flex-1 flex flex-col justify-end">
+              <CardContent className="pb-4 flex-1 flex flex-col justify-start">
                 <div className="grid grid-cols-3 gap-x-2 gap-y-2">
                   {card.stats.map(s => (
                     <div key={s.label} className="text-center bg-muted/40 rounded-lg py-1.5 px-1">
