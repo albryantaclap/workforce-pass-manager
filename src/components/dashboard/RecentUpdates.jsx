@@ -218,7 +218,7 @@ export default function RecentUpdates({ filteredEmployeeIds }) {
         <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Recent Updates</span>
         <span className="text-xs text-muted-foreground">— Latest status changes</span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
           <CategoryPanel
             key={key}
