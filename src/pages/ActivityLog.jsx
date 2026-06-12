@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Activity, Search, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Activity, Search, Plus, Pencil, Trash2, User } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ACTION_CONFIG = {
@@ -13,6 +13,49 @@ const ACTION_CONFIG = {
   update: { label: 'Updated', icon: Pencil, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
   delete: { label: 'Deleted', icon: Trash2, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
 };
+
+function PerformedByCell({ log }) {
+  const name = log.performed_by || '—';
+  const snap = log.record_snapshot || {};
+  const meta = snap._audit_meta || {};
+  const email = meta.performer_email || null;
+  const role = meta.performer_role || null;
+  const isSystem = name === 'system' || (!email && name === 'system');
+
+  if (isSystem) {
+    return (
+      <span className="text-xs text-muted-foreground italic">System</span>
+    );
+  }
+
+  return (
+    <div className="group relative inline-block">
+      <div className="flex items-center gap-1.5 cursor-default">
+        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <User className="w-3 h-3 text-primary" />
+        </div>
+        <span className="text-sm font-medium text-foreground">{name}</span>
+      </div>
+      {/* Tooltip */}
+      {(email || role) && (
+        <div className="absolute left-0 top-full mt-1.5 z-50 hidden group-hover:block bg-white border border-slate-200 rounded-lg shadow-lg p-3 min-w-[180px] text-xs">
+          {email && (
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+              <span className="font-medium">Email:</span>
+              <span className="text-blue-600">{email}</span>
+            </div>
+          )}
+          {role && (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="font-medium">Role:</span>
+              <span className="capitalize">{role}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ActivityLog() {
   const [search, setSearch] = useState('');
@@ -133,7 +176,9 @@ export default function ActivityLog() {
                       <div className="font-medium">{log.record_name || log.entity_id}</div>
                       <div className="text-xs text-muted-foreground">{log.entity_name}</div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{log.performed_by || '—'}</td>
+                    <td className="px-4 py-3">
+                      <PerformedByCell log={log} />
+                    </td>
                     <td className="px-4 py-3">
                       {log.changed_fields?.length > 0 ? (
                         <div className="flex flex-wrap gap-1">

@@ -191,6 +191,8 @@ export default function EmployeeForm() {
     mutationFn: (data) => {
       const cleaned = Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== '' && v !== null && v !== undefined));
       if (currentUser?.email) cleaned._last_updated_by = currentUser.email;
+      if (currentUser?.full_name) cleaned._last_updated_by_name = currentUser.full_name;
+      if (currentUser?.role) cleaned._last_updated_by_role = currentUser.role;
       if (isEdit && empId) return base44.entities.Employee.update(empId, cleaned);
       return base44.entities.Employee.create(cleaned);
     },

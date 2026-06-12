@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 Deno.serve(async (req) => {
   try {
@@ -19,13 +19,22 @@ Deno.serve(async (req) => {
     const record_name = record?.name || entity_id;
 
     // Resolve who performed the action:
-    // 1. _last_updated_by is set by the frontend on every save so we always know the real user
-    // 2. For creates, fall back to created_by (the creator's email, set by the platform)
-    // 3. Final fallback: 'system'
-    let performed_by =
-      record?._last_updated_by ||
-      (action === 'create' ? record?.created_by : null) ||
-      'system';
+    // 1. _last_updated_by_name = full name set by frontend on save
+    // 2. _last_updated_by = email set by frontend on save
+    // 3. For creates, fall back to platform-set created_by (email)
+    // 4. Final fallback: 'system'
+    const performerName = record?._last_updated_by_name || null;
+    const performerEmail = record?._last_updated_by || (action === 'create' ? record?.created_by : null) || null;
+
+    // Display name: prefer full name, then email, then 'system'
+    let performed_by = performerName || performerEmail || 'system';
+
+    // Build audit metadata to store alongside the log
+    const audit_meta = {
+      performer_name: performerName,
+      performer_email: performerEmail,
+      performer_role: record?._last_updated_by_role || null,
+    };
 
     // Log to ActivityLog
     await base44.asServiceRole.entities.ActivityLog.create({
@@ -33,7 +42,7 @@ Deno.serve(async (req) => {
       entity_name: 'Employee',
       entity_id,
       performed_by,
-      record_snapshot: record || {},
+      record_snapshot: { ...(record || {}), _audit_meta: audit_meta },
       changed_fields: changed_fields || [],
       record_name,
     });

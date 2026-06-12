@@ -199,7 +199,7 @@ export default function ProjectIDTracker() {
   }, [filtered]);
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
+    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '', _last_updated_by_name: currentUser?.full_name || '', _last_updated_by_role: currentUser?.role || '' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees-active'] }),
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
   });
