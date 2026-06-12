@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { useManagerFilter } from '@/hooks/useManagerFilter';
-import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, X, Printer, FileDown } from 'lucide-react';
+import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, X, Printer } from 'lucide-react';
+import RecentUpdates from '@/components/dashboard/RecentUpdates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -619,16 +620,16 @@ export default function Dashboard() {
       </Card>
 
       {/* Category Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
         {categoryCards.map(card => (
-          <Link key={card.title} to={card.path}>
-            <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border hover:border-primary/30 overflow-hidden">
-              <div className={`h-1 w-full ${card.bg} opacity-80`} />
-              <CardHeader className="pb-2 pt-4">
+          <Link key={card.title} to={card.path} className="flex">
+            <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border hover:border-primary/30 overflow-hidden flex flex-col w-full">
+              <div className={`h-1 w-full ${card.bg} opacity-80 shrink-0`} />
+              <CardHeader className="pb-2 pt-4 shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center group-hover:scale-105 transition-transform`}>
-                      <card.icon className={`w-4.5 h-4.5 ${card.color}`} />
+                    <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center group-hover:scale-105 transition-transform shrink-0`}>
+                      <card.icon className={`w-4 h-4 ${card.color}`} />
                     </div>
                     <CardTitle className="text-sm font-semibold text-foreground">{card.title}</CardTitle>
                   </div>
@@ -645,11 +646,11 @@ export default function Dashboard() {
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="pb-4">
-                <div className={`grid gap-x-3 gap-y-2 ${card.stats.length > 3 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              <CardContent className="pb-4 flex-1 flex flex-col justify-end">
+                <div className="grid grid-cols-3 gap-x-2 gap-y-2">
                   {card.stats.map(s => (
                     <div key={s.label} className="text-center bg-muted/40 rounded-lg py-1.5 px-1">
-                      <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
+                      <div className={`text-base font-bold ${s.color}`}>{s.value}</div>
                       <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">{s.label}</div>
                     </div>
                   ))}
@@ -659,6 +660,9 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Recent Updates */}
+      <RecentUpdates filteredEmployeeIds={new Set(filtered.map(e => e.id))} />
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
