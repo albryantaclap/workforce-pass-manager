@@ -157,7 +157,8 @@ function DeptTable({ dept, employees, resetKey }) {
                 const daysPID = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
                 const trDateApproved = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : null;
                 const gpReceivedDate = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : null;
-                const pidValid = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase() === 'VALID PID PASS';
+                const pidEffective = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
+                const pidValid = pidEffective === 'VALID PID PASS' || pidEffective === 'SOON TO EXPIRE';
                 const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
                 return (
                   <tr key={emp.id} className={rowBg}>
@@ -352,7 +353,8 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         const dp = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
         const trDatePrint = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const gpRecPrint = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
-        const pidValidPrint = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase() === 'VALID PID PASS';
+        const pidEffectivePrint = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
+        const pidValidPrint = pidEffectivePrint === 'VALID PID PASS' || pidEffectivePrint === 'SOON TO EXPIRE';
         const completedBadge = '<span class="badge badge-green">Completed</span>';
         return `<tr>
           <td class="center">${idx + 1}</td>
