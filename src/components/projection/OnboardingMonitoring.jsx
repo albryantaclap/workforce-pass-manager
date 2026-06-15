@@ -185,14 +185,10 @@ function DeptTable({ dept, employees, resetKey }) {
                       {daysMed !== null ? <span className="font-semibold text-blue-700">{daysMed} days</span> : '—'}
                     </td>
                     <td className="border border-slate-200 px-2 py-1 text-center">
-                      {gp.label === 'Valid'
-                        ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">Completed</span>
-                        : daysGP !== null ? <span className="font-semibold text-green-700">{daysGP} days</span> : '—'}
+                      {daysGP !== null ? <span className="font-semibold text-green-700">{daysGP} days</span> : '—'}
                     </td>
                     <td className="border border-slate-200 px-2 py-1 text-center">
-                      {pid.label === 'Valid'
-                        ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">Completed</span>
-                        : daysPID !== null ? <span className="font-semibold text-purple-700">{daysPID} days</span> : '—'}
+                      {daysPID !== null ? <span className="font-semibold text-purple-700">{daysPID} days</span> : '—'}
                     </td>
                   </tr>
                 );
