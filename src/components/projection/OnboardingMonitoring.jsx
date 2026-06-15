@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { FileText, Download, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -103,15 +103,20 @@ function SummaryCards({ employees }) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 // ── Department Table ───────────────────────────────────────────────────────────
-function DeptTable({ dept, employees }) {
-  const today = format(new Date(), 'dd-MMM-yyyy');
+function DeptTable({ dept, employees, resetKey }) {
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [resetKey]);
+  const totalPages = Math.ceil(employees.length / PAGE_SIZE);
+  const paginated = employees.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="mb-6">
       {/* Department Header */}
       <div className="text-center font-bold text-white text-sm py-1.5 rounded-t" style={{ background: '#1e7b8a' }}>
-        {dept}
+        {dept} <span className="font-normal opacity-80 text-xs">({employees.length} records)</span>
       </div>
       <div className="overflow-x-auto rounded-b border border-t-0">
         <table className="w-full text-xs border-collapse">
@@ -139,19 +144,19 @@ function DeptTable({ dept, employees }) {
                 <td colSpan={14} className="text-center py-4 text-slate-400 bg-white border">No employees in this department</td>
               </tr>
             ) : (
-              employees.map((emp, idx) => {
+              paginated.map((emp, idx) => {
+                const globalIdx = (page - 1) * PAGE_SIZE + idx;
                 const med = getMedicalLabel(emp);
                 const gp = getGPLabel(emp);
                 const tr = getTrainingLabel(emp);
                 const pid = getPIDLabel(emp);
                 const daysMed = daysSince(emp.ftw_approved_date);
                 const daysGP = daysSince(emp.gate_pass_received_date);
-                // Days waiting for PID: use pid_issue_date if available, else ftw_approved_date
                 const daysPID = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
                 const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
                 return (
                   <tr key={emp.id} className={rowBg}>
-                    <td className="border border-slate-200 px-1 py-1 text-center text-slate-500">{idx + 1}</td>
+                    <td className="border border-slate-200 px-1 py-1 text-center text-slate-500">{globalIdx + 1}</td>
                     <td className="border border-slate-200 px-2 py-1 font-medium">{emp.name}</td>
                     <td className="border border-slate-200 px-2 py-1 text-center">{emp.qid_no || '—'}</td>
                     <td className="border border-slate-200 px-2 py-1 text-center">{emp.contact_details || '—'}</td>
@@ -186,6 +191,52 @@ function DeptTable({ dept, employees }) {
           </tbody>
         </table>
       </div>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-t-0 rounded-b text-xs text-slate-600">
+          <span>Page {page} of {totalPages} · {employees.length} total</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100"
+            >«</button>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100"
+            >‹</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+              .reduce((acc, p, i, arr) => {
+                if (i > 0 && p - arr[i - 1] > 1) acc.push('...');
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, i) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${i}`} className="px-1">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`px-2 py-1 rounded border ${page === p ? 'bg-teal-600 text-white border-teal-600' : 'bg-white hover:bg-slate-100'}`}
+                  >{p}</button>
+                )
+              )}
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100"
+            >›</button>
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={page === totalPages}
+              className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100"
+            >»</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -230,6 +281,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
   const [trainingFilter, setTrainingFilter] = useState([]);
   const [pidFilter, setPidFilter] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [filterKey, setFilterKey] = useState(0);
 
   const today = format(new Date(), 'dd-MMM-yyyy');
 
@@ -329,7 +381,11 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
     setCompanyFilter('ALL'); setDeptFilter([]); setPositionFilter([]); setManagerFilter([]);
     setLocationFilter([]); setDirFilter('all'); setMedFilter([]); setGpFilter([]);
     setTrainingFilter([]); setPidFilter([]);
+    setFilterKey(k => k + 1);
   };
+
+  // Reset pages when filters change
+  useEffect(() => { setFilterKey(k => k + 1); }, [companyFilter, deptFilter, positionFilter, managerFilter, locationFilter, dirFilter, medFilter, gpFilter, trainingFilter, pidFilter]);
 
   // Build print HTML
   function buildPrintHTML() {
@@ -521,7 +577,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       ) : (
         <div>
           {grouped.map(([dept, emps]) => (
-            <DeptTable key={dept} dept={dept} employees={emps} />
+            <DeptTable key={dept} dept={dept} employees={emps} resetKey={filterKey} />
           ))}
         </div>
       )}
