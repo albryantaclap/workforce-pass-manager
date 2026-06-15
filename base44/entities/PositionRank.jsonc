@@ -1,0 +1,23 @@
+{
+  "name": "PositionRank",
+  "type": "object",
+  "properties": {
+    "position": {
+      "type": "string",
+      "description": "Position / designation title"
+    },
+    "rank": {
+      "type": "number",
+      "description": "Rank order (lower number = higher seniority)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this rank is active"
+    }
+  },
+  "required": [
+    "position",
+    "rank"
+  ]
+}

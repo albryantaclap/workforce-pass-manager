@@ -3,6 +3,8 @@ import { format, differenceInDays, parseISO } from 'date-fns';
 import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { computePassStatus } from '@/utils/constants';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
 
 // ── Status helpers ─────────────────────────────────────────────────────────────
 function getMedicalLabel(emp) {
@@ -273,13 +275,32 @@ const ONBOARDING_PRINT_CSS = `
 `;
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-// Accepts pre-filtered employees from parent (ProjectionReport shared filters)
-// filteredEmployees is passed in; assignments for manager lookup in print
 export default function OnboardingMonitoring({ employees = [], assignments = [] }) {
   const [showPreview, setShowPreview] = useState(false);
   const [filterKey, setFilterKey] = useState(0);
 
   const today = format(new Date(), 'dd-MMM-yyyy');
+
+  // Fetch position ranks for sorting
+  const { data: positionRanks = [] } = useQuery({
+    queryKey: ['positionRanks'],
+    queryFn: () => base44.entities.PositionRank.list(),
+    staleTime: 30000,
+  });
+
+  // Build rank lookup map: position (uppercase) → rank number
+  const rankMap = useMemo(() => {
+    const m = new Map();
+    for (const r of positionRanks) {
+      if (r.position) m.set(r.position.trim().toUpperCase(), r.rank ?? 9999);
+    }
+    return m;
+  }, [positionRanks]);
+
+  const getPositionRank = (emp) => {
+    const pos = (emp.designation_org_chart || emp.position_application || '').trim().toUpperCase();
+    return rankMap.get(pos) ?? 9999;
+  };
 
   // Build manager lookup
   const managerMap = useMemo(() => {
@@ -294,7 +315,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
   // Reset pages when employees change (filters applied upstream)
   useEffect(() => { setFilterKey(k => k + 1); }, [employees]);
 
-  // Group by department
+  // Group by department, sort employees within each dept by position rank then name
   const grouped = useMemo(() => {
     const map = {};
     for (const emp of filteredEmployees) {
@@ -302,8 +323,17 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       if (!map[dept]) map[dept] = [];
       map[dept].push(emp);
     }
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
-  }, [filteredEmployees]);
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([dept, emps]) => [
+        dept,
+        [...emps].sort((a, b) => {
+          const rankDiff = getPositionRank(a) - getPositionRank(b);
+          if (rankDiff !== 0) return rankDiff;
+          return (a.name || '').localeCompare(b.name || '');
+        }),
+      ]);
+  }, [filteredEmployees, rankMap]);
 
   // Build print HTML
   function buildPrintHTML() {
