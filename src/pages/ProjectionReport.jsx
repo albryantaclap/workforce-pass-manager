@@ -3,11 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Printer, X, FileText, RefreshCw } from 'lucide-react';
 import { computePassStatus } from '@/utils/constants';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MultiSelect from '@/components/common/MultiSelect';
+import OnboardingMonitoring from '@/components/projection/OnboardingMonitoring';
 
 // ── Column structure ──────────────────────────────────────────────────────────
 const ZERO_ROW = () => ({
@@ -895,12 +897,31 @@ export default function ProjectionReport() {
 
   return (
     <div className="space-y-6">
+      {/* Page Title */}
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">Projection Report</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Live data from masterlist · {employees.filter(e => e.is_active !== false).length} active personnel
+        </p>
+      </div>
+
+      <Tabs defaultValue="gatepass" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="gatepass">Gatepass Daily Report Update</TabsTrigger>
+          <TabsTrigger value="onboarding">Onboarding Monitoring</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="onboarding">
+          <OnboardingMonitoring employees={employees} assignments={assignments} />
+        </TabsContent>
+
+        <TabsContent value="gatepass">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Daily Projection Report</h2>
+          <h2 className="text-xl font-bold tracking-tight">Gatepass Daily Report Update</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Live data from masterlist · {employees.filter(e => e.is_active !== false).length} active personnel
+            {employees.filter(e => e.is_active !== false).length} active personnel
           </p>
         </div>
         <div className="flex gap-2">
@@ -1069,6 +1090,8 @@ export default function ProjectionReport() {
           onClose={() => setShowPreview(false)}
         />
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
