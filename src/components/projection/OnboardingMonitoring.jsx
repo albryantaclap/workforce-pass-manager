@@ -129,7 +129,9 @@ function DeptTable({ dept, employees, resetKey }) {
               <th className="border border-teal-600 px-2 py-1.5 text-center">Company</th>
               <th className="border border-teal-600 px-2 py-1.5 text-center">Designation / Position</th>
               <th className="border border-teal-600 px-2 py-1.5 text-center">Medical</th>
+              <th className="border border-teal-600 px-2 py-1.5 text-center">TR Date Approved</th>
               <th className="border border-teal-600 px-2 py-1.5 text-center">Gate Pass Status</th>
+              <th className="border border-teal-600 px-2 py-1.5 text-center">Gatepass Received Date</th>
               <th className="border border-teal-600 px-2 py-1.5 text-center">Training Status</th>
               <th className="border border-teal-600 px-2 py-1.5 text-center" style={{ background: '#4caf7d' }}>Project ID Status</th>
               <th className="border border-teal-600 px-2 py-1.5 text-center">Remarks</th>
@@ -141,7 +143,7 @@ function DeptTable({ dept, employees, resetKey }) {
           <tbody>
             {employees.length === 0 ? (
               <tr>
-                <td colSpan={14} className="text-center py-4 text-slate-400 bg-white border">No employees in this department</td>
+                <td colSpan={16} className="text-center py-4 text-slate-400 bg-white border">No employees in this department</td>
               </tr>
             ) : (
               paginated.map((emp, idx) => {
@@ -153,6 +155,8 @@ function DeptTable({ dept, employees, resetKey }) {
                 const daysMed = daysSince(emp.ftw_approved_date);
                 const daysGP = daysSince(emp.gate_pass_received_date);
                 const daysPID = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
+                const trDateApproved = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : null;
+                const gpReceivedDate = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : null;
                 const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
                 return (
                   <tr key={emp.id} className={rowBg}>
@@ -165,9 +169,11 @@ function DeptTable({ dept, employees, resetKey }) {
                     <td className="border border-slate-200 px-1 py-1 text-center">
                       <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${med.color}`}>{med.label}</span>
                     </td>
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{trDateApproved || '—'}</td>
                     <td className="border border-slate-200 px-1 py-1 text-center">
                       <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${gp.color}`}>{gp.label}</span>
                     </td>
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{gpReceivedDate || '—'}</td>
                     <td className="border border-slate-200 px-1 py-1 text-center">
                       <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${tr.color}`}>{tr.label}</span>
                     </td>
@@ -402,6 +408,8 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         const dm = daysSince(emp.ftw_approved_date);
         const dg = daysSince(emp.gate_pass_received_date);
         const dp = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
+        const trDatePrint = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
+        const gpRecPrint = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         return `<tr>
           <td class="center">${idx + 1}</td>
           <td>${emp.name || ''}</td>
@@ -410,13 +418,15 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
           <td class="center">${emp.company || ''}</td>
           <td class="center">${emp.designation_org_chart || emp.position_application || ''}</td>
           <td class="center"><span class="badge ${medClass}">${med.label}</span></td>
+          <td class="center">${trDatePrint}</td>
           <td class="center"><span class="badge ${gpClass}">${gp.label}</span></td>
+          <td class="center">${gpRecPrint}</td>
           <td class="center"><span class="badge ${trClass}">${tr.label}</span></td>
           <td class="center pid-cell"><span class="badge ${pidClass}">${pid.label}</span></td>
           <td>${emp.remarks || ''}</td>
-          <td class="center">${dm !== null ? dm + ' days' : ''}</td>
-          <td class="center">${dg !== null ? dg + ' days' : ''}</td>
-          <td class="center">${dp !== null ? dp + ' days' : ''}</td>
+          <td class="center">${dm !== null ? dm + ' days' : '—'}</td>
+          <td class="center">${dg !== null ? dg + ' days' : '—'}</td>
+          <td class="center">${dp !== null ? dp + ' days' : '—'}</td>
         </tr>`;
       }).join('');
       return `<div class="dept-block">
@@ -425,7 +435,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
           <thead><tr>
             <th>#</th><th style="text-align:left">Full Name</th><th>QID Number</th>
             <th>Mobile Number</th><th>Company</th><th>Designation / Position</th>
-            <th>Medical</th><th>Gate Pass Status</th><th>Training Status</th>
+            <th>Medical</th><th>TR Date Approved</th><th>Gate Pass Status</th><th>Gatepass Received Date</th><th>Training Status</th>
             <th class="pid-col">Project ID Status</th><th>Remarks</th>
             <th>Days Since Med Approved</th><th>Days Since GP Received</th><th>Days Waiting for PID</th>
           </tr></thead>
