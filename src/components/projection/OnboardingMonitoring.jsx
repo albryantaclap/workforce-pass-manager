@@ -1,9 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { format, differenceInDays, parseISO } from 'date-fns';
-import { FileText, Download, X } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import MultiSelect from '@/components/common/MultiSelect';
 import { computePassStatus } from '@/utils/constants';
 
 // ── Status helpers ─────────────────────────────────────────────────────────────
@@ -275,18 +273,9 @@ const ONBOARDING_PRINT_CSS = `
 `;
 
 // ── Main Component ─────────────────────────────────────────────────────────────
+// Accepts pre-filtered employees from parent (ProjectionReport shared filters)
+// filteredEmployees is passed in; assignments for manager lookup in print
 export default function OnboardingMonitoring({ employees = [], assignments = [] }) {
-  // Filters
-  const [companyFilter, setCompanyFilter] = useState('ALL');
-  const [deptFilter, setDeptFilter] = useState([]);
-  const [positionFilter, setPositionFilter] = useState([]);
-  const [managerFilter, setManagerFilter] = useState([]);
-  const [locationFilter, setLocationFilter] = useState([]);
-  const [dirFilter, setDirFilter] = useState('all');
-  const [medFilter, setMedFilter] = useState([]);
-  const [gpFilter, setGpFilter] = useState([]);
-  const [trainingFilter, setTrainingFilter] = useState([]);
-  const [pidFilter, setPidFilter] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
   const [filterKey, setFilterKey] = useState(0);
 
@@ -299,75 +288,11 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
     return m;
   }, [assignments]);
 
-  // Filter options
-  const companyOptions = useMemo(() => {
-    const set = new Set(employees.map(e => (e.company || '').trim().toUpperCase()).filter(Boolean));
-    return Array.from(set).sort();
-  }, [employees]);
+  // Use pre-filtered employees directly
+  const filteredEmployees = employees;
 
-  const deptOptions = useMemo(() => {
-    const set = new Set(employees.map(e => (e.department || '').trim()).filter(Boolean));
-    return Array.from(set).sort().map(d => ({ value: d, label: d }));
-  }, [employees]);
-
-  const positionOptions = useMemo(() => {
-    const set = new Set(employees.map(e => (e.designation_org_chart || e.position_application || '').trim()).filter(Boolean));
-    return Array.from(set).sort().map(p => ({ value: p, label: p }));
-  }, [employees]);
-
-  const managerOptions = useMemo(() => assignments.map(a => ({ value: a.id, label: a.manager_name })), [assignments]);
-
-  const locationOptions = useMemo(() => {
-    const set = new Set(employees.map(e => (e.current_location || '').trim()).filter(Boolean));
-    return Array.from(set).sort().map(v => ({ value: v, label: v }));
-  }, [employees]);
-
-  const managerCompanies = useMemo(() => {
-    if (managerFilter.length === 0) return new Set();
-    const s = new Set();
-    for (const id of managerFilter) {
-      const a = assignments.find(x => x.id === id);
-      if (a) a.companies.forEach(co => s.add(co.trim().toUpperCase()));
-    }
-    return s;
-  }, [managerFilter, assignments]);
-
-  // Apply filters
-  const filteredEmployees = useMemo(() => {
-    return employees.filter(emp => {
-      if (companyFilter !== 'ALL' && (emp.company || '').trim().toUpperCase() !== companyFilter) return false;
-      if (managerFilter.length > 0 && !managerCompanies.has((emp.company || '').trim().toUpperCase())) return false;
-      if (deptFilter.length > 0 && !deptFilter.some(d => d.toLowerCase() === (emp.department || '').trim().toLowerCase())) return false;
-      if (positionFilter.length > 0 && !positionFilter.includes(emp.designation_org_chart || emp.position_application)) return false;
-      if (locationFilter.length > 0 && !locationFilter.some(l => l.toUpperCase() === (emp.current_location || '').trim().toUpperCase())) return false;
-      if (dirFilter !== 'all' && (emp.dir_indir || '').trim().toUpperCase() !== dirFilter) return false;
-
-      const ftw = (emp.ftw_result || '').trim().toUpperCase();
-      if (medFilter.length > 0) {
-        const medLabel = !emp.ftw_result ? 'NEW' : ftw;
-        if (!medFilter.some(f => f.toUpperCase() === medLabel)) return false;
-      }
-
-      if (gpFilter.length > 0) {
-        const eff = (computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status) || '').toUpperCase();
-        const raw = (emp.rlic_status || '').trim().toUpperCase();
-        const gpLabel = raw === 'UNDER PROCESS' || raw === 'DVC SENT' ? 'UNDER PROCESS' : eff;
-        if (!gpFilter.some(f => f.toUpperCase() === gpLabel)) return false;
-      }
-
-      if (trainingFilter.length > 0) {
-        const t = (emp.training_status || '').trim().toUpperCase();
-        if (!trainingFilter.some(f => f.toUpperCase() === t)) return false;
-      }
-
-      if (pidFilter.length > 0) {
-        const eff = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
-        if (!pidFilter.some(f => f.toUpperCase() === eff)) return false;
-      }
-
-      return true;
-    });
-  }, [employees, companyFilter, managerFilter, managerCompanies, deptFilter, positionFilter, locationFilter, dirFilter, medFilter, gpFilter, trainingFilter, pidFilter]);
+  // Reset pages when employees change (filters applied upstream)
+  useEffect(() => { setFilterKey(k => k + 1); }, [employees]);
 
   // Group by department
   const grouped = useMemo(() => {
@@ -379,20 +304,6 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
     }
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
   }, [filteredEmployees]);
-
-  const hasFilters = companyFilter !== 'ALL' || deptFilter.length > 0 || positionFilter.length > 0 ||
-    managerFilter.length > 0 || locationFilter.length > 0 || dirFilter !== 'all' ||
-    medFilter.length > 0 || gpFilter.length > 0 || trainingFilter.length > 0 || pidFilter.length > 0;
-
-  const clearFilters = () => {
-    setCompanyFilter('ALL'); setDeptFilter([]); setPositionFilter([]); setManagerFilter([]);
-    setLocationFilter([]); setDirFilter('all'); setMedFilter([]); setGpFilter([]);
-    setTrainingFilter([]); setPidFilter([]);
-    setFilterKey(k => k + 1);
-  };
-
-  // Reset pages when filters change
-  useEffect(() => { setFilterKey(k => k + 1); }, [companyFilter, deptFilter, positionFilter, managerFilter, locationFilter, dirFilter, medFilter, gpFilter, trainingFilter, pidFilter]);
 
   // Build print HTML
   function buildPrintHTML() {
@@ -463,37 +374,6 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
     win.document.close();
   }
 
-  const medOptions = [
-    { value: 'NEW', label: 'New' },
-    { value: 'ACCEPTED', label: 'Accepted' },
-    { value: 'WAITING TR APPROVAL', label: 'Waiting TR' },
-    { value: 'RE-ASSESS', label: 'Re-Assess' },
-    { value: 'REJECTED', label: 'Recalled' },
-  ];
-  const gpOptions = [
-    { value: 'VALID RLIC PASS', label: 'Valid' },
-    { value: 'SOON TO EXPIRE', label: 'Soon to Expire' },
-    { value: 'EXPIRED RLIC PASS', label: 'Expired' },
-    { value: 'NO RLIC PASS', label: 'No Pass' },
-    { value: 'UNDER PROCESS', label: 'Under Process' },
-    { value: 'WAITING MOI APPROVAL', label: 'Waiting MOI Approval' },
-  ];
-  const trainingOptions = [
-    { value: 'DONE', label: 'Done' },
-    { value: 'PENDING', label: 'Pending' },
-    { value: 'ON-GOING', label: 'On-Going' },
-    { value: 'SCHEDULED', label: 'Scheduled' },
-    { value: 'NOT REQUIRED', label: 'Not Required' },
-  ];
-  const pidOptions = [
-    { value: 'VALID PID PASS', label: 'Valid' },
-    { value: 'SOON TO EXPIRE', label: 'Soon to Expire' },
-    { value: 'EXPIRED PID PASS', label: 'Expired' },
-    { value: 'NO PID PASS', label: 'No PID' },
-    { value: 'RENEWAL UNDER PROCESS', label: 'Renewal Under Process' },
-    { value: 'RECALLED', label: 'Recalled' },
-  ];
-
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -511,75 +391,6 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
 
       {/* Summary Cards */}
       <SummaryCards employees={filteredEmployees} />
-
-      {/* Filters */}
-      <div className="p-4 bg-card rounded-xl border space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filters</span>
-          {hasFilters && (
-            <Button variant="outline" size="sm" onClick={clearFilters} className="gap-1 h-7 text-xs">
-              <X className="w-3.5 h-3.5" /> Clear Filters
-            </Button>
-          )}
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Company</label>
-            <Select value={companyFilter} onValueChange={setCompanyFilter}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All companies...</SelectItem>
-                {companyOptions.map(co => <SelectItem key={co} value={co}>{co}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Department</label>
-            <MultiSelect options={deptOptions} value={deptFilter} onChange={setDeptFilter} placeholder="All departments..." className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Position / Designation</label>
-            <MultiSelect options={positionOptions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Manager</label>
-            <MultiSelect options={managerOptions} value={managerFilter} onChange={setManagerFilter} placeholder="All Managers" className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Location</label>
-            <MultiSelect options={locationOptions} value={locationFilter} onChange={setLocationFilter} placeholder="All locations..." className="h-8 text-xs" />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">DIR / INDIR</label>
-            <Select value={dirFilter} onValueChange={setDirFilter}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="DIR">DIR</SelectItem>
-                <SelectItem value="INDIR">INDIR</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Medical Status</label>
-            <MultiSelect options={medOptions} value={medFilter} onChange={setMedFilter} placeholder="All..." className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Gate Pass Status</label>
-            <MultiSelect options={gpOptions} value={gpFilter} onChange={setGpFilter} placeholder="All..." className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Training Status</label>
-            <MultiSelect options={trainingOptions} value={trainingFilter} onChange={setTrainingFilter} placeholder="All..." className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Project ID Status</label>
-            <MultiSelect options={pidOptions} value={pidFilter} onChange={setPidFilter} placeholder="All..." className="h-8 text-xs" />
-          </div>
-        </div>
-      </div>
 
       {/* Department Tables */}
       {grouped.length === 0 ? (

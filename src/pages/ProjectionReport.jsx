@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Printer, X, FileText, RefreshCw } from 'lucide-react';
-import { computePassStatus } from '@/utils/constants';
+import { computePassStatus, COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, normalizeDate } from '@/utils/constants';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MultiSelect from '@/components/common/MultiSelect';
 import OnboardingMonitoring from '@/components/projection/OnboardingMonitoring';
+import { Card } from '@/components/ui/card';
 
 // ── Column structure ──────────────────────────────────────────────────────────
 const ZERO_ROW = () => ({
@@ -647,18 +648,19 @@ function InlineReport({ reportHTML }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProjectionReport() {
-  const [selectedCompany, setSelectedCompany] = useState('ALL');
-  const [selectedManagers, setSelectedManagers] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
 
-  // Extended filters
+  // ── Shared filters (Dashboard-equivalent) ────────────────────────────────
+  const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState([]);
-  const [dirFilter, setDirFilter] = useState('all');
+  const [selectedManagers, setSelectedManagers] = useState([]);
+  const [dirFilter, setDirFilter] = useState('');
   const [gpStatusFilter, setGpStatusFilter] = useState([]);
+  const [trainingStatusFilter, setTrainingStatusFilter] = useState([]);
+  const [pidStatusFilter, setPidStatusFilter] = useState([]);
   const [medicalResultFilter, setMedicalResultFilter] = useState([]);
   const [locationFilter, setLocationFilter] = useState([]);
-  const [trainingStatusFilter, setTrainingStatusFilter] = useState([]);
   const [trainingScheduledFrom, setTrainingScheduledFrom] = useState('');
   const [trainingScheduledTo, setTrainingScheduledTo] = useState('');
   const [medicalTrApprovedFrom, setMedicalTrApprovedFrom] = useState('');
@@ -670,100 +672,103 @@ export default function ProjectionReport() {
   const [pidIssueFrom, setPidIssueFrom] = useState('');
   const [pidIssueTo, setPidIssueTo] = useState('');
 
-  // Load all employees — same query key as Dashboard so cache is shared
-  const {
-   data: employees = [],
-   isLoading,
-   refetch,
-   isFetching
-  } = useQuery({
-   queryKey: ['employees-active'],
+  // Gatepass-tab-only: single company selector for the report (kept separately)
+  const [selectedCompany, setSelectedCompany] = useState('ALL');
 
-   queryFn: () =>
-     base44.entities.Employee.filter(
-       { is_active: true },
-       '-created_date',
-       10000
-     ),
-
-   refetchInterval: 15000,
-   refetchOnWindowFocus: true,
-   staleTime: 5000,
-   gcTime: 1000 * 60 * 5,
-   retry: 2,
+  const { data: employees = [], isLoading, refetch, isFetching } = useQuery({
+    queryKey: ['employees-active'],
+    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
+    staleTime: 5000,
+    gcTime: 1000 * 60 * 5,
+    retry: 2,
   });
 
-  // Load manager assignments
   const { data: assignments = [] } = useQuery({
-   queryKey: ['managerAssignments'],
-   queryFn: () => base44.entities.ManagerAssignment.list(),
+    queryKey: ['managerAssignments'],
+    queryFn: () => base44.entities.ManagerAssignment.list(),
   });
 
-  // Build manager options and filtered companies
-  const managerOptions = useMemo(() => {
-   return assignments.map(a => ({ value: a.id, label: a.manager_name }));
-  }, [assignments]);
-
-  const filteredCompaniesFromManagers = useMemo(() => {
-   if (selectedManagers.length === 0) return [];
-   const companies = new Set();
-   for (const managerId of selectedManagers) {
-     const mgr = assignments.find(a => a.id === managerId);
-     if (mgr) {
-       mgr.companies.forEach(co => companies.add(co.trim().toUpperCase()));
-     }
-   }
-   return Array.from(companies);
-  }, [selectedManagers, assignments]);
+  // Lookup queries (same as Dashboard)
+  const { data: lookupCompanies = [] } = useQuery({ queryKey: ['lookups', 'company'], queryFn: () => base44.entities.Lookup.filter({ type: 'company' }) });
+  const { data: lookupDepartments = [] } = useQuery({ queryKey: ['lookups', 'department'], queryFn: () => base44.entities.Lookup.filter({ type: 'department' }) });
+  const { data: customRlicStatuses = [] } = useQuery({ queryKey: ['lookups', 'rlic_status'], queryFn: () => base44.entities.Lookup.filter({ type: 'rlic_status' }) });
+  const { data: customPidStatuses = [] } = useQuery({ queryKey: ['lookups', 'pid_status'], queryFn: () => base44.entities.Lookup.filter({ type: 'pid_status' }) });
+  const { data: customFtwResults = [] } = useQuery({ queryKey: ['lookups', 'ftw_result'], queryFn: () => base44.entities.Lookup.filter({ type: 'ftw_result' }) });
+  const { data: customTrainingStatuses = [] } = useQuery({ queryKey: ['lookups', 'training_status'], queryFn: () => base44.entities.Lookup.filter({ type: 'training_status' }) });
+  const { data: lookupLocations = [] } = useQuery({ queryKey: ['lookups', 'location'], queryFn: () => base44.entities.Lookup.filter({ type: 'location' }) });
 
   const today = format(new Date(), 'dd-MM-yyyy');
 
-  // Derive unique sorted company list from live employee data
-  const allCompanies = useMemo(() => {
-    const set = new Set();
-    for (const emp of employees) {
-      if (emp.company) set.add(emp.company.trim().toUpperCase());
-    }
-    return Array.from(set).sort();
-  }, [employees]);
+  const managerOptions = useMemo(() => assignments.map(a => ({ value: a.id, label: a.manager_name })), [assignments]);
 
-  // Cascading company options: when department is selected, only show companies with employees in that dept
-  const cascadedCompanies = useMemo(() => {
-    if (departmentFilter.length === 0) return allCompanies;
+  const filteredCompaniesFromManagers = useMemo(() => {
+    if (selectedManagers.length === 0) return [];
+    const s = new Set();
+    for (const id of selectedManagers) {
+      const mgr = assignments.find(a => a.id === id);
+      if (mgr) mgr.companies.forEach(co => s.add(co.trim().toUpperCase()));
+    }
+    return Array.from(s);
+  }, [selectedManagers, assignments]);
+
+  // Build deduplicated company options (same logic as Dashboard)
+  const allCompanyOptions = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    for (const c of [...COMPANIES.map(c => ({ value: c.value, label: c.label })), ...lookupCompanies.map(c => ({ value: c.value, label: c.label }))]) {
+      const key = c.value.trim().toUpperCase();
+      if (!seen.has(key)) { seen.add(key); result.push(c); }
+    }
+    return result;
+  }, [lookupCompanies]);
+
+  const cascadedCompanyOptions = useMemo(() => {
+    if (departmentFilter.length === 0) return allCompanyOptions;
     const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
-    const validCompanies = new Set(
-      employees
-        .filter(e => deptSet.has((e.department || '').trim().toLowerCase()))
-        .map(e => (e.company || '').trim().toUpperCase())
-    );
-    return allCompanies.filter(co => validCompanies.has(co));
-  }, [allCompanies, departmentFilter, employees]);
+    const valid = new Set(employees.filter(e => deptSet.has((e.department || '').trim().toLowerCase())).map(e => (e.company || '').trim().toUpperCase()));
+    return allCompanyOptions.filter(c => valid.has(c.value.trim().toUpperCase()));
+  }, [allCompanyOptions, departmentFilter, employees]);
 
-  // Reset selected company if it's no longer valid after department filter changes
   useEffect(() => {
-    if (selectedCompany === 'ALL') return;
-    if (!cascadedCompanies.includes(selectedCompany)) setSelectedCompany('ALL');
-  }, [cascadedCompanies]);
+    if (companyFilter.length === 0) return;
+    const validSet = new Set(cascadedCompanyOptions.map(c => c.value.trim().toUpperCase()));
+    const still = companyFilter.filter(cf => validSet.has(cf.trim().toUpperCase()));
+    if (still.length !== companyFilter.length) setCompanyFilter(still);
+  }, [cascadedCompanyOptions]);
 
-  // Derive unique positions list
+  const allDepartmentOptions = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    [...DEPARTMENTS.map(d => ({ value: d, label: d.toUpperCase() })), ...lookupDepartments.map(d => ({ value: d.value, label: d.label.toUpperCase() }))].forEach(d => {
+      const key = d.value.toUpperCase();
+      if (!seen.has(key)) { seen.add(key); result.push(d); }
+    });
+    return result;
+  }, [lookupDepartments]);
+
   const allPositions = useMemo(() => {
-    const set = new Set();
-    for (const emp of employees) {
-      if (emp.designation_org_chart) set.add(emp.designation_org_chart);
+    const seen = new Map();
+    for (const e of employees) {
+      const raw = (e.designation_org_chart || '').trim();
+      if (!raw) continue;
+      const key = raw.toUpperCase();
+      if (!seen.has(key)) seen.set(key, raw);
     }
-    return Array.from(set).sort().map(p => ({ value: p, label: p }));
+    return [...seen.values()].sort().map(p => ({ value: p, label: p }));
   }, [employees]);
 
-  // Cascade positions by company, department, gate pass status, and PID status
   const filteredPositions = useMemo(() => {
-    const hasFilter = selectedCompany !== 'ALL' || departmentFilter.length > 0 || gpStatusFilter.length > 0;
+    const hasFilter = companyFilter.length > 0 || departmentFilter.length > 0 || gpStatusFilter.length > 0;
     if (!hasFilter) return allPositions;
+    const coSet = companyFilter.length > 0 ? new Set(companyFilter.map(c => c.trim().toUpperCase())) : null;
     const deptSet = departmentFilter.length > 0 ? new Set(departmentFilter.map(d => d.trim().toLowerCase())) : null;
     const seen = new Set();
     return employees
       .filter(e => {
         if (!e.designation_org_chart) return false;
-        if (selectedCompany !== 'ALL' && (e.company || '').trim().toUpperCase() !== selectedCompany.toUpperCase()) return false;
+        if (coSet && !coSet.has((e.company || '').trim().toUpperCase())) return false;
         if (deptSet && !deptSet.has((e.department || '').trim().toLowerCase())) return false;
         if (gpStatusFilter.length > 0 && !gpStatusFilter.includes(computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status))) return false;
         return true;
@@ -772,9 +777,8 @@ export default function ProjectionReport() {
       .filter(p => { if (seen.has(p)) return false; seen.add(p); return true; })
       .sort()
       .map(p => ({ value: p, label: p }));
-  }, [employees, selectedCompany, departmentFilter, gpStatusFilter, allPositions]);
+  }, [employees, companyFilter, departmentFilter, gpStatusFilter]);
 
-  // Reset position when any parent filter changes; keep only valid selections
   useEffect(() => {
     if (positionFilter.length === 0) return;
     const valid = new Set(filteredPositions.map(p => p.value));
@@ -782,101 +786,117 @@ export default function ProjectionReport() {
     if (still.length !== positionFilter.length) setPositionFilter(still);
   }, [filteredPositions]);
 
-  // Department options — derived dynamically from live employee data, deduplicated by normalized value
-  const departmentOptions = useMemo(() => {
-    const seen = new Map();
-    for (const emp of employees) {
-      const raw = emp.department;
-      if (!raw) continue;
-      const normalized = raw.trim();
-      if (!normalized) continue;
-      const key = normalized.toLowerCase();
-      if (!seen.has(key)) seen.set(key, normalized);
-    }
-    return Array.from(seen.values()).sort().map(d => ({ value: d, label: d }));
-  }, [employees]);
+  const allRlicOptions = useMemo(() => {
+    const seen = new Set(); const result = [];
+    [...RLIC_STATUSES, ...customRlicStatuses].forEach(s => { const k = s.value.toUpperCase(); if (!seen.has(k)) { seen.add(k); result.push({ value: s.value, label: s.label.toUpperCase() }); } });
+    return result;
+  }, [customRlicStatuses]);
 
-  // GP status options — derived from live data (computed effective RLIC status)
-  const gpStatusOptions = useMemo(() => {
-    const seen = new Map();
-    for (const emp of employees) {
-      const val = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
-      if (!val) continue;
-      const key = val.trim().toUpperCase();
-      if (!seen.has(key)) seen.set(key, val.trim());
-    }
-    return Array.from(seen.values()).sort().map(v => ({ value: v, label: v }));
-  }, [employees]);
+  const allPidOptions = useMemo(() => {
+    const seen = new Set(); const result = [];
+    [...PID_STATUSES, ...customPidStatuses].forEach(s => { const k = s.value.toUpperCase(); if (!seen.has(k)) { seen.add(k); result.push({ value: s.value, label: s.label.toUpperCase() }); } });
+    return result;
+  }, [customPidStatuses]);
 
-  // Medical result options — derived from live data
-  const medicalResultOptions = useMemo(() => {
-    const seen = new Map();
-    seen.set('NEW', 'NEW'); // always include NEW for employees with no ftw_result
-    for (const emp of employees) {
-      if (!emp.ftw_result) continue;
-      const key = emp.ftw_result.trim().toUpperCase();
-      if (!seen.has(key)) seen.set(key, emp.ftw_result.trim());
-    }
-    return Array.from(seen.values()).sort().map(v => ({ value: v, label: v }));
-  }, [employees]);
+  const allMedicalResultOptions = useMemo(() => {
+    const seen = new Set(); const result = [];
+    [...MEDICAL_RESULTS, ...customFtwResults].forEach(s => { const k = s.value.toUpperCase(); if (!seen.has(k)) { seen.add(k); result.push({ value: s.value, label: s.label.toUpperCase() }); } });
+    return result;
+  }, [customFtwResults]);
 
-  // Location options — derived from live data
-  const locationOptions = useMemo(() => {
-    const seen = new Map();
-    for (const emp of employees) {
-      if (!emp.current_location) continue;
-      const normalized = emp.current_location.trim();
-      if (!normalized) continue;
-      const key = normalized.toUpperCase();
-      if (!seen.has(key)) seen.set(key, normalized);
-    }
-    return Array.from(seen.values()).sort().map(v => ({ value: v, label: v }));
-  }, [employees]);
+  const allTrainingOptions = useMemo(() => {
+    const seen = new Set(); const result = [];
+    [...TRAINING_STATUSES, ...customTrainingStatuses].forEach(s => { const k = s.value.toUpperCase(); if (!seen.has(k)) { seen.add(k); result.push({ value: s.value, label: s.label.toUpperCase() }); } });
+    return result;
+  }, [customTrainingStatuses]);
 
-  // Training status options — derived from live data
-  const trainingStatusOptions = useMemo(() => {
-    const seen = new Map();
-    for (const emp of employees) {
-      if (!emp.training_status) continue;
-      const normalized = emp.training_status.trim();
-      if (!normalized) continue;
-      const key = normalized.toUpperCase();
-      if (!seen.has(key)) seen.set(key, normalized);
-    }
-    return Array.from(seen.values()).sort().map(v => ({ value: v, label: v }));
-  }, [employees]);
-
-  // Filter employees based on selected managers
-  const filteredEmployees = useMemo(() => {
-    if (selectedManagers.length === 0) return employees;
-    return employees.filter(emp => {
-      const empCo = (emp.company || '').trim().toUpperCase();
-      return filteredCompaniesFromManagers.includes(empCo);
+  const allLocationOptions = useMemo(() => {
+    const seen = new Set(); const result = [];
+    [...['QATAR', 'COMO CAMP', 'OTHER'].map(l => ({ value: l, label: l })), ...lookupLocations.map(l => ({ value: l.value, label: l.label }))].forEach(l => {
+      const k = l.value.toUpperCase(); if (!seen.has(k)) { seen.add(k); result.push(l); }
     });
-  }, [employees, selectedManagers, filteredCompaniesFromManagers]);
+    return result;
+  }, [lookupLocations]);
 
+  // ── Master filtered employee list (shared across both tabs) ───────────────
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(e => {
+      if (e.is_active === false) return false;
+      const empCo = (e.company || '').trim().toUpperCase();
+      // Manager filter takes priority over company multiselect
+      if (selectedManagers.length > 0) {
+        if (!filteredCompaniesFromManagers.includes(empCo)) return false;
+      } else if (companyFilter.length > 0) {
+        if (!companyFilter.some(cf => cf.trim().toUpperCase() === empCo)) return false;
+      }
+      if (positionFilter.length > 0 && !positionFilter.includes(e.designation_org_chart)) return false;
+      if (departmentFilter.length > 0 && !departmentFilter.includes(e.department)) return false;
+      if (locationFilter.length > 0 && !locationFilter.includes(e.current_location)) return false;
+      if (dirFilter && (e.dir_indir || '').trim().toUpperCase() !== dirFilter.toUpperCase()) return false;
+      const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+      if (gpStatusFilter.length > 0 && !gpStatusFilter.includes(effectiveRlic)) return false;
+      const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
+      if (pidStatusFilter.length > 0 && !pidStatusFilter.includes(effectivePid)) return false;
+      if (trainingStatusFilter.length > 0 && !trainingStatusFilter.includes(e.training_status)) return false;
+      if (medicalResultFilter.length > 0 && !medicalResultFilter.includes(e.ftw_result)) return false;
+      const trainSched = normalizeDate(e.training_date_scheduled) || '';
+      if (trainingScheduledFrom && trainSched < trainingScheduledFrom) return false;
+      if (trainingScheduledTo && trainSched > trainingScheduledTo) return false;
+      const medApproved = normalizeDate(e.ftw_approved_date) || '';
+      if (medicalTrApprovedFrom && medApproved < medicalTrApprovedFrom) return false;
+      if (medicalTrApprovedTo && medApproved > medicalTrApprovedTo) return false;
+      const gpIssueVal = normalizeDate(e.gate_pass_issue_date) || '';
+      if (gpIssueFrom && gpIssueVal < gpIssueFrom) return false;
+      if (gpIssueTo && gpIssueVal > gpIssueTo) return false;
+      const gpRecVal = normalizeDate(e.gate_pass_received_date) || '';
+      if (gpReceivedFrom && gpRecVal < gpReceivedFrom) return false;
+      if (gpReceivedTo && gpRecVal > gpReceivedTo) return false;
+      const pidIssueVal = normalizeDate(e.pid_issue_date) || '';
+      if (pidIssueFrom && pidIssueVal < pidIssueFrom) return false;
+      if (pidIssueTo && pidIssueVal > pidIssueTo) return false;
+      return true;
+    });
+  }, [employees, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, gpStatusFilter, pidStatusFilter, trainingStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagers, filteredCompaniesFromManagers]);
+
+  const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || selectedManagers.length > 0 || !!dirFilter || gpStatusFilter.length > 0 || pidStatusFilter.length > 0 || trainingStatusFilter.length > 0 || medicalResultFilter.length > 0 || locationFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!medicalTrApprovedFrom || !!medicalTrApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
+
+  const clearFilters = () => {
+    setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter([]); setSelectedManagers([]);
+    setDirFilter(''); setGpStatusFilter([]); setPidStatusFilter([]); setTrainingStatusFilter([]);
+    setMedicalResultFilter([]); setLocationFilter([]);
+    setTrainingScheduledFrom(''); setTrainingScheduledTo('');
+    setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo('');
+    setGpIssueFrom(''); setGpIssueTo('');
+    setGpReceivedFrom(''); setGpReceivedTo('');
+    setPidIssueFrom(''); setPidIssueTo('');
+  };
+
+  // Gatepass tab: compute company data using existing extraFilters structure
   const extraFilters = useMemo(() => ({
-    positionFilter, departmentFilter, dirFilter,
+    positionFilter, departmentFilter, dirFilter: dirFilter || 'all',
     gpStatusFilter, medicalResultFilter, locationFilter, trainingStatusFilter,
     trainingScheduledFrom, trainingScheduledTo,
     medicalTrApprovedFrom, medicalTrApprovedTo,
-    gpIssueFrom, gpIssueTo,
-    gpReceivedFrom, gpReceivedTo,
+    gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo,
     pidIssueFrom, pidIssueTo,
   }), [positionFilter, departmentFilter, dirFilter, gpStatusFilter, medicalResultFilter, locationFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
-  // Compute company data from live employee records
+  const gatepassCompanyFilter = useMemo(() => {
+    if (selectedManagers.length > 0) return 'ALL'; // managers handled in extraFilters via filteredEmployees
+    if (companyFilter.length === 1) return companyFilter[0].trim().toUpperCase();
+    return 'ALL';
+  }, [companyFilter, selectedManagers]);
+
   const companyData = useMemo(
-    () => buildCompanyData(filteredEmployees, selectedCompany, extraFilters),
-    [filteredEmployees, selectedCompany, extraFilters]
+    () => buildCompanyData(filteredEmployees, gatepassCompanyFilter, extraFilters),
+    [filteredEmployees, gatepassCompanyFilter, extraFilters]
   );
 
   const reportHTML = useMemo(
-    () => buildReportHTML(companyData, today, selectedCompany, assignments),
-    [companyData, today, selectedCompany, assignments]
+    () => buildReportHTML(companyData, today, gatepassCompanyFilter, assignments),
+    [companyData, today, gatepassCompanyFilter, assignments]
   );
 
-  // Summary totals across all filtered data
   const summaryTotals = useMemo(() => {
     return Object.values(companyData).reduce((acc, rows) => {
       const t = sumRows(rows);
@@ -884,8 +904,6 @@ export default function ProjectionReport() {
       return acc;
     }, ZERO_ROW());
   }, [companyData]);
-
-  const activeCount = filteredEmployees.filter(e => e.is_active !== false && e.is_active !== null).length;
 
   if (isLoading) {
     return (
@@ -898,12 +916,127 @@ export default function ProjectionReport() {
   return (
     <div className="space-y-6">
       {/* Page Title */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Projection Report</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Live data from masterlist · {employees.filter(e => e.is_active !== false).length} active personnel
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Projection Report</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Live data from masterlist ·{' '}
+            {hasFilter
+              ? <span className="text-primary font-semibold">Filtered: {filteredEmployees.length} personnel</span>
+              : <span>{employees.filter(e => e.is_active !== false).length} active personnel</span>}
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
+          <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
       </div>
+
+      {/* ── Shared Filter Panel (Dashboard-style) ── */}
+      <Card className="border shadow-sm">
+        <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filters</p>
+          {hasFilter && (
+            <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground h-7 px-2 rounded hover:bg-accent">
+              <X className="w-3 h-3" /> Clear All
+            </button>
+          )}
+        </div>
+        <div className="p-4 space-y-3">
+          {/* Row 1 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Company</p>
+              <MultiSelect options={cascadedCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Position / Designation</p>
+              <MultiSelect options={filteredPositions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Department</p>
+              <MultiSelect options={allDepartmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="All departments..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Manager Name</p>
+              <MultiSelect options={managerOptions} value={selectedManagers} onChange={setSelectedManagers} placeholder="All Managers" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">DIR / INDIR</p>
+              <select value={dirFilter} onChange={e => setDirFilter(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <option value="">All</option>
+                <option value="DIR">DIR</option>
+                <option value="INDIR">INDIR</option>
+              </select>
+            </div>
+          </div>
+          {/* Row 2 */}
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Status</p>
+              <MultiSelect options={allRlicOptions} value={gpStatusFilter} onChange={setGpStatusFilter} placeholder="All statuses..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Training Status</p>
+              <MultiSelect options={allTrainingOptions} value={trainingStatusFilter} onChange={setTrainingStatusFilter} placeholder="All statuses..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Status</p>
+              <MultiSelect options={allPidOptions} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="All statuses..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical Result</p>
+              <MultiSelect options={allMedicalResultOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="All results..." />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Location</p>
+              <MultiSelect options={allLocationOptions} value={locationFilter} onChange={setLocationFilter} placeholder="All locations..." />
+            </div>
+          </div>
+          {/* Row 3: date ranges */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 border-t">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Training Scheduled</p>
+              <div className="flex gap-1.5">
+                <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-8" />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical TR Approved</p>
+              <div className="flex gap-1.5">
+                <Input type="date" value={medicalTrApprovedFrom} onChange={e => setMedicalTrApprovedFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={medicalTrApprovedTo} onChange={e => setMedicalTrApprovedTo(e.target.value)} className="text-xs h-8" />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Issue</p>
+              <div className="flex gap-1.5">
+                <Input type="date" value={gpIssueFrom} onChange={e => setGpIssueFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={gpIssueTo} onChange={e => setGpIssueTo(e.target.value)} className="text-xs h-8" />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Received</p>
+              <div className="flex gap-1.5">
+                <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8" />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Issue</p>
+              <div className="flex gap-1.5">
+                <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-8" />
+              </div>
+            </div>
+          </div>
+          {hasFilter && (
+            <p className="text-xs text-muted-foreground pt-1">
+              Showing <strong className="text-foreground">{filteredEmployees.length}</strong> of <strong className="text-foreground">{employees.filter(e => e.is_active !== false).length}</strong> active personnel
+            </p>
+          )}
+        </div>
+      </Card>
 
       <Tabs defaultValue="gatepass" className="w-full">
         <TabsList className="mb-4">
@@ -912,184 +1045,56 @@ export default function ProjectionReport() {
         </TabsList>
 
         <TabsContent value="onboarding">
-          <OnboardingMonitoring employees={employees} assignments={assignments} />
+          <OnboardingMonitoring employees={filteredEmployees} assignments={assignments} />
         </TabsContent>
 
         <TabsContent value="gatepass">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Gatepass Daily Report Update</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {employees.filter(e => e.is_active !== false).length} active personnel
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
-          <Button onClick={() => setShowPreview(true)} disabled={employees.length === 0} className="gap-2">
-            <FileText className="w-4 h-4" /> Preview &amp; Print
-          </Button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="p-4 bg-card rounded-xl border space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filters</span>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Report date: <strong>{today}</strong></span>
-            {(selectedCompany !== 'ALL' || selectedManagers.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || dirFilter !== 'all' || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || locationFilter.length > 0 || trainingStatusFilter.length > 0 || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo) && (
-              <Button variant="outline" size="sm" onClick={() => {
-                setSelectedCompany('ALL'); setSelectedManagers([]); setPositionFilter([]); setDepartmentFilter([]);
-                setDirFilter('all'); setGpStatusFilter([]); setMedicalResultFilter([]); setLocationFilter([]);
-                setTrainingStatusFilter([]); setTrainingScheduledFrom(''); setTrainingScheduledTo('');
-                setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo('');
-                setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo('');
-                setPidIssueFrom(''); setPidIssueTo('');
-              }} className="gap-1 h-7 text-xs"><X className="w-3.5 h-3.5" /> Clear Filters</Button>
-            )}
-          </div>
-        </div>
-
-        {/* Row 1: dropdowns */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Company</label>
-            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All companies..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All companies...</SelectItem>
-                {cascadedCompanies.map(co => <SelectItem key={co} value={co}>{co}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Position / Designation</label>
-            <MultiSelect options={filteredPositions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Department</label>
-            <MultiSelect options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="All departments..." className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Manager Name</label>
-            <MultiSelect options={managerOptions} value={selectedManagers} onChange={setSelectedManagers} placeholder="All Managers" className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">DIR / INDIR</label>
-            <Select value={dirFilter} onValueChange={setDirFilter}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="DIR">DIR</SelectItem>
-                <SelectItem value="INDIR">INDIR</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Row 2: status filters */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Gate Pass Status</label>
-            <MultiSelect options={gpStatusOptions} value={gpStatusFilter} onChange={setGpStatusFilter} placeholder="All statuses..." className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Training Status</label>
-            <MultiSelect options={trainingStatusOptions} value={trainingStatusFilter} onChange={setTrainingStatusFilter} placeholder="All statuses..." className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Medical Result</label>
-            <MultiSelect options={medicalResultOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="All results..." className="h-8 text-xs" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">Location</label>
-            <MultiSelect options={locationOptions} value={locationFilter} onChange={setLocationFilter} placeholder="All locations..." className="h-8 text-xs" />
-          </div>
-        </div>
-
-        {/* Row 3: date ranges */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">Training Scheduled</p>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-8 flex-1" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-8 flex-1" />
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">Gatepass Daily Report Update</h2>
+              <p className="text-sm text-muted-foreground mt-1">Report date: <strong>{today}</strong></p>
             </div>
+            <Button onClick={() => setShowPreview(true)} disabled={filteredEmployees.length === 0} className="gap-2">
+              <FileText className="w-4 h-4" /> Preview &amp; Print
+            </Button>
           </div>
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">Medical TR Approved</p>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={medicalTrApprovedFrom} onChange={e => setMedicalTrApprovedFrom(e.target.value)} className="text-xs h-8 flex-1" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={medicalTrApprovedTo} onChange={e => setMedicalTrApprovedTo(e.target.value)} className="text-xs h-8 flex-1" />
-            </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Issue</p>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={gpIssueFrom} onChange={e => setGpIssueFrom(e.target.value)} className="text-xs h-8 flex-1" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={gpIssueTo} onChange={e => setGpIssueTo(e.target.value)} className="text-xs h-8 flex-1" />
-            </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Received</p>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8 flex-1" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8 flex-1" />
-            </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">Project ID Issue</p>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8 flex-1" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-8 flex-1" />
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        {[
-          { label: 'Pending Medical', value: summaryTotals.pendingMedical, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'FTW / Approved', value: summaryTotals.ftw, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'GP Under Process', value: summaryTotals.gpUnder, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Valid Gate Pass', value: summaryTotals.validGP, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'Training Completed', value: summaryTotals.trainingDone, color: 'text-orange-600', bg: 'bg-orange-50' },
-          { label: 'PID Valid', value: summaryTotals.pid, color: 'text-purple-600', bg: 'bg-purple-50' },
-        ].map(card => (
-          <div key={card.label} className={`rounded-xl border p-4 ${card.bg}`}>
-            <div className="text-xs text-slate-500 font-medium">{card.label}</div>
-            <div className={`text-3xl font-bold mt-1 ${card.color}`}>{card.value}</div>
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+            {[
+              { label: 'Pending Medical', value: summaryTotals.pendingMedical, color: 'text-blue-600', bg: 'bg-blue-50' },
+              { label: 'FTW / Approved', value: summaryTotals.ftw, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+              { label: 'GP Under Process', value: summaryTotals.gpUnder, color: 'text-amber-600', bg: 'bg-amber-50' },
+              { label: 'Valid Gate Pass', value: summaryTotals.validGP, color: 'text-green-600', bg: 'bg-green-50' },
+              { label: 'Training Completed', value: summaryTotals.trainingDone, color: 'text-orange-600', bg: 'bg-orange-50' },
+              { label: 'PID Valid', value: summaryTotals.pid, color: 'text-purple-600', bg: 'bg-purple-50' },
+            ].map(card => (
+              <div key={card.label} className={`rounded-xl border p-4 ${card.bg}`}>
+                <div className="text-xs text-slate-500 font-medium">{card.label}</div>
+                <div className={`text-3xl font-bold mt-1 ${card.color}`}>{card.value}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Inline report tables */}
-      {filteredEmployees.length > 0 ? (
-        <InlineReport reportHTML={reportHTML} />
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
-          <FileText className="w-10 h-10 opacity-30" />
-          <p className="font-medium">{selectedManagers.length > 0 ? 'No employee data found for selected managers.' : 'No employee data found.'}</p>
-        </div>
-      )}
+          {/* Inline report tables */}
+          {filteredEmployees.length > 0 ? (
+            <InlineReport reportHTML={reportHTML} />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+              <FileText className="w-10 h-10 opacity-30" />
+              <p className="font-medium">No employee data found for the selected filters.</p>
+            </div>
+          )}
 
-      {/* Print Modal */}
-      {showPreview && (
-        <ReportPreviewModal
-          reportHTML={reportHTML}
-          displayDate={today}
-          onClose={() => setShowPreview(false)}
-        />
-      )}
+          {/* Print Modal */}
+          {showPreview && (
+            <ReportPreviewModal
+              reportHTML={reportHTML}
+              displayDate={today}
+              onClose={() => setShowPreview(false)}
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>
