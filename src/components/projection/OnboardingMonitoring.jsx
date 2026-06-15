@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { format, differenceInDays, parseISO } from 'date-fns';
-import { FileText, PencilLine, X as XIcon } from 'lucide-react';
+import { FileText, PencilLine, X as XIcon, Sheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { computePassStatus } from '@/utils/constants';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import InlineEditCell from '@/components/common/InlineEditCell';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { usePermissions } from '@/lib/usePermissions';
+import ExcelJS from 'exceljs';
 
 // ── Status helpers ─────────────────────────────────────────────────────────────
 // Badge color palette — professional, print-friendly
@@ -537,6 +538,246 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
     </div>`;
   }
 
+  // ── Excel Export ──────────────────────────────────────────────────────────────
+  async function handleExcelExport() {
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Onboarding System';
+    wb.created = new Date();
+
+    const ws = wb.addWorksheet('Onboarding Monitoring', {
+      pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
+      views: [{ state: 'frozen', ySplit: 1 }],
+    });
+
+    // Column definitions (widths)
+    ws.columns = [
+      { key: 'no',       width: 4  },
+      { key: 'name',     width: 28 },
+      { key: 'qid',      width: 14 },
+      { key: 'mobile',   width: 14 },
+      { key: 'company',  width: 18 },
+      { key: 'position', width: 26 },
+      { key: 'medical',  width: 14 },
+      { key: 'tr_date',  width: 14 },
+      { key: 'gp',       width: 14 },
+      { key: 'gp_date',  width: 16 },
+      { key: 'training', width: 14 },
+      { key: 'pid',      width: 14 },
+      { key: 'remarks',  width: 30 },
+      { key: 'days_med', width: 18 },
+      { key: 'days_gp',  width: 20 },
+      { key: 'days_pid', width: 18 },
+    ];
+
+    const TOTAL_COLS = 16;
+
+    // Color palette
+    const C = {
+      deptBg:    '1E3A5F', deptFg:  'FFFFFF',
+      colHdrBg:  'DCE6F2', colHdrFg:'2D3748',
+      pidHdrBg:  'DDEFE0', pidHdrFg:'1A5C2A',
+      pidCellBg: 'F5FBF6',
+      remarksBg: 'FAFAFA',
+      rowOdd:    'FFFFFF', rowEven: 'F7F9FC',
+      green:  { bg: 'D6EFD8', fg: '1A5C2A' },
+      amber:  { bg: 'FEF3C7', fg: '7C4D00' },
+      orange: { bg: 'FDEBD0', fg: '7B3500' },
+      red:    { bg: 'FCE4E4', fg: '8B1A1A' },
+      blue:   { bg: 'DBEAFE', fg: '1E3A6E' },
+      purple: { bg: 'EDE9FE', fg: '4B2A8A' },
+      slate:  { bg: 'F1F5F9', fg: '475569' },
+      completed: { bg: 'E8F5E9', fg: '1B5E20' },
+      daysNormal:   '1E3A5F',
+      daysWarning:  '7B3500',
+      daysCritical: '8B1A1A',
+    };
+
+    const BADGE_COLOR_MAP = {
+      'badge-softgreen':  C.green,
+      'badge-softamber':  C.amber,
+      'badge-softorange': C.orange,
+      'badge-softred':    C.red,
+      'badge-lightblue':  C.blue,
+      'badge-softpurple': C.purple,
+      'badge-softgray':   C.slate,
+    };
+
+    function applyBadgeCell(cell, colorKey, label, isBold = true) {
+      const col = BADGE_COLOR_MAP[colorKey] || C.slate;
+      cell.value = label;
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + col.bg } };
+      cell.font = { color: { argb: 'FF' + col.fg }, bold: isBold, size: 8 };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
+    }
+
+    function applyDaysCell(cell, days, pidValid) {
+      if (pidValid) {
+        cell.value = '✓ Completed';
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.completed.bg } };
+        cell.font = { color: { argb: 'FF' + C.completed.fg }, bold: true, size: 8 };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      } else if (days === null) {
+        cell.value = '—';
+        cell.font = { color: { argb: 'FF94A3B8' }, size: 9 };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      } else {
+        const fgColor = days > 60 ? C.daysCritical : days > 30 ? C.daysWarning : C.daysNormal;
+        cell.value = `${days} days`;
+        cell.font = { color: { argb: 'FF' + fgColor }, bold: true, size: 9 };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      }
+    }
+
+    function applyBorder(cell) {
+      const thin = { style: 'thin', color: { argb: 'FFCBD5E1' } };
+      cell.border = { top: thin, left: thin, bottom: thin, right: thin };
+    }
+
+    const COL_HEADERS = [
+      '#', 'Full Name', 'QID Number', 'Mobile Number', 'Company', 'Designation / Position',
+      'Medical', 'TR Date Approved', 'Gate Pass Status', 'Gatepass Received Date', 'Training Status',
+      'Project ID Status', 'Remarks', 'No. Days Since Med Approved', 'No. Days Since Gatepass Received', 'No. Days Waiting for PID',
+    ];
+
+    let currentRow = 1;
+
+    for (const [dept, emps] of grouped) {
+      // ── Department header row (merged) ──
+      const deptRow = ws.getRow(currentRow);
+      const deptCell = deptRow.getCell(1);
+      deptCell.value = `${dept}  (${emps.length} Records)`;
+      deptCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.deptBg } };
+      deptCell.font = { color: { argb: 'FF' + C.deptFg }, bold: true, size: 11 };
+      deptCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.mergeCells(currentRow, 1, currentRow, TOTAL_COLS);
+      deptRow.height = 22;
+      // Apply border to merged cells
+      for (let c = 1; c <= TOTAL_COLS; c++) applyBorder(ws.getRow(currentRow).getCell(c));
+      currentRow++;
+
+      // ── Column header row ──
+      const hdrRow = ws.getRow(currentRow);
+      hdrRow.height = 28;
+      COL_HEADERS.forEach((h, i) => {
+        const cell = hdrRow.getCell(i + 1);
+        cell.value = h;
+        const isPid = i === 11;
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + (isPid ? C.pidHdrBg : C.colHdrBg) } };
+        cell.font = { color: { argb: 'FF' + (isPid ? C.pidHdrFg : C.colHdrFg) }, bold: true, size: 9 };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        applyBorder(cell);
+      });
+      currentRow++;
+
+      // ── Employee rows ──
+      emps.forEach((emp, idx) => {
+        const med = getMedicalLabel(emp);
+        const gp  = getGPLabel(emp);
+        const tr  = getTrainingLabel(emp);
+        const pid = getPIDLabel(emp);
+        const daysMed = daysSince(emp.ftw_approved_date);
+        const daysGP  = daysSince(emp.gate_pass_received_date);
+        const daysPID = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
+        const trDateFmt = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
+        const gpDateFmt = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
+        const pidEffective = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
+        const pidValid = pidEffective === 'VALID PID PASS' || pidEffective === 'SOON TO EXPIRE';
+        const rowBg = idx % 2 === 0 ? C.rowOdd : C.rowEven;
+
+        const row = ws.getRow(currentRow);
+        row.height = 18;
+
+        // Helper to get/style plain cells
+        const plain = (colIdx, value, align = 'center', wrap = false) => {
+          const cell = row.getCell(colIdx);
+          cell.value = value ?? '—';
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+          cell.font = { size: 9 };
+          cell.alignment = { horizontal: align, vertical: 'middle', wrapText: wrap };
+          applyBorder(cell);
+          return cell;
+        };
+
+        plain(1, idx + 1);
+        plain(2, emp.name || '', 'left');
+        plain(3, emp.qid_no || '—');
+        plain(4, emp.contact_details || '—');
+        plain(5, emp.company || '—');
+        plain(6, emp.designation_org_chart || emp.position_application || '—', 'left', true);
+
+        // Medical badge
+        const medCell = row.getCell(7);
+        medCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        applyBadgeCell(medCell, med.color, med.label);
+        applyBorder(medCell);
+
+        // TR Date
+        plain(8, trDateFmt);
+
+        // Gate Pass badge
+        const gpCell = row.getCell(9);
+        gpCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        applyBadgeCell(gpCell, gp.color, gp.label);
+        applyBorder(gpCell);
+
+        // GP Received Date
+        plain(10, gpDateFmt);
+
+        // Training badge
+        const trCell = row.getCell(11);
+        trCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        applyBadgeCell(trCell, tr.color, tr.label);
+        applyBorder(trCell);
+
+        // PID badge (green-tinted cell)
+        const pidCell = row.getCell(12);
+        pidCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.pidCellBg } };
+        applyBadgeCell(pidCell, pid.color, pid.label);
+        applyBorder(pidCell);
+
+        // Remarks
+        const remCell = row.getCell(13);
+        remCell.value = emp.remarks || '';
+        remCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.remarksBg } };
+        remCell.font = { size: 9 };
+        remCell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        applyBorder(remCell);
+
+        // Days cells
+        const daysCell14 = row.getCell(14);
+        daysCell14.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        applyDaysCell(daysCell14, daysMed, pidValid);
+        applyBorder(daysCell14);
+
+        const daysCell15 = row.getCell(15);
+        daysCell15.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        applyDaysCell(daysCell15, daysGP, pidValid);
+        applyBorder(daysCell15);
+
+        const daysCell16 = row.getCell(16);
+        daysCell16.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        applyDaysCell(daysCell16, daysPID, pidValid);
+        applyBorder(daysCell16);
+
+        currentRow++;
+      });
+
+      // Spacer row between departments
+      currentRow++;
+    }
+
+    // Download
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Onboarding_Monitoring_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function handlePrint() {
     const html = buildPrintHTML();
     const win = window.open('', '_blank', 'width=1400,height=900');
@@ -558,6 +799,9 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
               {editMode ? <><XIcon className="w-4 h-4" /> Exit Edit Mode</> : <><PencilLine className="w-4 h-4" /> Edit in Grid</>}
             </Button>
           )}
+          <Button variant="outline" onClick={handleExcelExport} className="gap-2">
+            <Sheet className="w-4 h-4" /> Export Excel
+          </Button>
           <Button onClick={handlePrint} className="gap-2">
             <FileText className="w-4 h-4" /> Print / Export
           </Button>
