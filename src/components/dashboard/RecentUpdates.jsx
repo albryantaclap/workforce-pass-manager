@@ -136,10 +136,14 @@ function CategoryPanel({ config, logs, filteredEmployeeIds }) {
   const catLogs = useMemo(() => {
     return logs
       .filter(log => {
-        if (log.action !== 'update') return false;
         if (log.entity_name !== 'Employee') return false;
-        const hasRelevantChange = (log.changed_fields || []).some(f => config.fields.includes(f));
-        if (!hasRelevantChange) return false;
+        const changedFields = log.changed_fields || [];
+        // Primary: changed_fields explicitly lists a relevant field
+        const hasExplicitChange = changedFields.some(f => config.fields.includes(f));
+        // Fallback: changed_fields is empty/missing but snapshot has the status field set
+        const snap = log.record_snapshot || {};
+        const hasFallback = changedFields.length === 0 && config.fields.some(f => snap[f] !== undefined && snap[f] !== null && snap[f] !== '');
+        if (!hasExplicitChange && !hasFallback) return false;
         if (filteredEmployeeIds && !filteredEmployeeIds.has(log.entity_id)) return false;
         return true;
       })
@@ -195,7 +199,7 @@ function CategoryPanel({ config, logs, filteredEmployeeIds }) {
 export default function RecentUpdates({ filteredEmployeeIds }) {
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['activity-logs-recent'],
-    queryFn: () => base44.entities.ActivityLog.filter({ action: 'update', entity_name: 'Employee' }, '-created_date', 300),
+    queryFn: () => base44.entities.ActivityLog.filter({ entity_name: 'Employee' }, '-created_date', 500),
     staleTime: 60000,
     refetchInterval: 120000,
   });
