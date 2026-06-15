@@ -78,8 +78,9 @@ function getStatusColor(val) {
 }
 
 function UpdateRow({ log, config }) {
-  const snap = log.record_snapshot || {};
-  const name = log.record_name || snap.name || 'Unknown';
+  // SDK returns entity fields at top-level; fallback to log.data for raw DB docs
+  const snap = log.record_snapshot || log.data?.record_snapshot || {};
+  const name = log.record_name || log.data?.record_name || snap.name || 'Unknown';
   const company = snap.company || '';
   const dept = snap.department || '';
   const position = snap.designation_org_chart || snap.position_application || '';
@@ -89,7 +90,7 @@ function UpdateRow({ log, config }) {
   const updatedAt = log.created_date
     ? format(new Date(log.created_date), 'dd MMM yyyy, HH:mm')
     : '—';
-  const performedBy = log.performed_by || 'system';
+  const performedBy = log.performed_by || log.data?.performed_by || 'system';
 
   return (
     <div className="py-3 px-4 border-b last:border-b-0 hover:bg-muted/20 transition-colors">
@@ -136,15 +137,17 @@ function CategoryPanel({ config, logs, filteredEmployeeIds }) {
   const catLogs = useMemo(() => {
     return logs
       .filter(log => {
-        if (log.entity_name !== 'Employee') return false;
-        const changedFields = log.changed_fields || [];
-        // Primary: changed_fields explicitly lists a relevant field
+        // Support both flat (SDK) and nested (raw DB) field access
+        const entityName = log.entity_name || log.data?.entity_name;
+        if (entityName !== 'Employee') return false;
+        const changedFields = log.changed_fields || log.data?.changed_fields || [];
+        const snap = log.record_snapshot || log.data?.record_snapshot || {};
+        const entityId = log.entity_id || log.data?.entity_id;
+        // Match if changed_fields contains a relevant field OR snapshot has the status field set
         const hasExplicitChange = changedFields.some(f => config.fields.includes(f));
-        // Fallback: changed_fields is empty/missing but snapshot has the status field set
-        const snap = log.record_snapshot || {};
-        const hasFallback = changedFields.length === 0 && config.fields.some(f => snap[f] !== undefined && snap[f] !== null && snap[f] !== '');
+        const hasFallback = config.fields.some(f => snap[f] !== undefined && snap[f] !== null && snap[f] !== '');
         if (!hasExplicitChange && !hasFallback) return false;
-        if (filteredEmployeeIds && !filteredEmployeeIds.has(log.entity_id)) return false;
+        if (filteredEmployeeIds && !filteredEmployeeIds.has(entityId)) return false;
         return true;
       })
       .sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
@@ -199,7 +202,7 @@ function CategoryPanel({ config, logs, filteredEmployeeIds }) {
 export default function RecentUpdates({ filteredEmployeeIds }) {
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['activity-logs-recent'],
-    queryFn: () => base44.entities.ActivityLog.filter({ entity_name: 'Employee' }, '-created_date', 500),
+    queryFn: () => base44.entities.ActivityLog.list('-created_date', 500),
     staleTime: 60000,
     refetchInterval: 120000,
   });
