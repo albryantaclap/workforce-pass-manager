@@ -298,10 +298,17 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
     return m;
   }, [positionRanks]);
 
-  const getPositionRank = (emp) => {
+  // Helper: get rank for an employee — inline so it always uses current rankMap
+  const getPositionRank = useMemo(() => (emp) => {
     const pos = (emp.designation_org_chart || emp.position_application || '').trim().toUpperCase();
-    return rankMap.get(pos) ?? 9999;
-  };
+    // Try exact match first
+    if (rankMap.has(pos)) return rankMap.get(pos);
+    // Try partial/contains match for discipline-prefixed titles e.g. "LIFTING SUPERVISOR" → Supervisor rank
+    for (const [key, rank] of rankMap.entries()) {
+      if (pos.includes(key) || key.includes(pos)) return rank;
+    }
+    return 9999;
+  }, [rankMap]);
 
   // Build manager lookup
   const managerMap = useMemo(() => {
@@ -334,7 +341,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
           return (a.name || '').localeCompare(b.name || '');
         }),
       ]);
-  }, [filteredEmployees, rankMap]);
+  }, [filteredEmployees, rankMap, getPositionRank]);
 
   // Build print HTML
   function buildPrintHTML() {
