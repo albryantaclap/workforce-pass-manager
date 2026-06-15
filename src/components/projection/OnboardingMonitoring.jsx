@@ -157,6 +157,7 @@ function DeptTable({ dept, employees, resetKey }) {
                 const daysPID = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
                 const trDateApproved = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : null;
                 const gpReceivedDate = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : null;
+                const pidValid = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase() === 'VALID PID PASS';
                 const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
                 return (
                   <tr key={emp.id} className={rowBg}>
@@ -182,13 +183,13 @@ function DeptTable({ dept, employees, resetKey }) {
                     </td>
                     <td className="border border-slate-200 px-2 py-1 text-center text-slate-500">{emp.remarks || ''}</td>
                     <td className="border border-slate-200 px-2 py-1 text-center">
-                      {daysMed !== null ? <span className="font-semibold text-blue-700">{daysMed} days</span> : '—'}
+                      {pidValid ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">Completed</span> : daysMed !== null ? <span className="font-semibold text-blue-700">{daysMed} days</span> : '—'}
                     </td>
                     <td className="border border-slate-200 px-2 py-1 text-center">
-                      {daysGP !== null ? <span className="font-semibold text-green-700">{daysGP} days</span> : '—'}
+                      {pidValid ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">Completed</span> : daysGP !== null ? <span className="font-semibold text-green-700">{daysGP} days</span> : '—'}
                     </td>
                     <td className="border border-slate-200 px-2 py-1 text-center">
-                      {daysPID !== null ? <span className="font-semibold text-purple-700">{daysPID} days</span> : '—'}
+                      {pidValid ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">Completed</span> : daysPID !== null ? <span className="font-semibold text-purple-700">{daysPID} days</span> : '—'}
                     </td>
                   </tr>
                 );
@@ -410,6 +411,8 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         const dp = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
         const trDatePrint = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const gpRecPrint = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
+        const pidValidPrint = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase() === 'VALID PID PASS';
+        const completedBadge = '<span class="badge badge-green">Completed</span>';
         return `<tr>
           <td class="center">${idx + 1}</td>
           <td>${emp.name || ''}</td>
@@ -424,9 +427,9 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
           <td class="center"><span class="badge ${trClass}">${tr.label}</span></td>
           <td class="center pid-cell"><span class="badge ${pidClass}">${pid.label}</span></td>
           <td>${emp.remarks || ''}</td>
-          <td class="center">${dm !== null ? dm + ' days' : '—'}</td>
-          <td class="center">${dg !== null ? dg + ' days' : '—'}</td>
-          <td class="center">${dp !== null ? dp + ' days' : '—'}</td>
+          <td class="center">${pidValidPrint ? completedBadge : dm !== null ? dm + ' days' : '—'}</td>
+          <td class="center">${pidValidPrint ? completedBadge : dg !== null ? dg + ' days' : '—'}</td>
+          <td class="center">${pidValidPrint ? completedBadge : dp !== null ? dp + ' days' : '—'}</td>
         </tr>`;
       }).join('');
       return `<div class="dept-block">
