@@ -7,52 +7,90 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 
 // ── Status helpers ─────────────────────────────────────────────────────────────
+// Badge color palette — professional, print-friendly
+// green: #D6EFD8 / #1A5C2A   amber: #FEF3C7 / #7C4D00   orange: #FDEBD0 / #7B3500
+// blue:  #DBEAFE / #1E3A6E   purple: #EDE9FE / #4B2A8A  red: #FCE4E4 / #8B1A1A
+// gray:  #F1F5F9 / #475569
+
 function getMedicalLabel(emp) {
   const ftw = (emp.ftw_result || '').trim().toUpperCase();
-  if (!emp.ftw_result) return { label: 'New', color: 'bg-slate-100 text-slate-700' };
-  if (ftw === 'ACCEPTED') return { label: 'Accepted', color: 'bg-green-100 text-green-700' };
-  if (ftw === 'WAITING TR APPROVAL') return { label: 'Waiting TR', color: 'bg-blue-100 text-blue-700' };
-  if (ftw === 'RE-ASSESS') return { label: 'Re-Assess', color: 'bg-amber-100 text-amber-700' };
-  if (ftw === 'REJECTED') return { label: 'Recalled', color: 'bg-red-100 text-red-700' };
-  return { label: emp.ftw_result, color: 'bg-slate-100 text-slate-600' };
+  if (!emp.ftw_result) return { label: 'New', color: 'badge-lightblue', printClass: 'badge-blue' };
+  if (ftw === 'ACCEPTED') return { label: 'Accepted', color: 'badge-softgreen', printClass: 'badge-green' };
+  if (ftw === 'WAITING TR APPROVAL') return { label: 'Waiting TR', color: 'badge-softamber', printClass: 'badge-amber' };
+  if (ftw === 'RE-ASSESS') return { label: 'Re-Assess', color: 'badge-softorange', printClass: 'badge-orange' };
+  if (ftw === 'REJECTED') return { label: 'Recalled', color: 'badge-softgray', printClass: 'badge-slate' };
+  return { label: emp.ftw_result, color: 'badge-softgray', printClass: 'badge-slate' };
 }
 
 function getGPLabel(emp) {
   const raw = (emp.rlic_status || '').trim().toUpperCase();
   const effective = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
   const eff = (effective || '').toUpperCase();
-  if (eff === 'VALID RLIC PASS') return { label: 'Valid', color: 'bg-green-100 text-green-700' };
-  if (eff === 'SOON TO EXPIRE') return { label: 'Soon', color: 'bg-amber-100 text-amber-700' };
-  if (eff === 'EXPIRED RLIC PASS') return { label: 'Expired', color: 'bg-red-100 text-red-700' };
-  if (eff === 'NO RLIC PASS') return { label: 'No Pass', color: 'bg-slate-100 text-slate-500' };
-  if (raw === 'UNDER PROCESS' || raw === 'DVC SENT') return { label: 'Under Process', color: 'bg-blue-100 text-blue-700' };
-  if (raw === 'WAITING MOI APPROVAL') return { label: 'Waiting MOI', color: 'bg-indigo-100 text-indigo-700' };
-  if (raw === 'HOLDING ACTIVE GP') return { label: 'Holding Active GP', color: 'bg-teal-100 text-teal-700' };
-  return { label: emp.rlic_status || '—', color: 'bg-slate-100 text-slate-600' };
+  if (eff === 'VALID RLIC PASS') return { label: 'Valid', color: 'badge-softgreen', printClass: 'badge-green' };
+  if (eff === 'SOON TO EXPIRE') return { label: 'Soon', color: 'badge-softamber', printClass: 'badge-amber' };
+  if (eff === 'EXPIRED RLIC PASS') return { label: 'Expired', color: 'badge-softred', printClass: 'badge-red' };
+  if (eff === 'NO RLIC PASS') return { label: 'No Pass', color: 'badge-softgray', printClass: 'badge-slate' };
+  if (raw === 'UNDER PROCESS' || raw === 'DVC SENT') return { label: 'Under Process', color: 'badge-lightblue', printClass: 'badge-blue' };
+  if (raw === 'WAITING MOI APPROVAL') return { label: 'Waiting MOI', color: 'badge-softpurple', printClass: 'badge-purple' };
+  if (raw === 'HOLDING ACTIVE GP') return { label: 'Holding Active GP', color: 'badge-softgray', printClass: 'badge-slate' };
+  return { label: emp.rlic_status || '—', color: 'badge-softgray', printClass: 'badge-slate' };
 }
 
 function getTrainingLabel(emp) {
   const t = (emp.training_status || '').trim().toUpperCase();
-  if (!emp.training_status) return { label: '—', color: 'bg-slate-100 text-slate-400' };
-  if (t === 'DONE') return { label: 'Done', color: 'bg-green-100 text-green-700' };
-  if (t === 'PENDING') return { label: 'Pending', color: 'bg-amber-100 text-amber-700' };
-  if (t === 'ON-GOING' || t === 'ONGOING' || t === 'ON GOING') return { label: 'On-Going', color: 'bg-blue-100 text-blue-700' };
-  if (t === 'SCHEDULED') return { label: 'Scheduled', color: 'bg-purple-100 text-purple-700' };
-  if (t === 'NOT REQUIRED') return { label: 'Not Required', color: 'bg-slate-100 text-slate-500' };
-  return { label: emp.training_status, color: 'bg-slate-100 text-slate-600' };
+  if (!emp.training_status) return { label: '—', color: 'badge-softgray', printClass: 'badge-slate' };
+  if (t === 'DONE') return { label: 'Done', color: 'badge-softgreen', printClass: 'badge-green' };
+  if (t === 'PENDING') return { label: 'Pending', color: 'badge-softamber', printClass: 'badge-amber' };
+  if (t === 'ON-GOING' || t === 'ONGOING' || t === 'ON GOING') return { label: 'On-Going', color: 'badge-softpurple', printClass: 'badge-purple' };
+  if (t === 'SCHEDULED') return { label: 'Scheduled', color: 'badge-lightblue', printClass: 'badge-blue' };
+  if (t === 'NOT REQUIRED') return { label: 'Not Required', color: 'badge-softgray', printClass: 'badge-slate' };
+  return { label: emp.training_status, color: 'badge-softgray', printClass: 'badge-slate' };
 }
 
 function getPIDLabel(emp) {
   const raw = (emp.pid_status || '').trim().toUpperCase();
   const effective = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
   const eff = (effective || '').toUpperCase();
-  if (eff === 'VALID PID PASS') return { label: 'Valid', color: 'bg-green-100 text-green-700' };
-  if (eff === 'SOON TO EXPIRE') return { label: 'Soon', color: 'bg-amber-100 text-amber-700' };
-  if (eff === 'EXPIRED PID PASS') return { label: 'Expired', color: 'bg-red-100 text-red-700' };
-  if (eff === 'NO PID PASS' || raw === 'NO PID PASS') return { label: 'No PID', color: 'bg-slate-100 text-slate-500' };
-  if (raw === 'RENEWAL UNDER PROCESS') return { label: 'Renewal Under Process', color: 'bg-blue-100 text-blue-700' };
-  if (raw === 'RECALLED') return { label: 'Recalled', color: 'bg-red-100 text-red-700' };
-  return { label: emp.pid_status || '—', color: 'bg-slate-100 text-slate-600' };
+  if (eff === 'VALID PID PASS') return { label: 'Valid', color: 'badge-softgreen', printClass: 'badge-green' };
+  if (eff === 'SOON TO EXPIRE') return { label: 'Soon', color: 'badge-softamber', printClass: 'badge-amber' };
+  if (eff === 'EXPIRED PID PASS') return { label: 'Expired', color: 'badge-softred', printClass: 'badge-red' };
+  if (eff === 'NO PID PASS' || raw === 'NO PID PASS') return { label: 'No PID', color: 'badge-softgray', printClass: 'badge-slate' };
+  if (raw === 'RENEWAL UNDER PROCESS') return { label: 'Renewal Under Process', color: 'badge-lightblue', printClass: 'badge-blue' };
+  if (raw === 'RECALLED') return { label: 'Recalled', color: 'badge-softgray', printClass: 'badge-slate' };
+  return { label: emp.pid_status || '—', color: 'badge-softgray', printClass: 'badge-slate' };
+}
+
+// Screen badge CSS classes (inline style map)
+const BADGE_STYLES = {
+  'badge-softgreen':  { background: '#D6EFD8', color: '#1A5C2A', border: '1px solid #A8D5AC' },
+  'badge-softamber':  { background: '#FEF3C7', color: '#7C4D00', border: '1px solid #F6D860' },
+  'badge-softorange': { background: '#FDEBD0', color: '#7B3500', border: '1px solid #F5C59A' },
+  'badge-softred':    { background: '#FCE4E4', color: '#8B1A1A', border: '1px solid #F5A9A9' },
+  'badge-lightblue':  { background: '#DBEAFE', color: '#1E3A6E', border: '1px solid #93C5FD' },
+  'badge-softpurple': { background: '#EDE9FE', color: '#4B2A8A', border: '1px solid #C4B5FD' },
+  'badge-softgray':   { background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1' },
+};
+
+function BadgeSpan({ colorKey, label }) {
+  const s = BADGE_STYLES[colorKey] || BADGE_STYLES['badge-softgray'];
+  return (
+    <span style={{ ...s, display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 600 }}>
+      {label}
+    </span>
+  );
+}
+
+function DaysCell({ days, pidValid }) {
+  if (pidValid) {
+    return (
+      <span style={{ background: '#E8F5E9', color: '#1B5E20', border: '1px solid #A5D6A7', display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 600 }}>
+        ✓ Completed
+      </span>
+    );
+  }
+  if (days === null) return <span className="text-slate-400">—</span>;
+  const color = days > 60 ? '#8B1A1A' : days > 30 ? '#7B3500' : '#1E3A5F';
+  return <span style={{ color, fontWeight: 700, fontSize: 11 }}>{days} days</span>;
 }
 
 function daysSince(dateStr) {
@@ -112,32 +150,41 @@ function DeptTable({ dept, employees, resetKey }) {
   const totalPages = Math.ceil(employees.length / PAGE_SIZE);
   const paginated = employees.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const DEPT_HDR = { background: '#1E3A5F', color: '#fff' };
+  const COL_HDR  = { background: '#DCE6F2', color: '#2D3748' };
+  const PID_HDR  = { background: '#DDEFE0', color: '#1A5C2A' };
+  const PID_CELL = { background: '#F5FBF6' };
+
   return (
     <div className="mb-6">
       {/* Department Header */}
-      <div className="text-center font-bold text-white text-sm py-1.5 rounded-t" style={{ background: '#1e7b8a' }}>
-        {dept} <span className="font-normal opacity-80 text-xs">({employees.length} records)</span>
+      <div className="text-center font-bold text-sm py-2 rounded-t" style={DEPT_HDR}>
+        {dept} <span className="font-normal opacity-75 text-xs">({employees.length} Records)</span>
       </div>
       <div className="overflow-x-auto rounded-b border border-t-0">
         <table className="w-full text-xs border-collapse">
           <thead>
-            <tr style={{ background: '#1e7b8a' }} className="text-white">
-              <th className="border border-teal-600 px-2 py-1.5 text-center w-6">#</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-left">Full Name</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">QID Number</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">Mobile Number</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">Company</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">Designation / Position</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">Medical</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">TR Date Approved</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">Gate Pass Status</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">Gatepass Received Date</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">Training Status</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center" style={{ background: '#4caf7d' }}>Project ID Status</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">Remarks</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">No. Days Since Med Approved</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">No. Days Since Gatepass Received</th>
-              <th className="border border-teal-600 px-2 py-1.5 text-center">No. Days Waiting for PID</th>
+            <tr>
+              {[
+                ['#', 'text-center w-6'],
+                ['Full Name', 'text-left'],
+                ['QID Number', 'text-center'],
+                ['Mobile Number', 'text-center'],
+                ['Company', 'text-center'],
+                ['Designation / Position', 'text-center'],
+                ['Medical', 'text-center'],
+                ['TR Date Approved', 'text-center'],
+                ['Gate Pass Status', 'text-center'],
+                ['Gatepass Received Date', 'text-center'],
+                ['Training Status', 'text-center'],
+              ].map(([label, align]) => (
+                <th key={label} className={`border border-slate-300 px-2 py-1.5 font-semibold ${align}`} style={COL_HDR}>{label}</th>
+              ))}
+              <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={PID_HDR}>Project ID Status</th>
+              <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>Remarks</th>
+              <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>No. Days Since Med Approved</th>
+              <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>No. Days Since Gatepass Received</th>
+              <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>No. Days Waiting for PID</th>
             </tr>
           </thead>
           <tbody>
@@ -159,38 +206,38 @@ function DeptTable({ dept, employees, resetKey }) {
                 const gpReceivedDate = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : null;
                 const pidEffective = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
                 const pidValid = pidEffective === 'VALID PID PASS' || pidEffective === 'SOON TO EXPIRE';
-                const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+                const rowBg = idx % 2 === 0 ? '#ffffff' : '#F7F9FC';
                 return (
-                  <tr key={emp.id} className={rowBg}>
-                    <td className="border border-slate-200 px-1 py-1 text-center text-slate-500">{globalIdx + 1}</td>
-                    <td className="border border-slate-200 px-2 py-1 font-medium">{emp.name}</td>
-                    <td className="border border-slate-200 px-2 py-1 text-center">{emp.qid_no || '—'}</td>
-                    <td className="border border-slate-200 px-2 py-1 text-center">{emp.contact_details || '—'}</td>
-                    <td className="border border-slate-200 px-2 py-1 text-center">{emp.company || '—'}</td>
-                    <td className="border border-slate-200 px-2 py-1 text-center">{emp.designation_org_chart || emp.position_application || '—'}</td>
+                  <tr key={emp.id} style={{ background: rowBg }}>
+                    <td className="border border-slate-200 px-1 py-1 text-center text-slate-400">{globalIdx + 1}</td>
+                    <td className="border border-slate-200 px-2 py-1 font-medium text-slate-800">{emp.name}</td>
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{emp.qid_no || '—'}</td>
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{emp.contact_details || '—'}</td>
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{emp.company || '—'}</td>
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{emp.designation_org_chart || emp.position_application || '—'}</td>
                     <td className="border border-slate-200 px-1 py-1 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${med.color}`}>{med.label}</span>
+                      <BadgeSpan colorKey={med.color} label={med.label} />
                     </td>
                     <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{trDateApproved || '—'}</td>
                     <td className="border border-slate-200 px-1 py-1 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${gp.color}`}>{gp.label}</span>
+                      <BadgeSpan colorKey={gp.color} label={gp.label} />
                     </td>
                     <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{gpReceivedDate || '—'}</td>
                     <td className="border border-slate-200 px-1 py-1 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${tr.color}`}>{tr.label}</span>
+                      <BadgeSpan colorKey={tr.color} label={tr.label} />
                     </td>
-                    <td className="border border-slate-200 px-1 py-1 text-center" style={{ background: '#f0fdf4' }}>
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${pid.color}`}>{pid.label}</span>
+                    <td className="border border-slate-200 px-1 py-1 text-center" style={PID_CELL}>
+                      <BadgeSpan colorKey={pid.color} label={pid.label} />
                     </td>
-                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-500">{emp.remarks || ''}</td>
+                    <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[11px]" style={{ background: '#FAFAFA' }}>{emp.remarks || ''}</td>
                     <td className="border border-slate-200 px-2 py-1 text-center">
-                      {pidValid ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">Completed</span> : daysMed !== null ? <span className="font-semibold text-blue-700">{daysMed} days</span> : '—'}
-                    </td>
-                    <td className="border border-slate-200 px-2 py-1 text-center">
-                      {pidValid ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">Completed</span> : daysGP !== null ? <span className="font-semibold text-green-700">{daysGP} days</span> : '—'}
+                      <DaysCell days={daysMed} pidValid={pidValid} />
                     </td>
                     <td className="border border-slate-200 px-2 py-1 text-center">
-                      {pidValid ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">Completed</span> : daysPID !== null ? <span className="font-semibold text-purple-700">{daysPID} days</span> : '—'}
+                      <DaysCell days={daysGP} pidValid={pidValid} />
+                    </td>
+                    <td className="border border-slate-200 px-2 py-1 text-center">
+                      <DaysCell days={daysPID} pidValid={pidValid} />
                     </td>
                   </tr>
                 );
@@ -204,44 +251,21 @@ function DeptTable({ dept, employees, resetKey }) {
         <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-t-0 rounded-b text-xs text-slate-600">
           <span>Page {page} of {totalPages} · {employees.length} total</span>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage(1)}
-              disabled={page === 1}
-              className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100"
-            >«</button>
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100"
-            >‹</button>
+            <button onClick={() => setPage(1)} disabled={page === 1} className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100">«</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100">‹</button>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
               .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
-              .reduce((acc, p, i, arr) => {
-                if (i > 0 && p - arr[i - 1] > 1) acc.push('...');
-                acc.push(p);
-                return acc;
-              }, [])
+              .reduce((acc, p, i, arr) => { if (i > 0 && p - arr[i - 1] > 1) acc.push('...'); acc.push(p); return acc; }, [])
               .map((p, i) =>
-                p === '...' ? (
-                  <span key={`ellipsis-${i}`} className="px-1">…</span>
-                ) : (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`px-2 py-1 rounded border ${page === p ? 'bg-teal-600 text-white border-teal-600' : 'bg-white hover:bg-slate-100'}`}
+                p === '...' ? <span key={`e-${i}`} className="px-1">…</span> : (
+                  <button key={p} onClick={() => setPage(p)}
+                    style={page === p ? { background: '#1E3A5F', color: '#fff', border: '1px solid #1E3A5F' } : {}}
+                    className={`px-2 py-1 rounded border ${page === p ? '' : 'bg-white hover:bg-slate-100'}`}
                   >{p}</button>
                 )
               )}
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100"
-            >›</button>
-            <button
-              onClick={() => setPage(totalPages)}
-              disabled={page === totalPages}
-              className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100"
-            >»</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100">›</button>
+            <button onClick={() => setPage(totalPages)} disabled={page === totalPages} className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100">»</button>
           </div>
         </div>
       )}
@@ -254,24 +278,31 @@ const ONBOARDING_PRINT_CSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body { font-family: Arial, sans-serif; font-size: 9px; background: white; color: #1e293b; }
   .wrap { padding: 12px; }
-  .report-title { font-size: 16px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
-  .report-date { font-size: 11px; color: #475569; margin-bottom: 16px; }
   .dept-block { margin-bottom: 20px; page-break-inside: avoid; }
-  .dept-header { text-align: center; font-weight: 700; font-size: 11px; color: white; background: #1e7b8a; padding: 4px; }
+  .dept-header { text-align: center; font-weight: 700; font-size: 11px; color: white; background: #1E3A5F; padding: 5px 4px; }
   table { width: 100%; border-collapse: collapse; font-size: 8.5px; }
-  th { background: #1e7b8a; color: white; border: 1px solid #0e5f6a; padding: 3px 2px; text-align: center; font-weight: 700; }
-  th.pid-col { background: #4caf7d; }
-  td { border: 1px solid #cbd5e1; padding: 2px 3px; vertical-align: middle; }
+  th { background: #DCE6F2; color: #2D3748; border: 1px solid #B0C4DE; padding: 3px 2px; text-align: center; font-weight: 700; }
+  th.pid-col { background: #DDEFE0; color: #1A5C2A; }
+  td { border: 1px solid #CBD5E1; padding: 2px 3px; vertical-align: middle; }
   td.center { text-align: center; }
-  td.pid-cell { background: #f0fdf4; }
-  .badge { display: inline-block; padding: 1px 4px; border-radius: 3px; font-size: 8px; font-weight: 600; }
-  .badge-green { background: #dcfce7; color: #166534; }
-  .badge-amber { background: #fef3c7; color: #92400e; }
-  .badge-red { background: #fee2e2; color: #991b1b; }
-  .badge-blue { background: #dbeafe; color: #1e40af; }
-  .badge-slate { background: #f1f5f9; color: #475569; }
-  tr:nth-child(odd) { background: #ffffff; }
-  tr:nth-child(even) { background: #f8fafc; }
+  td.pid-cell { background: #F5FBF6; }
+  td.remarks-cell { background: #FAFAFA; color: #374151; }
+  .badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 8px; font-weight: 600; border: 1px solid transparent; }
+  .badge-green  { background: #D6EFD8; color: #1A5C2A; border-color: #A8D5AC; }
+  .badge-amber  { background: #FEF3C7; color: #7C4D00; border-color: #F6D860; }
+  .badge-orange { background: #FDEBD0; color: #7B3500; border-color: #F5C59A; }
+  .badge-red    { background: #FCE4E4; color: #8B1A1A; border-color: #F5A9A9; }
+  .badge-blue   { background: #DBEAFE; color: #1E3A6E; border-color: #93C5FD; }
+  .badge-purple { background: #EDE9FE; color: #4B2A8A; border-color: #C4B5FD; }
+  .badge-slate  { background: #F1F5F9; color: #475569; border-color: #CBD5E1; }
+  .badge-completed { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
+  .days-normal   { color: #1E3A5F; font-weight: 700; }
+  .days-warning  { color: #7B3500; font-weight: 700; }
+  .days-critical { color: #8B1A1A; font-weight: 700; }
+  tr:nth-child(odd)  td { background: #ffffff; }
+  tr:nth-child(even) td { background: #F7F9FC; }
+  td.pid-cell { background: #F5FBF6 !important; }
+  td.remarks-cell { background: #FAFAFA !important; }
   @media print { @page { size: A3 landscape; margin: 8mm; } }
 `;
 
@@ -351,10 +382,16 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         const gp = getGPLabel(emp);
         const tr = getTrainingLabel(emp);
         const pid = getPIDLabel(emp);
-        const medClass = med.color.includes('green') ? 'badge-green' : med.color.includes('blue') ? 'badge-blue' : med.color.includes('amber') ? 'badge-amber' : med.color.includes('red') ? 'badge-red' : 'badge-slate';
-        const gpClass = gp.color.includes('green') ? 'badge-green' : gp.color.includes('amber') ? 'badge-amber' : gp.color.includes('red') ? 'badge-red' : gp.color.includes('blue') ? 'badge-blue' : 'badge-slate';
-        const trClass = tr.color.includes('green') ? 'badge-green' : tr.color.includes('amber') ? 'badge-amber' : tr.color.includes('blue') ? 'badge-blue' : 'badge-slate';
-        const pidClass = pid.color.includes('green') ? 'badge-green' : pid.color.includes('amber') ? 'badge-amber' : pid.color.includes('red') ? 'badge-red' : pid.color.includes('blue') ? 'badge-blue' : 'badge-slate';
+        const PRINT_CLASS_MAP = {
+          'badge-softgreen': 'badge-green', 'badge-softamber': 'badge-amber',
+          'badge-softorange': 'badge-orange', 'badge-softred': 'badge-red',
+          'badge-lightblue': 'badge-blue', 'badge-softpurple': 'badge-purple',
+          'badge-softgray': 'badge-slate',
+        };
+        const medClass = PRINT_CLASS_MAP[med.color] || 'badge-slate';
+        const gpClass  = PRINT_CLASS_MAP[gp.color]  || 'badge-slate';
+        const trClass  = PRINT_CLASS_MAP[tr.color]  || 'badge-slate';
+        const pidClass = PRINT_CLASS_MAP[pid.color] || 'badge-slate';
         const dm = daysSince(emp.ftw_approved_date);
         const dg = daysSince(emp.gate_pass_received_date);
         const dp = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
@@ -362,7 +399,12 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         const gpRecPrint = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const pidEffectivePrint = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
         const pidValidPrint = pidEffectivePrint === 'VALID PID PASS' || pidEffectivePrint === 'SOON TO EXPIRE';
-        const completedBadge = '<span class="badge badge-green">Completed</span>';
+        const completedBadge = '<span class="badge badge-completed">✓ Completed</span>';
+        const daysSpan = (d) => {
+          if (d === null) return '—';
+          const cls = d > 60 ? 'days-critical' : d > 30 ? 'days-warning' : 'days-normal';
+          return `<span class="${cls}">${d} days</span>`;
+        };
         return `<tr>
           <td class="center">${idx + 1}</td>
           <td>${emp.name || ''}</td>
@@ -376,10 +418,10 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
           <td class="center">${gpRecPrint}</td>
           <td class="center"><span class="badge ${trClass}">${tr.label}</span></td>
           <td class="center pid-cell"><span class="badge ${pidClass}">${pid.label}</span></td>
-          <td>${emp.remarks || ''}</td>
-          <td class="center">${pidValidPrint ? completedBadge : dm !== null ? dm + ' days' : '—'}</td>
-          <td class="center">${pidValidPrint ? completedBadge : dg !== null ? dg + ' days' : '—'}</td>
-          <td class="center">${pidValidPrint ? completedBadge : dp !== null ? dp + ' days' : '—'}</td>
+          <td class="remarks-cell">${emp.remarks || ''}</td>
+          <td class="center">${pidValidPrint ? completedBadge : daysSpan(dm)}</td>
+          <td class="center">${pidValidPrint ? completedBadge : daysSpan(dg)}</td>
+          <td class="center">${pidValidPrint ? completedBadge : daysSpan(dp)}</td>
         </tr>`;
       }).join('');
       return `<div class="dept-block">
