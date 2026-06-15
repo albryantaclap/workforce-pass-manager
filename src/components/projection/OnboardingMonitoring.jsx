@@ -1,10 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { format, differenceInDays, parseISO } from 'date-fns';
-import { FileText } from 'lucide-react';
+import { FileText, PencilLine, X as XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { computePassStatus } from '@/utils/constants';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import InlineEditCell from '@/components/common/InlineEditCell';
+import { useToast } from '@/components/ui/use-toast';
+import { useCurrentUser } from '@/lib/useCurrentUser';
+import { usePermissions } from '@/lib/usePermissions';
 
 // ── Status helpers ─────────────────────────────────────────────────────────────
 // Badge color palette — professional, print-friendly
@@ -143,8 +147,40 @@ function SummaryCards({ employees }) {
 
 const PAGE_SIZE = 20;
 
+// ── Editable field option lists ────────────────────────────────────────────────
+const MEDICAL_OPTIONS = [
+  { value: 'ACCEPTED', label: 'Accepted' },
+  { value: 'WAITING TR APPROVAL', label: 'Waiting TR Approval' },
+  { value: 'RE-ASSESS', label: 'Re-Assess' },
+  { value: 'REJECTED', label: 'Rejected' },
+];
+const GP_OPTIONS = [
+  { value: 'VALID RLIC PASS', label: 'Valid RLIC Pass' },
+  { value: 'EXPIRED RLIC PASS', label: 'Expired RLIC Pass' },
+  { value: 'SOON TO EXPIRE', label: 'Soon to Expire' },
+  { value: 'NO RLIC PASS', label: 'No RLIC Pass' },
+  { value: 'UNDER PROCESS', label: 'Under Process' },
+  { value: 'WAITING MOI APPROVAL', label: 'Waiting MOI Approval' },
+  { value: 'HOLDING ACTIVE GP', label: 'Holding Active GP' },
+];
+const TRAINING_OPTIONS = [
+  { value: 'DONE', label: 'Done' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'SCHEDULED', label: 'Scheduled' },
+  { value: 'ON-GOING', label: 'On-Going' },
+  { value: 'NOT REQUIRED', label: 'Not Required' },
+];
+const PID_OPTIONS = [
+  { value: 'VALID PID PASS', label: 'Valid PID Pass' },
+  { value: 'EXPIRED PID PASS', label: 'Expired PID Pass' },
+  { value: 'SOON TO EXPIRE', label: 'Soon to Expire' },
+  { value: 'NO PID PASS', label: 'No PID Pass' },
+  { value: 'RENEWAL UNDER PROCESS', label: 'Renewal Under Process' },
+  { value: 'RECALLED', label: 'Recalled' },
+];
+
 // ── Department Table ───────────────────────────────────────────────────────────
-function DeptTable({ dept, employees, resetKey }) {
+function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
   const [page, setPage] = useState(1);
   useEffect(() => { setPage(1); }, [resetKey]);
   const totalPages = Math.ceil(employees.length / PAGE_SIZE);
@@ -215,21 +251,42 @@ function DeptTable({ dept, employees, resetKey }) {
                     <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{emp.contact_details || '—'}</td>
                     <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{emp.company || '—'}</td>
                     <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{emp.designation_org_chart || emp.position_application || '—'}</td>
+                    {/* Medical Status — editable */}
                     <td className="border border-slate-200 px-1 py-1 text-center">
-                      <BadgeSpan colorKey={med.color} label={med.label} />
+                      {editMode
+                        ? <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={emp.id} type="select" options={MEDICAL_OPTIONS} onSave={onSave} editMode={editMode} />
+                        : <BadgeSpan colorKey={med.color} label={med.label} />}
                     </td>
-                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{trDateApproved || '—'}</td>
+                    {/* TR Date Approved — editable */}
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
+                      <InlineEditCell value={emp.ftw_approved_date} field="ftw_approved_date" empId={emp.id} type="date" onSave={onSave} editMode={editMode} />
+                    </td>
+                    {/* Gate Pass Status — editable */}
                     <td className="border border-slate-200 px-1 py-1 text-center">
-                      <BadgeSpan colorKey={gp.color} label={gp.label} />
+                      {editMode
+                        ? <InlineEditCell value={emp.rlic_status} field="rlic_status" empId={emp.id} type="select" options={GP_OPTIONS} onSave={onSave} editMode={editMode} />
+                        : <BadgeSpan colorKey={gp.color} label={gp.label} />}
                     </td>
-                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{gpReceivedDate || '—'}</td>
+                    {/* Gatepass Received Date — editable */}
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
+                      <InlineEditCell value={emp.gate_pass_received_date} field="gate_pass_received_date" empId={emp.id} type="date" onSave={onSave} editMode={editMode} />
+                    </td>
+                    {/* Training Status — editable */}
                     <td className="border border-slate-200 px-1 py-1 text-center">
-                      <BadgeSpan colorKey={tr.color} label={tr.label} />
+                      {editMode
+                        ? <InlineEditCell value={emp.training_status} field="training_status" empId={emp.id} type="select" options={TRAINING_OPTIONS} onSave={onSave} editMode={editMode} />
+                        : <BadgeSpan colorKey={tr.color} label={tr.label} />}
                     </td>
+                    {/* PID Status — editable */}
                     <td className="border border-slate-200 px-1 py-1 text-center" style={PID_CELL}>
-                      <BadgeSpan colorKey={pid.color} label={pid.label} />
+                      {editMode
+                        ? <InlineEditCell value={emp.pid_status} field="pid_status" empId={emp.id} type="select" options={PID_OPTIONS} onSave={onSave} editMode={editMode} />
+                        : <BadgeSpan colorKey={pid.color} label={pid.label} />}
                     </td>
-                    <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[11px]" style={{ background: '#FAFAFA' }}>{emp.remarks || ''}</td>
+                    {/* Remarks — editable */}
+                    <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[11px]" style={{ background: '#FAFAFA' }}>
+                      <InlineEditCell value={emp.remarks} field="remarks" empId={emp.id} type="text" onSave={onSave} editMode={editMode} />
+                    </td>
                     <td className="border border-slate-200 px-2 py-1 text-center">
                       <DaysCell days={daysMed} pidValid={pidValid} />
                     </td>
@@ -310,6 +367,12 @@ const ONBOARDING_PRINT_CSS = `
 export default function OnboardingMonitoring({ employees = [], assignments = [] }) {
   const [showPreview, setShowPreview] = useState(false);
   const [filterKey, setFilterKey] = useState(0);
+  const [editMode, setEditMode] = useState(false);
+
+  const { canEdit } = usePermissions();
+  const currentUser = useCurrentUser();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const today = format(new Date(), 'dd-MMM-yyyy');
 
@@ -373,6 +436,32 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         }),
       ]);
   }, [filteredEmployees, rankMap, getPositionRank]);
+
+  // ── Grid Edit mutation ────────────────────────────────────────────────────────
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees-active'] }),
+    onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
+  });
+
+  const handleCellSave = (empId, field, newValue) => {
+    // Find old value for audit log
+    const emp = employees.find(e => e.id === empId);
+    const oldValue = emp ? emp[field] : undefined;
+
+    updateMutation.mutate({ id: empId, data: { [field]: newValue } });
+
+    // Activity log
+    base44.entities.ActivityLog.create({
+      action: 'update',
+      entity_name: 'Employee',
+      entity_id: empId,
+      performed_by: currentUser?.email || '',
+      record_name: emp?.name || empId,
+      changed_fields: [field],
+      record_snapshot: { [field]: newValue, _old: { [field]: oldValue } },
+    }).catch(() => {});
+  };
 
   // Build print HTML
   function buildPrintHTML() {
@@ -464,6 +553,11 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
           <p className="text-sm text-muted-foreground mt-0.5">{today} · {filteredEmployees.length} personnel shown</p>
         </div>
         <div className="flex gap-2">
+          {canEdit && (
+            <Button variant={editMode ? 'default' : 'outline'} onClick={() => setEditMode(v => !v)} className="gap-2">
+              {editMode ? <><XIcon className="w-4 h-4" /> Exit Edit Mode</> : <><PencilLine className="w-4 h-4" /> Edit in Grid</>}
+            </Button>
+          )}
           <Button onClick={handlePrint} className="gap-2">
             <FileText className="w-4 h-4" /> Print / Export
           </Button>
@@ -482,7 +576,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       ) : (
         <div>
           {grouped.map(([dept, emps]) => (
-            <DeptTable key={dept} dept={dept} employees={emps} resetKey={filterKey} />
+            <DeptTable key={dept} dept={dept} employees={emps} resetKey={filterKey} editMode={editMode} onSave={handleCellSave} />
           ))}
         </div>
       )}
