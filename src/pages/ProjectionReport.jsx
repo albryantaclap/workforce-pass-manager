@@ -938,27 +938,27 @@ export default function ProjectionReport() {
               : <span>{employees.filter(e => e.is_active !== false).length} active personnel</span>}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Name, QID, PP, PID..."
-              className="w-64 pl-9 pr-4 h-9 rounded-full border border-input bg-white text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
-            />
-          </div>
-          <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
+          <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
       </div>
 
       {/* ── Shared Filter Panel (Dashboard-style) ── */}
       <Card className="border shadow-sm">
         <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filters</p>
+          <div className="flex items-center gap-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filters</p>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Name, QID, PP, PID..."
+                className="w-56 pl-9 pr-4 h-8 rounded-full border border-input bg-white text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
+              />
+            </div>
+          </div>
           {hasFilter && (
             <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground h-7 px-2 rounded hover:bg-accent">
               <X className="w-3 h-3" /> Clear All
