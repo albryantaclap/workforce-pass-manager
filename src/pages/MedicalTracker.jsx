@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
@@ -147,7 +147,11 @@ export default function MedicalTracker() {
     return matchesSearch && matchesCompany && matchesPosition && matchesResult && matchesDepartment && matchesTrFrom && matchesTrTo && matchesRlic && matchesTraining && matchesPid && matchesTrainSchedFrom && matchesTrainSchedTo && matchesGpFrom && matchesGpTo && matchesPidFrom && matchesPidTo;
   }), [employees, search, companyFilter, positionFilter, resultFilter, medicalResultFilter, departmentFilter, trApprovedFrom, trApprovedTo, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
-  useEffect(() => { setPage(0); }, [companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, resultFilter, search, trApprovedFrom, trApprovedTo, trainingScheduledFrom, trainingScheduledTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) { isInitialMount.current = false; return; }
+    setPage(0);
+  }, [companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, resultFilter, search, trApprovedFrom, trApprovedTo, trainingScheduledFrom, trainingScheduledTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   // Auto-adjust page when it exceeds total pages (e.g. after delete/inline edit)
