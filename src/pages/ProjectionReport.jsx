@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Printer, X, FileText, RefreshCw } from 'lucide-react';
+import { Printer, X, FileText, RefreshCw, Search } from 'lucide-react';
 import { computePassStatus, COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, normalizeDate } from '@/utils/constants';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -649,6 +649,7 @@ function InlineReport({ reportHTML }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProjectionReport() {
   const [showPreview, setShowPreview] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // ── Shared filters (Dashboard-equivalent) ────────────────────────────────
   const [companyFilter, setCompanyFilter] = useState([]);
@@ -822,6 +823,16 @@ export default function ProjectionReport() {
   const filteredEmployees = useMemo(() => {
     return employees.filter(e => {
       if (e.is_active === false) return false;
+
+      // Search query filter
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchName = (e.name || '').toLowerCase().includes(q);
+        const matchQid = (e.qid_no || '').toLowerCase().includes(q);
+        const matchPp = (e.pp_no || '').toLowerCase().includes(q);
+        const matchPid = (e.pid || '').toLowerCase().includes(q);
+        if (!matchName && !matchQid && !matchPp && !matchPid) return false;
+      }
       const empCo = (e.company || '').trim().toUpperCase();
       // Manager filter takes priority over company multiselect
       if (selectedManagers.length > 0) {
@@ -856,7 +867,7 @@ export default function ProjectionReport() {
       if (pidIssueTo && pidIssueVal > pidIssueTo) return false;
       return true;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, gpStatusFilter, pidStatusFilter, trainingStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagers, filteredCompaniesFromManagers]);
+  }, [employees, searchQuery, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, gpStatusFilter, pidStatusFilter, trainingStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagers, filteredCompaniesFromManagers]);
 
   const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || selectedManagers.length > 0 || !!dirFilter || gpStatusFilter.length > 0 || pidStatusFilter.length > 0 || trainingStatusFilter.length > 0 || medicalResultFilter.length > 0 || locationFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!medicalTrApprovedFrom || !!medicalTrApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
@@ -869,6 +880,7 @@ export default function ProjectionReport() {
     setGpIssueFrom(''); setGpIssueTo('');
     setGpReceivedFrom(''); setGpReceivedTo('');
     setPidIssueFrom(''); setPidIssueTo('');
+    setSearchQuery('');
   };
 
   // Gatepass tab: compute company data using existing extraFilters structure
@@ -926,9 +938,21 @@ export default function ProjectionReport() {
               : <span>{employees.filter(e => e.is_active !== false).length} active personnel</span>}
           </p>
         </div>
-        <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
-          <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Name, QID, PP, PID..."
+              className="w-64 pl-9 pr-4 h-9 rounded-full border border-input bg-white text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
+            />
+          </div>
+          <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
+        </div>
       </div>
 
       {/* ── Shared Filter Panel (Dashboard-style) ── */}
