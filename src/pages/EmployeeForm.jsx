@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Save, Upload, User, UserCheck, UserX, Shield } from 'lucide-react';
 import SharepointFormButton from '@/components/common/SharepointFormButton';
+import SearchableSelect from '@/components/common/SearchableSelect';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, computePassStatus } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
@@ -134,6 +135,10 @@ export default function EmployeeForm() {
     queryKey: ['lookups', 'training_status'],
     queryFn: () => base44.entities.Lookup.filter({ type: 'training_status' }),
   });
+  const { data: lookupPositions = [] } = useQuery({
+    queryKey: ['lookupPositions'],
+    queryFn: () => base44.entities.LookupPosition.list(),
+  });
 
   const allCompanies = useMemo(() => {
     const seen = new Set();
@@ -199,6 +204,21 @@ export default function EmployeeForm() {
     const custom = lookupTrainingStatuses.filter(s => !customVals.has(s.value)).map(s => ({ value: s.value, label: s.label }));
     return [...base, ...custom];
   }, [lookupTrainingStatuses]);
+
+  // Position/Designation lookup options (active only, sorted by rank)
+  const positionAppOptions = useMemo(() => {
+    return lookupPositions
+      .filter(p => p.is_active && (p.type === 'position_application' || p.type === 'both'))
+      .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999) || (a.name || '').localeCompare(b.name || ''))
+      .map(p => ({ value: p.name, label: p.name }));
+  }, [lookupPositions]);
+
+  const designationOptions = useMemo(() => {
+    return lookupPositions
+      .filter(p => p.is_active && (p.type === 'designation_org_chart' || p.type === 'both'))
+      .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999) || (a.name || '').localeCompare(b.name || ''))
+      .map(p => ({ value: p.name, label: p.name }));
+  }, [lookupPositions]);
 
   useEffect(() => {
     if (existingEmp && existingEmp.length > 0) {
@@ -382,8 +402,24 @@ export default function EmployeeForm() {
             </div>
             <TextInput field="sl_no" label="SL No" type="number" {...tf} />
             <div className="md:col-span-2"><TextInput field="name" label="Full Name *" required {...tf} /></div>
-            <TextInput field="position_application" label="Position (Application)" {...tf} />
-            <TextInput field="designation_org_chart" label="Designation (Org Chart)" {...tf} />
+            <Field label="Position (Application)">
+              <SearchableSelect
+                value={form.position_application || ''}
+                onChange={v => handleChange('position_application', v)}
+                options={positionAppOptions}
+                placeholder="Search position..."
+                emptyMessage="No matching positions found"
+              />
+            </Field>
+            <Field label="Designation (Org Chart)">
+              <SearchableSelect
+                value={form.designation_org_chart || ''}
+                onChange={v => handleChange('designation_org_chart', v)}
+                options={designationOptions}
+                placeholder="Search designation..."
+                emptyMessage="No matching designations found"
+              />
+            </Field>
             <TextInput field="nationality" label="Nationality" {...tf} />
             <TextInput field="religion" label="Religion" {...tf} />
             <TextInput field="contact_details" label="Contact Details" {...tf} />

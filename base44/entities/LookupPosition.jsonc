@@ -1,0 +1,37 @@
+{
+  "name": "LookupPosition",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Position or designation name"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "position_application",
+        "designation_org_chart",
+        "both"
+      ],
+      "default": "position_application",
+      "description": "Which field(s) this applies to"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department filter (empty = all departments)"
+    },
+    "rank": {
+      "type": "number",
+      "description": "Hierarchy rank (lower = higher seniority)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this position is active for selection"
+    }
+  },
+  "required": [
+    "name",
+    "type"
+  ]
+}

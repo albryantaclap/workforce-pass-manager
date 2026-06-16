@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Shield, Users, Trash2, UserPlus, AlertTriangle, List, Crown, Pencil, Eye } from 'lucide-react';
 import LookupsManager from '../components/admin/LookupsManager';
 import ManagerAssignmentManager from '../components/admin/ManagerAssignmentManager';
-import PositionRankManager from '../components/admin/PositionRankManager';
+import PositionsManager from '../components/admin/PositionsManager';
 import { useToast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -152,7 +152,7 @@ export default function AdminPanel() {
            <TabsTrigger value="dedup"><AlertTriangle className="w-4 h-4 mr-2" />Duplicates {duplicates.length > 0 && <span className="ml-1 bg-red-100 text-red-700 text-xs px-1.5 rounded-full">{duplicates.length}</span>}</TabsTrigger>
            <TabsTrigger value="lookups"><List className="w-4 h-4 mr-2" />Lookups</TabsTrigger>
            <TabsTrigger value="managers"><Users className="w-4 h-4 mr-2" />Manager Assignments</TabsTrigger>
-           <TabsTrigger value="positionranks"><List className="w-4 h-4 mr-2" />Position Hierarchy</TabsTrigger>
+           <TabsTrigger value="positionranks"><List className="w-4 h-4 mr-2" />Positions / Designations</TabsTrigger>
          </TabsList>
 
         {/* Users Tab */}
@@ -336,7 +336,7 @@ export default function AdminPanel() {
           <ManagerAssignmentManager />
         </TabsContent>
         <TabsContent value="positionranks" className="mt-4">
-          <PositionRankManager />
+          <PositionsManager />
         </TabsContent>
         </Tabs>
         </div>
