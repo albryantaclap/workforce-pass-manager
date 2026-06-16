@@ -415,9 +415,6 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
   // Use pre-filtered employees directly
   const filteredEmployees = employees;
 
-  // Reset pages when employees change (filters applied upstream)
-  useEffect(() => { setFilterKey(k => k + 1); }, [employees]);
-
   // Group by department, sort employees within each dept by position rank then name
   const grouped = useMemo(() => {
     const map = {};
@@ -437,6 +434,13 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         }),
       ]);
   }, [filteredEmployees, rankMap, getPositionRank]);
+
+  // Reset DeptTable pages only when the grouping structure changes (dept names or counts)
+  // — NOT on inline cell edits that just refresh data within the same grouping
+  const groupStructureKey = useMemo(() => {
+    return grouped.map(([dept, emps]) => `${dept}:${emps.length}`).join('|');
+  }, [grouped]);
+  useEffect(() => { setFilterKey(groupStructureKey); }, [groupStructureKey]);
 
   // ── Grid Edit mutation ────────────────────────────────────────────────────────
   const updateMutation = useMutation({

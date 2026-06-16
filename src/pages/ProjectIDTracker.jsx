@@ -171,6 +171,12 @@ export default function ProjectIDTracker() {
   useEffect(() => { setPage(0); }, [companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, statusFilter, trainingFilter, gatePassFilter, search, pidIssueFrom, pidIssueTo, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  // Auto-adjust page when it exceeds total pages (e.g. after delete/inline edit)
+  useEffect(() => {
+    if (totalPages > 0 && page >= totalPages) {
+      setPage(Math.max(0, totalPages - 1));
+    }
+  }, [totalPages, page]);
   const pagedRows = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
 
   const stats = useMemo(() => {

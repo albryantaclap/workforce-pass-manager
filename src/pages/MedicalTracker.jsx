@@ -150,6 +150,12 @@ export default function MedicalTracker() {
   useEffect(() => { setPage(0); }, [companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, resultFilter, search, trApprovedFrom, trApprovedTo, trainingScheduledFrom, trainingScheduledTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  // Auto-adjust page when it exceeds total pages (e.g. after delete/inline edit)
+  useEffect(() => {
+    if (totalPages > 0 && page >= totalPages) {
+      setPage(Math.max(0, totalPages - 1));
+    }
+  }, [totalPages, page]);
   const pagedRows = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
 
   const stats = useMemo(() => allMedicalResults.map(r => ({

@@ -41,6 +41,7 @@ function loadFilters() {
       pidStatusFilter: Array.isArray(saved.pidStatusFilter) ? saved.pidStatusFilter : [],
       gpStatusFilter: Array.isArray(saved.gpStatusFilter) ? saved.gpStatusFilter : [],
       medicalResultFilter: Array.isArray(saved.medicalResultFilter) ? saved.medicalResultFilter : [],
+      page: typeof saved.page === 'number' ? saved.page : 0,
     };
   } catch { return {}; }
 }
@@ -56,7 +57,7 @@ export default function MasterList() {
   const saved = useMemo(() => loadFilters(), []);
   const [searchInput, setSearchInput] = useState(saved.search || '');
   const [search, setSearch] = useState(saved.search || '');
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(saved.page || 0);
   const PAGE_SIZE = 50;
 
   // Debounce search input
@@ -91,8 +92,8 @@ export default function MasterList() {
   const [pidIssueTo, setPidIssueTo] = useState(saved.pidIssueTo || '');
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page]);
 
   // Reset page on filter changes
   useEffect(() => { setPage(0); }, [companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
@@ -251,6 +252,12 @@ export default function MasterList() {
   }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManager, filteredCompanies]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  // Auto-adjust page when it exceeds total pages (e.g. after delete on last page)
+  useEffect(() => {
+    if (totalPages > 0 && page >= totalPages) {
+      setPage(Math.max(0, totalPages - 1));
+    }
+  }, [totalPages, page]);
   const pagedRows = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
 
   const getExportData = () => filtered.map(e => ({
