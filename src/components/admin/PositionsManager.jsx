@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card } from '@/components/ui/card';
 import { Pencil, Trash2, Plus, Check, X, Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { useLookupOptions } from '@/hooks/useLookupOptions';
 
 const TYPE_LABELS = {
   position_application: 'Position (Application)',
@@ -24,6 +25,7 @@ const TYPE_COLORS = {
 export default function PositionsManager() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { departmentOptions } = useLookupOptions();
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState({});
   const [newRow, setNewRow] = useState({ name: '', type: 'position_application', department: '', rank: '' });
@@ -36,13 +38,6 @@ export default function PositionsManager() {
     queryKey: ['lookupPositions'],
     queryFn: () => base44.entities.LookupPosition.list(),
   });
-
-  // Get distinct departments from positions
-  const departments = useMemo(() => {
-    const depts = new Set();
-    positions.forEach(p => { if (p.department) depts.add(p.department); });
-    return [...depts].sort();
-  }, [positions]);
 
   const filtered = useMemo(() => {
     let result = positions;
@@ -78,11 +73,15 @@ export default function PositionsManager() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['lookupPositions'] }); toast({ title: 'Position deleted' }); },
   });
 
-  const startEdit = (p) => { setEditingId(p.id); setEditDraft({ name: p.name, type: p.type, department: p.department || '', rank: p.rank ?? '' }); };
-  const saveEdit = () => updateMutation.mutate({ id: editingId, data: { name: editDraft.name, type: editDraft.type, department: editDraft.department || null, rank: editDraft.rank ? Number(editDraft.rank) : null, is_active: true } });
+  const startEdit = (p) => { setEditingId(p.id); setEditDraft({ name: p.name, type: p.type, department: p.department || '__any__', rank: p.rank ?? '' }); };
+  const saveEdit = () => {
+    const dept = editDraft.department === '__any__' ? null : (editDraft.department || null);
+    updateMutation.mutate({ id: editingId, data: { name: editDraft.name, type: editDraft.type, department: dept, rank: editDraft.rank ? Number(editDraft.rank) : null, is_active: true } });
+  };
   const saveNew = () => {
     if (!newRow.name || !newRow.type) return;
-    createMutation.mutate({ name: newRow.name, type: newRow.type, department: newRow.department || null, rank: newRow.rank ? Number(newRow.rank) : null, is_active: true });
+    const dept = newRow.department === '__any__' ? null : (newRow.department || null);
+    createMutation.mutate({ name: newRow.name, type: newRow.type, department: dept, rank: newRow.rank ? Number(newRow.rank) : null, is_active: true });
   };
 
   const toggleActive = (p) => {
@@ -120,12 +119,12 @@ export default function PositionsManager() {
             <SelectItem value="both">Both</SelectItem>
           </SelectContent>
         </Select>
-        {departments.length > 0 && (
+        {departmentOptions.length > 0 && (
           <Select value={filterDept} onValueChange={setFilterDept}>
             <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Department" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Departments</SelectItem>
-              {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
             </SelectContent>
           </Select>
         )}
@@ -144,7 +143,13 @@ export default function PositionsManager() {
               <SelectItem value="both">Both</SelectItem>
             </SelectContent>
           </Select>
-          <Input value={newRow.department} onChange={e => setNewRow(p => ({ ...p, department: e.target.value }))} placeholder="Department (optional)" className="h-8 text-xs w-36" />
+          <Select value={newRow.department} onValueChange={v => setNewRow(p => ({ ...p, department: v }))}>
+            <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Any Department" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__any__">Any Department</SelectItem>
+              {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Input type="number" value={newRow.rank} onChange={e => setNewRow(p => ({ ...p, rank: e.target.value }))} placeholder="Rank" className="h-8 text-xs w-20" />
           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={saveNew}><Check className="w-4 h-4 text-green-600" /></Button>
           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setShowNew(false); setNewRow({ name: '', type: 'position_application', department: '', rank: '' }); }}><X className="w-4 h-4 text-red-500" /></Button>
@@ -192,8 +197,14 @@ export default function PositionsManager() {
                 </TableCell>
                 <TableCell className="py-1.5">
                   {editingId === p.id
-                    ? <Input value={editDraft.department} onChange={e => setEditDraft(d => ({ ...d, department: e.target.value }))} className="h-7 text-xs w-32" placeholder="Any" />
-                    : <span className="text-xs text-muted-foreground">{p.department || '—'}</span>}
+                    ? <Select value={editDraft.department} onValueChange={v => setEditDraft(d => ({ ...d, department: v }))}>
+                        <SelectTrigger className="h-7 text-xs w-40"><SelectValue placeholder="Any" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__any__">Any</SelectItem>
+                          {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    : <span className="text-xs text-muted-foreground">{p.department || 'Any'}</span>}
                 </TableCell>
                 <TableCell className="py-1.5">
                   {editingId === p.id
