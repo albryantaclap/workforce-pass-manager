@@ -214,6 +214,7 @@ function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
                 ['Gate Pass Status', 'text-center'],
                 ['Gatepass Received Date', 'text-center'],
                 ['Training Status', 'text-center'],
+                ['Training Date Started', 'text-center'],
               ].map(([label, align]) => (
                 <th key={label} className={`border border-slate-300 px-2 py-1.5 font-semibold ${align}`} style={COL_HDR}>{label}</th>
               ))}
@@ -221,13 +222,14 @@ function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
               <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>Remarks</th>
               <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>No. Days Since Med Approved</th>
               <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>No. Days Since Gatepass Received</th>
+              <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>No. Days Since Training Started</th>
               <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>No. Days Waiting for PID</th>
             </tr>
           </thead>
           <tbody>
             {employees.length === 0 ? (
               <tr>
-                <td colSpan={16} className="text-center py-4 text-slate-400 bg-white border">No employees in this department</td>
+                <td colSpan={18} className="text-center py-4 text-slate-400 bg-white border">No employees in this department</td>
               </tr>
             ) : (
               paginated.map((emp, idx) => {
@@ -238,6 +240,7 @@ function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
                 const pid = getPIDLabel(emp);
                 const daysMed = daysSince(emp.ftw_approved_date);
                 const daysGP = daysSince(emp.gate_pass_received_date);
+                const daysTraining = daysSince(emp.training_date_start);
                 const daysPID = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
                 const trDateApproved = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : null;
                 const gpReceivedDate = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : null;
@@ -278,6 +281,10 @@ function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
                         ? <InlineEditCell value={emp.training_status} field="training_status" empId={emp.id} type="select" options={TRAINING_OPTIONS} onSave={onSave} editMode={editMode} />
                         : <BadgeSpan colorKey={tr.color} label={tr.label} />}
                     </td>
+                    {/* Training Date Started — editable */}
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
+                      <InlineEditCell value={emp.training_date_start} field="training_date_start" empId={emp.id} type="date" onSave={onSave} editMode={editMode} />
+                    </td>
                     {/* PID Status — editable */}
                     <td className="border border-slate-200 px-1 py-1 text-center" style={PID_CELL}>
                       {editMode
@@ -293,6 +300,9 @@ function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
                     </td>
                     <td className="border border-slate-200 px-2 py-1 text-center">
                       <DaysCell days={daysGP} pidValid={pidValid} />
+                    </td>
+                    <td className="border border-slate-200 px-2 py-1 text-center">
+                      <DaysCell days={daysTraining} pidValid={pidValid} />
                     </td>
                     <td className="border border-slate-200 px-2 py-1 text-center">
                       <DaysCell days={daysPID} pidValid={pidValid} />
@@ -488,9 +498,11 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         const pidClass = PRINT_CLASS_MAP[pid.color] || 'badge-slate';
         const dm = daysSince(emp.ftw_approved_date);
         const dg = daysSince(emp.gate_pass_received_date);
+        const dt = daysSince(emp.training_date_start);
         const dp = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
         const trDatePrint = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const gpRecPrint = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
+        const trainStartPrint = emp.training_date_start ? format(parseISO(emp.training_date_start.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const pidEffectivePrint = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
         const pidValidPrint = pidEffectivePrint === 'VALID PID PASS' || pidEffectivePrint === 'SOON TO EXPIRE';
         const completedBadge = '<span class="badge badge-completed">✓ Completed</span>';
@@ -511,10 +523,12 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
           <td class="center"><span class="badge ${gpClass}">${gp.label}</span></td>
           <td class="center">${gpRecPrint}</td>
           <td class="center"><span class="badge ${trClass}">${tr.label}</span></td>
+          <td class="center">${trainStartPrint}</td>
           <td class="center pid-cell"><span class="badge ${pidClass}">${pid.label}</span></td>
           <td class="remarks-cell">${emp.remarks || ''}</td>
           <td class="center">${pidValidPrint ? completedBadge : daysSpan(dm)}</td>
           <td class="center">${pidValidPrint ? completedBadge : daysSpan(dg)}</td>
+          <td class="center">${pidValidPrint ? completedBadge : daysSpan(dt)}</td>
           <td class="center">${pidValidPrint ? completedBadge : daysSpan(dp)}</td>
         </tr>`;
       }).join('');
@@ -524,9 +538,9 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
           <thead><tr>
             <th>#</th><th style="text-align:left">Full Name</th><th>QID Number</th>
             <th>Mobile Number</th><th>Company</th><th>Designation / Position</th>
-            <th>Medical</th><th>TR Date Approved</th><th>Gate Pass Status</th><th>Gatepass Received Date</th><th>Training Status</th>
+            <th>Medical</th><th>TR Date Approved</th><th>Gate Pass Status</th><th>Gatepass Received Date</th><th>Training Status</th><th>Training Date Started</th>
             <th class="pid-col">Project ID Status</th><th>Remarks</th>
-            <th>Days Since Med Approved</th><th>Days Since GP Received</th><th>Days Waiting for PID</th>
+            <th>Days Since Med Approved</th><th>Days Since GP Received</th><th>Days Since Training Started</th><th>Days Waiting for PID</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -567,14 +581,16 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       { key: 'gp',       width: 14 },
       { key: 'gp_date',  width: 16 },
       { key: 'training', width: 14 },
+      { key: 'train_date_start', width: 14 },
       { key: 'pid',      width: 14 },
       { key: 'remarks',  width: 30 },
       { key: 'days_med', width: 18 },
       { key: 'days_gp',  width: 20 },
+      { key: 'days_train', width: 18 },
       { key: 'days_pid', width: 18 },
     ];
 
-    const TOTAL_COLS = 16;
+    const TOTAL_COLS = 18;
 
     // Color palette
     const C = {
@@ -640,8 +656,8 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
 
     const COL_HEADERS = [
       '#', 'Full Name', 'QID Number', 'Mobile Number', 'Company', 'Designation / Position',
-      'Medical', 'TR Date Approved', 'Gate Pass Status', 'Gatepass Received Date', 'Training Status',
-      'Project ID Status', 'Remarks', 'No. Days Since Med Approved', 'No. Days Since Gatepass Received', 'No. Days Waiting for PID',
+      'Medical', 'TR Date Approved', 'Gate Pass Status', 'Gatepass Received Date', 'Training Status', 'Training Date Started',
+      'Project ID Status', 'Remarks', 'No. Days Since Med Approved', 'No. Days Since Gatepass Received', 'No. Days Since Training Started', 'No. Days Waiting for PID',
     ];
 
     let currentRow = 1;
@@ -666,7 +682,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       COL_HEADERS.forEach((h, i) => {
         const cell = hdrRow.getCell(i + 1);
         cell.value = h;
-        const isPid = i === 11;
+        const isPid = i === 12;
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + (isPid ? C.pidHdrBg : C.colHdrBg) } };
         cell.font = { color: { argb: 'FF' + (isPid ? C.pidHdrFg : C.colHdrFg) }, bold: true, size: 9 };
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -682,9 +698,11 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         const pid = getPIDLabel(emp);
         const daysMed = daysSince(emp.ftw_approved_date);
         const daysGP  = daysSince(emp.gate_pass_received_date);
+        const daysTrain = daysSince(emp.training_date_start);
         const daysPID = daysSince(emp.pid_issue_date) ?? daysSince(emp.ftw_approved_date);
         const trDateFmt = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const gpDateFmt = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
+        const trainStartFmt = emp.training_date_start ? format(parseISO(emp.training_date_start.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const pidEffective = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
         const pidValid = pidEffective === 'VALID PID PASS' || pidEffective === 'SOON TO EXPIRE';
         const rowBg = idx % 2 === 0 ? C.rowOdd : C.rowEven;
@@ -734,14 +752,17 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         applyBadgeCell(trCell, tr.color, tr.label);
         applyBorder(trCell);
 
+        // Training Date Started
+        plain(12, trainStartFmt);
+
         // PID badge (green-tinted cell)
-        const pidCell = row.getCell(12);
+        const pidCell = row.getCell(13);
         pidCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.pidCellBg } };
         applyBadgeCell(pidCell, pid.color, pid.label);
         applyBorder(pidCell);
 
         // Remarks
-        const remCell = row.getCell(13);
+        const remCell = row.getCell(14);
         remCell.value = emp.remarks || '';
         remCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.remarksBg } };
         remCell.font = { size: 9 };
@@ -749,20 +770,25 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         applyBorder(remCell);
 
         // Days cells
-        const daysCell14 = row.getCell(14);
-        daysCell14.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell14, daysMed, pidValid);
-        applyBorder(daysCell14);
-
         const daysCell15 = row.getCell(15);
         daysCell15.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell15, daysGP, pidValid);
+        applyDaysCell(daysCell15, daysMed, pidValid);
         applyBorder(daysCell15);
 
         const daysCell16 = row.getCell(16);
         daysCell16.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell16, daysPID, pidValid);
+        applyDaysCell(daysCell16, daysGP, pidValid);
         applyBorder(daysCell16);
+
+        const daysCell17 = row.getCell(17);
+        daysCell17.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        applyDaysCell(daysCell17, daysTrain, pidValid);
+        applyBorder(daysCell17);
+
+        const daysCell18 = row.getCell(18);
+        daysCell18.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        applyDaysCell(daysCell18, daysPID, pidValid);
+        applyBorder(daysCell18);
 
         currentRow++;
       });
