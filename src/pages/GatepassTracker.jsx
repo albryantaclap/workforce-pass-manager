@@ -67,6 +67,8 @@ export default function GatepassTracker() {
   const [updatedFrom, setUpdatedFrom] = useState('');
   const [updatedTo, setUpdatedTo] = useState('');
   const [editMode, setEditMode] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -185,6 +187,12 @@ export default function GatepassTracker() {
     queryClient.invalidateQueries({ queryKey: ['employees-active'] });
     toast({ title: `Filled "${field}" for ${filtered.length} rows` });
   };
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [filtered.length]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 || statusFilter.length > 0 || rlicStatusFilter.length > 0 || departmentFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!updatedFrom || !!updatedTo || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueDate || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
@@ -415,7 +423,7 @@ export default function GatepassTracker() {
                     Array(6).fill(0).map((_, i) => <TableRow key={i}>{Array(13).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)
                   ) : filtered.length === 0 ? (
                     <TableRow><TableCell colSpan={13} className="text-center py-10 text-muted-foreground">No records found</TableCell></TableRow>
-                  ) : filtered.map(emp => {
+                  ) : paginated.map(emp => {
                     const days = daysUntil(emp.gate_pass_expiry);
                     return (
                       <TableRow key={emp.id} className="hover:bg-muted/30">
@@ -456,8 +464,19 @@ export default function GatepassTracker() {
               </Table>
               </div>
             </div>
-            <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
-              Showing <strong>{filtered.length}</strong> of <strong>{employees.length}</strong> records
+            <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs text-muted-foreground">
+                Showing <strong>{Math.min((currentPage - 1) * PAGE_SIZE + 1, filtered.length)}–{Math.min(currentPage * PAGE_SIZE, filtered.length)}</strong> of <strong>{filtered.length}</strong> records
+              </span>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>«</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>‹</Button>
+                  <span className="text-xs text-muted-foreground px-2">Page {currentPage} of {totalPages}</span>
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>›</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}>»</Button>
+                </div>
+              )}
             </div>
           </Card>
         </TabsContent>
