@@ -12,7 +12,8 @@
         "rlic_status",
         "pid_status",
         "ftw_result",
-        "training_status"
+        "training_status",
+        "nationality"
       ],
       "description": "Lookup category"
     },

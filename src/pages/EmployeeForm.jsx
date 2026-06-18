@@ -139,6 +139,10 @@ export default function EmployeeForm() {
     queryKey: ['lookupPositions'],
     queryFn: () => base44.entities.LookupPosition.list(),
   });
+  const { data: lookupNationalities = [] } = useQuery({
+    queryKey: ['lookups', 'nationality'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'nationality' }),
+  });
 
   const allCompanies = useMemo(() => {
     const seen = new Set();
@@ -220,6 +224,12 @@ export default function EmployeeForm() {
       .map(p => ({ value: p.name, label: p.name }));
   }, [lookupPositions]);
 
+  const nationalityOptions = useMemo(() => {
+    return lookupNationalities
+      .filter(n => !n.is_deleted)
+      .map(n => ({ value: n.value, label: n.label.toUpperCase() }));
+  }, [lookupNationalities]);
+
   useEffect(() => {
     if (existingEmp && existingEmp.length > 0) {
       const emp = existingEmp[0];
@@ -247,7 +257,7 @@ export default function EmployeeForm() {
     },
   });
 
-  const TEXT_FIELDS = ['name','position_application','designation_org_chart','nationality','religion','contact_details','sponsor','remarks','qid_no','pp_no','ftw_doctor','ftw_mobile','ftw_remarks','staff_no','pid'];
+  const TEXT_FIELDS = ['name','position_application','designation_org_chart','religion','contact_details','sponsor','remarks','qid_no','pp_no','ftw_doctor','ftw_mobile','ftw_remarks','staff_no','pid'];
   const UPPERCASE_FIELDS = ['department'];
 
   const validateStatusAgainstExpiry = (statusField, statusValue, expiryDate, type) => {
@@ -313,6 +323,14 @@ export default function EmployeeForm() {
     if (statusWarning) {
       toast({ title: 'Status Mismatch', description: statusWarning, variant: 'destructive' });
       return;
+    }
+    // Validate nationality against approved list
+    if (form.nationality && nationalityOptions.length > 0) {
+      const isApproved = nationalityOptions.some(o => o.value === form.nationality);
+      if (!isApproved) {
+        toast({ title: 'Invalid Nationality', description: 'Please select a valid nationality from the approved list.', variant: 'destructive' });
+        return;
+      }
     }
     saveMutation.mutate(form);
   };
@@ -420,7 +438,15 @@ export default function EmployeeForm() {
                 emptyMessage="No matching designations found"
               />
             </Field>
-            <TextInput field="nationality" label="Nationality" {...tf} />
+            <Field label="Nationality">
+              <SearchableSelect
+                value={form.nationality || ''}
+                onChange={v => handleChange('nationality', v)}
+                options={nationalityOptions}
+                placeholder="Search nationality..."
+                emptyMessage="No matching nationalities found"
+              />
+            </Field>
             <TextInput field="religion" label="Religion" {...tf} />
             <TextInput field="contact_details" label="Contact Details" {...tf} />
             <TextInput field="sponsor" label="Sponsor" {...tf} />
