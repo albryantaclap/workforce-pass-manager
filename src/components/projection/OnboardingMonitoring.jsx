@@ -425,7 +425,52 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
   // Use pre-filtered employees directly
   const filteredEmployees = employees;
 
-  // Group by department, sort employees within each dept by position rank then name
+  // ── Onboarding priority score ─────────────────────────────────────────────
+  const MEDICAL_RANK  = { 'ACCEPTED': 1, 'RE-ASSESS': 2, 'WAITING TR APPROVAL': 3 };
+  const GP_RANK       = { 'VALID RLIC PASS': 1, 'SOON TO EXPIRE': 2, 'UNDER PROCESS': 3, 'DVC SENT': 3, 'WAITING MOI APPROVAL': 4, 'HOLDING ACTIVE GP': 5, 'EXPIRED RLIC PASS': 6, 'NO RLIC PASS': 7 };
+  const TRAINING_RANK = { 'DONE': 1, 'ON-GOING': 2, 'ONGOING': 2, 'ON GOING': 2, 'SCHEDULED': 3, 'NOT REQUIRED': 4, 'PENDING': 5 };
+  const PID_RANK      = { 'VALID PID PASS': 1, 'SOON TO EXPIRE': 2, 'RENEWAL UNDER PROCESS': 3, 'EXPIRED PID PASS': 4, 'NO PID PASS': 5 };
+
+  function getOnboardingPriorityScore(emp) {
+    const ftw = (emp.ftw_result || '').trim().toUpperCase();
+    const effectiveGP = (computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status) || '').toUpperCase();
+    const rawGP = (emp.rlic_status || '').trim().toUpperCase();
+    const gpKey = ['VALID RLIC PASS', 'SOON TO EXPIRE', 'EXPIRED RLIC PASS', 'NO RLIC PASS'].includes(effectiveGP) ? effectiveGP : rawGP;
+    const training = (emp.training_status || '').trim().toUpperCase();
+    const effectivePID = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
+    const rawPID = (emp.pid_status || '').trim().toUpperCase();
+    const pidKey = ['VALID PID PASS', 'SOON TO EXPIRE', 'EXPIRED PID PASS', 'NO PID PASS'].includes(effectivePID) ? effectivePID : rawPID;
+
+    const medAccepted = ftw === 'ACCEPTED';
+    const gpValid = effectiveGP === 'VALID RLIC PASS' || effectiveGP === 'SOON TO EXPIRE';
+    const trainDone = training === 'DONE';
+    const pidValid = effectivePID === 'VALID PID PASS' || effectivePID === 'SOON TO EXPIRE';
+
+    if (medAccepted && gpValid && trainDone && pidValid) return 4;
+    if (medAccepted && gpValid && trainDone) return 3;
+    if (medAccepted && gpValid) return 2;
+    if (medAccepted) return 1;
+    return 0;
+  }
+
+  function getOnboardingSubRanks(emp) {
+    const ftw = (emp.ftw_result || '').trim().toUpperCase();
+    const effectiveGP = (computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status) || '').toUpperCase();
+    const rawGP = (emp.rlic_status || '').trim().toUpperCase();
+    const gpKey = ['VALID RLIC PASS', 'SOON TO EXPIRE', 'EXPIRED RLIC PASS', 'NO RLIC PASS'].includes(effectiveGP) ? effectiveGP : rawGP;
+    const training = (emp.training_status || '').trim().toUpperCase();
+    const effectivePID = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
+    const rawPID = (emp.pid_status || '').trim().toUpperCase();
+    const pidKey = ['VALID PID PASS', 'SOON TO EXPIRE', 'EXPIRED PID PASS', 'NO PID PASS'].includes(effectivePID) ? effectivePID : rawPID;
+    return [
+      MEDICAL_RANK[ftw] ?? 9,
+      GP_RANK[gpKey] ?? 9,
+      TRAINING_RANK[training] ?? 9,
+      PID_RANK[pidKey] ?? 9,
+    ];
+  }
+
+  // Group by department, sort employees within each dept by onboarding priority then name
   const grouped = useMemo(() => {
     const map = {};
     for (const emp of filteredEmployees) {
@@ -438,12 +483,21 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       .map(([dept, emps]) => [
         dept,
         [...emps].sort((a, b) => {
-          const rankDiff = getPositionRank(a) - getPositionRank(b);
-          if (rankDiff !== 0) return rankDiff;
+          // Primary: priority score DESC (higher = more complete = first)
+          const scoreA = getOnboardingPriorityScore(a);
+          const scoreB = getOnboardingPriorityScore(b);
+          if (scoreB !== scoreA) return scoreB - scoreA;
+          // Secondary: sub-ranks ASC per status dimension
+          const subA = getOnboardingSubRanks(a);
+          const subB = getOnboardingSubRanks(b);
+          for (let i = 0; i < subA.length; i++) {
+            if (subA[i] !== subB[i]) return subA[i] - subB[i];
+          }
+          // Final: name ASC
           return (a.name || '').localeCompare(b.name || '');
         }),
       ]);
-  }, [filteredEmployees, rankMap, getPositionRank]);
+  }, [filteredEmployees]);
 
   // Reset DeptTable pages only when the grouping structure changes (dept names or counts)
   // — NOT on inline cell edits that just refresh data within the same grouping
