@@ -374,6 +374,53 @@ const ONBOARDING_PRINT_CSS = `
   @media print { @page { size: A3 landscape; margin: 8mm; } }
 `;
 
+// ── Onboarding priority sort (module-level, no stale closure) ─────────────────
+const _MED_RANK  = { 'ACCEPTED': 1, 'RE-ASSESS': 2, 'WAITING TR APPROVAL': 3 };
+const _GP_RANK   = { 'VALID RLIC PASS': 1, 'SOON TO EXPIRE': 2, 'UNDER PROCESS': 3, 'DVC SENT': 3, 'WAITING MOI APPROVAL': 4, 'HOLDING ACTIVE GP': 5, 'EXPIRED RLIC PASS': 6, 'NO RLIC PASS': 7 };
+const _TRAIN_RANK= { 'DONE': 1, 'ON-GOING': 2, 'ONGOING': 2, 'ON GOING': 2, 'SCHEDULED': 3, 'NOT REQUIRED': 4, 'PENDING': 5 };
+const _PID_RANK  = { 'VALID PID PASS': 1, 'SOON TO EXPIRE': 2, 'RENEWAL UNDER PROCESS': 3, 'EXPIRED PID PASS': 4, 'NO PID PASS': 5 };
+
+function _onboardingScore(emp) {
+  const ftw = (emp.ftw_result || '').trim().toUpperCase();
+  const effGP = (computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status) || '').toUpperCase();
+  const effPID = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
+  const train = (emp.training_status || '').trim().toUpperCase();
+  const medOk  = ftw === 'ACCEPTED';
+  const gpOk   = effGP === 'VALID RLIC PASS' || effGP === 'SOON TO EXPIRE';
+  const trainOk= train === 'DONE';
+  const pidOk  = effPID === 'VALID PID PASS' || effPID === 'SOON TO EXPIRE';
+  if (medOk && gpOk && trainOk && pidOk) return 4;
+  if (medOk && gpOk && trainOk)          return 3;
+  if (medOk && gpOk)                     return 2;
+  if (medOk)                             return 1;
+  return 0;
+}
+
+function _onboardingSubRanks(emp) {
+  const ftw = (emp.ftw_result || '').trim().toUpperCase();
+  const effGP = (computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status) || '').toUpperCase();
+  const rawGP = (emp.rlic_status || '').trim().toUpperCase();
+  const gpKey = ['VALID RLIC PASS', 'SOON TO EXPIRE', 'EXPIRED RLIC PASS', 'NO RLIC PASS'].includes(effGP) ? effGP : rawGP;
+  const train = (emp.training_status || '').trim().toUpperCase();
+  const effPID = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
+  const rawPID = (emp.pid_status || '').trim().toUpperCase();
+  const pidKey = ['VALID PID PASS', 'SOON TO EXPIRE', 'EXPIRED PID PASS', 'NO PID PASS'].includes(effPID) ? effPID : rawPID;
+  return [
+    _MED_RANK[ftw]   ?? 9,
+    _GP_RANK[gpKey]  ?? 9,
+    _TRAIN_RANK[train]?? 9,
+    _PID_RANK[pidKey]?? 9,
+  ];
+}
+
+function compareByOnboardingPriority(a, b) {
+  const sa = _onboardingScore(a), sb = _onboardingScore(b);
+  if (sb !== sa) return sb - sa; // higher score first
+  const ra = _onboardingSubRanks(a), rb = _onboardingSubRanks(b);
+  for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i] - rb[i];
+  return (a.name || '').localeCompare(b.name || '');
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function OnboardingMonitoring({ employees = [], assignments = [] }) {
   const [showPreview, setShowPreview] = useState(false);
@@ -425,51 +472,6 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
   // Use pre-filtered employees directly
   const filteredEmployees = employees;
 
-  // ── Onboarding priority score ─────────────────────────────────────────────
-  const MEDICAL_RANK  = { 'ACCEPTED': 1, 'RE-ASSESS': 2, 'WAITING TR APPROVAL': 3 };
-  const GP_RANK       = { 'VALID RLIC PASS': 1, 'SOON TO EXPIRE': 2, 'UNDER PROCESS': 3, 'DVC SENT': 3, 'WAITING MOI APPROVAL': 4, 'HOLDING ACTIVE GP': 5, 'EXPIRED RLIC PASS': 6, 'NO RLIC PASS': 7 };
-  const TRAINING_RANK = { 'DONE': 1, 'ON-GOING': 2, 'ONGOING': 2, 'ON GOING': 2, 'SCHEDULED': 3, 'NOT REQUIRED': 4, 'PENDING': 5 };
-  const PID_RANK      = { 'VALID PID PASS': 1, 'SOON TO EXPIRE': 2, 'RENEWAL UNDER PROCESS': 3, 'EXPIRED PID PASS': 4, 'NO PID PASS': 5 };
-
-  function getOnboardingPriorityScore(emp) {
-    const ftw = (emp.ftw_result || '').trim().toUpperCase();
-    const effectiveGP = (computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status) || '').toUpperCase();
-    const rawGP = (emp.rlic_status || '').trim().toUpperCase();
-    const gpKey = ['VALID RLIC PASS', 'SOON TO EXPIRE', 'EXPIRED RLIC PASS', 'NO RLIC PASS'].includes(effectiveGP) ? effectiveGP : rawGP;
-    const training = (emp.training_status || '').trim().toUpperCase();
-    const effectivePID = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
-    const rawPID = (emp.pid_status || '').trim().toUpperCase();
-    const pidKey = ['VALID PID PASS', 'SOON TO EXPIRE', 'EXPIRED PID PASS', 'NO PID PASS'].includes(effectivePID) ? effectivePID : rawPID;
-
-    const medAccepted = ftw === 'ACCEPTED';
-    const gpValid = effectiveGP === 'VALID RLIC PASS' || effectiveGP === 'SOON TO EXPIRE';
-    const trainDone = training === 'DONE';
-    const pidValid = effectivePID === 'VALID PID PASS' || effectivePID === 'SOON TO EXPIRE';
-
-    if (medAccepted && gpValid && trainDone && pidValid) return 4;
-    if (medAccepted && gpValid && trainDone) return 3;
-    if (medAccepted && gpValid) return 2;
-    if (medAccepted) return 1;
-    return 0;
-  }
-
-  function getOnboardingSubRanks(emp) {
-    const ftw = (emp.ftw_result || '').trim().toUpperCase();
-    const effectiveGP = (computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status) || '').toUpperCase();
-    const rawGP = (emp.rlic_status || '').trim().toUpperCase();
-    const gpKey = ['VALID RLIC PASS', 'SOON TO EXPIRE', 'EXPIRED RLIC PASS', 'NO RLIC PASS'].includes(effectiveGP) ? effectiveGP : rawGP;
-    const training = (emp.training_status || '').trim().toUpperCase();
-    const effectivePID = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
-    const rawPID = (emp.pid_status || '').trim().toUpperCase();
-    const pidKey = ['VALID PID PASS', 'SOON TO EXPIRE', 'EXPIRED PID PASS', 'NO PID PASS'].includes(effectivePID) ? effectivePID : rawPID;
-    return [
-      MEDICAL_RANK[ftw] ?? 9,
-      GP_RANK[gpKey] ?? 9,
-      TRAINING_RANK[training] ?? 9,
-      PID_RANK[pidKey] ?? 9,
-    ];
-  }
-
   // Group by department, sort employees within each dept by onboarding priority then name
   const grouped = useMemo(() => {
     const map = {};
@@ -482,20 +484,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([dept, emps]) => [
         dept,
-        [...emps].sort((a, b) => {
-          // Primary: priority score DESC (higher = more complete = first)
-          const scoreA = getOnboardingPriorityScore(a);
-          const scoreB = getOnboardingPriorityScore(b);
-          if (scoreB !== scoreA) return scoreB - scoreA;
-          // Secondary: sub-ranks ASC per status dimension
-          const subA = getOnboardingSubRanks(a);
-          const subB = getOnboardingSubRanks(b);
-          for (let i = 0; i < subA.length; i++) {
-            if (subA[i] !== subB[i]) return subA[i] - subB[i];
-          }
-          // Final: name ASC
-          return (a.name || '').localeCompare(b.name || '');
-        }),
+        [...emps].sort(compareByOnboardingPriority),
       ]);
   }, [filteredEmployees]);
 
