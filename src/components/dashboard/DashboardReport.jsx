@@ -110,11 +110,46 @@ function getCellColor(e, colId) {
   return '#1e293b';
 }
 
-const RLIC_SORT = { 'VALID RLIC PASS': 0, 'SOON TO EXPIRE': 3, 'NO RLIC PASS': 2, 'EXPIRED RLIC PASS': 4 };
-const sortByRlic = (rows) => [...rows].sort((a, b) => {
-  const ka = RLIC_SORT[computePassStatus(a.gate_pass_expiry, 'rlic', a.rlic_status)] ?? 1;
-  const kb = RLIC_SORT[computePassStatus(b.gate_pass_expiry, 'rlic', b.rlic_status)] ?? 1;
-  return ka - kb;
+// ── Onboarding priority sort ──────────────────────────────────────────────
+const _W_MED   = { 'ACCEPTED': 1, 'RE-ASSESS': 2, 'WAITING TR APPROVAL': 3, 'REJECTED': 5 };
+const _W_GP    = { 'VALID RLIC PASS': 1, 'SOON TO EXPIRE': 2, 'UNDER PROCESS': 3, 'WAITING MOI APPROVAL': 4, 'DVC SENT': 5, 'HOLDING ACTIVE GP': 6, 'EXPIRED RLIC PASS': 7, 'NO RLIC PASS': 9 };
+const _W_TRAIN = { 'DONE': 1, 'ON-GOING': 2, 'ONGOING': 2, 'ON GOING': 2, 'SCHEDULED': 3, 'NOT REQUIRED': 4, 'PENDING': 5 };
+const _W_PID   = { 'VALID PID PASS': 1, 'SOON TO EXPIRE': 2, 'RENEWAL UNDER PROCESS': 3, 'EXPIRED PID PASS': 5, 'NO PID PASS': 6 };
+
+function _wScore(emp) {
+  const ftw    = (emp.ftw_result || '').trim().toUpperCase();
+  const effGP  = (computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status) || '').toUpperCase();
+  const effPID = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
+  const train  = (emp.training_status || '').trim().toUpperCase();
+  const medOk  = ftw === 'ACCEPTED';
+  const gpOk   = effGP === 'VALID RLIC PASS' || effGP === 'SOON TO EXPIRE';
+  const trainOk= train === 'DONE';
+  const pidOk  = effPID === 'VALID PID PASS' || effPID === 'SOON TO EXPIRE';
+  if (medOk && gpOk && trainOk && pidOk) return 4;
+  if (medOk && gpOk && trainOk)          return 3;
+  if (medOk && gpOk)                     return 2;
+  if (medOk)                             return 1;
+  return 0;
+}
+
+function _wSubRanks(emp) {
+  const ftw    = (emp.ftw_result || '').trim().toUpperCase();
+  const effGP  = (computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status) || '').toUpperCase();
+  const rawGP  = (emp.rlic_status || '').trim().toUpperCase();
+  const gpKey  = ['VALID RLIC PASS','SOON TO EXPIRE','EXPIRED RLIC PASS','NO RLIC PASS'].includes(effGP) ? effGP : rawGP;
+  const train  = (emp.training_status || '').trim().toUpperCase();
+  const effPID = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
+  const rawPID = (emp.pid_status || '').trim().toUpperCase();
+  const pidKey = ['VALID PID PASS','SOON TO EXPIRE','EXPIRED PID PASS','NO PID PASS'].includes(effPID) ? effPID : rawPID;
+  return [_W_MED[ftw] ?? 4, _W_GP[gpKey] ?? 9, _W_TRAIN[train] ?? 9, _W_PID[pidKey] ?? 9];
+}
+
+const sortByOnboardingPriority = (rows) => [...rows].sort((a, b) => {
+  const sa = _wScore(a), sb = _wScore(b);
+  if (sb !== sa) return sb - sa;
+  const ra = _wSubRanks(a), rb = _wSubRanks(b);
+  for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i] - rb[i];
+  return (a.name || '').localeCompare(b.name || '');
 });
 
 // ── HTML builder ──────────────────────────────────────────────────────────
@@ -244,7 +279,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
     const headerCells = `<tr><th style="width:32px;text-align:center">#</th>${colDefs.map(c => `<th>${c.label}</th>`).join('')}</tr>`;
     const thead = `<thead>${headerCells}</thead>`;
 
-    const buildRows = (rows) => sortByRlic(rows).map((e, i) => {
+    const buildRows = (rows) => sortByOnboardingPriority(rows).map((e, i) => {
       const bg = i % 2 === 0 ? '#fff' : '#f8fafc';
       const cells = colDefs.map(c => {
         const val = getCellValue(e, c.id);
