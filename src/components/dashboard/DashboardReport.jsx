@@ -276,7 +276,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
       const maxTL = Math.max(...positionCounts.map(p => p.tl), 1);
       const posHalfL = positionCounts.slice(0, Math.ceil(positionCounts.length / 2));
       const posHalfR = positionCounts.slice(Math.ceil(positionCounts.length / 2));
-      const colHdrCell = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e2e8f0">
+      const colHdrCell = `<div style="display:flex;align-items:center;gap:6px;padding-bottom:4px;border-bottom:1px solid #e2e8f0">
         <div style="width:130px;flex-shrink:0"></div>
         <div style="flex:1"></div>
         <div style="display:flex;gap:0;width:144px;flex-shrink:0">
@@ -287,7 +287,8 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
           <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#8b5cf6">PD</div>
         </div>
       </div>`;
-      const buildPosRows = (items) => colHdrCell + items.map(p => {
+      const globalHdr = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;margin-bottom:6px">${colHdrCell}${colHdrCell}</div>`;
+      const buildPosRows = (items) => items.map(p => {
         const pct = Math.max(2, Math.round((p.tl / maxTL) * 100));
         return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
           <div style="width:130px;font-size:9px;color:#475569;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</div>
@@ -303,7 +304,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
           </div>
         </div>`;
       }).join('');
-      sectionBoxes.push(`<div class="chart-box" style="grid-column:1/-1"><div class="chart-title">👤 Counts by Position</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px">${buildPosRows(posHalfL)}${buildPosRows(posHalfR)}</div></div>`);
+      sectionBoxes.push(`<div class="chart-box" style="grid-column:1/-1"><div class="chart-title">👤 Counts by Position</div>${globalHdr}<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px">${buildPosRows(posHalfL)}${buildPosRows(posHalfR)}</div></div>`);
     }
     if (dashSections.includes('dirindir')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">↔️ DIR / INDIR Summary</div>
       <div style="display:flex;gap:12px;padding:8px 0">
