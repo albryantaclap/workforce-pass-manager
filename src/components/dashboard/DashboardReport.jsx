@@ -282,7 +282,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
         <div style="width:130px;flex-shrink:0"></div>
         <div style="flex:1"></div>
         <div style="display:flex;gap:0;width:144px;flex-shrink:0">
-          <div style="width:36px;text-align:center;font-size:8px;font-weight:700;color:#475569">TL</div>
+          <div style="width:36px;text-align:center;font-size:8px;font-weight:700;color:#475569">TOTAL</div>
           <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#3b82f6">MD</div>
           <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#10b981">GP</div>
           <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#f97316">TR</div>
@@ -319,7 +319,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
         <div style="width:130px;flex-shrink:0"></div>
         <div style="flex:1"></div>
         <div style="display:flex;gap:0;width:144px;flex-shrink:0">
-          <div style="width:36px;text-align:center;font-size:8px;font-weight:700;color:#475569">TL</div>
+          <div style="width:36px;text-align:center;font-size:8px;font-weight:700;color:#475569">TOTAL</div>
           <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#3b82f6">MD</div>
           <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#10b981">GP</div>
           <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#f97316">TR</div>
