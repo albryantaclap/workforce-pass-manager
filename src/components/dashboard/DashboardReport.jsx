@@ -242,7 +242,16 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
     const byDepartment = groupBy(filtered, 'department');
     const companyCounts = Object.entries(byCompany).map(([name, rows]) => ({ name, count: rows.length })).sort((a, b) => b.count - a.count);
     const deptCounts = Object.entries(byDepartment).map(([name, rows]) => ({ name, count: rows.length })).sort((a, b) => b.count - a.count);
-    const positionCounts = Object.entries(filtered.reduce((acc, e) => { const p = e.designation_org_chart || 'Unknown'; acc[p] = (acc[p] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+    const positionCounts = Object.entries(filtered.reduce((acc, e) => {
+      const p = e.designation_org_chart || 'Unknown';
+      if (!acc[p]) acc[p] = { tl: 0, md: 0, gp: 0, tr: 0, pd: 0 };
+      acc[p].tl++;
+      if ((e.ftw_result || '').trim().toUpperCase() === 'ACCEPTED') acc[p].md++;
+      if ((computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status) || '').toUpperCase() === 'VALID RLIC PASS') acc[p].gp++;
+      if ((e.training_status || '').trim().toUpperCase() === 'DONE') acc[p].tr++;
+      if ((computePassStatus(e.pid_expiry, 'pid', e.pid_status) || '').toUpperCase() === 'VALID PID PASS') acc[p].pd++;
+      return acc;
+    }, {})).sort((a, b) => b[1].tl - a[1].tl).map(([name, stats]) => ({ name, ...stats }));
     const DIRINDIR_SET = new Set(['DIR','INDIR']);
     const locationCounts = Object.entries(filtered.reduce((acc, e) => { const loc = (e.current_location || 'Unknown').trim().toUpperCase(); if (DIRINDIR_SET.has(loc)) return acc; const d = e.current_location ? e.current_location.trim() : 'Unknown'; acc[d] = (acc[d] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
     const statusOverview = [
@@ -263,7 +272,39 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
     if (dashSections.includes('location_summary')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">📍 Location / Mobilized</div>${buildLocationPieHTML(locationCounts)}</div>`);
     if (dashSections.includes('status_overview')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">📈 Pass & Status Overview</div>${buildBarChartHTML(statusOverview, Math.max(...statusOverview.map(c=>c.count),1), statusColorFn)}</div>`);
     if (dashSections.includes('department_summary')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">🏗️ Personnel by Department</div>${buildBarChartHTML(deptCounts, Math.max(...deptCounts.map(c=>c.count),1), null)}</div>`);
-    if (dashSections.includes('position_summary')) sectionBoxes.push(`<div class="chart-box" style="grid-column:1/-1"><div class="chart-title">👤 Counts by Position</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">${buildBarChartHTML(positionCounts, Math.max(...positionCounts.map(c=>c.count),1), null)}</div></div>`);
+    if (dashSections.includes('position_summary')) {
+      const maxTL = Math.max(...positionCounts.map(p => p.tl), 1);
+      const posHalfL = positionCounts.slice(0, Math.ceil(positionCounts.length / 2));
+      const posHalfR = positionCounts.slice(Math.ceil(positionCounts.length / 2));
+      const colHdr = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e2e8f0">
+        <div style="width:130px;text-align:right;font-size:8px;font-weight:700;color:#94a3b8;flex-shrink:0"></div>
+        <div style="flex:1"></div>
+        <div style="display:flex;gap:0;width:144px;flex-shrink:0">
+          <div style="width:36px;text-align:center;font-size:8px;font-weight:700;color:#475569">TL</div>
+          <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#3b82f6">MD</div>
+          <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#10b981">GP</div>
+          <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#f97316">TR</div>
+          <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#8b5cf6">PD</div>
+        </div>
+      </div>`;
+      const buildPosRows = (items) => items.map(p => {
+        const pct = Math.max(2, Math.round((p.tl / maxTL) * 100));
+        return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <div style="width:130px;font-size:9px;color:#475569;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</div>
+          <div style="flex:1;background:#f1f5f9;border-radius:3px;height:12px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:#3b82f6;border-radius:3px;min-width:2px"></div>
+          </div>
+          <div style="display:flex;gap:0;width:144px;flex-shrink:0">
+            <div style="width:36px;text-align:center;font-size:9px;font-weight:700;color:#1e293b">${p.tl}</div>
+            <div style="width:27px;text-align:center;font-size:9px;font-weight:600;color:#2563eb">${p.md}</div>
+            <div style="width:27px;text-align:center;font-size:9px;font-weight:600;color:#059669">${p.gp}</div>
+            <div style="width:27px;text-align:center;font-size:9px;font-weight:600;color:#ea580c">${p.tr}</div>
+            <div style="width:27px;text-align:center;font-size:9px;font-weight:600;color:#7c3aed">${p.pd}</div>
+          </div>
+        </div>`;
+      }).join('');
+      sectionBoxes.push(`<div class="chart-box" style="grid-column:1/-1"><div class="chart-title">👤 Counts by Position</div>${colHdr}<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px">${buildPosRows(posHalfL)}${buildPosRows(posHalfR)}</div></div>`);
+    }
     if (dashSections.includes('dirindir')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">↔️ DIR / INDIR Summary</div>
       <div style="display:flex;gap:12px;padding:8px 0">
         <div style="flex:1;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px;text-align:center"><div style="font-size:9px;color:#3b82f6;font-weight:600;margin-bottom:4px">DIR</div><div style="font-size:22px;font-weight:800;color:#1d4ed8">${dirCount}</div></div>
