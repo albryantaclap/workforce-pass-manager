@@ -268,7 +268,46 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
 
     const sectionBoxes = [];
 
-    if (dashSections.includes('company_headcount')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">📊 Headcount by Company</div>${buildBarChartHTML(companyCounts, Math.max(...companyCounts.map(c=>c.count),1), null)}</div>`);
+    if (dashSections.includes('company_headcount')) {
+      const companyStats = Object.entries(byCompany).map(([name, rows]) => {
+        const tl = rows.length;
+        const md = rows.filter(e => (e.ftw_result || '').trim().toUpperCase() === 'ACCEPTED').length;
+        const gp = rows.filter(e => (computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status) || '').toUpperCase() === 'VALID RLIC PASS').length;
+        const tr = rows.filter(e => (e.training_status || '').trim().toUpperCase() === 'DONE').length;
+        const pd = rows.filter(e => (computePassStatus(e.pid_expiry, 'pid', e.pid_status) || '').toUpperCase() === 'VALID PID PASS').length;
+        return { name, tl, md, gp, tr, pd };
+      }).sort((a, b) => b.tl - a.tl);
+      const maxCoTL = Math.max(...companyStats.map(c => c.tl), 1);
+      const coHdrRow = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e2e8f0">
+        <div style="width:130px;flex-shrink:0"></div>
+        <div style="flex:1"></div>
+        <div style="display:flex;gap:0;width:144px;flex-shrink:0">
+          <div style="width:36px;text-align:center;font-size:8px;font-weight:700;color:#475569">TL</div>
+          <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#3b82f6">MD</div>
+          <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#10b981">GP</div>
+          <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#f97316">TR</div>
+          <div style="width:27px;text-align:center;font-size:8px;font-weight:700;color:#8b5cf6">PD</div>
+        </div>
+      </div>`;
+      const coRows = companyStats.map((c, i) => {
+        const pct = Math.max(2, Math.round((c.tl / maxCoTL) * 100));
+        const color = PALETTE[i % PALETTE.length];
+        return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          <div style="width:130px;font-size:9px;color:#475569;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.name}">${c.name}</div>
+          <div style="flex:1;background:#f1f5f9;border-radius:3px;height:14px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;min-width:2px"></div>
+          </div>
+          <div style="display:flex;gap:0;width:144px;flex-shrink:0">
+            <div style="width:36px;text-align:center;font-size:9px;font-weight:700;color:#1e293b">${c.tl}</div>
+            <div style="width:27px;text-align:center;font-size:9px;font-weight:600;color:#2563eb">${c.md}</div>
+            <div style="width:27px;text-align:center;font-size:9px;font-weight:600;color:#059669">${c.gp}</div>
+            <div style="width:27px;text-align:center;font-size:9px;font-weight:600;color:#ea580c">${c.tr}</div>
+            <div style="width:27px;text-align:center;font-size:9px;font-weight:600;color:#7c3aed">${c.pd}</div>
+          </div>
+        </div>`;
+      }).join('');
+      sectionBoxes.push(`<div class="chart-box"><div class="chart-title">📊 Headcount by Company</div>${coHdrRow}${coRows}</div>`);
+    }
     if (dashSections.includes('location_summary')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">📍 Location / Mobilized</div>${buildLocationPieHTML(locationCounts)}</div>`);
     if (dashSections.includes('status_overview')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">📈 Pass & Status Overview</div>${buildBarChartHTML(statusOverview, Math.max(...statusOverview.map(c=>c.count),1), statusColorFn)}</div>`);
     if (dashSections.includes('department_summary')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">🏗️ Personnel by Department</div>${buildBarChartHTML(deptCounts, Math.max(...deptCounts.map(c=>c.count),1), null)}</div>`);
