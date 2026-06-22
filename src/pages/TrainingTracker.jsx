@@ -189,6 +189,9 @@ export default function TrainingTracker() {
         totalFiltered={filtered.length}
         totalAll={employees.length}
         employees={employees}
+        managers={managers}
+        selectedManagerId={selectedManagerId}
+        onManagerChange={setSelectedManagerId}
       />
 
       <Tabs defaultValue="list">

@@ -23,6 +23,7 @@ import BulkEditBar from '../components/common/BulkEditBar';
 import TrackerFilters from '../components/common/TrackerFilters';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
+import { useManagerFilter } from '@/hooks/useManagerFilter';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
 
@@ -62,6 +63,7 @@ function GatePassBadge({ emp }) {
 
 export default function ProjectIDTracker() {
   const currentUser = useCurrentUser();
+  const { selectedManagerId, setSelectedManagerId, managers } = useManagerFilter();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
@@ -166,8 +168,9 @@ export default function ProjectIDTracker() {
     const gpReceivedVal = normalizeDate(e.gate_pass_received_date) || '';
     const matchesGpReceivedFrom = !gpReceivedFrom || gpReceivedVal >= gpReceivedFrom;
     const matchesGpReceivedTo = !gpReceivedTo || gpReceivedVal <= gpReceivedTo;
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass && matchesMedical && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, pidStatusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, trainingStatusFilter, gatePassFilter, rlicStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo]);
+    const matchesManager = !selectedManagerId || e.assigned_manager_id === selectedManagerId;
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass && matchesMedical && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesManager;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, pidStatusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, trainingStatusFilter, gatePassFilter, rlicStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, selectedManagerId]);
 
   const SOON_DAYS = 45;
   const getDaysLabel = (dateStr, isExpiredTab) => {
@@ -292,6 +295,9 @@ export default function ProjectIDTracker() {
         totalFiltered={filtered.length}
         totalAll={employees.length}
         employees={employees}
+        managers={managers}
+        selectedManagerId={selectedManagerId}
+        onManagerChange={setSelectedManagerId}
       />
 
       <Tabs defaultValue="list">
