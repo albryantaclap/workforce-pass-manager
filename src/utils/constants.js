@@ -16,7 +16,6 @@ export const COMPANIES = [
   { value: 'ENERTEC (GSO)', label: 'ENERTEC (GSO)', type: 'GSO Supervision' },
   { value: 'NTC (GSO)', label: 'NTC (GSO)', type: 'GSO Supervision' },
   { value: 'MIR (GSO)', label: 'MIR (GSO)', type: 'GSO Supervision' },
-  { value: 'ALTAF (GSO)', label: 'ALTAF (GSO)', type: 'GSO Supervision' },
   { value: 'SWAN GLOBAL (GSO)', label: 'SWAN GLOBAL (GSO)', type: 'GSO Supervision' },
   { value: 'SIGEL (GSO)', label: 'SIGEL (GSO)', type: 'GSO Supervision' },
   { value: 'AL-RAMSHA (GSO)', label: 'AL-RAMSHA (GSO)', type: 'GSO Supervision' },
