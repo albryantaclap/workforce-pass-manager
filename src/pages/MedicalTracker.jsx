@@ -28,7 +28,7 @@ const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
 export default function MedicalTracker() {
   const currentUser = useCurrentUser();
-  const { selectedManagerId, setSelectedManagerId, managers } = useManagerFilter();
+  const { selectedManagerIds, setSelectedManagerIds, selectedManagerId, setSelectedManagerId, managers } = useManagerFilter();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
@@ -146,9 +146,11 @@ export default function MedicalTracker() {
     const pidDate = normalizeDate(e.pid_issue_date) || '';
     const matchesPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
     const matchesPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-    const matchesManager = !selectedManagerId || e.assigned_manager_id === selectedManagerId;
+    const matchesManager = selectedManagerIds.length === 0 || selectedManagerIds.some(mid =>
+      e.assigned_manager_id ? e.assigned_manager_id === mid : e.assigned_manager_name === managers.find(m => m.id === mid)?.label
+    );
     return matchesSearch && matchesCompany && matchesPosition && matchesResult && matchesDepartment && matchesTrFrom && matchesTrTo && matchesRlic && matchesTraining && matchesPid && matchesTrainSchedFrom && matchesTrainSchedTo && matchesGpFrom && matchesGpTo && matchesPidFrom && matchesPidTo && matchesManager;
-  }), [employees, search, companyFilter, positionFilter, resultFilter, medicalResultFilter, departmentFilter, trApprovedFrom, trApprovedTo, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerId]);
+  }),     [employees, search, companyFilter, positionFilter, resultFilter, medicalResultFilter, departmentFilter, trApprovedFrom, trApprovedTo, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerIds, managers]);
 
   const isInitialMount = useRef(true);
   useEffect(() => {
@@ -230,8 +232,8 @@ export default function MedicalTracker() {
         totalAll={employees.length}
         employees={employees}
         managers={managers}
-        selectedManagerId={selectedManagerId}
-        onManagerChange={setSelectedManagerId}
+        selectedManagerIds={selectedManagerIds}
+        onManagerIdsChange={setSelectedManagerIds}
       />
 
       <Tabs defaultValue="list">

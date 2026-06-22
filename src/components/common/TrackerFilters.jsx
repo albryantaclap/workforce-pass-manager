@@ -16,7 +16,7 @@ import MultiSelect from '@/components/common/MultiSelect';
  *   totalAll: number
  *   employees: Employee[] — used for cascading company options based on department selection
  */
-export default function TrackerFilters({ filters, setters, options, totalFiltered, totalAll, employees = [], managers = [], selectedManagerId = '', onManagerChange }) {
+export default function TrackerFilters({ filters, setters, options, totalFiltered, totalAll, employees = [], managers = [], selectedManagerId = '', selectedManagerIds = [], onManagerChange, onManagerIdsChange }) {
   const {
     companyFilter, positionFilter, departmentFilter,
     rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter,
@@ -57,10 +57,13 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
     if (still.length !== companyFilter.length) setters.setCompanyFilter(still);
   }, [cascadedCompanyOptions]);
 
+  // Support both multi-select (new) and single-select (legacy)
+  const effectiveManagerIds = onManagerIdsChange ? selectedManagerIds : (selectedManagerId ? [selectedManagerId] : []);
+
   const hasFilter =
     companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 ||
     rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 ||
-    medicalResultFilter.length > 0 || !!selectedManagerId ||
+    medicalResultFilter.length > 0 || effectiveManagerIds.length > 0 ||
     !!trainingScheduledFrom || !!trainingScheduledTo ||
     !!trApprovedFrom || !!trApprovedTo ||
     !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo ||
@@ -76,6 +79,7 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
     setGpReceivedFrom?.(''); setGpReceivedTo?.('');
     setPidIssueFrom(''); setPidIssueTo('');
     onManagerChange?.('');
+    onManagerIdsChange?.([]);
   };
 
   return (
@@ -129,15 +133,14 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
         {managers.length > 0 && (
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Assigned Manager</p>
-              <select
-                value={selectedManagerId}
-                onChange={e => onManagerChange?.(e.target.value)}
-                className="dropdown-manager w-full h-9 rounded-md border px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-purple-400"
-              >
-                <option value="">All Managers</option>
-                {managers.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-              </select>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Manager Name</p>
+              <MultiSelect
+                options={managers.map(m => ({ value: m.id, label: m.label }))}
+                value={effectiveManagerIds}
+                onChange={onManagerIdsChange || ((ids) => onManagerChange?.(ids[0] || ''))}
+                placeholder="All Managers"
+                className="dropdown-manager"
+              />
             </div>
           </div>
         )}

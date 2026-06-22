@@ -20,7 +20,7 @@ import ExpiryMonitoringCards from '@/components/dashboard/ExpiryMonitoringCards'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
 
 export default function Dashboard() {
-  const { selectedManager, setSelectedManager, filteredCompanies, managers } = useManagerFilter();
+  const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
   const [departmentFilter, setDepartmentFilter] = useState([]);
@@ -310,8 +310,10 @@ export default function Dashboard() {
     return employees.filter(e => {
       if (e.is_active === false) return false;
       const empCompany = (e.company || '').trim().toUpperCase();
-      const effectiveCompanyFilter = selectedManager ? filteredCompanies : companyFilter;
-      const matchCo = effectiveCompanyFilter.length === 0 || effectiveCompanyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
+      const matchCo = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
+      const matchManager = selectedManagerIds.length === 0 || selectedManagerIds.some(mid =>
+        e.assigned_manager_id ? e.assigned_manager_id === mid : e.assigned_manager_name === managers.find(m => m.id === mid)?.label
+      );
       const matchPos = positionFilter.length === 0 || positionFilter.includes(e.designation_org_chart);
       const matchDept = departmentFilter.length === 0 || departmentFilter.includes(e.department);
       const matchLocation = locationFilter.length === 0 || locationFilter.includes(e.current_location);
@@ -337,11 +339,11 @@ export default function Dashboard() {
       const pidDate = normalizeDate(e.pid_issue_date) || '';
       const matchPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
       const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-      return matchCo && matchPos && matchDept && matchLocation && matchDirIndir && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo;
+      return matchCo && matchPos && matchDept && matchLocation && matchDirIndir && matchRlic && matchPid && matchTraining && matchMedResult && matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo && matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo && matchManager;
     });
-  }, [employees, companyFilter, positionFilter, departmentFilter, locationFilter, dirIndirFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManager, filteredCompanies]);
+  },     [employees, companyFilter, positionFilter, departmentFilter, locationFilter, dirIndirFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, customRlicStatuses, customPidStatuses, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerIds, managers]);
 
-  const hasFilter = selectedManager || companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || locationFilter.length > 0 || !!dirIndirFilter || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
+  const hasFilter = selectedManagerIds.length > 0 || companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || locationFilter.length > 0 || !!dirIndirFilter || rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const companyCounts = useMemo(() => {
     const knownValues = new Set(allCompanyOptions.map(c => c.value));
@@ -467,7 +469,7 @@ export default function Dashboard() {
   ];
 
   const clearFilters = () => {
-    setSelectedManager('');
+    setSelectedManagerIds([]);
     setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter([]); setLocationFilter([]);
     setDirIndirFilter('');
     setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]);
@@ -539,10 +541,12 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Manager Name</p>
-              <select value={selectedManager} onChange={(e) => setSelectedManager(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                <option value="">All Managers</option>
-                {managers.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-              </select>
+              <MultiSelect
+                options={managers.map(m => ({ value: m.id, label: m.label }))}
+                value={selectedManagerIds}
+                onChange={setSelectedManagerIds}
+                placeholder="All Managers"
+              />
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">DIR / INDIR</p>

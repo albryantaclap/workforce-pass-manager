@@ -24,7 +24,7 @@ import { useManagerFilter } from '@/hooks/useManagerFilter';
 const COLORS = ['#10b981', '#f59e0b', '#94a3b8'];
 
 export default function TrainingTracker() {
-  const { selectedManagerId, setSelectedManagerId, managers } = useManagerFilter();
+  const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
   const { trainingStatusOptions, departmentOptions, rlicStatusOptions, pidStatusOptions, medicalResultOptions, companyOptions } = useLookupOptions();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
@@ -125,9 +125,11 @@ export default function TrainingTracker() {
     const pidDate = normalizeDate(e.pid_issue_date) || '';
     const matchesPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
     const matchesPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-    const matchesManager = !selectedManagerId || e.assigned_manager_id === selectedManagerId;
+    const matchesManager = selectedManagerIds.length === 0 || selectedManagerIds.some(mid =>
+      e.assigned_manager_id ? e.assigned_manager_id === mid : e.assigned_manager_name === managers.find(m => m.id === mid)?.label
+    );
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesScheduledFrom && matchesScheduledTo && matchesStartFrom && matchesStartTo && matchesRlic && matchesPid && matchesMedical && matchesTrFrom && matchesTrTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidFrom && matchesPidTo && matchesManager;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, trainingStatusFilter, departmentFilter, scheduledDateFrom, scheduledDateTo, startDateFrom, startDateTo, rlicStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerId]);
+  }),     [employees, search, companyFilter, positionFilter, statusFilter, trainingStatusFilter, departmentFilter, scheduledDateFrom, scheduledDateTo, startDateFrom, startDateTo, rlicStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerIds, managers]);
 
   const isInitialMount = useRef(true);
   useEffect(() => {
@@ -190,8 +192,8 @@ export default function TrainingTracker() {
         totalAll={employees.length}
         employees={employees}
         managers={managers}
-        selectedManagerId={selectedManagerId}
-        onManagerChange={setSelectedManagerId}
+        selectedManagerIds={selectedManagerIds}
+        onManagerIdsChange={setSelectedManagerIds}
       />
 
       <Tabs defaultValue="list">

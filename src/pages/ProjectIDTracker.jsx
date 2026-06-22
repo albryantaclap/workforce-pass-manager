@@ -63,7 +63,7 @@ function GatePassBadge({ emp }) {
 
 export default function ProjectIDTracker() {
   const currentUser = useCurrentUser();
-  const { selectedManagerId, setSelectedManagerId, managers } = useManagerFilter();
+  const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
@@ -168,9 +168,11 @@ export default function ProjectIDTracker() {
     const gpReceivedVal = normalizeDate(e.gate_pass_received_date) || '';
     const matchesGpReceivedFrom = !gpReceivedFrom || gpReceivedVal >= gpReceivedFrom;
     const matchesGpReceivedTo = !gpReceivedTo || gpReceivedVal <= gpReceivedTo;
-    const matchesManager = !selectedManagerId || e.assigned_manager_id === selectedManagerId;
+    const matchesManager = selectedManagerIds.length === 0 || selectedManagerIds.some(mid =>
+      e.assigned_manager_id ? e.assigned_manager_id === mid : e.assigned_manager_name === managers.find(m => m.id === mid)?.label
+    );
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass && matchesMedical && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesManager;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, pidStatusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, trainingStatusFilter, gatePassFilter, rlicStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, selectedManagerId]);
+  }), [employees, search, companyFilter, positionFilter, statusFilter, pidStatusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, trainingStatusFilter, gatePassFilter, rlicStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, selectedManagerIds, managers]);
 
   const SOON_DAYS = 45;
   const getDaysLabel = (dateStr, isExpiredTab) => {
@@ -296,8 +298,8 @@ export default function ProjectIDTracker() {
         totalAll={employees.length}
         employees={employees}
         managers={managers}
-        selectedManagerId={selectedManagerId}
-        onManagerChange={setSelectedManagerId}
+        selectedManagerIds={selectedManagerIds}
+        onManagerIdsChange={setSelectedManagerIds}
       />
 
       <Tabs defaultValue="list">

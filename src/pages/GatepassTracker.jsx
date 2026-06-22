@@ -46,7 +46,7 @@ function MedicalBadge({ result }) {
 
 export default function GatepassTracker() {
   const currentUser = useCurrentUser();
-  const { selectedManagerId, setSelectedManagerId, managers } = useManagerFilter();
+  const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
@@ -148,9 +148,11 @@ export default function GatepassTracker() {
     const pidDate = (e.pid_issue_date || '').substring(0, 10);
     const matchesPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
     const matchesPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-    const matchesManager = !selectedManagerId || e.assigned_manager_id === selectedManagerId;
+    const matchesManager = selectedManagerIds.length === 0 || selectedManagerIds.some(mid =>
+      e.assigned_manager_id ? e.assigned_manager_id === mid : e.assigned_manager_name === managers.find(m => m.id === mid)?.label
+    );
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesUpdatedFrom && matchesUpdatedTo && matchesMedical && matchesTraining && matchesPid && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpIssue && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidFrom && matchesPidTo && matchesManager;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, rlicStatusFilter, departmentFilter, updatedFrom, updatedTo, medicalResultFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerId]);
+  }),     [employees, search, companyFilter, positionFilter, statusFilter, rlicStatusFilter, departmentFilter, updatedFrom, updatedTo, medicalResultFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerIds, managers]);
 
   const stats = useMemo(() => {
     return allStatusOptions.map(s => ({
@@ -247,6 +249,9 @@ export default function GatepassTracker() {
         totalFiltered={filtered.length}
         totalAll={employees.length}
         employees={employees}
+        managers={managers}
+        selectedManagerIds={selectedManagerIds}
+        onManagerIdsChange={setSelectedManagerIds}
       />
 
       <Tabs defaultValue="list">
