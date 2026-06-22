@@ -16,7 +16,7 @@ import MultiSelect from '@/components/common/MultiSelect';
  *   totalAll: number
  *   employees: Employee[] — used for cascading company options based on department selection
  */
-export default function TrackerFilters({ filters, setters, options, totalFiltered, totalAll, employees = [] }) {
+export default function TrackerFilters({ filters, setters, options, totalFiltered, totalAll, employees = [], managers = [], selectedManagerId = '', onManagerChange }) {
   const {
     companyFilter, positionFilter, departmentFilter,
     rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter,
@@ -60,7 +60,7 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
   const hasFilter =
     companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 ||
     rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 ||
-    medicalResultFilter.length > 0 ||
+    medicalResultFilter.length > 0 || !!selectedManagerId ||
     !!trainingScheduledFrom || !!trainingScheduledTo ||
     !!trApprovedFrom || !!trApprovedTo ||
     !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo ||
@@ -75,6 +75,7 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
     setGpIssueFrom(''); setGpIssueTo('');
     setGpReceivedFrom?.(''); setGpReceivedTo?.('');
     setPidIssueFrom(''); setPidIssueTo('');
+    onManagerChange?.('');
   };
 
   return (
@@ -123,6 +124,23 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
             <MultiSelect options={options.medicalResults} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="All results..." className="dropdown-status" />
           </div>
         </div>
+
+        {/* Manager filter row (only shown when managers are provided) */}
+        {managers.length > 0 && (
+          <div className="grid grid-cols-1 gap-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Assigned Manager</p>
+              <select
+                value={selectedManagerId}
+                onChange={e => onManagerChange?.(e.target.value)}
+                className="dropdown-manager w-full h-9 rounded-md border px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-purple-400"
+              >
+                <option value="">All Managers</option>
+                {managers.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
 
         {/* Row 3: Date ranges */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 border-t">

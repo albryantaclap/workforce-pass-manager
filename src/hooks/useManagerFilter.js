@@ -1,42 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 
 export function useManagerFilter() {
-  const [selectedManager, setSelectedManager] = useState(() => {
-    const saved = sessionStorage.getItem('selectedManager');
-    return saved || '';
+  const [selectedManagerId, setSelectedManagerId] = useState(() => {
+    return sessionStorage.getItem('selectedManagerId') || '';
   });
 
   useEffect(() => {
-    sessionStorage.setItem('selectedManager', selectedManager);
-  }, [selectedManager]);
+    sessionStorage.setItem('selectedManagerId', selectedManagerId);
+  }, [selectedManagerId]);
 
-  const { data: assignments = [] } = useQuery({
-    queryKey: ['managerAssignments'],
-    queryFn: () => base44.entities.ManagerAssignment.list(),
+  const { data: employees = [] } = useQuery({
+    queryKey: ['employees-active'],
+    queryFn: () => base44.entities.Employee.filter({ is_active: true }, 'name', 10000),
   });
 
-  const managers = assignments.map(a => ({
-    id: a.id,
-    label: a.manager_name,
-    companies: a.companies,
-  }));
-
-  const getManagerCompanies = (managerId) => {
-    const manager = assignments.find(m => m.id === managerId);
-    return manager?.companies || [];
-  };
-
-  const filteredCompanies = selectedManager 
-    ? getManagerCompanies(selectedManager)
-    : [];
+  // All active personnel who are marked as manager
+  const managers = useMemo(() =>
+    employees
+      .filter(e => e.is_manager)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+      .map(e => ({ id: e.id, label: e.name, company: e.company })),
+    [employees]
+  );
 
   return {
-    selectedManager,
-    setSelectedManager,
+    selectedManagerId,
+    setSelectedManagerId,
     managers,
-    filteredCompanies,
-    getManagerCompanies,
   };
 }

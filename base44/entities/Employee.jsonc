@@ -23,6 +23,19 @@
       "description": "Whether the employee is active",
       "default": true
     },
+    "is_manager": {
+      "type": "boolean",
+      "description": "Whether this person can be assigned as a manager",
+      "default": false
+    },
+    "assigned_manager_id": {
+      "type": "string",
+      "description": "ID of the assigned manager (references another Employee)"
+    },
+    "assigned_manager_name": {
+      "type": "string",
+      "description": "Name of the assigned manager (denormalized)"
+    },
     "position_application": {
       "type": "string",
       "description": "Position as per application"

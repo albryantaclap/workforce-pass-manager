@@ -23,6 +23,7 @@ import BulkEditBar from '../components/common/BulkEditBar';
 import TrackerFilters from '../components/common/TrackerFilters';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
+import { useManagerFilter } from '@/hooks/useManagerFilter';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
 
@@ -45,6 +46,7 @@ function MedicalBadge({ result }) {
 
 export default function GatepassTracker() {
   const currentUser = useCurrentUser();
+  const { selectedManagerId, setSelectedManagerId, managers } = useManagerFilter();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
   const [positionFilter, setPositionFilter] = useState([]);
@@ -146,8 +148,9 @@ export default function GatepassTracker() {
     const pidDate = (e.pid_issue_date || '').substring(0, 10);
     const matchesPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
     const matchesPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesUpdatedFrom && matchesUpdatedTo && matchesMedical && matchesTraining && matchesPid && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpIssue && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidFrom && matchesPidTo;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, rlicStatusFilter, departmentFilter, updatedFrom, updatedTo, medicalResultFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+    const matchesManager = !selectedManagerId || e.assigned_manager_id === selectedManagerId;
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesUpdatedFrom && matchesUpdatedTo && matchesMedical && matchesTraining && matchesPid && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpIssue && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidFrom && matchesPidTo && matchesManager;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, rlicStatusFilter, departmentFilter, updatedFrom, updatedTo, medicalResultFilter, trainingStatusFilter, pidStatusFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueDate, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerId]);
 
   const stats = useMemo(() => {
     return allStatusOptions.map(s => ({

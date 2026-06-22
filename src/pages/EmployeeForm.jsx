@@ -27,6 +27,8 @@ const emptyForm = {
   staff_no: '', rlic_status: '',
   pid_issue_date: '', pid_expiry: '', pid: '', pid_status: '', pid_projected_date: '',
   training_date: '', training_date_scheduled: '', training_status: '',
+  is_manager: false,
+  assigned_manager_id: '', assigned_manager_name: '',
 };
 
 const Field = ({ label, children }) => (
@@ -143,6 +145,16 @@ export default function EmployeeForm() {
     queryKey: ['lookups', 'nationality'],
     queryFn: () => base44.entities.Lookup.filter({ type: 'nationality' }),
   });
+
+  // Managers: active employees with is_manager = true
+  const { data: allActiveEmps = [] } = useQuery({
+    queryKey: ['employees-active'],
+    queryFn: () => base44.entities.Employee.filter({ is_active: true }, 'name', 10000),
+  });
+  const managerOptions = useMemo(() =>
+    allActiveEmps.filter(e => e.is_manager && e.id !== empId).map(e => ({ value: e.id, label: e.name })),
+    [allActiveEmps, empId]
+  );
 
   const allCompanies = useMemo(() => {
     const seen = new Set();
@@ -464,6 +476,32 @@ export default function EmployeeForm() {
             <SelectInput field="current_location" label="Location / Mobilized" options={allLocations} {...tf} />
             <SelectInput field="dir_indir" label="DIR / INDIR" options={['DIR', 'INDIR']} {...tf} />
             <TextInput field="staff_no" label="Staff No / RLIC No" {...tf} />
+            <Field label="Assigned Manager">
+              <SearchableSelect
+                value={form.assigned_manager_id || ''}
+                onChange={v => {
+                  const mgr = managerOptions.find(m => m.value === v);
+                  handleChange('assigned_manager_id', v || '');
+                  handleChange('assigned_manager_name', mgr ? mgr.label : '');
+                }}
+                options={managerOptions}
+                placeholder="Search manager..."
+                emptyMessage="No managers found. Mark a person as Is Manager in Admin Panel."
+              />
+            </Field>
+            <Field label="Is Manager">
+              <button
+                type="button"
+                onClick={() => handleChange('is_manager', !form.is_manager)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  form.is_manager
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                    : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                {form.is_manager ? '✓ Yes — Can be assigned as manager' : 'No — Regular employee'}
+              </button>
+            </Field>
           </div>
         </Card>
 

@@ -19,10 +19,12 @@ import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import TrackerFilters from '../components/common/TrackerFilters';
 import { useToast } from '@/components/ui/use-toast';
+import { useManagerFilter } from '@/hooks/useManagerFilter';
 
 const COLORS = ['#10b981', '#f59e0b', '#94a3b8'];
 
 export default function TrainingTracker() {
+  const { selectedManagerId, setSelectedManagerId, managers } = useManagerFilter();
   const { trainingStatusOptions, departmentOptions, rlicStatusOptions, pidStatusOptions, medicalResultOptions, companyOptions } = useLookupOptions();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
@@ -123,8 +125,9 @@ export default function TrainingTracker() {
     const pidDate = normalizeDate(e.pid_issue_date) || '';
     const matchesPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
     const matchesPidTo = !pidIssueTo || pidDate <= pidIssueTo;
-    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesScheduledFrom && matchesScheduledTo && matchesStartFrom && matchesStartTo && matchesRlic && matchesPid && matchesMedical && matchesTrFrom && matchesTrTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidFrom && matchesPidTo;
-  }), [employees, search, companyFilter, positionFilter, statusFilter, trainingStatusFilter, departmentFilter, scheduledDateFrom, scheduledDateTo, startDateFrom, startDateTo, rlicStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+    const matchesManager = !selectedManagerId || e.assigned_manager_id === selectedManagerId;
+    return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesScheduledFrom && matchesScheduledTo && matchesStartFrom && matchesStartTo && matchesRlic && matchesPid && matchesMedical && matchesTrFrom && matchesTrTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidFrom && matchesPidTo && matchesManager;
+  }), [employees, search, companyFilter, positionFilter, statusFilter, trainingStatusFilter, departmentFilter, scheduledDateFrom, scheduledDateTo, startDateFrom, startDateTo, rlicStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerId]);
 
   const isInitialMount = useRef(true);
   useEffect(() => {
