@@ -83,7 +83,7 @@ export default function Dashboard() {
     // Deduplicate by uppercase value to avoid e.g. "GSO QATAR" vs "GSO Qatar" duplicates
     const seen = new Set();
     const result = [];
-    for (const c of [...COMPANIES.map(c => ({ value: c.value, label: c.label })), ...lookupCompanies.map(c => ({ value: c.value, label: c.label }))]) {
+    for (const c of [...COMPANIES.map(c => ({ value: c.value, label: c.label })), ...lookupCompanies.filter(c => !c.is_deleted).map(c => ({ value: c.value, label: c.label }))]) {
       const key = c.value.trim().toUpperCase();
       if (!seen.has(key)) { seen.add(key); result.push(c); }
     }
