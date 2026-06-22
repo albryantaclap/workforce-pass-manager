@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, ShieldCheck, BadgeCheck } from 'lucide-react';
+import { differenceInDays } from 'date-fns';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
 import SharepointDocIcon from '../components/common/SharepointDocIcon';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,6 +30,15 @@ import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
 const STORAGE_KEY = 'masterlist_filters';
+
+function getDaysLabel(dateStr, expired) {
+  if (!dateStr) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0);
+  const diff = differenceInDays(d, today);
+  if (expired) return { label: `${Math.abs(diff)}d ago`, cls: 'bg-red-100 text-red-700' };
+  return { label: `${diff}d left`, cls: 'bg-amber-100 text-amber-700' };
+}
 
 function loadFilters() {
   try {
@@ -54,6 +64,7 @@ export default function MasterList() {
   const currentUser = useCurrentUser();
   const { selectedManager, setSelectedManager, filteredCompanies, managers } = useManagerFilter();
   const [editMode, setEditMode] = useState(false);
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'gp_soon' | 'gp_expired' | 'pid_soon' | 'pid_expired'
   const saved = useMemo(() => loadFilters(), []);
   const [searchInput, setSearchInput] = useState(saved.search || '');
   const [search, setSearch] = useState(saved.search || '');
@@ -255,16 +266,53 @@ export default function MasterList() {
     });
   }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManager, filteredCompanies]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  // ── Expiry tab lists (derived from filtered, matching Dashboard logic) ──
+  const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+  const in45 = useMemo(() => { const d = new Date(today); d.setDate(d.getDate() + 45); return d; }, [today]);
+
+  const gpSoonList = useMemo(() => filtered.filter(e => {
+    if (!e.gate_pass_expiry) return false;
+    const d = new Date(e.gate_pass_expiry); d.setHours(0,0,0,0);
+    return d >= today && d <= in45;
+  }).sort((a, b) => new Date(a.gate_pass_expiry) - new Date(b.gate_pass_expiry)), [filtered, today, in45]);
+
+  const gpExpiredList = useMemo(() => filtered.filter(e => {
+    if (!e.gate_pass_expiry) return false;
+    const d = new Date(e.gate_pass_expiry); d.setHours(0,0,0,0);
+    return d < today;
+  }).sort((a, b) => new Date(b.gate_pass_expiry) - new Date(a.gate_pass_expiry)), [filtered, today]);
+
+  const pidSoonList = useMemo(() => filtered.filter(e => {
+    if (!e.pid_expiry) return false;
+    const d = new Date(e.pid_expiry); d.setHours(0,0,0,0);
+    return d >= today && d <= in45;
+  }).sort((a, b) => new Date(a.pid_expiry) - new Date(b.pid_expiry)), [filtered, today, in45]);
+
+  const pidExpiredList = useMemo(() => filtered.filter(e => {
+    if (!e.pid_expiry) return false;
+    const d = new Date(e.pid_expiry); d.setHours(0,0,0,0);
+    return d < today;
+  }).sort((a, b) => new Date(b.pid_expiry) - new Date(a.pid_expiry)), [filtered, today]);
+
+  // Active data set based on selected tab
+  const tabData = useMemo(() => {
+    if (activeTab === 'gp_soon') return gpSoonList;
+    if (activeTab === 'gp_expired') return gpExpiredList;
+    if (activeTab === 'pid_soon') return pidSoonList;
+    if (activeTab === 'pid_expired') return pidExpiredList;
+    return filtered;
+  }, [activeTab, filtered, gpSoonList, gpExpiredList, pidSoonList, pidExpiredList]);
+
+  const totalPages = Math.ceil(tabData.length / PAGE_SIZE);
   // Auto-adjust page when it exceeds total pages (e.g. after delete on last page)
   useEffect(() => {
     if (totalPages > 0 && page >= totalPages) {
       setPage(Math.max(0, totalPages - 1));
     }
-  }, [totalPages, page]);
-  const pagedRows = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
+  }, [totalPages, page, activeTab]);
+  const pagedRows = useMemo(() => tabData.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [tabData, page]);
 
-  const getExportData = () => filtered.map(e => ({
+  const getExportData = () => tabData.map(e => ({
     SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
     Designation_Org_Chart: e.designation_org_chart, Department: e.department,
     Company: e.company, Company_Type: e.company_type, Nationality: e.nationality,
@@ -288,7 +336,7 @@ export default function MasterList() {
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Master List</h2>
-          <p className="text-sm text-muted-foreground mt-1">{filtered.length} of {employees.length} active personnel</p>
+          <p className="text-sm text-muted-foreground mt-1">{tabData.length} of {employees.length} active personnel</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {canEdit && (
@@ -417,6 +465,37 @@ export default function MasterList() {
         <BulkEditBar fields={masterBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
       )}
 
+      {/* Expiry Tabs */}
+      <div className="flex items-center gap-1 border-b overflow-x-auto pb-0">
+        {[
+          { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
+          { key: 'gp_soon', label: 'Gate Pass Soon', count: gpSoonList.length, icon: ShieldCheck, color: 'text-amber-600' },
+          { key: 'gp_expired', label: 'Gate Pass Expired', count: gpExpiredList.length, icon: ShieldCheck, color: 'text-red-600' },
+          { key: 'pid_soon', label: 'PID Soon', count: pidSoonList.length, icon: BadgeCheck, color: 'text-amber-600' },
+          { key: 'pid_expired', label: 'PID Expired', count: pidExpiredList.length, icon: BadgeCheck, color: 'text-red-600' },
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveTab(tab.key); setPage(0); }}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
+                isActive
+                  ? 'border-primary text-primary bg-primary/5'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+              }`}
+            >
+              {Icon && <Icon className={`w-3.5 h-3.5 ${isActive ? '' : tab.color}`} />}
+              {tab.label}
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}>{tab.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Table */}
       <Card className="overflow-hidden">
         <div className="table-scroll-x">
@@ -457,11 +536,13 @@ export default function MasterList() {
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Issue</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Received</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Expiry</TableHead>
+                {(activeTab === 'gp_soon' || activeTab === 'gp_expired') && <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Days</TableHead>}
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Staff No / RLIC</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">RLIC Status</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID No</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Issue</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Expiry</TableHead>
+                {(activeTab === 'pid_soon' || activeTab === 'pid_expired') && <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Days</TableHead>}
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Projected</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Status</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Training Date Scheduled</TableHead>
@@ -519,11 +600,13 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.gate_pass_issue_date} field="gate_pass_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.gate_pass_received_date} field="gate_pass_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.gate_pass_expiry} field="gate_pass_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    {(activeTab === 'gp_soon' || activeTab === 'gp_expired') && (() => { const info = getDaysLabel(emp.gate_pass_expiry, activeTab === 'gp_expired'); return <TableCell className="text-xs whitespace-nowrap">{info ? <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${info.cls}`}>{info.label}</span> : '—'}</TableCell>; })()}
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.staff_no} field="staff_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.gate_pass_expiry} type="rlic" storedStatus={emp.rlic_status} short /></TableCell>
                     <TableCell className="text-xs font-mono whitespace-nowrap uppercase"><InlineEditCell value={emp.pid} field="pid" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_issue_date} field="pid_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_expiry} field="pid_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    {(activeTab === 'pid_soon' || activeTab === 'pid_expired') && (() => { const info = getDaysLabel(emp.pid_expiry, activeTab === 'pid_expired'); return <TableCell className="text-xs whitespace-nowrap">{info ? <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${info.cls}`}>{info.label}</span> : '—'}</TableCell>; })()}
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.pid_projected_date} field="pid_projected_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.pid_expiry} type="pid" storedStatus={emp.pid_status} short /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.training_date_scheduled} field="training_date_scheduled" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} /></TableCell>
@@ -571,7 +654,7 @@ export default function MasterList() {
         </div>
         <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between gap-3 flex-wrap">
           <span className="text-xs text-muted-foreground">
-            Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)}</strong> of <strong>{filtered.length}</strong> filtered · <strong>{employees.length}</strong> total active
+            Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, tabData.length)}</strong> of <strong>{tabData.length}</strong> filtered · <strong>{employees.length}</strong> total active
           </span>
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
