@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, computePassStatus, formatDate, normalizeDate } from '@/utils/constants';
 import DashboardReport from '@/components/dashboard/DashboardReport';
 import ReportConfigModal from '@/components/dashboard/ReportConfigModal';
+import ExpiryMonitoringCards from '@/components/dashboard/ExpiryMonitoringCards';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
 
@@ -377,30 +378,6 @@ export default function Dashboard() {
   const trainingDone = filtered.filter(e => e.training_status === 'DONE').length;
   const trainingOnGoing = filtered.filter(e => ['ON-GOING', 'ONGOING', 'ON GOING'].includes((e.training_status || '').trim().toUpperCase())).length;
 
-  // ── Expiry Monitoring (45-day window) ────────────────────────────────────
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const in45 = new Date(today); in45.setDate(in45.getDate() + 45);
-  const gpSoon = filtered.filter(e => {
-    if (!e.gate_pass_expiry) return false;
-    const d = new Date(e.gate_pass_expiry); d.setHours(0, 0, 0, 0);
-    return d >= today && d <= in45;
-  }).length;
-  const gpExpired = filtered.filter(e => {
-    if (!e.gate_pass_expiry) return false;
-    const d = new Date(e.gate_pass_expiry); d.setHours(0, 0, 0, 0);
-    return d < today;
-  }).length;
-  const pidSoon = filtered.filter(e => {
-    if (!e.pid_expiry) return false;
-    const d = new Date(e.pid_expiry); d.setHours(0, 0, 0, 0);
-    return d >= today && d <= in45;
-  }).length;
-  const pidExpiredCount = filtered.filter(e => {
-    if (!e.pid_expiry) return false;
-    const d = new Date(e.pid_expiry); d.setHours(0, 0, 0, 0);
-    return d < today;
-  }).length;
-
   const medicalReAssess = filtered.filter(e => e.ftw_result === 'RE-ASSESS').length;
 
   // Build medical stats — "New" = no ftw_result set at all
@@ -686,40 +663,7 @@ export default function Dashboard() {
       </div>
 
       {/* Expiry Monitoring Overview */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Expiry Monitoring Overview</span>
-          <span className="text-xs text-muted-foreground">— 45-day window</span>
-        </div>
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-          {[
-            { label: 'Gate Pass Soon', count: gpSoon, icon: ShieldCheck, color: 'text-amber-600', bg: 'bg-amber-50', borderColor: 'border-amber-200', sub: 'Expiring within 45 days' },
-            { label: 'Gate Pass Expired', count: gpExpired, icon: ShieldCheck, color: 'text-red-600', bg: 'bg-red-50', borderColor: 'border-red-200', sub: 'Expiry date before today' },
-            { label: 'PID Soon', count: pidSoon, icon: BadgeCheck, color: 'text-amber-600', bg: 'bg-amber-50', borderColor: 'border-amber-200', sub: 'Expiring within 45 days' },
-            { label: 'PID Expired', count: pidExpiredCount, icon: BadgeCheck, color: 'text-red-600', bg: 'bg-red-50', borderColor: 'border-red-200', sub: 'Expiry date before today' },
-          ].map(card => {
-            const Icon = card.icon;
-            return (
-              <Card key={card.label} className={`border ${card.borderColor} shadow-sm flex flex-col`}>
-                <CardHeader className="py-2.5 px-4 border-b shrink-0">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-6 h-6 rounded-md ${card.bg} flex items-center justify-center`}>
-                      <Icon className={`w-3.5 h-3.5 ${card.color}`} />
-                    </div>
-                    <CardTitle className="text-xs font-semibold text-foreground">{card.label}</CardTitle>
-                    <span className={`text-xs font-bold ml-0.5 ${card.color}`}>{card.count}</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 py-3">
-                  <div className={`text-3xl font-extrabold ${card.color}`}>{card.count}</div>
-                  <p className="text-[10px] text-muted-foreground mt-1">{card.sub}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </div>
+      <ExpiryMonitoringCards filtered={filtered} />
 
       {/* Recent Updates */}
       <RecentUpdates filteredEmployeeIds={new Set(filtered.map(e => e.id))} />
