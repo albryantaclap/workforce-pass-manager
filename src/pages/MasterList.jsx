@@ -466,34 +466,36 @@ export default function MasterList() {
       )}
 
       {/* Expiry Tabs */}
-      <div className="flex items-center gap-1 border-b overflow-x-auto pb-0">
-        {[
-          { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
-          { key: 'gp_soon', label: 'Gate Pass Soon', count: gpSoonList.length, icon: ShieldCheck, color: 'text-amber-600' },
-          { key: 'gp_expired', label: 'Gate Pass Expired', count: gpExpiredList.length, icon: ShieldCheck, color: 'text-red-600' },
-          { key: 'pid_soon', label: 'PID Soon', count: pidSoonList.length, icon: BadgeCheck, color: 'text-amber-600' },
-          { key: 'pid_expired', label: 'PID Expired', count: pidExpiredList.length, icon: BadgeCheck, color: 'text-red-600' },
-        ].map(tab => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => { setActiveTab(tab.key); setPage(0); }}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
-                isActive
-                  ? 'border-primary text-primary bg-primary/5'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
-              }`}
-            >
-              {Icon && <Icon className={`w-3.5 h-3.5 ${isActive ? '' : tab.color}`} />}
-              {tab.label}
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-              }`}>{tab.count}</span>
-            </button>
-          );
-        })}
+      <div className="flex justify-center border-b overflow-x-auto">
+        <div className="flex items-center">
+          {[
+            { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
+            { key: 'gp_soon', label: 'Gate Pass Soon', count: gpSoonList.length, icon: ShieldCheck, color: 'text-amber-600' },
+            { key: 'gp_expired', label: 'Gate Pass Expired', count: gpExpiredList.length, icon: ShieldCheck, color: 'text-red-600' },
+            { key: 'pid_soon', label: 'PID Soon', count: pidSoonList.length, icon: BadgeCheck, color: 'text-amber-600' },
+            { key: 'pid_expired', label: 'PID Expired', count: pidExpiredList.length, icon: BadgeCheck, color: 'text-red-600' },
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => { setActiveTab(tab.key); setPage(0); }}
+                className={`flex items-center gap-2 px-6 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${
+                  isActive
+                    ? 'border-primary text-primary bg-primary/5'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                }`}
+              >
+                {Icon && <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : tab.color}`} />}
+                {tab.label}
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                  isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                }`}>{tab.count}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Table */}
