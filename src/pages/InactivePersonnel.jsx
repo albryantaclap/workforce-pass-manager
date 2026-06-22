@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, UserCheck, UserX, Eye, Pencil, X, Trash2 } from 'lucide-react';
+import ExportButton from '../components/common/ExportButton';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
@@ -71,6 +72,7 @@ export default function InactivePersonnel() {
   const [pidIssueTo, setPidIssueTo] = useState('');
   const [trainingFilter, setTrainingFilter] = useState('all');
   const [gatePassFilter, setGatePassFilter] = useState([]);
+  const [pidStatusFilter, setPidStatusFilter] = useState('all');
   const [page, setPage] = useState(0);
 
   const queryClient = useQueryClient();
@@ -96,7 +98,7 @@ export default function InactivePersonnel() {
   const hasActiveFilters = search || companyFilter.length > 0 || positionFilter.length > 0 ||
     departmentFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' ||
     medicalResultFilter !== 'all' || pidIssueFrom || pidIssueTo ||
-    trainingFilter !== 'all' || gatePassFilter.length > 0;
+    trainingFilter !== 'all' || gatePassFilter.length > 0 || pidStatusFilter !== 'all';
 
   const inactive = useMemo(() =>
     employees.filter(e => {
@@ -117,9 +119,11 @@ export default function InactivePersonnel() {
       const matchesTraining = trainingFilter === 'all' || e.training_status === trainingFilter;
       const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
       const matchesGatePass = gatePassFilter.length === 0 || gatePassFilter.includes(effectiveRlic);
-      return matchesSearch && matchesCompany && matchesPosition && matchesDepartment && matchesLocation && matchesDir && matchesMedical && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass;
+      const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
+      const matchesPidStatus = pidStatusFilter === 'all' || effectivePid === pidStatusFilter;
+      return matchesSearch && matchesCompany && matchesPosition && matchesDepartment && matchesLocation && matchesDir && matchesMedical && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass && matchesPidStatus;
     }),
-    [employees, search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, pidIssueFrom, pidIssueTo, trainingFilter, gatePassFilter]
+    [employees, search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, pidIssueFrom, pidIssueTo, trainingFilter, gatePassFilter, pidStatusFilter]
   );
 
   const totalPages = Math.ceil(inactive.length / PAGE_SIZE);
@@ -190,7 +194,7 @@ export default function InactivePersonnel() {
     setSearch(''); setCompanyFilter([]); setPositionFilter([]);
     setDepartmentFilter('all'); setLocationFilter('all'); setDirFilter('all');
     setMedicalResultFilter('all'); setPidIssueFrom(''); setPidIssueTo('');
-    setTrainingFilter('all'); setGatePassFilter([]);
+    setTrainingFilter('all'); setGatePassFilter([]); setPidStatusFilter('all');
   };
 
   return (
@@ -205,6 +209,17 @@ export default function InactivePersonnel() {
             <p className="text-sm text-muted-foreground">{inactive.length} of {employees.length} inactive records</p>
           </div>
         </div>
+        <ExportButton
+          filename="inactive_personnel"
+          label="Export"
+          getData={() => inactive.map(e => ({
+            Name: e.name, Company: e.company, QID: e.qid_no, Department: e.department,
+            Nationality: e.nationality, Position: e.designation_org_chart || e.position_application,
+            PID: e.pid, PID_Issue_Date: e.pid_issue_date, PID_Expiry: e.pid_expiry, PID_Status: e.pid_status,
+            Medical: e.ftw_result, Gate_Pass_Expiry: e.gate_pass_expiry, RLIC_Status: e.rlic_status,
+            Training_Status: e.training_status, Location: e.current_location,
+          }))}
+        />
       </div>
 
       {/* Filters */}
@@ -271,6 +286,16 @@ export default function InactivePersonnel() {
           <div className="flex-1">
             <p className="text-xs font-medium text-muted-foreground mb-1">Gate Pass Status</p>
             <MultiSelect options={rlicStatusOptions} value={gatePassFilter} onChange={v => { setGatePassFilter(v); setPage(0); }} placeholder="All Gate Pass" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">PID Status</p>
+            <Select value={pidStatusFilter} onValueChange={v => { setPidStatusFilter(v); setPage(0); }}>
+              <SelectTrigger className="text-xs"><SelectValue placeholder="All PID" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All PID Status</SelectItem>
+                {PID_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
