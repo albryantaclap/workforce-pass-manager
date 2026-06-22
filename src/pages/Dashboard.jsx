@@ -377,6 +377,30 @@ export default function Dashboard() {
   const trainingDone = filtered.filter(e => e.training_status === 'DONE').length;
   const trainingOnGoing = filtered.filter(e => ['ON-GOING', 'ONGOING', 'ON GOING'].includes((e.training_status || '').trim().toUpperCase())).length;
 
+  // ── Expiry Monitoring (45-day window) ────────────────────────────────────
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const in45 = new Date(today); in45.setDate(in45.getDate() + 45);
+  const gpSoon = filtered.filter(e => {
+    if (!e.gate_pass_expiry) return false;
+    const d = new Date(e.gate_pass_expiry); d.setHours(0, 0, 0, 0);
+    return d >= today && d <= in45;
+  }).length;
+  const gpExpired = filtered.filter(e => {
+    if (!e.gate_pass_expiry) return false;
+    const d = new Date(e.gate_pass_expiry); d.setHours(0, 0, 0, 0);
+    return d < today;
+  }).length;
+  const pidSoon = filtered.filter(e => {
+    if (!e.pid_expiry) return false;
+    const d = new Date(e.pid_expiry); d.setHours(0, 0, 0, 0);
+    return d >= today && d <= in45;
+  }).length;
+  const pidExpiredCount = filtered.filter(e => {
+    if (!e.pid_expiry) return false;
+    const d = new Date(e.pid_expiry); d.setHours(0, 0, 0, 0);
+    return d < today;
+  }).length;
+
   const medicalReAssess = filtered.filter(e => e.ftw_result === 'RE-ASSESS').length;
 
   // Build medical stats — "New" = no ftw_result set at all
@@ -659,6 +683,76 @@ export default function Dashboard() {
             </Card>
           </Link>
         ))}
+      </div>
+
+      {/* Expiry Monitoring Overview */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="text-sm font-semibold text-foreground">Expiry Monitoring Overview</h3>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">45-day window</span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border shadow-sm overflow-hidden">
+            <div className="h-1 w-full bg-amber-400" />
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Gate Pass Soon</p>
+                  <p className="text-2xl font-extrabold text-amber-500">{gpSoon}</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2">Expiring within 45 days</p>
+            </CardContent>
+          </Card>
+          <Card className="border shadow-sm overflow-hidden">
+            <div className="h-1 w-full bg-red-500" />
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Gate Pass Expired</p>
+                  <p className="text-2xl font-extrabold text-red-500">{gpExpired}</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2">Expiry date before today</p>
+            </CardContent>
+          </Card>
+          <Card className="border shadow-sm overflow-hidden">
+            <div className="h-1 w-full bg-amber-400" />
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                  <BadgeCheck className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">PID Soon</p>
+                  <p className="text-2xl font-extrabold text-amber-500">{pidSoon}</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2">Expiring within 45 days</p>
+            </CardContent>
+          </Card>
+          <Card className="border shadow-sm overflow-hidden">
+            <div className="h-1 w-full bg-red-500" />
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                  <BadgeCheck className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">PID Expired</p>
+                  <p className="text-2xl font-extrabold text-red-500">{pidExpiredCount}</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2">Expiry date before today</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Recent Updates */}
