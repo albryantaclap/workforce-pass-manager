@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, BadgeCheck, Eye, Pencil, PencilLine, X as XIcon } from 'lucide-react';
+import { Search, BadgeCheck, ShieldCheck, Eye, Pencil, PencilLine, X as XIcon } from 'lucide-react';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
 import SharepointDocIcon from '../components/common/SharepointDocIcon';
 import { Link } from 'react-router-dom';
@@ -87,6 +87,7 @@ export default function ProjectIDTracker() {
   const [trainingFilter, setTrainingFilter] = useState('all');
   const [gatePassFilter, setGatePassFilter] = useState([]);
   const [editMode, setEditMode] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -168,20 +169,41 @@ export default function ProjectIDTracker() {
     return matchesSearch && matchesCompany && matchesPosition && matchesStatus && matchesDepartment && matchesIssueFrom && matchesIssueTo && matchesTraining && matchesGatePass && matchesMedical && matchesTrainSchedFrom && matchesTrainSchedTo && matchesTrFrom && matchesTrTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo;
   }), [employees, search, companyFilter, positionFilter, statusFilter, pidStatusFilter, departmentFilter, pidIssueFrom, pidIssueTo, trainingFilter, trainingStatusFilter, gatePassFilter, rlicStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo]);
 
+  const SOON_DAYS = 45;
+  const getDaysLabel = (dateStr, isExpiredTab) => {
+    if (!dateStr) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const exp = new Date(dateStr); exp.setHours(0, 0, 0, 0);
+    const diff = Math.round((exp - today) / 86400000);
+    if (isExpiredTab) {
+      if (diff >= 0) return null;
+      return { label: `${Math.abs(diff)}d ago`, cls: 'bg-red-100 text-red-700' };
+    } else {
+      if (diff < 0 || diff > SOON_DAYS) return null;
+      return { label: `${diff}d left`, cls: diff <= 15 ? 'bg-amber-100 text-amber-700' : 'bg-yellow-100 text-yellow-700' };
+    }
+  };
+
+  const gpSoonList = useMemo(() => filtered.filter(e => { if (!e.gate_pass_expiry) return false; const d = new Date(e.gate_pass_expiry); d.setHours(0,0,0,0); const t = new Date(); t.setHours(0,0,0,0); const diff = Math.round((d-t)/86400000); return diff >= 0 && diff <= SOON_DAYS; }).sort((a,b) => new Date(a.gate_pass_expiry)-new Date(b.gate_pass_expiry)), [filtered]);
+  const gpExpiredList = useMemo(() => filtered.filter(e => { if (!e.gate_pass_expiry) return false; const d = new Date(e.gate_pass_expiry); d.setHours(0,0,0,0); const t = new Date(); t.setHours(0,0,0,0); return d < t; }).sort((a,b) => new Date(b.gate_pass_expiry)-new Date(a.gate_pass_expiry)), [filtered]);
+  const pidSoonList = useMemo(() => filtered.filter(e => { if (!e.pid_expiry) return false; const d = new Date(e.pid_expiry); d.setHours(0,0,0,0); const t = new Date(); t.setHours(0,0,0,0); const diff = Math.round((d-t)/86400000); return diff >= 0 && diff <= SOON_DAYS; }).sort((a,b) => new Date(a.pid_expiry)-new Date(b.pid_expiry)), [filtered]);
+  const pidExpiredList = useMemo(() => filtered.filter(e => { if (!e.pid_expiry) return false; const d = new Date(e.pid_expiry); d.setHours(0,0,0,0); const t = new Date(); t.setHours(0,0,0,0); return d < t; }).sort((a,b) => new Date(b.pid_expiry)-new Date(a.pid_expiry)), [filtered]);
+
+  const tabData = activeTab === 'gp_soon' ? gpSoonList : activeTab === 'gp_expired' ? gpExpiredList : activeTab === 'pid_soon' ? pidSoonList : activeTab === 'pid_expired' ? pidExpiredList : filtered;
+
   const isInitialMount = useRef(true);
   useEffect(() => {
     if (isInitialMount.current) { isInitialMount.current = false; return; }
     setPage(0);
   }, [companyFilter, positionFilter, departmentFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, statusFilter, trainingFilter, gatePassFilter, search, pidIssueFrom, pidIssueTo, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  // Auto-adjust page when it exceeds total pages (e.g. after delete/inline edit)
+  const totalPages = Math.ceil(tabData.length / PAGE_SIZE);
   useEffect(() => {
     if (totalPages > 0 && page >= totalPages) {
       setPage(Math.max(0, totalPages - 1));
     }
-  }, [totalPages, page]);
-  const pagedRows = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
+  }, [totalPages, page, activeTab]);
+  const pagedRows = useMemo(() => tabData.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [tabData, page]);
 
   const stats = useMemo(() => {
     return allStatusOptions.map(s => ({
@@ -388,6 +410,38 @@ export default function ProjectIDTracker() {
         </TabsContent>
 
         <TabsContent value="list" className="space-y-4 mt-4">
+          {/* Expiry Tabs */}
+          <div className="flex justify-center border-b overflow-x-auto">
+            <div className="flex items-center">
+              {[
+                { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
+                { key: 'gp_soon', label: 'Gate Pass Soon', count: gpSoonList.length, icon: ShieldCheck, color: 'text-amber-600' },
+                { key: 'gp_expired', label: 'Gate Pass Expired', count: gpExpiredList.length, icon: ShieldCheck, color: 'text-red-600' },
+                { key: 'pid_soon', label: 'PID Soon', count: pidSoonList.length, icon: BadgeCheck, color: 'text-amber-600' },
+                { key: 'pid_expired', label: 'PID Expired', count: pidExpiredList.length, icon: BadgeCheck, color: 'text-red-600' },
+              ].map(tab => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => { setActiveTab(tab.key); setPage(0); }}
+                    className={`flex items-center gap-2 px-6 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${
+                      isActive
+                        ? 'border-primary text-primary bg-primary/5'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    {Icon && <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : tab.color}`} />}
+                    {tab.label}
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                    }`}>{tab.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <Card className="p-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
@@ -510,7 +564,7 @@ export default function ProjectIDTracker() {
             </div>
             <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between gap-3 flex-wrap">
               <span className="text-xs text-muted-foreground">
-                Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)}</strong> of <strong>{filtered.length}</strong> filtered · <strong>{employees.length}</strong> total active
+                Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, tabData.length)}</strong> of <strong>{tabData.length}</strong> filtered · <strong>{employees.length}</strong> total active
               </span>
               {totalPages > 1 && (
                 <div className="flex items-center gap-1">
