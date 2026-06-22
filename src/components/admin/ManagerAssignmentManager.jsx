@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function ManagerAssignmentManager() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
   const [bulkManagerId, setBulkManagerId] = useState('');
   const [bulkBy, setBulkBy] = useState('company');
   const [bulkValue, setBulkValue] = useState('');
@@ -36,7 +38,7 @@ export default function ManagerAssignmentManager() {
   // Managers = active employees with is_manager = true
   const managers = useMemo(() => employees.filter(e => e.is_manager), [employees]);
 
-  // Search filtered employees (non-managers)
+  // Search filtered employees
   const filteredEmps = useMemo(() => {
     const q = search.trim().toLowerCase();
     return employees.filter(e => {
@@ -50,6 +52,11 @@ export default function ManagerAssignmentManager() {
       );
     });
   }, [employees, search]);
+
+  useEffect(() => { setPage(1); }, [search]);
+
+  const totalPages = Math.ceil(filteredEmps.length / PAGE_SIZE);
+  const pagedEmps = useMemo(() => filteredEmps.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filteredEmps, page]);
 
   const handleToggleManager = (emp) => {
     if (!emp.is_manager && emp.assigned_manager_id === emp.id) {
@@ -169,7 +176,7 @@ export default function ManagerAssignmentManager() {
                       Array(6).fill(0).map((_, i) => (
                         <TableRow key={i}>{Array(5).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                       ))
-                    ) : filteredEmps.map(emp => {
+                    ) : pagedEmps.map(emp => {
                       const currentMgr = emp.assigned_manager_id
                         ? managers.find(m => m.id === emp.assigned_manager_id)
                         : null;
@@ -217,8 +224,19 @@ export default function ManagerAssignmentManager() {
                 </Table>
               </div>
             </div>
-            <div className="px-4 py-2 border-t bg-muted/30">
-              <span className="text-xs text-muted-foreground"><strong>{filteredEmps.length}</strong> personnel shown</span>
+            <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs text-muted-foreground">
+                Showing <strong>{Math.min((page - 1) * PAGE_SIZE + 1, filteredEmps.length)}–{Math.min(page * PAGE_SIZE, filteredEmps.length)}</strong> of <strong>{filteredEmps.length}</strong> personnel
+              </span>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setPage(1)} disabled={page === 1}>«</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</Button>
+                  <span className="text-xs text-muted-foreground px-2">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>›</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setPage(totalPages)} disabled={page === totalPages}>»</Button>
+                </div>
+              )}
             </div>
           </Card>
         </TabsContent>
