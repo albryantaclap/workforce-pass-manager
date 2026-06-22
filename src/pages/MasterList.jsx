@@ -62,7 +62,7 @@ function saveFilters(f) {
 export default function MasterList() {
   const { canEdit } = usePermissions();
   const currentUser = useCurrentUser();
-  const { selectedManagerId, setSelectedManagerId, managers } = useManagerFilter();
+  const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
   const [editMode, setEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'gp_soon' | 'gp_expired' | 'pid_soon' | 'pid_expired'
   const saved = useMemo(() => loadFilters(), []);
@@ -140,7 +140,7 @@ export default function MasterList() {
     updateMutation.mutate({ id, data: { [field]: value } });
   };
 
-  const hasActiveFilters = selectedManagerId || searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo;
+  const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo;
 
   const masterBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: medicalResultOptions },
@@ -235,7 +235,9 @@ export default function MasterList() {
         emp.staff_no?.toLowerCase().includes(search.toLowerCase()) ||
         emp.nationality?.toLowerCase().includes(search.toLowerCase());
       const matchesCompany = companyFilter.length === 0 || companyFilter.includes(emp.company);
-      const matchesManager = !selectedManagerId || emp.assigned_manager_id === selectedManagerId;
+      const matchesManager = selectedManagerIds.length === 0 || selectedManagerIds.some(mid =>
+        emp.assigned_manager_id ? emp.assigned_manager_id === mid : emp.assigned_manager_name === managers.find(m => m.id === mid)?.label
+      );
       const effectiveRlic = getEffectiveRlic(emp);
       const matchesRlic = rlicFilter === 'all' || effectiveRlic === rlicFilter;
       const matchesGpStatus = gpStatusFilter.length === 0 || gpStatusFilter.includes(effectiveRlic);
@@ -264,7 +266,7 @@ export default function MasterList() {
       const matchesPidIssueTo = !pidIssueTo || (empPidIssue && empPidIssue <= pidIssueTo);
       return matchesSearch && matchesCompany && matchesManager && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesTrainingScheduledFrom && matchesTrainingScheduledTo && matchesMedicalTrApprovedFrom && matchesMedicalTrApprovedTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidIssueFrom && matchesPidIssueTo;
     });
-  }, [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerId]);
+  },     [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerIds, managers]);
 
   // ── Expiry tab lists (derived from filtered, matching Dashboard logic) ──
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
@@ -404,10 +406,13 @@ export default function MasterList() {
                {trainingStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
              </SelectContent>
            </Select>
-           <select value={selectedManagerId} onChange={(e) => setSelectedManagerId(e.target.value)} className="dropdown-manager w-full h-9 rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-purple-400">
-             <option value="">Assigned Manager</option>
-             {managers.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-           </select>
+           <MultiSelect
+             options={managers.map(m => ({ value: m.id, label: m.label }))}
+             value={selectedManagerIds}
+             onChange={setSelectedManagerIds}
+             placeholder="All Managers"
+             className="dropdown-manager"
+           />
           </div>
 
         {/* Row 2: date range filters */}
@@ -455,7 +460,7 @@ export default function MasterList() {
          </div>
         {hasActiveFilters && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSelectedManagerId(''); setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter([]); setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSelectedManagerIds([]); setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter([]); setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
