@@ -186,7 +186,7 @@ const CSS = `
   }
 `;
 
-function buildReportHTML(filtered, categoryCards, today, companyFilter, config) {
+function buildReportHTML(filtered, categoryCards, today, companyFilter, config, selectedManagerIds, managers) {
   const { reportType, dashSections, grouping, selectedCols } = config;
   const showSummary = reportType !== 'personnel';
   const showPersonnel = reportType !== 'summary';
@@ -393,9 +393,28 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
     }
   }
 
+  // ── manager header ──
+  let managerHeaderHTML = '';
+  if (!selectedManagerIds || selectedManagerIds.length === 0) {
+    managerHeaderHTML = `<div style="text-align:right;font-size:10px;color:#475569;margin-bottom:4px"><span style="font-weight:600">Manager:</span> All Managers</div>`;
+  } else {
+    const managerNames = selectedManagerIds.map(id => {
+      const m = (managers || []).find(m => m.id === id);
+      return m ? m.label.toUpperCase() : id;
+    });
+    if (managerNames.length === 1) {
+      managerHeaderHTML = `<div style="text-align:right;font-size:10px;color:#475569;margin-bottom:4px"><span style="font-weight:600">Manager:</span> ${managerNames[0]}</div>`;
+    } else {
+      managerHeaderHTML = `<div style="text-align:right;font-size:10px;color:#475569;margin-bottom:4px"><span style="font-weight:600">Managers:</span> ${managerNames.join(', ')}</div>`;
+    }
+  }
+
   return `
     <div class="wrap">
-      <h1>GSO Qatar — Workforce Status Report</h1>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
+        <h1>GSO Qatar — Workforce Status Report</h1>
+        ${managerHeaderHTML}
+      </div>
       <div class="meta">Generated: ${today} &nbsp;|&nbsp; Total Personnel: <strong>${filtered.length}</strong></div>
       ${summaryCardsHTML}
       ${chartsHTML}
@@ -404,9 +423,9 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config) 
 }
 
 // ── component ─────────────────────────────────────────────────────────────
-export default function DashboardReport({ filtered, categoryCards, onClose, companyFilter, config }) {
+export default function DashboardReport({ filtered, categoryCards, onClose, companyFilter, config, selectedManagerIds, managers }) {
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const reportHTML = buildReportHTML(filtered, categoryCards, today, companyFilter, config);
+  const reportHTML = buildReportHTML(filtered, categoryCards, today, companyFilter, config, selectedManagerIds, managers);
 
   const handlePrint = () => {
     const win = window.open('', '_blank', 'width=1100,height=800');

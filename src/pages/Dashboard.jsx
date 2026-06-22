@@ -830,6 +830,8 @@ export default function Dashboard() {
           onClose={() => setShowReport(false)}
           companyFilter={companyFilter}
           config={reportConfig}
+          selectedManagerIds={selectedManagerIds}
+          managers={managers}
         />
       )}
     </div>
