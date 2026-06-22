@@ -686,72 +686,38 @@ export default function Dashboard() {
       </div>
 
       {/* Expiry Monitoring Overview */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <h3 className="text-sm font-semibold text-foreground">Expiry Monitoring Overview</h3>
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">45-day window</span>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Expiry Monitoring Overview</span>
+          <span className="text-xs text-muted-foreground">— 45-day window</span>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border shadow-sm overflow-hidden">
-            <div className="h-1 w-full bg-amber-400" />
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-5 h-5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Gate Pass Soon</p>
-                  <p className="text-2xl font-extrabold text-amber-500">{gpSoon}</p>
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-2">Expiring within 45 days</p>
-            </CardContent>
-          </Card>
-          <Card className="border shadow-sm overflow-hidden">
-            <div className="h-1 w-full bg-red-500" />
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-5 h-5 text-red-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Gate Pass Expired</p>
-                  <p className="text-2xl font-extrabold text-red-500">{gpExpired}</p>
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-2">Expiry date before today</p>
-            </CardContent>
-          </Card>
-          <Card className="border shadow-sm overflow-hidden">
-            <div className="h-1 w-full bg-amber-400" />
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                  <BadgeCheck className="w-5 h-5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">PID Soon</p>
-                  <p className="text-2xl font-extrabold text-amber-500">{pidSoon}</p>
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-2">Expiring within 45 days</p>
-            </CardContent>
-          </Card>
-          <Card className="border shadow-sm overflow-hidden">
-            <div className="h-1 w-full bg-red-500" />
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-                  <BadgeCheck className="w-5 h-5 text-red-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">PID Expired</p>
-                  <p className="text-2xl font-extrabold text-red-500">{pidExpiredCount}</p>
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-2">Expiry date before today</p>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          {[
+            { label: 'Gate Pass Soon', count: gpSoon, icon: ShieldCheck, color: 'text-amber-600', bg: 'bg-amber-50', borderColor: 'border-amber-200', sub: 'Expiring within 45 days' },
+            { label: 'Gate Pass Expired', count: gpExpired, icon: ShieldCheck, color: 'text-red-600', bg: 'bg-red-50', borderColor: 'border-red-200', sub: 'Expiry date before today' },
+            { label: 'PID Soon', count: pidSoon, icon: BadgeCheck, color: 'text-amber-600', bg: 'bg-amber-50', borderColor: 'border-amber-200', sub: 'Expiring within 45 days' },
+            { label: 'PID Expired', count: pidExpiredCount, icon: BadgeCheck, color: 'text-red-600', bg: 'bg-red-50', borderColor: 'border-red-200', sub: 'Expiry date before today' },
+          ].map(card => {
+            const Icon = card.icon;
+            return (
+              <Card key={card.label} className={`border ${card.borderColor} shadow-sm flex flex-col`}>
+                <CardHeader className="py-2.5 px-4 border-b shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-md ${card.bg} flex items-center justify-center`}>
+                      <Icon className={`w-3.5 h-3.5 ${card.color}`} />
+                    </div>
+                    <CardTitle className="text-xs font-semibold text-foreground">{card.label}</CardTitle>
+                    <span className={`text-xs font-bold ml-0.5 ${card.color}`}>{card.count}</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 py-3">
+                  <div className={`text-3xl font-extrabold ${card.color}`}>{card.count}</div>
+                  <p className="text-[10px] text-muted-foreground mt-1">{card.sub}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
