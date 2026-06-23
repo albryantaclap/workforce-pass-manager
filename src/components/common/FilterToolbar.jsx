@@ -121,76 +121,62 @@ export default function FilterToolbar({
         </div>
       </div>
 
-      <div className="px-4 py-3 space-y-3">
-        {/* Row 1 – Main Filters */}
-        {showMain && (
-          <div className="flex flex-wrap gap-2">
-            {companyOptions.length > 0 && setCompanyFilter && (
-              <PillMultiSelect icon={<Building2 className="w-3 h-3 text-blue-500" />} label="Company" options={companyOptions} value={companyFilter} onChange={setCompanyFilter} color="blue" />
-            )}
-            {departmentOptions.length > 0 && setDepartmentFilter && (
-              <PillMultiSelect icon={<LayoutGrid className="w-3 h-3 text-violet-500" />} label="Department" options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} color="violet" />
-            )}
-            {positionOptions.length > 0 && setPositionFilter && (
-              <PillMultiSelect icon={<Briefcase className="w-3 h-3 text-indigo-500" />} label="Position" options={positionOptions} value={positionFilter} onChange={setPositionFilter} color="indigo" />
-            )}
-            {managers.length > 0 && (
-              <PillMultiSelect icon={<UserCog className="w-3 h-3 text-purple-500" />} label="Manager" options={managers.map(m => ({ value: m.id, label: m.label }))} value={selectedManagerIds} onChange={managerChange} color="purple" />
-            )}
-            {locationOptions.length > 0 && setLocationFilter && (
-              <PillMultiSelect icon={<MapPin className="w-3 h-3 text-rose-500" />} label="Location" options={locationOptions} value={locationFilter} onChange={setLocationFilter} color="rose" />
-            )}
-            {setDirIndirFilter && (
-              <PillSingleSelect
-                icon={<ArrowLeftRight className="w-3 h-3 text-slate-500" />}
-                label="DIR/INDIR"
-                value={dirIndirFilter}
-                onChange={setDirIndirFilter}
-                options={[{ value: '', label: 'All' }, { value: 'DIR', label: 'DIR' }, { value: 'INDIR', label: 'INDIR' }]}
-                color="slate"
-              />
-            )}
-          </div>
-        )}
-
-        {/* Row 2 – Status Filters */}
-        {showStatus && (
-          <div className="flex flex-wrap gap-2">
-            {rlicOptions.length > 0 && setRlicStatusFilter && (
-              <PillMultiSelect icon={<CheckCircle2 className="w-3 h-3 text-emerald-500" />} label="Gate Pass" options={rlicOptions} value={rlicStatusFilter} onChange={setRlicStatusFilter} color="emerald" />
-            )}
-            {trainingOptions.length > 0 && setTrainingStatusFilter && (
-              <PillMultiSelect icon={<BookOpen className="w-3 h-3 text-orange-500" />} label="Training" options={trainingOptions} value={trainingStatusFilter} onChange={setTrainingStatusFilter} color="orange" />
-            )}
-            {pidOptions.length > 0 && setPidStatusFilter && (
-              <PillMultiSelect icon={<CreditCard className="w-3 h-3 text-violet-500" />} label="Project ID" options={pidOptions} value={pidStatusFilter} onChange={setPidStatusFilter} color="violet" />
-            )}
-            {medicalOptions.length > 0 && setMedicalResultFilter && (
-              <PillMultiSelect icon={<HeartPulse className="w-3 h-3 text-blue-500" />} label="Medical" options={medicalOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} color="blue" />
-            )}
-          </div>
-        )}
-
-        {/* Row 3 – Date Filters */}
-        {showDates && (
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
-            {setTrainingScheduledFrom && (
-              <DateRangePill label="Training Scheduled" from={trainingScheduledFrom} to={trainingScheduledTo} onFrom={setTrainingScheduledFrom} onTo={setTrainingScheduledTo} color="teal" />
-            )}
-            {setTrApprovedFrom && (
-              <DateRangePill label="Medical TR Approved" from={trApprovedFrom} to={trApprovedTo} onFrom={setTrApprovedFrom} onTo={setTrApprovedTo} color="blue" />
-            )}
-            {setGpIssueFrom && (
-              <DateRangePill label="Gate Pass Issue" from={gpIssueFrom} to={gpIssueTo} onFrom={setGpIssueFrom} onTo={setGpIssueTo} color="emerald" />
-            )}
-            {setGpReceivedFrom && (
-              <DateRangePill label="Gate Pass Received" from={gpReceivedFrom} to={gpReceivedTo} onFrom={setGpReceivedFrom} onTo={setGpReceivedTo} color="amber" />
-            )}
-            {setPidIssueFrom && (
-              <DateRangePill label="PID Issue" from={pidIssueFrom} to={pidIssueTo} onFrom={setPidIssueFrom} onTo={setPidIssueTo} color="violet" />
-            )}
-          </div>
-        )}
+      <div className="px-4 py-3 space-y-2">
+        {/* All pills in one wrapping row */}
+        <div className="flex flex-wrap gap-2">
+          {companyOptions.length > 0 && setCompanyFilter && (
+            <PillMultiSelect icon={<Building2 className="w-3 h-3 text-blue-500" />} label="Company" options={companyOptions} value={companyFilter} onChange={setCompanyFilter} color="blue" />
+          )}
+          {departmentOptions.length > 0 && setDepartmentFilter && (
+            <PillMultiSelect icon={<LayoutGrid className="w-3 h-3 text-violet-500" />} label="Department" options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} color="violet" />
+          )}
+          {positionOptions.length > 0 && setPositionFilter && (
+            <PillMultiSelect icon={<Briefcase className="w-3 h-3 text-indigo-500" />} label="Position" options={positionOptions} value={positionFilter} onChange={setPositionFilter} color="indigo" />
+          )}
+          {managers.length > 0 && (
+            <PillMultiSelect icon={<UserCog className="w-3 h-3 text-purple-500" />} label="Manager" options={managers.map(m => ({ value: m.id, label: m.label }))} value={selectedManagerIds} onChange={managerChange} color="purple" />
+          )}
+          {locationOptions.length > 0 && setLocationFilter && (
+            <PillMultiSelect icon={<MapPin className="w-3 h-3 text-rose-500" />} label="Location" options={locationOptions} value={locationFilter} onChange={setLocationFilter} color="rose" />
+          )}
+          {setDirIndirFilter && (
+            <PillSingleSelect
+              icon={<ArrowLeftRight className="w-3 h-3 text-slate-500" />}
+              label="DIR/INDIR"
+              value={dirIndirFilter}
+              onChange={setDirIndirFilter}
+              options={[{ value: '', label: 'All' }, { value: 'DIR', label: 'DIR' }, { value: 'INDIR', label: 'INDIR' }]}
+              color="slate"
+            />
+          )}
+          {rlicOptions.length > 0 && setRlicStatusFilter && (
+            <PillMultiSelect icon={<CheckCircle2 className="w-3 h-3 text-emerald-500" />} label="Gate Pass" options={rlicOptions} value={rlicStatusFilter} onChange={setRlicStatusFilter} color="emerald" />
+          )}
+          {trainingOptions.length > 0 && setTrainingStatusFilter && (
+            <PillMultiSelect icon={<BookOpen className="w-3 h-3 text-orange-500" />} label="Training" options={trainingOptions} value={trainingStatusFilter} onChange={setTrainingStatusFilter} color="orange" />
+          )}
+          {pidOptions.length > 0 && setPidStatusFilter && (
+            <PillMultiSelect icon={<CreditCard className="w-3 h-3 text-violet-500" />} label="Project ID" options={pidOptions} value={pidStatusFilter} onChange={setPidStatusFilter} color="violet" />
+          )}
+          {medicalOptions.length > 0 && setMedicalResultFilter && (
+            <PillMultiSelect icon={<HeartPulse className="w-3 h-3 text-blue-500" />} label="Medical" options={medicalOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} color="blue" />
+          )}
+          {setTrainingScheduledFrom && (
+            <DateRangePill label="Train Scheduled" from={trainingScheduledFrom} to={trainingScheduledTo} onFrom={setTrainingScheduledFrom} onTo={setTrainingScheduledTo} color="teal" />
+          )}
+          {setTrApprovedFrom && (
+            <DateRangePill label="TR Approved" from={trApprovedFrom} to={trApprovedTo} onFrom={setTrApprovedFrom} onTo={setTrApprovedTo} color="blue" />
+          )}
+          {setGpIssueFrom && (
+            <DateRangePill label="GP Issue" from={gpIssueFrom} to={gpIssueTo} onFrom={setGpIssueFrom} onTo={setGpIssueTo} color="emerald" />
+          )}
+          {setGpReceivedFrom && (
+            <DateRangePill label="GP Received" from={gpReceivedFrom} to={gpReceivedTo} onFrom={setGpReceivedFrom} onTo={setGpReceivedTo} color="amber" />
+          )}
+          {setPidIssueFrom && (
+            <DateRangePill label="PID Issue" from={pidIssueFrom} to={pidIssueTo} onFrom={setPidIssueFrom} onTo={setPidIssueTo} color="violet" />
+          )}
+        </div>
 
         {/* Active Filter Chips */}
         {hasFilter && (
