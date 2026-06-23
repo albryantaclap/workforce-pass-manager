@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X, SlidersHorizontal, Building2, LayoutGrid, Briefcase, UserCog,
   MapPin, ArrowLeftRight, CheckCircle2, BookOpen, CreditCard,
@@ -6,20 +7,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-/**
- * Modern SaaS-style horizontal filter toolbar.
- * Each filter group is a self-contained pill dropdown.
- *
- * All props are optional — filters only render when their options/setters are provided.
- *
- * Main: companyFilter/setCompanyFilter/companyOptions, departmentFilter/..., positionFilter/...,
- *       selectedManagerIds/setSelectedManagerIds/managers, locationFilter/..., dirIndirFilter/setDirIndirFilter
- * Status: rlicStatusFilter/.../rlicOptions, trainingStatusFilter/.../trainingOptions,
- *         pidStatusFilter/.../pidOptions, medicalResultFilter/.../medicalOptions
- * Dates:  trainingScheduledFrom/To/set*, trApprovedFrom/To/set*, gpIssueFrom/To/set*,
- *         gpReceivedFrom/To/set*, pidIssueFrom/To/set*
- * Meta:   totalFiltered, totalAll, onClearAll
- */
 export default function FilterToolbar({
   companyFilter = [], setCompanyFilter, companyOptions = [],
   departmentFilter = [], setDepartmentFilter, departmentOptions = [],
@@ -90,14 +77,10 @@ export default function FilterToolbar({
     setPidIssueFrom?.(''); setPidIssueTo?.('');
   });
 
-  const showMain = companyOptions.length > 0 || departmentOptions.length > 0 || positionOptions.length > 0 || managers.length > 0 || locationOptions.length > 0 || setDirIndirFilter;
-  const showStatus = rlicOptions.length > 0 || trainingOptions.length > 0 || pidOptions.length > 0 || medicalOptions.length > 0;
-  const showDates = setTrainingScheduledFrom || setTrApprovedFrom || setGpIssueFrom || setGpReceivedFrom || setPidIssueFrom;
-
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-border bg-card shadow-sm w-full min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/20">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/20 rounded-t-2xl">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filters</span>
@@ -162,19 +145,19 @@ export default function FilterToolbar({
             <PillMultiSelect icon={<HeartPulse className="w-3 h-3 text-blue-500" />} label="Medical" options={medicalOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} color="blue" />
           )}
           {setTrainingScheduledFrom && (
-            <DateRangePill label="Train Scheduled" from={trainingScheduledFrom} to={trainingScheduledTo} onFrom={setTrainingScheduledFrom} onTo={setTrainingScheduledTo} color="teal" />
+            <DatePickerPill label="Train Scheduled" from={trainingScheduledFrom} to={trainingScheduledTo} onFrom={setTrainingScheduledFrom} onTo={setTrainingScheduledTo} color="teal" />
           )}
           {setTrApprovedFrom && (
-            <DateRangePill label="TR Approved" from={trApprovedFrom} to={trApprovedTo} onFrom={setTrApprovedFrom} onTo={setTrApprovedTo} color="blue" />
+            <DatePickerPill label="TR Approved" from={trApprovedFrom} to={trApprovedTo} onFrom={setTrApprovedFrom} onTo={setTrApprovedTo} color="blue" />
           )}
           {setGpIssueFrom && (
-            <DateRangePill label="GP Issue" from={gpIssueFrom} to={gpIssueTo} onFrom={setGpIssueFrom} onTo={setGpIssueTo} color="emerald" />
+            <DatePickerPill label="GP Issue" from={gpIssueFrom} to={gpIssueTo} onFrom={setGpIssueFrom} onTo={setGpIssueTo} color="emerald" />
           )}
           {setGpReceivedFrom && (
-            <DateRangePill label="GP Received" from={gpReceivedFrom} to={gpReceivedTo} onFrom={setGpReceivedFrom} onTo={setGpReceivedTo} color="amber" />
+            <DatePickerPill label="GP Received" from={gpReceivedFrom} to={gpReceivedTo} onFrom={setGpReceivedFrom} onTo={setGpReceivedTo} color="amber" />
           )}
           {setPidIssueFrom && (
-            <DateRangePill label="PID Issue" from={pidIssueFrom} to={pidIssueTo} onFrom={setPidIssueFrom} onTo={setPidIssueTo} color="violet" />
+            <DatePickerPill label="PID Issue" from={pidIssueFrom} to={pidIssueTo} onFrom={setPidIssueFrom} onTo={setPidIssueTo} color="violet" />
           )}
         </div>
 
@@ -201,7 +184,7 @@ export default function FilterToolbar({
 }
 
 /* ──────────────────────────────────────────────
-   Pill color variants
+   Color variants
 ────────────────────────────────────────────── */
 const colorVariants = {
   blue:    { active: 'bg-blue-50 border-blue-300 text-blue-700',       check: 'bg-blue-600 border-blue-600' },
@@ -218,24 +201,58 @@ const colorVariants = {
 const inactiveBase = 'bg-background border-border text-foreground/80 hover:border-border/80 hover:bg-muted/30';
 
 /* ──────────────────────────────────────────────
-   PillMultiSelect — pill trigger + dropdown
+   Portal dropdown hook — positions relative to trigger
+────────────────────────────────────────────── */
+function usePortalDropdown() {
+  const triggerRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+
+  const updatePos = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPos({
+      top: rect.bottom + window.scrollY + 6,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+    });
+  }, []);
+
+  const toggle = useCallback(() => {
+    if (!open) updatePos();
+    setOpen(v => !v);
+  }, [open, updatePos]);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => {
+      if (triggerRef.current && !triggerRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    window.addEventListener('scroll', updatePos, true);
+    window.addEventListener('resize', updatePos);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', updatePos, true);
+      window.removeEventListener('resize', updatePos);
+    };
+  }, [open, updatePos]);
+
+  return { triggerRef, open, setOpen, pos, toggle };
+}
+
+/* ──────────────────────────────────────────────
+   PillMultiSelect — portal dropdown
 ────────────────────────────────────────────── */
 function PillMultiSelect({ icon, label, options, value, onChange, color = 'blue' }) {
-  const [open, setOpen] = useState(false);
+  const { triggerRef, open, setOpen, pos, toggle } = usePortalDropdown();
   const [search, setSearch] = useState('');
-  const ref = useRef(null);
   const cv = colorVariants[color] || colorVariants.blue;
   const isActive = value.length > 0;
 
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setSearch(''); } };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
   const filtered = options.filter(o => (o.label || o).toLowerCase().includes(search.toLowerCase()));
 
-  const toggle = (val) => {
+  const toggleVal = (val) => {
     if (value.includes(val)) onChange(value.filter(v => v !== val));
     else onChange([...value, val]);
   };
@@ -244,10 +261,56 @@ function PillMultiSelect({ icon, label, options, value, onChange, color = 'blue'
     ? `${label}: ${value.length === 1 ? (options.find(o => o.value === value[0])?.label || value[0]).substring(0, 14) : `${value.length} selected`}`
     : label;
 
+  const dropdown = open ? createPortal(
+    <div
+      onMouseDown={e => e.stopPropagation()}
+      style={{ position: 'absolute', top: pos.top, left: pos.left, minWidth: 220, zIndex: 99999 }}
+      className="rounded-xl border border-border bg-popover shadow-xl overflow-hidden"
+    >
+      <div className="p-2 border-b border-border">
+        <input
+          autoFocus
+          className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-input bg-transparent outline-none placeholder:text-muted-foreground"
+          placeholder="Search..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+      {value.length > 0 && (
+        <div className="px-3 py-1.5 border-b border-border/50 flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground">{value.length} selected</span>
+          <button onClick={() => onChange([])} className="text-[10px] text-muted-foreground hover:text-destructive font-medium">Clear</button>
+        </div>
+      )}
+      <div className="max-h-56 overflow-y-auto">
+        {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">No results</div>}
+        {filtered.map(opt => {
+          const val = typeof opt === 'string' ? opt : opt.value;
+          const lbl = typeof opt === 'string' ? opt : opt.label;
+          const selected = value.includes(val);
+          return (
+            <div
+              key={val}
+              className={cn('flex items-center gap-2.5 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 transition-colors', selected && 'bg-muted/30')}
+              onMouseDown={(e) => { e.preventDefault(); toggleVal(val); }}
+            >
+              <div className={cn('w-4 h-4 rounded flex items-center justify-center border transition-colors flex-shrink-0', selected ? cv.check : 'border-input bg-transparent')}>
+                {selected && <Check className="w-2.5 h-2.5 text-white" />}
+              </div>
+              <span className="leading-snug">{lbl}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
-        onClick={() => setOpen(!open)}
+        ref={triggerRef}
+        onClick={toggle}
         className={cn(
           'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md whitespace-nowrap',
           isActive ? cv.active : inactiveBase
@@ -265,53 +328,13 @@ function PillMultiSelect({ icon, label, options, value, onChange, color = 'blue'
         )}
         <ChevronDown className={cn('w-3 h-3 opacity-50 transition-transform', open && 'rotate-180')} />
       </button>
-
-      {open && (
-        <div className="absolute z-50 top-full mt-1.5 left-0 min-w-[200px] rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
-          <div className="p-2 border-b border-border">
-            <input
-              autoFocus
-              className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-input bg-transparent outline-none placeholder:text-muted-foreground"
-              placeholder="Search..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onClick={e => e.stopPropagation()}
-            />
-          </div>
-          {value.length > 0 && (
-            <div className="px-3 py-1.5 border-b border-border/50 flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground">{value.length} selected</span>
-              <button onClick={() => onChange([])} className="text-[10px] text-muted-foreground hover:text-destructive font-medium">Clear</button>
-            </div>
-          )}
-          <div className="max-h-52 overflow-auto">
-            {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">No results</div>}
-            {filtered.map(opt => {
-              const val = typeof opt === 'string' ? opt : opt.value;
-              const lbl = typeof opt === 'string' ? opt : opt.label;
-              const selected = value.includes(val);
-              return (
-                <div
-                  key={val}
-                  className={cn('flex items-center gap-2.5 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 transition-colors', selected && 'bg-muted/30')}
-                  onClick={() => toggle(val)}
-                >
-                  <div className={cn('w-4 h-4 rounded flex items-center justify-center border transition-colors', selected ? cv.check : 'border-input bg-transparent')}>
-                    {selected && <Check className="w-2.5 h-2.5 text-white" />}
-                  </div>
-                  <span className="leading-snug">{lbl}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
+      {dropdown}
+    </>
   );
 }
 
 /* ──────────────────────────────────────────────
-   PillSingleSelect — pill with native select overlay
+   PillSingleSelect — native select overlay (no portal needed)
 ────────────────────────────────────────────── */
 function PillSingleSelect({ icon, label, value, onChange, options, color = 'slate' }) {
   const cv = colorVariants[color] || colorVariants.slate;
@@ -340,39 +363,182 @@ function PillSingleSelect({ icon, label, value, onChange, options, color = 'slat
 }
 
 /* ──────────────────────────────────────────────
-   DateRangePill
+   DatePickerPill — Quick / By Month / Date Range tabs
 ────────────────────────────────────────────── */
-function DateRangePill({ label, from, to, onFrom, onTo, color = 'blue' }) {
+const QUICK_OPTIONS = [
+  { label: 'Today', getValue: () => { const d = new Date(); const s = d.toISOString().split('T')[0]; return { from: s, to: s }; } },
+  { label: 'This Week', getValue: () => { const d = new Date(); const day = d.getDay(); const mon = new Date(d); mon.setDate(d.getDate() - day + 1); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); return { from: mon.toISOString().split('T')[0], to: sun.toISOString().split('T')[0] }; } },
+  { label: 'This Month', getValue: () => { const d = new Date(); const from = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]; const to = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]; return { from, to }; } },
+  { label: 'Last Month', getValue: () => { const d = new Date(); const from = new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().split('T')[0]; const to = new Date(d.getFullYear(), d.getMonth(), 0).toISOString().split('T')[0]; return { from, to }; } },
+  { label: 'Last 30 Days', getValue: () => { const to = new Date(); const from = new Date(); from.setDate(to.getDate() - 30); return { from: from.toISOString().split('T')[0], to: to.toISOString().split('T')[0] }; } },
+  { label: 'Last 90 Days', getValue: () => { const to = new Date(); const from = new Date(); from.setDate(to.getDate() - 90); return { from: from.toISOString().split('T')[0], to: to.toISOString().split('T')[0] }; } },
+];
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function DatePickerPill({ label, from, to, onFrom, onTo, color = 'blue' }) {
+  const { triggerRef, open, setOpen, pos, toggle } = usePortalDropdown();
+  const [tab, setTab] = useState('quick');
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
+  const [byMonthYear, setByMonthYear] = useState(new Date().getFullYear());
   const cv = colorVariants[color] || colorVariants.blue;
   const isActive = !!from || !!to;
 
-  return (
-    <div className={cn(
-      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium shadow-sm transition-all',
-      isActive ? cv.active : 'bg-background border-border text-foreground/80'
-    )}>
-      <CalendarDays className={cn('w-3 h-3', isActive ? '' : 'text-muted-foreground')} />
-      <span className={cn('text-[11px]', !isActive && 'text-muted-foreground')}>{label}</span>
-      <input
-        type="date"
-        value={from}
-        onChange={e => onFrom(e.target.value)}
-        className="bg-transparent border-none outline-none text-[11px] w-[118px] cursor-pointer"
-        title="From"
-      />
-      <span className="text-muted-foreground text-[10px]">→</span>
-      <input
-        type="date"
-        value={to}
-        onChange={e => onTo(e.target.value)}
-        className="bg-transparent border-none outline-none text-[11px] w-[118px] cursor-pointer"
-        title="To"
-      />
-      {isActive && (
-        <button onClick={() => { onFrom(''); onTo(''); }} className="ml-0.5 hover:text-destructive transition-colors">
-          <X className="w-2.5 h-2.5" />
-        </button>
+  useEffect(() => {
+    if (open) { setDraftFrom(from); setDraftTo(to); }
+  }, [open]);
+
+  const applyRange = (f, t) => { onFrom(f); onTo(t); setOpen(false); };
+  const applyDraft = () => applyRange(draftFrom, draftTo);
+  const clear = (e) => { e.stopPropagation(); onFrom(''); onTo(''); };
+
+  const displayText = isActive
+    ? (from && to ? `${from} → ${to}` : from ? `≥ ${from}` : `≤ ${to}`)
+    : label;
+
+  const dropdown = open ? createPortal(
+    <div
+      onMouseDown={e => e.stopPropagation()}
+      style={{ position: 'absolute', top: pos.top, left: pos.left, width: 300, zIndex: 99999 }}
+      className="rounded-xl border border-border bg-popover shadow-xl overflow-hidden"
+    >
+      {/* Tabs */}
+      <div className="flex border-b border-border">
+        {['quick', 'bymonth', 'range'].map(t => (
+          <button
+            key={t}
+            onMouseDown={e => { e.preventDefault(); setTab(t); }}
+            className={cn(
+              'flex-1 py-2.5 text-xs font-medium transition-colors',
+              tab === t
+                ? 'text-primary border-b-2 border-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {t === 'quick' ? 'Quick' : t === 'bymonth' ? 'By Month' : 'Date Range'}
+          </button>
+        ))}
+      </div>
+
+      {/* Quick */}
+      {tab === 'quick' && (
+        <div className="p-2">
+          {QUICK_OPTIONS.map(opt => {
+            const { from: f, to: t } = opt.getValue();
+            const active = from === f && to === t;
+            return (
+              <button
+                key={opt.label}
+                onMouseDown={e => { e.preventDefault(); applyRange(f, t); }}
+                className={cn(
+                  'w-full text-left px-3 py-2 text-xs rounded-lg transition-colors',
+                  active ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50 text-foreground'
+                )}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       )}
-    </div>
+
+      {/* By Month */}
+      {tab === 'bymonth' && (
+        <div className="p-3">
+          <div className="flex items-center justify-between mb-3">
+            <button onMouseDown={e => { e.preventDefault(); setByMonthYear(y => y - 1); }} className="px-2 py-1 text-xs rounded hover:bg-muted/50">◀</button>
+            <span className="text-xs font-semibold">{byMonthYear}</span>
+            <button onMouseDown={e => { e.preventDefault(); setByMonthYear(y => y + 1); }} className="px-2 py-1 text-xs rounded hover:bg-muted/50">▶</button>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {MONTHS.map((m, i) => {
+              const f = `${byMonthYear}-${String(i + 1).padStart(2, '0')}-01`;
+              const lastDay = new Date(byMonthYear, i + 1, 0).getDate();
+              const t = `${byMonthYear}-${String(i + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+              const active = from === f && to === t;
+              return (
+                <button
+                  key={m}
+                  onMouseDown={e => { e.preventDefault(); applyRange(f, t); }}
+                  className={cn(
+                    'py-1.5 text-xs rounded-lg transition-colors',
+                    active ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50 text-foreground border border-border'
+                  )}
+                >
+                  {m}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Date Range */}
+      {tab === 'range' && (
+        <div className="p-4 space-y-3">
+          <div>
+            <label className="block text-[10px] font-bold text-foreground/60 uppercase tracking-wider mb-1.5">From (DD-MM-YYYY)</label>
+            <input
+              type="date"
+              value={draftFrom}
+              onChange={e => setDraftFrom(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-muted/30 outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-foreground/60 uppercase tracking-wider mb-1.5">To (DD-MM-YYYY)</label>
+            <input
+              type="date"
+              value={draftTo}
+              onChange={e => setDraftTo(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-muted/30 outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <button
+            onMouseDown={e => { e.preventDefault(); applyDraft(); }}
+            className="w-full py-2.5 rounded-lg bg-primary/80 hover:bg-primary text-primary-foreground text-sm font-semibold transition-colors"
+          >
+            Apply
+          </button>
+        </div>
+      )}
+
+      {/* Clear */}
+      {isActive && (
+        <div className="px-3 pb-2 border-t border-border/50 pt-2">
+          <button
+            onMouseDown={e => { e.preventDefault(); onFrom(''); onTo(''); setOpen(false); }}
+            className="w-full text-xs text-muted-foreground hover:text-destructive transition-colors"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        onClick={toggle}
+        className={cn(
+          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md whitespace-nowrap',
+          isActive ? cv.active : inactiveBase
+        )}
+      >
+        <CalendarDays className={cn('w-3 h-3', isActive ? '' : 'text-muted-foreground')} />
+        <span className={cn(isActive ? '' : 'text-muted-foreground')}>{displayText}</span>
+        {isActive && (
+          <span className="ml-0.5 hover:bg-black/10 rounded-full p-0.5" onClick={clear}>
+            <X className="w-2.5 h-2.5" />
+          </span>
+        )}
+        <ChevronDown className={cn('w-3 h-3 opacity-50 transition-transform', open && 'rotate-180')} />
+      </button>
+      {dropdown}
+    </>
   );
 }
