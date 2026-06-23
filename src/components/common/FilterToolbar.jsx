@@ -105,7 +105,7 @@ export default function FilterToolbar({
       </div>
 
       <div className="px-4 py-3 space-y-2">
-        {/* All pills in one wrapping row */}
+        {/* Row 1 – Dropdown filters */}
         <div className="flex flex-wrap gap-2">
           {companyOptions.length > 0 && setCompanyFilter && (
             <PillMultiSelect icon={<Building2 className="w-3 h-3 text-blue-500" />} label="Company" options={companyOptions} value={companyFilter} onChange={setCompanyFilter} color="blue" />
@@ -144,22 +144,28 @@ export default function FilterToolbar({
           {medicalOptions.length > 0 && setMedicalResultFilter && (
             <PillMultiSelect icon={<HeartPulse className="w-3 h-3 text-blue-500" />} label="Medical" options={medicalOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} color="blue" />
           )}
-          {setTrainingScheduledFrom && (
-            <DatePickerPill label="Train Scheduled" from={trainingScheduledFrom} to={trainingScheduledTo} onFrom={setTrainingScheduledFrom} onTo={setTrainingScheduledTo} color="teal" />
-          )}
-          {setTrApprovedFrom && (
-            <DatePickerPill label="TR Approved" from={trApprovedFrom} to={trApprovedTo} onFrom={setTrApprovedFrom} onTo={setTrApprovedTo} color="blue" />
-          )}
-          {setGpIssueFrom && (
-            <DatePickerPill label="GP Issue" from={gpIssueFrom} to={gpIssueTo} onFrom={setGpIssueFrom} onTo={setGpIssueTo} color="emerald" />
-          )}
-          {setGpReceivedFrom && (
-            <DatePickerPill label="GP Received" from={gpReceivedFrom} to={gpReceivedTo} onFrom={setGpReceivedFrom} onTo={setGpReceivedTo} color="amber" />
-          )}
-          {setPidIssueFrom && (
-            <DatePickerPill label="PID Issue" from={pidIssueFrom} to={pidIssueTo} onFrom={setPidIssueFrom} onTo={setPidIssueTo} color="violet" />
-          )}
         </div>
+
+        {/* Row 2 – Date filters (5-column equal width) */}
+        {(setTrApprovedFrom || setGpIssueFrom || setGpReceivedFrom || setTrainingScheduledFrom || setPidIssueFrom) && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {setTrApprovedFrom && (
+              <DatePickerPill label="TR Approved" from={trApprovedFrom} to={trApprovedTo} onFrom={setTrApprovedFrom} onTo={setTrApprovedTo} color="blue" fullWidth />
+            )}
+            {setGpIssueFrom && (
+              <DatePickerPill label="GP Issue" from={gpIssueFrom} to={gpIssueTo} onFrom={setGpIssueFrom} onTo={setGpIssueTo} color="emerald" fullWidth />
+            )}
+            {setGpReceivedFrom && (
+              <DatePickerPill label="GP Received" from={gpReceivedFrom} to={gpReceivedTo} onFrom={setGpReceivedFrom} onTo={setGpReceivedTo} color="amber" fullWidth />
+            )}
+            {setTrainingScheduledFrom && (
+              <DatePickerPill label="Train Scheduled" from={trainingScheduledFrom} to={trainingScheduledTo} onFrom={setTrainingScheduledFrom} onTo={setTrainingScheduledTo} color="teal" fullWidth />
+            )}
+            {setPidIssueFrom && (
+              <DatePickerPill label="PID Issue" from={pidIssueFrom} to={pidIssueTo} onFrom={setPidIssueFrom} onTo={setPidIssueTo} color="violet" fullWidth />
+            )}
+          </div>
+        )}
 
         {/* Active Filter Chips */}
         {hasFilter && (
@@ -376,7 +382,7 @@ const QUICK_OPTIONS = [
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function DatePickerPill({ label, from, to, onFrom, onTo, color = 'blue' }) {
+function DatePickerPill({ label, from, to, onFrom, onTo, color = 'blue', fullWidth = false }) {
   const { triggerRef, open, setOpen, pos, toggle } = usePortalDropdown();
   const [tab, setTab] = useState('quick');
   const [draftFrom, setDraftFrom] = useState('');
@@ -525,7 +531,8 @@ function DatePickerPill({ label, from, to, onFrom, onTo, color = 'blue' }) {
         ref={triggerRef}
         onClick={toggle}
         className={cn(
-          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md whitespace-nowrap',
+          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md',
+          fullWidth ? 'w-full justify-between' : 'whitespace-nowrap',
           isActive ? cv.active : inactiveBase
         )}
       >
