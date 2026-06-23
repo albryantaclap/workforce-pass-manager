@@ -1,22 +1,21 @@
 import React, { useMemo, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { X } from 'lucide-react';
-import MultiSelect from '@/components/common/MultiSelect';
+import FilterToolbar from '@/components/common/FilterToolbar';
 
 /**
- * Full Dashboard-style filter panel reused across Medical, Gate Pass, Training, Project ID trackers.
- *
- * Props:
- *   filters: object with all filter state values
- *   setters: object with all setter functions
- *   options: { companies, positions, departments, rlicStatuses, trainingStatuses, pidStatuses, medicalResults }
- *   totalFiltered: number
- *   totalAll: number
- *   employees: Employee[] — used for cascading company options based on department selection
+ * Thin wrapper around FilterToolbar for the tracker pages
+ * (Medical, Gate Pass, Training, Project ID).
+ * Handles cascading company options and clears stale selections.
  */
-export default function TrackerFilters({ filters, setters, options, totalFiltered, totalAll, employees = [], managers = [], selectedManagerId = '', selectedManagerIds = [], onManagerChange, onManagerIdsChange }) {
+export default function TrackerFilters({
+  filters, setters, options,
+  totalFiltered, totalAll,
+  employees = [],
+  managers = [],
+  selectedManagerId = '',
+  selectedManagerIds = [],
+  onManagerChange,
+  onManagerIdsChange,
+}) {
   const {
     companyFilter, positionFilter, departmentFilter,
     rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter,
@@ -37,7 +36,7 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
     setPidIssueFrom, setPidIssueTo,
   } = setters;
 
-  // Cascading company options: when department is selected, only show companies with employees in that dept
+  // Cascade companies based on selected department
   const cascadedCompanyOptions = useMemo(() => {
     if (departmentFilter.length === 0) return options.companies;
     const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
@@ -49,27 +48,22 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
     return options.companies.filter(c => validCompanies.has(c.value.trim().toUpperCase()));
   }, [options.companies, departmentFilter, employees]);
 
-  // Reset company selections that are no longer valid after department filter changes
+  // Drop stale company selections when department changes
   useEffect(() => {
     if (companyFilter.length === 0) return;
     const validSet = new Set(cascadedCompanyOptions.map(c => c.value.trim().toUpperCase()));
     const still = companyFilter.filter(cf => validSet.has(cf.trim().toUpperCase()));
-    if (still.length !== companyFilter.length) setters.setCompanyFilter(still);
+    if (still.length !== companyFilter.length) setCompanyFilter(still);
   }, [cascadedCompanyOptions]);
 
   // Support both multi-select (new) and single-select (legacy)
-  const effectiveManagerIds = onManagerIdsChange ? selectedManagerIds : (selectedManagerId ? [selectedManagerId] : []);
+  const effectiveManagerIds = onManagerIdsChange
+    ? selectedManagerIds
+    : (selectedManagerId ? [selectedManagerId] : []);
 
-  const hasFilter =
-    companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 ||
-    rlicStatusFilter.length > 0 || trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 ||
-    medicalResultFilter.length > 0 || effectiveManagerIds.length > 0 ||
-    !!trainingScheduledFrom || !!trainingScheduledTo ||
-    !!trApprovedFrom || !!trApprovedTo ||
-    !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo ||
-    !!pidIssueFrom || !!pidIssueTo;
+  const managerChange = onManagerIdsChange || ((ids) => onManagerChange?.(ids[0] || ''));
 
-  const clearFilters = () => {
+  const clearAll = () => {
     setCompanyFilter([]); setPositionFilter([]); setDepartmentFilter([]);
     setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]);
     setMedicalResultFilter([]);
@@ -83,113 +77,58 @@ export default function TrackerFilters({ filters, setters, options, totalFiltere
   };
 
   return (
-    <Card className="border shadow-sm">
-      <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filters</p>
-        {hasFilter && (
-          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground">
-            <X className="w-3 h-3" /> Clear All
-          </Button>
-        )}
-      </div>
-      <div className="p-4 space-y-3">
-        {/* Row 1: Company, Position, Department */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Company</p>
-            <MultiSelect options={cascadedCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." className="dropdown-company" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Position / Designation</p>
-            <MultiSelect options={options.positions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." className="dropdown-position" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Department</p>
-            <MultiSelect options={options.departments} value={departmentFilter} onChange={setDepartmentFilter} placeholder="All departments..." className="dropdown-department" />
-          </div>
-        </div>
-
-        {/* Row 2: Gate Pass, Training, Project ID, Medical */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Status</p>
-            <MultiSelect options={options.rlicStatuses} value={rlicStatusFilter} onChange={setRlicStatusFilter} placeholder="All statuses..." className="dropdown-status" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Training Status</p>
-            <MultiSelect options={options.trainingStatuses} value={trainingStatusFilter} onChange={setTrainingStatusFilter} placeholder="All statuses..." className="dropdown-training" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Status</p>
-            <MultiSelect options={options.pidStatuses} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="All statuses..." className="dropdown-status" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical Result</p>
-            <MultiSelect options={options.medicalResults} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="All results..." className="dropdown-status" />
-          </div>
-        </div>
-
-        {/* Manager filter row (only shown when managers are provided) */}
-        {managers.length > 0 && (
-          <div className="grid grid-cols-1 gap-3">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Manager Name</p>
-              <MultiSelect
-                options={managers.map(m => ({ value: m.id, label: m.label }))}
-                value={effectiveManagerIds}
-                onChange={onManagerIdsChange || ((ids) => onManagerChange?.(ids[0] || ''))}
-                placeholder="All Managers"
-                className="dropdown-manager"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Row 3: Date ranges */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 border-t">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Training Scheduled</p>
-            <div className="flex gap-1.5">
-              <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-8" />
-              <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-8" />
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Medical TR Approved</p>
-            <div className="flex gap-1.5">
-              <Input type="date" value={trApprovedFrom} onChange={e => setTrApprovedFrom(e.target.value)} className="text-xs h-8" />
-              <Input type="date" value={trApprovedTo} onChange={e => setTrApprovedTo(e.target.value)} className="text-xs h-8" />
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Issue Date</p>
-            <div className="flex gap-1.5">
-              <Input type="date" value={gpIssueFrom} onChange={e => setGpIssueFrom(e.target.value)} className="text-xs h-8" />
-              <Input type="date" value={gpIssueTo} onChange={e => setGpIssueTo(e.target.value)} className="text-xs h-8" />
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Received</p>
-            <div className="flex gap-1.5">
-              <Input type="date" value={gpReceivedFrom || ''} onChange={e => setGpReceivedFrom?.(e.target.value)} className="text-xs h-8" />
-              <Input type="date" value={gpReceivedTo || ''} onChange={e => setGpReceivedTo?.(e.target.value)} className="text-xs h-8" />
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Project ID Issue</p>
-            <div className="flex gap-1.5">
-              <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8" />
-              <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-8" />
-            </div>
-          </div>
-        </div>
-
-        {hasFilter && (
-          <p className="text-xs text-muted-foreground pt-1">
-            Showing <strong className="text-foreground">{totalFiltered}</strong> of <strong className="text-foreground">{totalAll}</strong> active personnel
-          </p>
-        )}
-      </div>
-    </Card>
+    <FilterToolbar
+      // Main
+      companyFilter={companyFilter}
+      setCompanyFilter={setCompanyFilter}
+      companyOptions={cascadedCompanyOptions}
+      departmentFilter={departmentFilter}
+      setDepartmentFilter={setDepartmentFilter}
+      departmentOptions={options.departments || []}
+      positionFilter={positionFilter}
+      setPositionFilter={setPositionFilter}
+      positionOptions={options.positions || []}
+      selectedManagerIds={effectiveManagerIds}
+      onManagerIdsChange={managerChange}
+      managers={managers}
+      // Status
+      rlicStatusFilter={rlicStatusFilter}
+      setRlicStatusFilter={setRlicStatusFilter}
+      rlicOptions={options.rlicStatuses || []}
+      trainingStatusFilter={trainingStatusFilter}
+      setTrainingStatusFilter={setTrainingStatusFilter}
+      trainingOptions={options.trainingStatuses || []}
+      pidStatusFilter={pidStatusFilter}
+      setPidStatusFilter={setPidStatusFilter}
+      pidOptions={options.pidStatuses || []}
+      medicalResultFilter={medicalResultFilter}
+      setMedicalResultFilter={setMedicalResultFilter}
+      medicalOptions={options.medicalResults || []}
+      // Dates
+      trainingScheduledFrom={trainingScheduledFrom}
+      setTrainingScheduledFrom={setTrainingScheduledFrom}
+      trainingScheduledTo={trainingScheduledTo}
+      setTrainingScheduledTo={setTrainingScheduledTo}
+      trApprovedFrom={trApprovedFrom}
+      setTrApprovedFrom={setTrApprovedFrom}
+      trApprovedTo={trApprovedTo}
+      setTrApprovedTo={setTrApprovedTo}
+      gpIssueFrom={gpIssueFrom}
+      setGpIssueFrom={setGpIssueFrom}
+      gpIssueTo={gpIssueTo}
+      setGpIssueTo={setGpIssueTo}
+      gpReceivedFrom={gpReceivedFrom}
+      setGpReceivedFrom={setGpReceivedFrom}
+      gpReceivedTo={gpReceivedTo}
+      setGpReceivedTo={setGpReceivedTo}
+      pidIssueFrom={pidIssueFrom}
+      setPidIssueFrom={setPidIssueFrom}
+      pidIssueTo={pidIssueTo}
+      setPidIssueTo={setPidIssueTo}
+      // Meta
+      totalFiltered={totalFiltered}
+      totalAll={totalAll}
+      onClearAll={clearAll}
+    />
   );
 }

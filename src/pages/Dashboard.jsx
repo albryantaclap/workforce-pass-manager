@@ -3,15 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { useManagerFilter } from '@/hooks/useManagerFilter';
-import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, X, Printer, Building2, Briefcase, LayoutGrid, UserCog, ArrowLeftRight, CheckCircle2, BookOpen, CreditCard, HeartPulse, MapPin, CalendarDays, Filter } from 'lucide-react';
+import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, Printer } from 'lucide-react';
+import FilterToolbar from '@/components/common/FilterToolbar';
 import RecentUpdates from '@/components/dashboard/RecentUpdates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import MultiSelect from '@/components/common/MultiSelect';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, computePassStatus, formatDate, normalizeDate } from '@/utils/constants';
 import DashboardReport from '@/components/dashboard/DashboardReport';
 import ReportConfigModal from '@/components/dashboard/ReportConfigModal';
@@ -516,198 +516,30 @@ export default function Dashboard() {
       </div>
 
       {/* Filters Panel */}
-      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-        {/* Panel Header */}
-        <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-primary/5 to-transparent border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Filter className="w-3.5 h-3.5 text-primary" />
-            </div>
-            <span className="text-sm font-semibold text-foreground">Filters</span>
-            {hasFilter && (
-              <span className="inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
-                {[companyFilter, positionFilter, departmentFilter, locationFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, selectedManagerIds].reduce((s, a) => s + a.length, 0) + (dirIndirFilter ? 1 : 0) + [trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo].filter(Boolean).length} active
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {hasFilter && (
-              <span className="text-xs text-muted-foreground">
-                <strong className="text-foreground">{total}</strong> / {employees.filter(e => e.is_active !== false).length} personnel
-              </span>
-            )}
-            {hasFilter && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg">
-                <X className="w-3 h-3" /> Clear All
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="p-5 space-y-5">
-          {/* Section 1: Main Filters */}
-          <div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <span className="w-4 h-px bg-muted-foreground/40 inline-block" />
-              Main Filters
-              <span className="flex-1 h-px bg-muted-foreground/10 inline-block" />
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <Building2 className="w-3 h-3 text-blue-500" /> Company
-                  {companyFilter.length > 0 && <span className="ml-auto text-[10px] bg-blue-100 text-blue-700 font-bold px-1.5 py-0.5 rounded-full">{companyFilter.length}</span>}
-                </label>
-                <MultiSelect options={cascadedCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All companies..." />
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <Briefcase className="w-3 h-3 text-indigo-500" /> Position / Designation
-                  {positionFilter.length > 0 && <span className="ml-auto text-[10px] bg-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded-full">{positionFilter.length}</span>}
-                </label>
-                <MultiSelect options={filteredPositions} value={positionFilter} onChange={setPositionFilter} placeholder="All positions..." />
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <LayoutGrid className="w-3 h-3 text-violet-500" /> Department
-                  {departmentFilter.length > 0 && <span className="ml-auto text-[10px] bg-violet-100 text-violet-700 font-bold px-1.5 py-0.5 rounded-full">{departmentFilter.length}</span>}
-                </label>
-                <MultiSelect options={allDepartmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="All departments..." />
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <UserCog className="w-3 h-3 text-purple-500" /> Manager Name
-                  {selectedManagerIds.length > 0 && <span className="ml-auto text-[10px] bg-purple-100 text-purple-700 font-bold px-1.5 py-0.5 rounded-full">{selectedManagerIds.length}</span>}
-                </label>
-                <MultiSelect
-                  options={managers.map(m => ({ value: m.id, label: m.label }))}
-                  value={selectedManagerIds}
-                  onChange={setSelectedManagerIds}
-                  placeholder="All Managers"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <ArrowLeftRight className="w-3 h-3 text-slate-500" /> DIR / INDIR
-                  {dirIndirFilter && <span className="ml-auto text-[10px] bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded-full">1</span>}
-                </label>
-                <select value={dirIndirFilter} onChange={(e) => setDirIndirFilter(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                  <option value="">All</option>
-                  <option value="DIR">DIR</option>
-                  <option value="INDIR">INDIR</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: Status Filters */}
-          <div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <span className="w-4 h-px bg-muted-foreground/40 inline-block" />
-              Status Filters
-              <span className="flex-1 h-px bg-muted-foreground/10 inline-block" />
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Gate Pass Status
-                  {rlicStatusFilter.length > 0 && <span className="ml-auto text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full">{rlicStatusFilter.length}</span>}
-                </label>
-                <MultiSelect options={allRlicOptions} value={rlicStatusFilter} onChange={setRlicStatusFilter} placeholder="All statuses..." />
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <BookOpen className="w-3 h-3 text-orange-500" /> Training Status
-                  {trainingStatusFilter.length > 0 && <span className="ml-auto text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 py-0.5 rounded-full">{trainingStatusFilter.length}</span>}
-                </label>
-                <MultiSelect options={allTrainingOptions} value={trainingStatusFilter} onChange={setTrainingStatusFilter} placeholder="All statuses..." />
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <CreditCard className="w-3 h-3 text-violet-500" /> Project ID Status
-                  {pidStatusFilter.length > 0 && <span className="ml-auto text-[10px] bg-violet-100 text-violet-700 font-bold px-1.5 py-0.5 rounded-full">{pidStatusFilter.length}</span>}
-                </label>
-                <MultiSelect options={allPidOptions} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="All statuses..." />
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <HeartPulse className="w-3 h-3 text-blue-500" /> Medical Result
-                  {medicalResultFilter.length > 0 && <span className="ml-auto text-[10px] bg-blue-100 text-blue-700 font-bold px-1.5 py-0.5 rounded-full">{medicalResultFilter.length}</span>}
-                </label>
-                <MultiSelect options={allMedicalResultOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="All results..." />
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <MapPin className="w-3 h-3 text-rose-500" /> Location
-                  {locationFilter.length > 0 && <span className="ml-auto text-[10px] bg-rose-100 text-rose-700 font-bold px-1.5 py-0.5 rounded-full">{locationFilter.length}</span>}
-                </label>
-                <MultiSelect options={allLocationOptions} value={locationFilter} onChange={setLocationFilter} placeholder="All locations..." />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Date Filters */}
-          <div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <span className="w-4 h-px bg-muted-foreground/40 inline-block" />
-              Date Filters
-              <span className="flex-1 h-px bg-muted-foreground/10 inline-block" />
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <CalendarDays className="w-3 h-3 text-teal-500" /> Training Scheduled
-                  {(trainingScheduledFrom || trainingScheduledTo) && <span className="ml-auto text-[10px] bg-teal-100 text-teal-700 font-bold px-1.5 py-0.5 rounded-full">●</span>}
-                </label>
-                <div className="flex gap-1.5">
-                  <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-9 rounded-md" />
-                  <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-9 rounded-md" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <CalendarDays className="w-3 h-3 text-blue-500" /> Medical TR Approved
-                  {(trApprovedFrom || trApprovedTo) && <span className="ml-auto text-[10px] bg-blue-100 text-blue-700 font-bold px-1.5 py-0.5 rounded-full">●</span>}
-                </label>
-                <div className="flex gap-1.5">
-                  <Input type="date" value={trApprovedFrom} onChange={e => setTrApprovedFrom(e.target.value)} className="text-xs h-9 rounded-md" />
-                  <Input type="date" value={trApprovedTo} onChange={e => setTrApprovedTo(e.target.value)} className="text-xs h-9 rounded-md" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <CalendarDays className="w-3 h-3 text-emerald-500" /> Gate Pass Issue
-                  {(gpIssueFrom || gpIssueTo) && <span className="ml-auto text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full">●</span>}
-                </label>
-                <div className="flex gap-1.5">
-                  <Input type="date" value={gpIssueFrom} onChange={e => setGpIssueFrom(e.target.value)} className="text-xs h-9 rounded-md" />
-                  <Input type="date" value={gpIssueTo} onChange={e => setGpIssueTo(e.target.value)} className="text-xs h-9 rounded-md" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <CalendarDays className="w-3 h-3 text-amber-500" /> Gate Pass Received
-                  {(gpReceivedFrom || gpReceivedTo) && <span className="ml-auto text-[10px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">●</span>}
-                </label>
-                <div className="flex gap-1.5">
-                  <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-9 rounded-md" />
-                  <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-9 rounded-md" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <CalendarDays className="w-3 h-3 text-violet-500" /> Project ID Issue
-                  {(pidIssueFrom || pidIssueTo) && <span className="ml-auto text-[10px] bg-violet-100 text-violet-700 font-bold px-1.5 py-0.5 rounded-full">●</span>}
-                </label>
-                <div className="flex gap-1.5">
-                  <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-9 rounded-md" />
-                  <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-9 rounded-md" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <FilterToolbar
+        companyFilter={companyFilter} setCompanyFilter={setCompanyFilter} companyOptions={cascadedCompanyOptions}
+        departmentFilter={departmentFilter} setDepartmentFilter={setDepartmentFilter} departmentOptions={allDepartmentOptions}
+        positionFilter={positionFilter} setPositionFilter={setPositionFilter} positionOptions={filteredPositions}
+        selectedManagerIds={selectedManagerIds} setSelectedManagerIds={setSelectedManagerIds} managers={managers}
+        locationFilter={locationFilter} setLocationFilter={setLocationFilter} locationOptions={allLocationOptions}
+        dirIndirFilter={dirIndirFilter} setDirIndirFilter={setDirIndirFilter}
+        rlicStatusFilter={rlicStatusFilter} setRlicStatusFilter={setRlicStatusFilter} rlicOptions={allRlicOptions}
+        trainingStatusFilter={trainingStatusFilter} setTrainingStatusFilter={setTrainingStatusFilter} trainingOptions={allTrainingOptions}
+        pidStatusFilter={pidStatusFilter} setPidStatusFilter={setPidStatusFilter} pidOptions={allPidOptions}
+        medicalResultFilter={medicalResultFilter} setMedicalResultFilter={setMedicalResultFilter} medicalOptions={allMedicalResultOptions}
+        trainingScheduledFrom={trainingScheduledFrom} setTrainingScheduledFrom={setTrainingScheduledFrom}
+        trainingScheduledTo={trainingScheduledTo} setTrainingScheduledTo={setTrainingScheduledTo}
+        trApprovedFrom={trApprovedFrom} setTrApprovedFrom={setTrApprovedFrom}
+        trApprovedTo={trApprovedTo} setTrApprovedTo={setTrApprovedTo}
+        gpIssueFrom={gpIssueFrom} setGpIssueFrom={setGpIssueFrom}
+        gpIssueTo={gpIssueTo} setGpIssueTo={setGpIssueTo}
+        gpReceivedFrom={gpReceivedFrom} setGpReceivedFrom={setGpReceivedFrom}
+        gpReceivedTo={gpReceivedTo} setGpReceivedTo={setGpReceivedTo}
+        pidIssueFrom={pidIssueFrom} setPidIssueFrom={setPidIssueFrom}
+        pidIssueTo={pidIssueTo} setPidIssueTo={setPidIssueTo}
+        totalFiltered={total} totalAll={employees.filter(e => e.is_active !== false).length}
+        onClearAll={clearFilters}
+      />
 
       {/* Category Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
