@@ -318,7 +318,7 @@ function PillMultiSelect({ icon, label, options, value, onChange, color = 'blue'
         ref={triggerRef}
         onClick={toggle}
         className={cn(
-          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md whitespace-nowrap',
+          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md whitespace-nowrap flex-shrink-0',
           isActive ? cv.active : inactiveBase
         )}
       >
@@ -350,7 +350,7 @@ function PillSingleSelect({ icon, label, value, onChange, options, color = 'slat
   return (
     <div className="relative inline-flex">
       <div className={cn(
-        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md whitespace-nowrap cursor-pointer',
+        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md whitespace-nowrap flex-shrink-0 cursor-pointer',
         isActive ? cv.active : inactiveBase
       )}>
         {icon}
