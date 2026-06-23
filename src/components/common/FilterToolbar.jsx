@@ -105,22 +105,33 @@ export default function FilterToolbar({
       </div>
 
       <div className="px-4 py-3 space-y-2 min-w-0">
-        {/* Row 1 – Dropdown filters */}
-        <div className="flex flex-wrap gap-2 min-w-0">
+        {/* Row 1 – Dropdown filters (full-width grid) */}
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${[
+          companyOptions.length > 0 && setCompanyFilter,
+          departmentOptions.length > 0 && setDepartmentFilter,
+          positionOptions.length > 0 && setPositionFilter,
+          managers.length > 0,
+          locationOptions.length > 0 && setLocationFilter,
+          !!setDirIndirFilter,
+          rlicOptions.length > 0 && setRlicStatusFilter,
+          trainingOptions.length > 0 && setTrainingStatusFilter,
+          pidOptions.length > 0 && setPidStatusFilter,
+          medicalOptions.length > 0 && setMedicalResultFilter,
+        ].filter(Boolean).length}, 1fr)` }}>
           {companyOptions.length > 0 && setCompanyFilter && (
-            <PillMultiSelect icon={<Building2 className="w-3 h-3 text-blue-500" />} label="Company" options={companyOptions} value={companyFilter} onChange={setCompanyFilter} color="blue" />
+            <PillMultiSelect icon={<Building2 className="w-3 h-3 text-blue-500" />} label="Company" options={companyOptions} value={companyFilter} onChange={setCompanyFilter} color="blue" fullWidth />
           )}
           {departmentOptions.length > 0 && setDepartmentFilter && (
-            <PillMultiSelect icon={<LayoutGrid className="w-3 h-3 text-violet-500" />} label="Department" options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} color="violet" />
+            <PillMultiSelect icon={<LayoutGrid className="w-3 h-3 text-violet-500" />} label="Department" options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} color="violet" fullWidth />
           )}
           {positionOptions.length > 0 && setPositionFilter && (
-            <PillMultiSelect icon={<Briefcase className="w-3 h-3 text-indigo-500" />} label="Position" options={positionOptions} value={positionFilter} onChange={setPositionFilter} color="indigo" />
+            <PillMultiSelect icon={<Briefcase className="w-3 h-3 text-indigo-500" />} label="Position" options={positionOptions} value={positionFilter} onChange={setPositionFilter} color="indigo" fullWidth />
           )}
           {managers.length > 0 && (
-            <PillMultiSelect icon={<UserCog className="w-3 h-3 text-purple-500" />} label="Manager" options={managers.map(m => ({ value: m.id, label: m.label }))} value={selectedManagerIds} onChange={managerChange} color="purple" />
+            <PillMultiSelect icon={<UserCog className="w-3 h-3 text-purple-500" />} label="Manager" options={managers.map(m => ({ value: m.id, label: m.label }))} value={selectedManagerIds} onChange={managerChange} color="purple" fullWidth />
           )}
           {locationOptions.length > 0 && setLocationFilter && (
-            <PillMultiSelect icon={<MapPin className="w-3 h-3 text-rose-500" />} label="Location" options={locationOptions} value={locationFilter} onChange={setLocationFilter} color="rose" />
+            <PillMultiSelect icon={<MapPin className="w-3 h-3 text-rose-500" />} label="Location" options={locationOptions} value={locationFilter} onChange={setLocationFilter} color="rose" fullWidth />
           )}
           {setDirIndirFilter && (
             <PillSingleSelect
@@ -130,19 +141,20 @@ export default function FilterToolbar({
               onChange={setDirIndirFilter}
               options={[{ value: '', label: 'All' }, { value: 'DIR', label: 'DIR' }, { value: 'INDIR', label: 'INDIR' }]}
               color="slate"
+              fullWidth
             />
           )}
           {rlicOptions.length > 0 && setRlicStatusFilter && (
-            <PillMultiSelect icon={<CheckCircle2 className="w-3 h-3 text-emerald-500" />} label="Gate Pass" options={rlicOptions} value={rlicStatusFilter} onChange={setRlicStatusFilter} color="emerald" />
+            <PillMultiSelect icon={<CheckCircle2 className="w-3 h-3 text-emerald-500" />} label="Gate Pass" options={rlicOptions} value={rlicStatusFilter} onChange={setRlicStatusFilter} color="emerald" fullWidth />
           )}
           {trainingOptions.length > 0 && setTrainingStatusFilter && (
-            <PillMultiSelect icon={<BookOpen className="w-3 h-3 text-orange-500" />} label="Training" options={trainingOptions} value={trainingStatusFilter} onChange={setTrainingStatusFilter} color="orange" />
+            <PillMultiSelect icon={<BookOpen className="w-3 h-3 text-orange-500" />} label="Training" options={trainingOptions} value={trainingStatusFilter} onChange={setTrainingStatusFilter} color="orange" fullWidth />
           )}
           {pidOptions.length > 0 && setPidStatusFilter && (
-            <PillMultiSelect icon={<CreditCard className="w-3 h-3 text-violet-500" />} label="Project ID" options={pidOptions} value={pidStatusFilter} onChange={setPidStatusFilter} color="violet" />
+            <PillMultiSelect icon={<CreditCard className="w-3 h-3 text-violet-500" />} label="Project ID" options={pidOptions} value={pidStatusFilter} onChange={setPidStatusFilter} color="violet" fullWidth />
           )}
           {medicalOptions.length > 0 && setMedicalResultFilter && (
-            <PillMultiSelect icon={<HeartPulse className="w-3 h-3 text-blue-500" />} label="Medical" options={medicalOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} color="blue" />
+            <PillMultiSelect icon={<HeartPulse className="w-3 h-3 text-blue-500" />} label="Medical" options={medicalOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} color="blue" fullWidth />
           )}
         </div>
 
@@ -250,7 +262,7 @@ function usePortalDropdown() {
 /* ──────────────────────────────────────────────
    PillMultiSelect — portal dropdown
 ────────────────────────────────────────────── */
-function PillMultiSelect({ icon, label, options, value, onChange, color = 'blue' }) {
+function PillMultiSelect({ icon, label, options, value, onChange, color = 'blue', fullWidth = false }) {
   const { triggerRef, open, setOpen, pos, toggle } = usePortalDropdown();
   const [search, setSearch] = useState('');
   const cv = colorVariants[color] || colorVariants.blue;
@@ -318,21 +330,26 @@ function PillMultiSelect({ icon, label, options, value, onChange, color = 'blue'
         ref={triggerRef}
         onClick={toggle}
         className={cn(
-          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md whitespace-nowrap',
+          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md',
+          fullWidth ? 'w-full justify-between' : 'whitespace-nowrap',
           isActive ? cv.active : inactiveBase
         )}
       >
-        {icon}
-        <span>{displayLabel}</span>
-        {isActive && (
-          <span
-            className="ml-0.5 hover:bg-black/10 rounded-full p-0.5"
-            onClick={(e) => { e.stopPropagation(); onChange([]); }}
-          >
-            <X className="w-2.5 h-2.5" />
-          </span>
-        )}
-        <ChevronDown className={cn('w-3 h-3 opacity-50 transition-transform', open && 'rotate-180')} />
+        <span className="flex items-center gap-1.5 min-w-0 truncate">
+          {icon}
+          <span className="truncate">{displayLabel}</span>
+        </span>
+        <span className="flex items-center gap-0.5 flex-shrink-0">
+          {isActive && (
+            <span
+              className="hover:bg-black/10 rounded-full p-0.5"
+              onClick={(e) => { e.stopPropagation(); onChange([]); }}
+            >
+              <X className="w-2.5 h-2.5" />
+            </span>
+          )}
+          <ChevronDown className={cn('w-3 h-3 opacity-50 transition-transform', open && 'rotate-180')} />
+        </span>
       </button>
       {dropdown}
     </>
@@ -342,20 +359,23 @@ function PillMultiSelect({ icon, label, options, value, onChange, color = 'blue'
 /* ──────────────────────────────────────────────
    PillSingleSelect — native select overlay (no portal needed)
 ────────────────────────────────────────────── */
-function PillSingleSelect({ icon, label, value, onChange, options, color = 'slate' }) {
+function PillSingleSelect({ icon, label, value, onChange, options, color = 'slate', fullWidth = false }) {
   const cv = colorVariants[color] || colorVariants.slate;
   const isActive = !!value;
   const displayOpt = options.find(o => o.value === value);
 
   return (
-    <div className="relative inline-flex">
+    <div className={cn('relative', fullWidth ? 'w-full' : 'inline-flex')}>
       <div className={cn(
-        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md whitespace-nowrap cursor-pointer',
+        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm hover:shadow-md cursor-pointer',
+        fullWidth ? 'w-full justify-between' : 'whitespace-nowrap',
         isActive ? cv.active : inactiveBase
       )}>
-        {icon}
-        <span>{isActive ? `${label}: ${displayOpt?.label || value}` : label}</span>
-        <ChevronDown className="w-3 h-3 opacity-50" />
+        <span className="flex items-center gap-1.5 min-w-0 truncate">
+          {icon}
+          <span className="truncate">{isActive ? `${label}: ${displayOpt?.label || value}` : label}</span>
+        </span>
+        <ChevronDown className="w-3 h-3 opacity-50 flex-shrink-0" />
       </div>
       <select
         value={value}
