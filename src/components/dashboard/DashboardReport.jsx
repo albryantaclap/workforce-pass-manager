@@ -298,11 +298,11 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config, 
             <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;min-width:2px"></div>
           </div>
           <div style="display:flex;gap:0;width:144px;flex-shrink:0">
-            <div style="width:36px;text-align:center;font-size:18px;font-weight:700;color:#1e293b">${c.tl}</div>
-            <div style="width:27px;text-align:center;font-size:18px;font-weight:600;color:#2563eb">${c.md}</div>
-            <div style="width:27px;text-align:center;font-size:18px;font-weight:600;color:#059669">${c.gp}</div>
-            <div style="width:27px;text-align:center;font-size:18px;font-weight:600;color:#ea580c">${c.tr}</div>
-            <div style="width:27px;text-align:center;font-size:18px;font-weight:600;color:#7c3aed">${c.pd}</div>
+            <div style="width:36px;text-align:center;font-size:16px;font-weight:700;color:#1e293b">${c.tl}</div>
+            <div style="width:27px;text-align:center;font-size:16px;font-weight:600;color:#2563eb">${c.md}</div>
+            <div style="width:27px;text-align:center;font-size:16px;font-weight:600;color:#059669">${c.gp}</div>
+            <div style="width:27px;text-align:center;font-size:16px;font-weight:600;color:#ea580c">${c.tr}</div>
+            <div style="width:27px;text-align:center;font-size:16px;font-weight:600;color:#7c3aed">${c.pd}</div>
           </div>
         </div>`;
       }).join('');
@@ -335,11 +335,11 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config, 
             <div style="width:${pct}%;height:100%;background:#3b82f6;border-radius:3px;min-width:2px"></div>
           </div>
           <div style="display:flex;gap:0;width:144px;flex-shrink:0">
-            <div style="width:36px;text-align:center;font-size:18px;font-weight:700;color:#1e293b">${p.tl}</div>
-            <div style="width:27px;text-align:center;font-size:18px;font-weight:600;color:#2563eb">${p.md}</div>
-            <div style="width:27px;text-align:center;font-size:18px;font-weight:600;color:#059669">${p.gp}</div>
-            <div style="width:27px;text-align:center;font-size:18px;font-weight:600;color:#ea580c">${p.tr}</div>
-            <div style="width:27px;text-align:center;font-size:18px;font-weight:600;color:#7c3aed">${p.pd}</div>
+            <div style="width:36px;text-align:center;font-size:16px;font-weight:700;color:#1e293b">${p.tl}</div>
+            <div style="width:27px;text-align:center;font-size:16px;font-weight:600;color:#2563eb">${p.md}</div>
+            <div style="width:27px;text-align:center;font-size:16px;font-weight:600;color:#059669">${p.gp}</div>
+            <div style="width:27px;text-align:center;font-size:16px;font-weight:600;color:#ea580c">${p.tr}</div>
+            <div style="width:27px;text-align:center;font-size:16px;font-weight:600;color:#7c3aed">${p.pd}</div>
           </div>
         </div>`;
       }).join('');
