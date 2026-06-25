@@ -87,7 +87,6 @@ export default function Forms() {
           <TabsTrigger value="transmittal">Transmittal Form</TabsTrigger>
           <TabsTrigger value="mobilization">Mobilization Form</TabsTrigger>
           <TabsTrigger value="training">Training Passport</TabsTrigger>
-
         </TabsList>
 
         <TabsContent value="transmittal">
@@ -101,8 +100,6 @@ export default function Forms() {
         <TabsContent value="training">
           <TrainingPassportTab selectedPersonnel={selectedPersonnel} />
         </TabsContent>
-
-
       </Tabs>
 
       <style>{`
