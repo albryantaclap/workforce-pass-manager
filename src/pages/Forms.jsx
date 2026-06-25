@@ -9,6 +9,7 @@ import FormFilters from '@/components/forms/FormFilters';
 import TransmittalFormTab from '@/components/forms/TransmittalFormTab';
 import MobilizationFormTab from '@/components/forms/MobilizationFormTab';
 import TrainingPassportTab from '@/components/forms/TrainingPassportTab';
+import QEMedicalFormTab from '@/components/forms/QEMedicalFormTab';
 
 export default function Forms() {
   const navigate = useNavigate();
@@ -87,6 +88,7 @@ export default function Forms() {
           <TabsTrigger value="transmittal">Transmittal Form</TabsTrigger>
           <TabsTrigger value="mobilization">Mobilization Form</TabsTrigger>
           <TabsTrigger value="training">Training Passport</TabsTrigger>
+          <TabsTrigger value="qemedical">QE Medical Examination Form</TabsTrigger>
         </TabsList>
 
         <TabsContent value="transmittal">
@@ -99,6 +101,10 @@ export default function Forms() {
 
         <TabsContent value="training">
           <TrainingPassportTab selectedPersonnel={selectedPersonnel} />
+        </TabsContent>
+
+        <TabsContent value="qemedical">
+          <QEMedicalFormTab />
         </TabsContent>
       </Tabs>
 
