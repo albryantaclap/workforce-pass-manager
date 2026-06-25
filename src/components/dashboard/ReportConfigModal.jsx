@@ -33,6 +33,7 @@ export const ALL_PERSONNEL_COLUMNS = [
   { id: 'name', label: 'Full Name' },
   { id: 'qid_no', label: 'QID Number' },
   { id: 'pid', label: 'PID Number' },
+  { id: 'qid_expiry', label: 'QID Expiry' },
   { id: 'company', label: 'Company' },
   { id: 'department', label: 'Department' },
   { id: 'designation_org_chart', label: 'Designation / Position' },
