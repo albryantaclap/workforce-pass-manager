@@ -9,13 +9,17 @@ export default function QEMedicalFormTab() {
   const imgRef = useRef(null);
 
   const handlePrint = () => {
-    const win = window.open('', '_blank', 'width=900,height=1100');
+    const win = window.open('', '_blank', 'width=1200,height=1600');
     win.document.write(`<!DOCTYPE html><html><head><title>QE Medical Examination Form</title><style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { background: white; display: flex; justify-content: center; align-items: flex-start; }
-      img { width: 100%; height: auto; display: block; }
-      @media print { @page { margin: 0; } body { margin: 0; } img { width: 100%; } }
-    </style></head><body><img src="${IMAGE_URL}" /><script>setTimeout(()=>window.print(),400);<\/script></body></html>`);
+      body { background: white; }
+      img { width: 100%; height: auto; display: block; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
+      @media print {
+        @page { margin: 0; size: A4 portrait; }
+        body { margin: 0; }
+        img { width: 100%; height: auto; }
+      }
+    </style></head><body><img src="${IMAGE_URL}" onload="setTimeout(()=>window.print(),600)" /></body></html>`);
     win.document.close();
   };
 
