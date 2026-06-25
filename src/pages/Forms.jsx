@@ -104,7 +104,7 @@ export default function Forms() {
         </TabsContent>
 
         <TabsContent value="qemedical">
-          <QEMedicalFormTab />
+          <QEMedicalFormTab employees={employees} selectedPersonnel={selectedPersonnel} />
         </TabsContent>
       </Tabs>
 
