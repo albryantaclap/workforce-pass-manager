@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Printer, Download, Maximize2, X } from 'lucide-react';
 
-const IMAGE_URL = 'https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/c2306ee70_NEWMEDICALFORM_page-0001.jpg';
+const IMAGE_URL = 'https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/2aa4b8d4e_NEWMEDICALFORM_page-0001.jpg';
 
 export default function QEMedicalFormTab() {
   const [fullscreen, setFullscreen] = useState(false);
