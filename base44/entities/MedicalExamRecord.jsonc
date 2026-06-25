@@ -1,0 +1,43 @@
+{
+  "name": "MedicalExamRecord",
+  "type": "object",
+  "properties": {
+    "employee_id": {
+      "type": "string",
+      "description": "ID of the employee"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Name of the employee"
+    },
+    "form_version": {
+      "type": "string",
+      "default": "QE-LNG-v1",
+      "description": "Form version"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email of creator"
+    },
+    "last_updated_by": {
+      "type": "string",
+      "description": "Email of last editor"
+    },
+    "form_data": {
+      "type": "object",
+      "description": "All form field values as JSON"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "completed"
+      ],
+      "default": "draft"
+    }
+  },
+  "required": [
+    "employee_id",
+    "employee_name"
+  ]
+}

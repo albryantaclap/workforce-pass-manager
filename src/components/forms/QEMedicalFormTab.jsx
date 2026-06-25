@@ -1,539 +1,401 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Printer, Download, Save, ChevronDown } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { Printer, Download, Save, CheckCircle, Search } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { useToast } from '@/components/ui/use-toast';
 
-const IMAGE_URL = 'https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/2aa4b8d4e_NEWMEDICALFORM_page-0001.jpg';
+const IMAGE_URL = 'https://media.base44.com/images/public/69ce3261a82ad7bdfb8d8300/67bda378c_NEWMEDICALFORM_page-0001.jpg';
 
-// Form natural dimensions (the image aspect ratio reference)
-const FORM_W = 794;
-const FORM_H = 1123;
+// Reference dimensions of the form image
+const FW = 794;
+const FH = 1123;
 
-function pct(x, y) {
-  return { left: `${(x / FORM_W) * 100}%`, top: `${(y / FORM_H) * 100}%` };
-}
-function pctSize(w, h) {
-  return { width: `${(w / FORM_W) * 100}%`, height: `${(h / FORM_H) * 100}%` };
-}
+const pct = (x, y) => ({ left: `${(x / FW) * 100}%`, top: `${(y / FH) * 100}%` });
+const sz = (w, h) => ({ width: `${(w / FW) * 100}%`, height: `${(h / FH) * 100}%` });
 
-const inputStyle = {
+const baseInput = {
   position: 'absolute',
   background: 'transparent',
   border: 'none',
   outline: 'none',
-  fontSize: '1.1vw',
   fontFamily: 'Arial, sans-serif',
   color: '#000',
   padding: '0 2px',
   lineHeight: 1.2,
 };
 
-function Overlay({ formData, setFormData }) {
-  const cb = (key) => (
-    <input
-      type="checkbox"
-      checked={!!formData[key]}
-      onChange={e => setFormData(p => ({ ...p, [key]: e.target.checked }))}
-      style={{ position: 'absolute', cursor: 'pointer', accentColor: '#000', width: '1.4vw', height: '1.4vw' }}
-    />
-  );
-
-  const txt = (key, x, y, w, h, placeholder = '') => (
+function TextField({ name, x, y, w, h, value, onChange, readOnly, fontSize = '1vw' }) {
+  return (
     <input
       type="text"
-      value={formData[key] || ''}
-      onChange={e => setFormData(p => ({ ...p, [key]: e.target.value }))}
-      placeholder={placeholder}
+      value={value || ''}
+      onChange={e => onChange(name, e.target.value)}
+      readOnly={readOnly}
       style={{
-        ...inputStyle,
+        ...baseInput,
         ...pct(x, y),
-        ...pctSize(w, h),
+        ...sz(w, h),
+        fontSize,
+        cursor: readOnly ? 'default' : 'text',
+        pointerEvents: 'all',
       }}
     />
   );
+}
 
+function CBField({ name, x, y, value, onChange }) {
   return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-      {/* ── Section A Fields ── */}
-
-      {/* Photo box */}
-      {formData._photoUrl && (
-        <img
-          src={formData._photoUrl}
-          alt="photo"
-          style={{ position: 'absolute', objectFit: 'cover', ...pct(14, 91), ...pctSize(94, 108), pointerEvents: 'none' }}
-        />
-      )}
-
-      {/* First Name */}
-      <input type="text" value={formData.firstName || ''} onChange={e => setFormData(p => ({ ...p, firstName: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(158, 88), ...pctSize(230, 16) }} />
-
-      {/* Family Name */}
-      <input type="text" value={formData.familyName || ''} onChange={e => setFormData(p => ({ ...p, familyName: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(470, 88), ...pctSize(180, 16) }} />
-
-      {/* Staff No */}
-      <input type="text" value={formData.staffNo || ''} onChange={e => setFormData(p => ({ ...p, staffNo: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(690, 88), ...pctSize(90, 16) }} />
-
-      {/* DOB */}
-      <input type="text" value={formData.dob || ''} onChange={e => setFormData(p => ({ ...p, dob: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(158, 108), ...pctSize(100, 16) }} />
-
-      {/* Nationality */}
-      <input type="text" value={formData.nationality || ''} onChange={e => setFormData(p => ({ ...p, nationality: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(335, 108), ...pctSize(110, 16) }} />
-
-      {/* QID/Passport */}
-      <input type="text" value={formData.qid || ''} onChange={e => setFormData(p => ({ ...p, qid: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(620, 108), ...pctSize(165, 16) }} />
-
-      {/* Gender checkboxes */}
-      <div style={{ position: 'absolute', pointerEvents: 'all', ...pct(207, 126), ...pctSize(14, 12) }}>
-        <input type="checkbox" checked={formData.genderMale || false} onChange={e => setFormData(p => ({ ...p, genderMale: e.target.checked, genderFemale: false }))}
-          style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-      </div>
-      <div style={{ position: 'absolute', pointerEvents: 'all', ...pct(248, 126), ...pctSize(14, 12) }}>
-        <input type="checkbox" checked={formData.genderFemale || false} onChange={e => setFormData(p => ({ ...p, genderFemale: e.target.checked, genderMale: false }))}
-          style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-      </div>
-
-      {/* Occupation/Position */}
-      <input type="text" value={formData.occupation || ''} onChange={e => setFormData(p => ({ ...p, occupation: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(340, 126), ...pctSize(200, 16) }} />
-
-      {/* Department */}
-      <input type="text" value={formData.department || ''} onChange={e => setFormData(p => ({ ...p, department: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(600, 126), ...pctSize(185, 16) }} />
-
-      {/* Work Location checkboxes: North, South, Barzan, LR, RLTO, RGA, NFB, EPC-3 */}
-      {[
-        { key: 'wlNorth',  x: 190, y: 144 },
-        { key: 'wlSouth',  x: 234, y: 144 },
-        { key: 'wlBarzan', x: 284, y: 144 },
-        { key: 'wlLR',     x: 322, y: 144 },
-        { key: 'wlRLTO',   x: 354, y: 144 },
-        { key: 'wlRGA',    x: 394, y: 144 },
-        { key: 'wlNFB',    x: 432, y: 144 },
-        { key: 'wlEPC3',   x: 474, y: 144 },
-      ].map(({ key, x, y }) => (
-        <div key={key} style={{ position: 'absolute', pointerEvents: 'all', ...pct(x, y), width: '1.6vw', height: '1.6vw' }}>
-          <input type="checkbox" checked={formData[key] || false} onChange={e => setFormData(p => ({ ...p, [key]: e.target.checked }))}
-            style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-        </div>
-      ))}
-
-      {/* Work Location row 2: HQ, QNT, NFE, NFS, NFW */}
-      {[
-        { key: 'wlHQ',  x: 164, y: 161 },
-        { key: 'wlQNT', x: 206, y: 161 },
-        { key: 'wlNFE', x: 248, y: 161 },
-        { key: 'wlNFS', x: 290, y: 161 },
-        { key: 'wlNFW', x: 332, y: 161 },
-      ].map(({ key, x, y }) => (
-        <div key={key} style={{ position: 'absolute', pointerEvents: 'all', ...pct(x, y), width: '1.6vw', height: '1.6vw' }}>
-          <input type="checkbox" checked={formData[key] || false} onChange={e => setFormData(p => ({ ...p, [key]: e.target.checked }))}
-            style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-        </div>
-      ))}
-
-      {/* Work Area: Plant / Non-Plant */}
-      <div style={{ position: 'absolute', pointerEvents: 'all', ...pct(530, 161), width: '1.6vw', height: '1.6vw' }}>
-        <input type="checkbox" checked={formData.waPlant || false} onChange={e => setFormData(p => ({ ...p, waPlant: e.target.checked, waNonPlant: false }))}
-          style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-      </div>
-      <div style={{ position: 'absolute', pointerEvents: 'all', ...pct(602, 161), width: '1.6vw', height: '1.6vw' }}>
-        <input type="checkbox" checked={formData.waNonPlant || false} onChange={e => setFormData(p => ({ ...p, waNonPlant: e.target.checked, waPlant: false }))}
-          style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-      </div>
-
-      {/* Present Address */}
-      <input type="text" value={formData.address || ''} onChange={e => setFormData(p => ({ ...p, address: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(190, 179), ...pctSize(200, 14) }} />
-
-      {/* Contact Number */}
-      <input type="text" value={formData.contact || ''} onChange={e => setFormData(p => ({ ...p, contact: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(500, 179), ...pctSize(110, 14) }} />
-
-      {/* ── Nature of Work ── */}
-      {[
-        { key: 'nowConfined',  x: 109, y: 204 },
-        { key: 'nowHeight',    x: 109, y: 218 },
-        { key: 'nowHanging',   x: 109, y: 232 },
-        { key: 'nowOffice',    x: 248, y: 204 },
-        { key: 'nowDiving',    x: 248, y: 218 },
-        { key: 'nowDriving',   x: 248, y: 232 },
-        { key: 'nowSewage',    x: 418, y: 204 },
-        { key: 'nowFood',      x: 418, y: 218 },
-        { key: 'nowEmergency', x: 570, y: 204 },
-        { key: 'nowIonizing',  x: 570, y: 218 },
-        { key: 'nowOthers',    x: 570, y: 232 },
-      ].map(({ key, x, y }) => (
-        <div key={key} style={{ position: 'absolute', pointerEvents: 'all', ...pct(x, y), width: '1.5vw', height: '1.5vw' }}>
-          <input type="checkbox" checked={formData[key] || false} onChange={e => setFormData(p => ({ ...p, [key]: e.target.checked }))}
-            style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-        </div>
-      ))}
-      {/* Driving sub-options: light vehicle, Bus, Truck, Crane */}
-      {[
-        { key: 'drivLight', x: 280, y: 232 },
-        { key: 'drivBus',   x: 340, y: 232 },
-        { key: 'drivTruck', x: 372, y: 232 },
-        { key: 'drivCrane', x: 404, y: 232 },
-      ].map(({ key, x, y }) => (
-        <div key={key} style={{ position: 'absolute', pointerEvents: 'all', ...pct(x, y), width: '1.5vw', height: '1.5vw' }}>
-          <input type="checkbox" checked={formData[key] || false} onChange={e => setFormData(p => ({ ...p, [key]: e.target.checked }))}
-            style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-        </div>
-      ))}
-
-      {/* ── Vaccination History ── */}
-      {[
-        { key: 'vacHepA',    x: 109, y: 258 },
-        { key: 'vacHepB',    x: 330, y: 258 },
-        { key: 'vacTetanus', x: 555, y: 258 },
-      ].map(({ key, x, y }) => (
-        <div key={key} style={{ position: 'absolute', pointerEvents: 'all', ...pct(x, y), width: '1.5vw', height: '1.5vw' }}>
-          <input type="checkbox" checked={formData[key] || false} onChange={e => setFormData(p => ({ ...p, [key]: e.target.checked }))}
-            style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-        </div>
-      ))}
-      {/* Covid brand name */}
-      <input type="text" value={formData.covidBrand || ''} onChange={e => setFormData(p => ({ ...p, covidBrand: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(185, 272), ...pctSize(100, 14) }} />
-
-      {/* ── Medical History ── */}
-      {[
-        { key: 'mhBlood',      x: 109, y: 310 },
-        { key: 'mhPeptic',     x: 109, y: 324 },
-        { key: 'mhEpilepsy',   x: 109, y: 338 },
-        { key: 'mhWork',       x: 109, y: 352 },
-        { key: 'mhEar',        x: 109, y: 366 },
-        { key: 'mhHeadache',   x: 109, y: 380 },
-        { key: 'mhAbdominal',  x: 109, y: 394 },
-        { key: 'mhSkin',       x: 109, y: 408 },
-        { key: 'mhMusculo',    x: 109, y: 422 },
-        { key: 'mhMental',     x: 109, y: 436 },
-        { key: 'mhCNS',        x: 284, y: 310 },
-        { key: 'mhHeart',      x: 284, y: 324 },
-        { key: 'mhHBP',        x: 284, y: 338 },
-        { key: 'mhDiabetes',   x: 284, y: 352 },
-        { key: 'mhKidney',     x: 284, y: 366 },
-        { key: 'mhRheum',      x: 284, y: 380 },
-        { key: 'mhFainting',   x: 284, y: 394 },
-        { key: 'mhVascular',   x: 284, y: 408 },
-        { key: 'mhHepatitis',  x: 284, y: 422 },
-        { key: 'mhEye',        x: 284, y: 436 },
-        { key: 'mhChest',      x: 462, y: 310 },
-        { key: 'mhSexual',     x: 462, y: 324 },
-        { key: 'mhCancer',     x: 462, y: 338 },
-        { key: 'mhMajor',      x: 462, y: 352 },
-        { key: 'mhThyroid',    x: 462, y: 366 },
-        { key: 'mhPregnancy',  x: 462, y: 380 },
-        { key: 'mhDrug',       x: 462, y: 394 },
-        { key: 'mhTobacco',    x: 462, y: 408 },
-        { key: 'mhHospital',   x: 462, y: 422 },
-        { key: 'mhOthers',     x: 462, y: 436 },
-      ].map(({ key, x, y }) => (
-        <div key={key} style={{ position: 'absolute', pointerEvents: 'all', ...pct(x, y), width: '1.5vw', height: '1.5vw' }}>
-          <input type="checkbox" checked={formData[key] || false} onChange={e => setFormData(p => ({ ...p, [key]: e.target.checked }))}
-            style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-        </div>
-      ))}
-
-      {/* ── Section B – Biometrics ── */}
-      {[
-        { key: 'colorNormal', x: 539, y: 518 },
-        { key: 'colorPartial', x: 612, y: 518 },
-        { key: 'colorTotal',   x: 676, y: 518 },
-      ].map(({ key, x, y }) => (
-        <div key={key} style={{ position: 'absolute', pointerEvents: 'all', ...pct(x, y), width: '1.5vw', height: '1.5vw' }}>
-          <input type="checkbox" checked={formData[key] || false} onChange={e => setFormData(p => ({ ...p, [key]: e.target.checked }))}
-            style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-        </div>
-      ))}
-      <input type="text" value={formData.bp || ''} onChange={e => setFormData(p => ({ ...p, bp: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(168, 518), ...pctSize(60, 14) }} />
-      <input type="text" value={formData.height || ''} onChange={e => setFormData(p => ({ ...p, height: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(305, 518), ...pctSize(50, 14) }} />
-      <input type="text" value={formData.pr || ''} onChange={e => setFormData(p => ({ ...p, pr: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(168, 534), ...pctSize(60, 14) }} />
-      <input type="text" value={formData.weight || ''} onChange={e => setFormData(p => ({ ...p, weight: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(305, 534), ...pctSize(50, 14) }} />
-
-      {/* ── Test Results ── */}
-      {[
-        { key: 'vaUncorrected', x: 536, y: 537 },
-        { key: 'vaCorrected',   x: 536, y: 551 },
-        { key: 'ecoNormal',     x: 702, y: 567 },
-        { key: 'ecoAbnormal',   x: 742, y: 567 },
-        { key: 'spirNormal',    x: 304, y: 567 },
-        { key: 'spirAbnormal',  x: 344, y: 567 },
-      ].map(({ key, x, y }) => (
-        <div key={key} style={{ position: 'absolute', pointerEvents: 'all', ...pct(x, y), width: '1.5vw', height: '1.5vw' }}>
-          <input type="checkbox" checked={formData[key] || false} onChange={e => setFormData(p => ({ ...p, [key]: e.target.checked }))}
-            style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-        </div>
-      ))}
-      <input type="text" value={formData.rbs || ''} onChange={e => setFormData(p => ({ ...p, rbs: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(168, 551), ...pctSize(60, 14) }} />
-      <input type="text" value={formData.bloodGroup || ''} onChange={e => setFormData(p => ({ ...p, bloodGroup: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(168, 567), ...pctSize(60, 14) }} />
-      <input type="text" value={formData.bmi || ''} onChange={e => setFormData(p => ({ ...p, bmi: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(290, 551), ...pctSize(50, 14) }} />
-
-      {/* ── Physical Examination ── */}
-      {/* Left column */}
-      {[
-        { kN: 'peEyesN', kA: 'peEyesA', y: 621 },
-        { kN: 'peENTN',  kA: 'peENTA',  y: 635 },
-        { kN: 'peOralN', kA: 'peOralA', y: 649 },
-        { kN: 'peHeadN', kA: 'peHeadA', y: 663 },
-        { kN: 'peLungsN',kA: 'peLungsA', y: 677 },
-        { kN: 'peCardN', kA: 'peCardA',  y: 691 },
-        { kN: 'peAbdN',  kA: 'peAbdA',   y: 705 },
-      ].map(({ kN, kA, y }) => (
-        <React.Fragment key={kN}>
-          <div style={{ position: 'absolute', pointerEvents: 'all', ...pct(237, y), width: '1.5vw', height: '1.5vw' }}>
-            <input type="checkbox" checked={formData[kN] || false} onChange={e => setFormData(p => ({ ...p, [kN]: e.target.checked, [kA]: false }))}
-              style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-          </div>
-          <div style={{ position: 'absolute', pointerEvents: 'all', ...pct(275, y), width: '1.5vw', height: '1.5vw' }}>
-            <input type="checkbox" checked={formData[kA] || false} onChange={e => setFormData(p => ({ ...p, [kA]: e.target.checked, [kN]: false }))}
-              style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-          </div>
-        </React.Fragment>
-      ))}
-      {/* Right column */}
-      {[
-        { kN: 'peHernN', kA: 'peHernA', y: 621 },
-        { kN: 'peNeurN', kA: 'peNeurA', y: 635 },
-        { kN: 'peExtrN', kA: 'peExtrA', y: 649 },
-        { kN: 'peMuscN', kA: 'peMuscA', y: 663 },
-        { kN: 'peSkinN', kA: 'peSkinA', y: 677 },
-        { kN: 'peMentN', kA: 'peMentA', y: 691 },
-        { kN: 'peOthN',  kA: 'peOthA',  y: 705 },
-      ].map(({ kN, kA, y }) => (
-        <React.Fragment key={kN}>
-          <div style={{ position: 'absolute', pointerEvents: 'all', ...pct(622, y), width: '1.5vw', height: '1.5vw' }}>
-            <input type="checkbox" checked={formData[kN] || false} onChange={e => setFormData(p => ({ ...p, [kN]: e.target.checked, [kA]: false }))}
-              style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-          </div>
-          <div style={{ position: 'absolute', pointerEvents: 'all', ...pct(660, y), width: '1.5vw', height: '1.5vw' }}>
-            <input type="checkbox" checked={formData[kA] || false} onChange={e => setFormData(p => ({ ...p, [kA]: e.target.checked, [kN]: false }))}
-              style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-          </div>
-        </React.Fragment>
-      ))}
-
-      {/* ── Section C – Fitness Assessment ── */}
-      {[
-        { key: 'fitAssigned',     y: 769 },
-        { key: 'fitConditions',   y: 783 },
-        { key: 'fitUnfit',        y: 797 },
-        { key: 'fitReassess',     y: 811 },
-      ].map(({ key, y }) => (
-        <div key={key} style={{ position: 'absolute', pointerEvents: 'all', ...pct(109, y), width: '1.5vw', height: '1.5vw' }}>
-          <input type="checkbox" checked={formData[key] || false}
-            onChange={e => {
-              const keys = ['fitAssigned', 'fitConditions', 'fitUnfit', 'fitReassess'];
-              setFormData(p => {
-                const next = { ...p };
-                keys.forEach(k => next[k] = false);
-                next[key] = e.target.checked;
-                return next;
-              });
-            }}
-            style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }} />
-        </div>
-      ))}
-
-      {/* Remarks */}
-      <textarea value={formData.remarks || ''} onChange={e => setFormData(p => ({ ...p, remarks: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(222, 766), ...pctSize(250, 60), resize: 'none', fontSize: '0.9vw', lineHeight: 1.4 }} />
-
-      {/* Medication */}
-      <textarea value={formData.medication || ''} onChange={e => setFormData(p => ({ ...p, medication: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(548, 766), ...pctSize(235, 60), resize: 'none', fontSize: '0.9vw', lineHeight: 1.4 }} />
-
-      {/* Certified by / Date */}
-      <input type="text" value={formData.certifiedBy || ''} onChange={e => setFormData(p => ({ ...p, certifiedBy: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(110, 837), ...pctSize(120, 14) }} />
-      <input type="text" value={formData.certDate || ''} onChange={e => setFormData(p => ({ ...p, certDate: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(700, 837), ...pctSize(80, 14) }} />
-
-      {/* Declaration date / signature */}
-      <input type="text" value={formData.declDate || ''} onChange={e => setFormData(p => ({ ...p, declDate: e.target.value }))}
-        style={{ ...inputStyle, pointerEvents: 'all', ...pct(110, 474), ...pctSize(100, 14) }} />
+    <div style={{ position: 'absolute', ...pct(x, y), width: '1.7vw', height: '1.7vw', pointerEvents: 'all' }}>
+      <input
+        type="checkbox"
+        checked={!!value}
+        onChange={e => onChange(name, e.target.checked)}
+        style={{ cursor: 'pointer', accentColor: '#000', width: '100%', height: '100%' }}
+      />
     </div>
   );
 }
 
+function TextArea({ name, x, y, w, h, value, onChange, fontSize = '0.8vw' }) {
+  return (
+    <textarea
+      value={value || ''}
+      onChange={e => onChange(name, e.target.value)}
+      style={{
+        ...baseInput,
+        ...pct(x, y),
+        ...sz(w, h),
+        fontSize,
+        resize: 'none',
+        overflow: 'hidden',
+        pointerEvents: 'all',
+      }}
+    />
+  );
+}
+
+function Overlay({ fd, set, readOnly }) {
+  const f = (name, x, y, w, h, fs) => (
+    <TextField key={name} name={name} x={x} y={y} w={w} h={h} value={fd[name]} onChange={set} readOnly={readOnly[name]} fontSize={fs} />
+  );
+  const cb = (name, x, y) => (
+    <CBField key={name} name={name} x={x} y={y} value={fd[name]} onChange={set} />
+  );
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      {/* Photo */}
+      {fd._photoUrl && (
+        <img src={fd._photoUrl} alt="" style={{ position: 'absolute', objectFit: 'cover', ...pct(14, 90), ...sz(93, 110), pointerEvents: 'none', borderRadius: 2 }} />
+      )}
+
+      {/* Row 1: First Name, Family Name, Staff No */}
+      {f('firstName',  157, 88, 228, 16, '1vw')}
+      {f('familyName', 468, 88, 178, 16, '1vw')}
+      {f('staffNo',    690, 88, 95,  16, '1vw')}
+
+      {/* Row 2: DOB, Nationality, QID */}
+      {f('dob',         157, 106, 100, 16, '0.95vw')}
+      {f('nationality', 330, 106, 115, 16, '0.95vw')}
+      {f('qid',         618, 106, 168, 16, '0.95vw')}
+
+      {/* Row 3: Gender, Occupation, Department */}
+      {cb('genderMale',   204, 124)}
+      {cb('genderFemale', 245, 124)}
+      {f('occupation', 338, 124, 200, 16, '0.9vw')}
+      {f('department', 595, 124, 192, 16, '0.9vw')}
+
+      {/* Work Location row 1 */}
+      {cb('wlNorth',  188, 141)}
+      {cb('wlSouth',  233, 141)}
+      {cb('wlBarzan', 281, 141)}
+      {cb('wlLR',     321, 141)}
+      {cb('wlRLTO',   352, 141)}
+      {cb('wlRGA',    393, 141)}
+      {cb('wlNFB',    430, 141)}
+      {cb('wlEPC3',   472, 141)}
+
+      {/* Work Location row 2 */}
+      {cb('wlHQ',  162, 158)}
+      {cb('wlQNT', 203, 158)}
+      {cb('wlNFE', 246, 158)}
+      {cb('wlNFS', 288, 158)}
+      {cb('wlNFW', 330, 158)}
+
+      {/* Work Area */}
+      {cb('waPlant',    530, 158)}
+      {cb('waNonPlant', 600, 158)}
+
+      {/* Present Address, Contact */}
+      {f('address', 188, 176, 206, 14, '0.85vw')}
+      {f('contact', 496, 176, 116, 14, '0.85vw')}
+
+      {/* Nature of Work */}
+      {cb('nowConfined',   107, 202)} {cb('nowOffice',    246, 202)} {cb('nowSewage',  416, 202)} {cb('nowEmergency', 569, 202)}
+      {cb('nowHeight',     107, 216)} {cb('nowDiving',    246, 216)} {cb('nowFood',    416, 216)} {cb('nowIonizing',  569, 216)}
+      {cb('nowHanging',    107, 230)} {cb('nowDriving',   246, 230)}                              {cb('nowOthers',    569, 230)}
+      {cb('drivLight', 278, 230)} {cb('drivBus', 336, 230)} {cb('drivTruck', 368, 230)} {cb('drivCrane', 402, 230)}
+
+      {/* Vaccination */}
+      {cb('vacHepA',    107, 256)}
+      {cb('vacHepB',    328, 256)}
+      {cb('vacTetanus', 554, 256)}
+      {f('covidBrand', 183, 270, 100, 14, '0.8vw')}
+      {f('dose1Date',  360, 270, 80,  14, '0.8vw')}
+      {f('dose2Date',  496, 270, 80,  14, '0.8vw')}
+      {f('dose3Date',  640, 270, 80,  14, '0.8vw')}
+
+      {/* Medical History – left col */}
+      {[['mhBlood',107,308],['mhPeptic',107,322],['mhEpilepsy',107,336],['mhWork',107,350],['mhEar',107,364],
+        ['mhHeadache',107,378],['mhAbdominal',107,392],['mhSkin',107,406],['mhMusculo',107,420],['mhMental',107,434]
+      ].map(([n,x,y]) => cb(n,x,y))}
+
+      {/* Medical History – mid col */}
+      {[['mhCNS',282,308],['mhHeart',282,322],['mhHBP',282,336],['mhDiabetes',282,350],['mhKidney',282,364],
+        ['mhRheum',282,378],['mhFainting',282,392],['mhVascular',282,406],['mhHepatitis',282,420],['mhEye',282,434]
+      ].map(([n,x,y]) => cb(n,x,y))}
+
+      {/* Medical History – right col */}
+      {[['mhChest',459,308],['mhSexual',459,322],['mhCancer',459,336],['mhMajor',459,350],['mhThyroid',459,364],
+        ['mhPregnancy',459,378],['mhDrug',459,392],['mhTobacco',459,406],['mhHospital',459,420],['mhOthers',459,434]
+      ].map(([n,x,y]) => cb(n,x,y))}
+
+      {/* Declaration Date */}
+      {f('declDate', 107, 473, 110, 14, '0.9vw')}
+
+      {/* Section B – Biometrics */}
+      {f('bp',     162, 514, 62, 14, '0.9vw')}
+      {f('height', 300, 514, 52, 14, '0.9vw')}
+      {f('pr',     162, 530, 62, 14, '0.9vw')}
+      {f('weight', 300, 530, 52, 14, '0.9vw')}
+      {f('rbs',    162, 546, 62, 14, '0.9vw')}
+      {f('bmi',    287, 546, 52, 14, '0.9vw')}
+      {f('bloodGroup', 162, 562, 62, 14, '0.9vw')}
+
+      {/* Color Vision */}
+      {cb('colorNormal',  536, 514)}
+      {cb('colorPartial', 608, 514)}
+      {cb('colorTotal',   674, 514)}
+
+      {/* Visual Acuity */}
+      {cb('vaUncorrected', 533, 533)}
+      {cb('vaCorrected',   533, 547)}
+
+      {/* Spirometry / ECG */}
+      {cb('spirNormal',   300, 563)} {cb('spirAbnormal', 340, 563)}
+      {cb('ecoNormal',    700, 563)} {cb('ecoAbnormal',  740, 563)}
+
+      {/* Physical Exam – left */}
+      {[['peEyes',107,619],['peENT',107,633],['peOral',107,647],['peHead',107,661],
+        ['peLungs',107,675],['peCard',107,689],['peAbd',107,703]
+      ].map(([n,x,y]) => (
+        <React.Fragment key={n}>
+          {cb(n+'N', x+130, y)}
+          {cb(n+'A', x+168, y)}
+        </React.Fragment>
+      ))}
+
+      {/* Physical Exam – right */}
+      {[['peHern',459,619],['peNeur',459,633],['peExtr',459,647],['peMusc',459,661],
+        ['peSkin',459,675],['peMent',459,689],['peOth', 459,703]
+      ].map(([n,x,y]) => (
+        <React.Fragment key={n}>
+          {cb(n+'N', x+160, y)}
+          {cb(n+'A', x+198, y)}
+        </React.Fragment>
+      ))}
+
+      {/* Section C Fitness */}
+      {cb('fitAssigned',   107, 766)}
+      {cb('fitConditions', 107, 780)}
+      {cb('fitUnfit',      107, 794)}
+      {cb('fitReassess',   107, 808)}
+
+      {/* Remarks & Medication */}
+      <TextArea name="remarks"    x={220} y={764} w={248} h={58} value={fd.remarks}    onChange={set} />
+      <TextArea name="medication" x={544} y={764} w={238} h={58} value={fd.medication} onChange={set} />
+
+      {/* Certified by, Signature, Date */}
+      {f('certifiedBy', 107, 835, 120, 14, '0.9vw')}
+      {f('certSig',     320, 835, 200, 14, '0.9vw')}
+      {f('certDate',    698, 835, 88,  14, '0.9vw')}
+    </div>
+  );
+}
+
+const AUTO_FILL_KEYS = ['firstName','familyName','staffNo','dob','nationality','qid','occupation','department','contact','address','genderMale','genderFemale','_photoUrl'];
+
 export default function QEMedicalFormTab({ employees: propEmployees = [], selectedPersonnel = [] }) {
-  const formRef = useRef(null);
-  const [selectedId, setSelectedId] = useState('');
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [selectedEmpId, setSelectedEmpId] = useState('');
+  const [recordId, setRecordId] = useState(null);
   const [formData, setFormData] = useState({});
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [empSearch, setEmpSearch] = useState('');
 
   const { data: fetchedEmployees = [] } = useQuery({
     queryKey: ['employees-active-medical'],
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, 'name', 10000),
     enabled: propEmployees.length === 0,
   });
-
   const employees = propEmployees.length > 0 ? propEmployees : fetchedEmployees;
 
-  // Auto-select first from selectedPersonnel if available
+  // Existing records for selected employee
+  const { data: existingRecords = [] } = useQuery({
+    queryKey: ['medical-records', selectedEmpId],
+    queryFn: () => base44.entities.MedicalExamRecord.filter({ employee_id: selectedEmpId }),
+    enabled: !!selectedEmpId,
+  });
+
+  // Pre-select first from selectedPersonnel
   useEffect(() => {
-    if (selectedPersonnel.length > 0 && !selectedId) {
-      setSelectedId(selectedPersonnel[0].id);
+    if (selectedPersonnel.length > 0 && !selectedEmpId) {
+      setSelectedEmpId(selectedPersonnel[0].id);
     }
   }, [selectedPersonnel]);
 
   // Auto-fill when employee selected
   useEffect(() => {
-    if (!selectedId) { setFormData({}); return; }
-    const emp = employees.find(e => e.id === selectedId);
+    if (!selectedEmpId) { setFormData({}); setRecordId(null); return; }
+
+    // If existing record found, restore it
+    if (existingRecords.length > 0) {
+      const rec = existingRecords[0];
+      setRecordId(rec.id);
+      setFormData(rec.form_data || {});
+      return;
+    }
+
+    // Otherwise auto-fill from employee
+    const emp = employees.find(e => e.id === selectedEmpId);
     if (!emp) return;
-
     const nameParts = (emp.name || '').trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const familyName = nameParts.slice(1).join(' ') || '';
-
+    setRecordId(null);
     setFormData({
-      firstName,
-      familyName,
-      staffNo: emp.staff_no || emp.qid_no || '',
-      dob: emp.dob || '',
+      firstName:   nameParts[0] || '',
+      familyName:  nameParts.slice(1).join(' ') || '',
+      staffNo:     emp.staff_no || emp.qid_no || '',
+      dob:         emp.dob || '',
       nationality: emp.nationality || '',
-      qid: emp.qid_no || emp.pp_no || '',
-      occupation: emp.position_application || emp.designation_org_chart || '',
-      department: emp.department || '',
-      contact: emp.contact_details || '',
-      address: emp.current_location === 'QATAR' ? 'DOHA, QATAR' : emp.current_location || '',
-      _photoUrl: emp.photo_url || '',
+      qid:         emp.qid_no || emp.pp_no || '',
+      occupation:  emp.position_application || emp.designation_org_chart || '',
+      department:  emp.department || '',
+      contact:     emp.contact_details || '',
+      address:     emp.current_location === 'QATAR' ? 'DOHA, QATAR' : (emp.current_location || ''),
+      _photoUrl:   emp.photo_url || '',
     });
-  }, [selectedId, employees]);
+  }, [selectedEmpId, existingRecords]);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const setField = (name, value) => setFormData(p => ({ ...p, [name]: value }));
+
+  // readOnly map – auto-filled personal fields are locked
+  const readOnly = AUTO_FILL_KEYS.reduce((acc, k) => { acc[k] = !!selectedEmpId; return acc; }, {});
+
+  const handleSave = async () => {
+    if (!selectedEmpId) { toast({ title: 'Select a personnel first', variant: 'destructive' }); return; }
+    setSaving(true);
+    const emp = employees.find(e => e.id === selectedEmpId);
+    const payload = {
+      employee_id:   selectedEmpId,
+      employee_name: emp?.name || '',
+      form_version:  'QE-LNG-v1',
+      form_data:     formData,
+      status:        'draft',
+    };
+    try {
+      if (recordId) {
+        await base44.entities.MedicalExamRecord.update(recordId, payload);
+      } else {
+        const rec = await base44.entities.MedicalExamRecord.create(payload);
+        setRecordId(rec.id);
+      }
+      qc.invalidateQueries(['medical-records', selectedEmpId]);
+      toast({ title: 'Form saved successfully' });
+    } catch (e) {
+      toast({ title: 'Save failed', description: e.message, variant: 'destructive' });
+    }
+    setSaving(false);
   };
 
   const buildPrintHTML = () => {
     const fd = formData;
+    const chk = (v) => v ? '<span style="font-size:12px;font-weight:bold;color:#000">✓</span>' : '';
+    const esc = (s) => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-    // Helper to build checkbox mark
-    const chk = (val) => val ? '✓' : '';
+    const fieldSpan = (val, l, t, w, fs = 10) =>
+      `<span style="position:absolute;left:${l}%;top:${t}%;width:${w}%;font-family:Arial,sans-serif;font-size:${fs}px;color:#000;overflow:hidden;white-space:nowrap">${esc(val)}</span>`;
+    const chkSpan = (val, l, t) =>
+      `<span style="position:absolute;left:${l}%;top:${t}%;font-size:11px;font-weight:bold;color:#000">${chk(val)}</span>`;
 
-    // We'll print the image as background and overlay text/checkmarks using absolute positioning
-    return `<!DOCTYPE html>
-<html>
-<head>
-<title>QE Medical Examination Form</title>
+    const p = (x, y) => [(x/FW*100).toFixed(2), (y/FH*100).toFixed(2)];
+
+    const rows = (items) => items.map(([k,x,y]) => chkSpan(fd[k], ...p(x,y))).join('');
+
+    return `<!DOCTYPE html><html><head><title>QE Medical Examination Form</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: white; }
-  .page { position: relative; width: 794px; margin: 0 auto; }
-  .page img { width: 794px; height: auto; display: block; }
-  .field { position: absolute; font-family: Arial, sans-serif; font-size: 10px; color: #000; white-space: nowrap; overflow: hidden; }
-  .chk { position: absolute; font-size: 11px; font-weight: bold; color: #000; }
-  @media print {
-    @page { margin: 0; size: A4 portrait; }
-    body { margin: 0; }
-    .page { width: 100%; }
-    .page img { width: 100%; }
-  }
-</style>
-</head>
-<body>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:white}
+  .page{position:relative;width:794px;margin:0 auto}
+  .page>img{width:794px;height:auto;display:block}
+  @media print{@page{margin:0;size:A4 portrait} body{margin:0} .page{width:100%} .page>img{width:100%}}
+</style></head><body>
 <div class="page">
-  <img src="${IMAGE_URL}" />
-  ${fd._photoUrl ? `<img src="${fd._photoUrl}" style="position:absolute;left:1.8%;top:8.1%;width:11.8%;height:9.6%;object-fit:cover;" />` : ''}
-  <span class="field" style="left:19.8%;top:7.8%;width:29%">${fd.firstName || ''}</span>
-  <span class="field" style="left:59%;top:7.8%;width:22%">${fd.familyName || ''}</span>
-  <span class="field" style="left:86.7%;top:7.8%;width:12%">${fd.staffNo || ''}</span>
-  <span class="field" style="left:19.8%;top:9.6%;width:13%">${fd.dob || ''}</span>
-  <span class="field" style="left:42%;top:9.6%;width:14%">${fd.nationality || ''}</span>
-  <span class="field" style="left:77.9%;top:9.6%;width:21%">${fd.qid || ''}</span>
-  <span class="chk" style="left:26%;top:11.2%">${chk(fd.genderMale)}</span>
-  <span class="chk" style="left:31.2%;top:11.2%">${chk(fd.genderFemale)}</span>
-  <span class="field" style="left:42.8%;top:11.2%;width:25%">${fd.occupation || ''}</span>
-  <span class="field" style="left:75.5%;top:11.2%;width:24%">${fd.department || ''}</span>
-  <span class="chk" style="left:23.9%;top:12.8%">${chk(fd.wlNorth)}</span>
-  <span class="chk" style="left:29.5%;top:12.8%">${chk(fd.wlSouth)}</span>
-  <span class="chk" style="left:35.7%;top:12.8%">${chk(fd.wlBarzan)}</span>
-  <span class="chk" style="left:40.5%;top:12.8%">${chk(fd.wlLR)}</span>
-  <span class="chk" style="left:44.5%;top:12.8%">${chk(fd.wlRLTO)}</span>
-  <span class="chk" style="left:49.6%;top:12.8%">${chk(fd.wlRGA)}</span>
-  <span class="chk" style="left:54.4%;top:12.8%">${chk(fd.wlNFB)}</span>
-  <span class="chk" style="left:59.6%;top:12.8%">${chk(fd.wlEPC3)}</span>
-  <span class="chk" style="left:20.7%;top:14.3%">${chk(fd.wlHQ)}</span>
-  <span class="chk" style="left:25.9%;top:14.3%">${chk(fd.wlQNT)}</span>
-  <span class="chk" style="left:31.2%;top:14.3%">${chk(fd.wlNFE)}</span>
-  <span class="chk" style="left:36.5%;top:14.3%">${chk(fd.wlNFS)}</span>
-  <span class="chk" style="left:41.8%;top:14.3%">${chk(fd.wlNFW)}</span>
-  <span class="chk" style="left:66.7%;top:14.3%">${chk(fd.waPlant)}</span>
-  <span class="chk" style="left:75.7%;top:14.3%">${chk(fd.waNonPlant)}</span>
-  <span class="field" style="left:23.9%;top:15.9%;width:25%">${fd.address || ''}</span>
-  <span class="field" style="left:63%;top:15.9%;width:14%">${fd.contact || ''}</span>
-  <span class="chk" style="left:13.7%;top:18.1%">${chk(fd.nowConfined)}</span>
-  <span class="chk" style="left:13.7%;top:19.4%">${chk(fd.nowHeight)}</span>
-  <span class="chk" style="left:13.7%;top:20.7%">${chk(fd.nowHanging)}</span>
-  <span class="chk" style="left:31.2%;top:18.1%">${chk(fd.nowOffice)}</span>
-  <span class="chk" style="left:31.2%;top:19.4%">${chk(fd.nowDiving)}</span>
-  <span class="chk" style="left:31.2%;top:20.7%">${chk(fd.nowDriving)}</span>
-  <span class="chk" style="left:52.6%;top:18.1%">${chk(fd.nowSewage)}</span>
-  <span class="chk" style="left:52.6%;top:19.4%">${chk(fd.nowFood)}</span>
-  <span class="chk" style="left:71.7%;top:18.1%">${chk(fd.nowEmergency)}</span>
-  <span class="chk" style="left:71.7%;top:19.4%">${chk(fd.nowIonizing)}</span>
-  <span class="chk" style="left:71.7%;top:20.7%">${chk(fd.nowOthers)}</span>
-  <span class="chk" style="left:13.7%;top:22.9%">${chk(fd.vacHepA)}</span>
-  <span class="chk" style="left:41.5%;top:22.9%">${chk(fd.vacHepB)}</span>
-  <span class="chk" style="left:69.9%;top:22.9%">${chk(fd.vacTetanus)}</span>
-  <span class="field" style="left:23.3%;top:24.2%;width:13%">${fd.covidBrand || ''}</span>
-  ${['mhBlood','mhPeptic','mhEpilepsy','mhWork','mhEar','mhHeadache','mhAbdominal','mhSkin','mhMusculo','mhMental'].map((k, i) =>
-    `<span class="chk" style="left:13.7%;top:${27.6 + i * 1.26}%">${chk(fd[k])}</span>`).join('')}
-  ${['mhCNS','mhHeart','mhHBP','mhDiabetes','mhKidney','mhRheum','mhFainting','mhVascular','mhHepatitis','mhEye'].map((k, i) =>
-    `<span class="chk" style="left:35.8%;top:${27.6 + i * 1.26}%">${chk(fd[k])}</span>`).join('')}
-  ${['mhChest','mhSexual','mhCancer','mhMajor','mhThyroid','mhPregnancy','mhDrug','mhTobacco','mhHospital','mhOthers'].map((k, i) =>
-    `<span class="chk" style="left:58.2%;top:${27.6 + i * 1.26}%">${chk(fd[k])}</span>`).join('')}
-  <span class="field" style="left:21.2%;top:46.1%;width:7.5%">${fd.bp || ''}</span>
-  <span class="field" style="left:38.4%;top:46.1%;width:6.3%">${fd.height || ''}</span>
-  <span class="field" style="left:21.2%;top:47.5%;width:7.5%">${fd.pr || ''}</span>
-  <span class="field" style="left:38.4%;top:47.5%;width:6.3%">${fd.weight || ''}</span>
-  <span class="field" style="left:21.2%;top:48.9%;width:7.5%">${fd.rbs || ''}</span>
-  <span class="field" style="left:36.5%;top:48.9%;width:6.3%">${fd.bmi || ''}</span>
-  <span class="field" style="left:21.2%;top:50.3%;width:7.5%">${fd.bloodGroup || ''}</span>
-  <span class="chk" style="left:67.9%;top:46.1%">${chk(fd.colorNormal)}</span>
-  <span class="chk" style="left:77%;top:46.1%">${chk(fd.colorPartial)}</span>
-  <span class="chk" style="left:85.1%;top:46.1%">${chk(fd.colorTotal)}</span>
-  <span class="chk" style="left:67.5%;top:47.7%">${chk(fd.vaUncorrected)}</span>
-  <span class="chk" style="left:67.5%;top:49%">${chk(fd.vaCorrected)}</span>
-  <span class="chk" style="left:38.3%;top:50.4%">${chk(fd.spirNormal)}</span>
-  <span class="chk" style="left:43.3%;top:50.4%">${chk(fd.spirAbnormal)}</span>
-  <span class="chk" style="left:88.4%;top:50.4%">${chk(fd.ecoNormal)}</span>
-  <span class="chk" style="left:93.4%;top:50.4%">${chk(fd.ecoAbnormal)}</span>
-  ${[['peEyesN','peEyesA'],['peENTN','peENTA'],['peOralN','peOralA'],['peHeadN','peHeadA'],['peLungsN','peLungsA'],['peCardN','peCardA'],['peAbdN','peAbdA']].map(([kN,kA], i) =>
-    `<span class="chk" style="left:29.8%;top:${55.3 + i * 1.26}%">${chk(fd[kN])}</span><span class="chk" style="left:34.6%;top:${55.3 + i * 1.26}%">${chk(fd[kA])}</span>`).join('')}
-  ${[['peHernN','peHernA'],['peNeurN','peNeurA'],['peExtrN','peExtrA'],['peMuscN','peMuscA'],['peSkinN','peSkinA'],['peMentN','peMentA'],['peOthN','peOthA']].map(([kN,kA], i) =>
-    `<span class="chk" style="left:78.4%;top:${55.3 + i * 1.26}%">${chk(fd[kN])}</span><span class="chk" style="left:83.1%;top:${55.3 + i * 1.26}%">${chk(fd[kA])}</span>`).join('')}
-  <span class="chk" style="left:13.7%;top:68.4%">${chk(fd.fitAssigned)}</span>
-  <span class="chk" style="left:13.7%;top:69.7%">${chk(fd.fitConditions)}</span>
-  <span class="chk" style="left:13.7%;top:71%">${chk(fd.fitUnfit)}</span>
-  <span class="chk" style="left:13.7%;top:72.2%">${chk(fd.fitReassess)}</span>
-  <div style="position:absolute;left:28%;top:68%;width:31.4%;height:5.5%;font-family:Arial,sans-serif;font-size:9px;color:#000;white-space:pre-wrap;overflow:hidden">${(fd.remarks||'').replace(/</g,'&lt;')}</div>
-  <div style="position:absolute;left:69%;top:68%;width:29.6%;height:5.5%;font-family:Arial,sans-serif;font-size:9px;color:#000;white-space:pre-wrap;overflow:hidden">${(fd.medication||'').replace(/</g,'&lt;')}</div>
-  <span class="field" style="left:13.8%;top:74.5%;width:15%">${fd.certifiedBy || ''}</span>
-  <span class="field" style="left:88%;top:74.5%;width:11%">${fd.certDate || ''}</span>
-  <span class="field" style="left:13.8%;top:42.2%;width:12.6%">${fd.declDate || ''}</span>
+<img src="${IMAGE_URL}" />
+${fd._photoUrl ? `<img src="${fd._photoUrl}" style="position:absolute;left:${(14/FW*100).toFixed(2)}%;top:${(90/FH*100).toFixed(2)}%;width:${(93/FW*100).toFixed(2)}%;height:${(110/FH*100).toFixed(2)}%;object-fit:cover;" />` : ''}
+${fieldSpan(fd.firstName,   ...[...(p(157,88)), (228/FW*100).toFixed(2)])}
+${fieldSpan(fd.familyName,  ...[...(p(468,88)), (178/FW*100).toFixed(2)])}
+${fieldSpan(fd.staffNo,     ...[...(p(690,88)), (95/FW*100).toFixed(2)])}
+${fieldSpan(fd.dob,         ...[...(p(157,106)),(100/FW*100).toFixed(2)])}
+${fieldSpan(fd.nationality, ...[...(p(330,106)),(115/FW*100).toFixed(2)])}
+${fieldSpan(fd.qid,         ...[...(p(618,106)),(168/FW*100).toFixed(2)])}
+${chkSpan(fd.genderMale,   ...p(204,124))} ${chkSpan(fd.genderFemale, ...p(245,124))}
+${fieldSpan(fd.occupation,  ...[...(p(338,124)),(200/FW*100).toFixed(2)])}
+${fieldSpan(fd.department,  ...[...(p(595,124)),(192/FW*100).toFixed(2)])}
+${rows([['wlNorth',188,141],['wlSouth',233,141],['wlBarzan',281,141],['wlLR',321,141],['wlRLTO',352,141],['wlRGA',393,141],['wlNFB',430,141],['wlEPC3',472,141]])}
+${rows([['wlHQ',162,158],['wlQNT',203,158],['wlNFE',246,158],['wlNFS',288,158],['wlNFW',330,158],['waPlant',530,158],['waNonPlant',600,158]])}
+${fieldSpan(fd.address, ...[...(p(188,176)),(206/FW*100).toFixed(2)])}
+${fieldSpan(fd.contact, ...[...(p(496,176)),(116/FW*100).toFixed(2)])}
+${rows([['nowConfined',107,202],['nowOffice',246,202],['nowSewage',416,202],['nowEmergency',569,202],
+        ['nowHeight',107,216],['nowDiving',246,216],['nowFood',416,216],['nowIonizing',569,216],
+        ['nowHanging',107,230],['nowDriving',246,230],['nowOthers',569,230],
+        ['drivLight',278,230],['drivBus',336,230],['drivTruck',368,230],['drivCrane',402,230]])}
+${rows([['vacHepA',107,256],['vacHepB',328,256],['vacTetanus',554,256]])}
+${fieldSpan(fd.covidBrand, ...[...(p(183,270)),(100/FW*100).toFixed(2)],9)}
+${fieldSpan(fd.dose1Date,  ...[...(p(360,270)),(80/FW*100).toFixed(2)],9)}
+${fieldSpan(fd.dose2Date,  ...[...(p(496,270)),(80/FW*100).toFixed(2)],9)}
+${fieldSpan(fd.dose3Date,  ...[...(p(640,270)),(80/FW*100).toFixed(2)],9)}
+${rows([['mhBlood',107,308],['mhPeptic',107,322],['mhEpilepsy',107,336],['mhWork',107,350],['mhEar',107,364],
+        ['mhHeadache',107,378],['mhAbdominal',107,392],['mhSkin',107,406],['mhMusculo',107,420],['mhMental',107,434],
+        ['mhCNS',282,308],['mhHeart',282,322],['mhHBP',282,336],['mhDiabetes',282,350],['mhKidney',282,364],
+        ['mhRheum',282,378],['mhFainting',282,392],['mhVascular',282,406],['mhHepatitis',282,420],['mhEye',282,434],
+        ['mhChest',459,308],['mhSexual',459,322],['mhCancer',459,336],['mhMajor',459,350],['mhThyroid',459,364],
+        ['mhPregnancy',459,378],['mhDrug',459,392],['mhTobacco',459,406],['mhHospital',459,420],['mhOthers',459,434]])}
+${fieldSpan(fd.declDate, ...[...(p(107,473)),(110/FW*100).toFixed(2)])}
+${fieldSpan(fd.bp,         ...[...(p(162,514)),(62/FW*100).toFixed(2)])}
+${fieldSpan(fd.height,     ...[...(p(300,514)),(52/FW*100).toFixed(2)])}
+${fieldSpan(fd.pr,         ...[...(p(162,530)),(62/FW*100).toFixed(2)])}
+${fieldSpan(fd.weight,     ...[...(p(300,530)),(52/FW*100).toFixed(2)])}
+${fieldSpan(fd.rbs,        ...[...(p(162,546)),(62/FW*100).toFixed(2)])}
+${fieldSpan(fd.bmi,        ...[...(p(287,546)),(52/FW*100).toFixed(2)])}
+${fieldSpan(fd.bloodGroup, ...[...(p(162,562)),(62/FW*100).toFixed(2)])}
+${rows([['colorNormal',536,514],['colorPartial',608,514],['colorTotal',674,514],
+        ['vaUncorrected',533,533],['vaCorrected',533,547],
+        ['spirNormal',300,563],['spirAbnormal',340,563],['ecoNormal',700,563],['ecoAbnormal',740,563]])}
+${[['peEyes',107,619],['peENT',107,633],['peOral',107,647],['peHead',107,661],['peLungs',107,675],['peCard',107,689],['peAbd',107,703]].map(([n,x,y])=>rows([[n+'N',x+130,y],[n+'A',x+168,y]])).join('')}
+${[['peHern',459,619],['peNeur',459,633],['peExtr',459,647],['peMusc',459,661],['peSkin',459,675],['peMent',459,689],['peOth',459,703]].map(([n,x,y])=>rows([[n+'N',x+160,y],[n+'A',x+198,y]])).join('')}
+${rows([['fitAssigned',107,766],['fitConditions',107,780],['fitUnfit',107,794],['fitReassess',107,808]])}
+<div style="position:absolute;left:${(220/FW*100).toFixed(2)}%;top:${(764/FH*100).toFixed(2)}%;width:${(248/FW*100).toFixed(2)}%;height:${(58/FH*100).toFixed(2)}%;font-family:Arial,sans-serif;font-size:8px;color:#000;white-space:pre-wrap;overflow:hidden">${esc(fd.remarks||'')}</div>
+<div style="position:absolute;left:${(544/FW*100).toFixed(2)}%;top:${(764/FH*100).toFixed(2)}%;width:${(238/FW*100).toFixed(2)}%;height:${(58/FH*100).toFixed(2)}%;font-family:Arial,sans-serif;font-size:8px;color:#000;white-space:pre-wrap;overflow:hidden">${esc(fd.medication||'')}</div>
+${fieldSpan(fd.certifiedBy,...[...(p(107,835)),(120/FW*100).toFixed(2)])}
+${fieldSpan(fd.certSig,    ...[...(p(320,835)),(200/FW*100).toFixed(2)])}
+${fieldSpan(fd.certDate,   ...[...(p(698,835)),(88/FW*100).toFixed(2)])}
 </div>
 <script>
-  var img = document.querySelector('.page > img');
-  if (img.complete) { setTimeout(function(){ window.print(); }, 300); }
-  else { img.onload = function(){ setTimeout(function(){ window.print(); }, 300); }; }
+var img=document.querySelector('.page>img');
+function doPrint(){setTimeout(function(){window.print();},400);}
+if(img.complete)doPrint(); else img.onload=doPrint;
 <\/script>
 </body></html>`;
   };
@@ -544,57 +406,65 @@ export default function QEMedicalFormTab({ employees: propEmployees = [], select
     win.document.close();
   };
 
-  const handleDownload = () => {
-    const a = document.createElement('a');
-    a.href = IMAGE_URL;
-    a.download = 'QE_Medical_Examination_Form.jpg';
-    a.target = '_blank';
-    a.click();
-  };
+  const filteredEmps = employees.filter(e =>
+    !empSearch || (e.name || '').toLowerCase().includes(empSearch.toLowerCase()) ||
+    (e.company || '').toLowerCase().includes(empSearch.toLowerCase())
+  );
+
+  const selectedEmp = employees.find(e => e.id === selectedEmpId);
 
   return (
     <div className="bg-white rounded-xl border border-border shadow-sm">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          <h3 className="text-sm font-semibold text-foreground">QE Medical Examination Form (Onshore Contractor)</h3>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-wrap gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h3 className="text-sm font-semibold shrink-0">QE Medical Examination Form</h3>
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search personnel..."
+              value={empSearch}
+              onChange={e => setEmpSearch(e.target.value)}
+              className="pl-7 pr-2 py-1.5 text-xs border border-border rounded-md bg-background w-44"
+            />
+          </div>
           <select
-            value={selectedId}
-            onChange={e => setSelectedId(e.target.value)}
+            value={selectedEmpId}
+            onChange={e => { setSelectedEmpId(e.target.value); setEmpSearch(''); }}
             className="text-xs border border-border rounded-md px-2 py-1.5 bg-background max-w-xs"
           >
-            <option value="">— Select Personnel to Auto-Fill —</option>
-            {employees.map(emp => (
-              <option key={emp.id} value={emp.id}>{emp.name} {emp.company ? `(${emp.company})` : ''}</option>
+            <option value="">— Select Personnel —</option>
+            {filteredEmps.map(emp => (
+              <option key={emp.id} value={emp.id}>{emp.name}{emp.company ? ` (${emp.company})` : ''}</option>
             ))}
           </select>
+          {existingRecords.length > 0 && (
+            <span className="text-xs text-emerald-600 flex items-center gap-1">
+              <CheckCircle className="w-3.5 h-3.5" /> Saved record loaded
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleSave} className="gap-1.5">
-            <Save className="w-3.5 h-3.5" /> {saved ? 'Saved!' : 'Save'}
+          <Button variant="outline" size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
+            <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save'}
           </Button>
           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1.5">
             <Printer className="w-3.5 h-3.5" /> Print / PDF
           </Button>
-          <Button variant="outline" size="sm" onClick={handleDownload} className="gap-1.5">
-            <Download className="w-3.5 h-3.5" /> Download
-          </Button>
         </div>
       </div>
 
-      {/* Form with overlay */}
+      {/* Form */}
       <div className="p-4 bg-gray-50 overflow-auto flex justify-center">
-        <div
-          ref={formRef}
-          style={{ position: 'relative', width: '100%', maxWidth: '900px' }}
-        >
+        <div style={{ position: 'relative', width: '100%', maxWidth: '900px', userSelect: 'none' }}>
           <img
             src={IMAGE_URL}
             alt="QE Medical Examination Form"
             style={{ width: '100%', height: 'auto', display: 'block' }}
             draggable={false}
           />
-          <Overlay formData={formData} setFormData={setFormData} />
+          <Overlay fd={formData} set={setField} readOnly={readOnly} />
         </div>
       </div>
     </div>
