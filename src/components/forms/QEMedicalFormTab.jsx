@@ -46,13 +46,12 @@ export default function QEMedicalFormTab() {
       </div>
 
       {/* Image */}
-      <div className="p-4 flex justify-center bg-gray-50 overflow-y-auto">
+      <div className="p-4 flex justify-center bg-gray-50 overflow-auto">
         <img
           ref={imgRef}
           src={IMAGE_URL}
           alt="QE Medical Examination Form"
-          style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
-          className="shadow-md"
+          style={{ width: '100%', height: 'auto', display: 'block', imageRendering: 'high-quality' }}
         />
       </div>
 
@@ -69,7 +68,7 @@ export default function QEMedicalFormTab() {
             <img
               src={IMAGE_URL}
               alt="QE Medical Examination Form"
-              style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
+              style={{ width: '100%', height: 'auto', display: 'block', imageRendering: 'high-quality' }}
             />
           </div>
         </div>
