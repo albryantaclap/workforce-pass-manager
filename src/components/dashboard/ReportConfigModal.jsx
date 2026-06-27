@@ -35,6 +35,7 @@ export const ALL_PERSONNEL_COLUMNS = [
   { id: 'pid', label: 'PID Number' },
   { id: 'company', label: 'Company' },
   { id: 'department', label: 'Department' },
+  { id: 'assigned_manager_name', label: 'Assigned Manager' },
   { id: 'designation_org_chart', label: 'Designation / Position' },
   { id: 'dir_indir', label: 'DIR / INDIR' },
   { id: 'current_location', label: 'Location' },
