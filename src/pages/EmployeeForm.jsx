@@ -540,7 +540,7 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Gate Pass (RLIC)</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <TextInput field="gate_pass_issue_date" label="Issue Date" type="date" {...tf} />
+            <TextInput field="gate_pass_issue_date" label="Submitted Date" type="date" {...tf} />
             <TextInput field="gate_pass_received_date" label="Received Date" type="date" {...tf} />
             <TextInput field="gate_pass_expiry" label="Expiry Date" type="date" {...tf} />
             <SelectInput field="rlic_status" label="RLIC Status" options={allRlicStatuses} {...tf} />

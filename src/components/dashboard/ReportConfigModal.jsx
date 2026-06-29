@@ -45,6 +45,7 @@ export const ALL_PERSONNEL_COLUMNS = [
   { id: 'rlic_status_computed', label: 'Gate Pass Status' },
   { id: 'training_status', label: 'Training Status' },
   { id: 'pid_status_computed', label: 'Project ID Status' },
+  { id: 'gate_pass_issue_date', label: 'Gate Pass Submitted Date' },
   { id: 'gate_pass_expiry', label: 'Gate Pass Expiry' },
   { id: 'pid_expiry', label: 'PID Expiry' },
   { id: 'pp_no', label: 'Passport Number' },

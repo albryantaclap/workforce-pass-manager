@@ -55,8 +55,8 @@ export default function FilterToolbar({
     if (trainingScheduledTo) chips.push({ label: 'Train Sched ≤', value: trainingScheduledTo, onRemove: () => setTrainingScheduledTo?.('') });
     if (trApprovedFrom) chips.push({ label: 'TR Approved ≥', value: trApprovedFrom, onRemove: () => setTrApprovedFrom?.('') });
     if (trApprovedTo) chips.push({ label: 'TR Approved ≤', value: trApprovedTo, onRemove: () => setTrApprovedTo?.('') });
-    if (gpIssueFrom) chips.push({ label: 'GP Issue ≥', value: gpIssueFrom, onRemove: () => setGpIssueFrom?.('') });
-    if (gpIssueTo) chips.push({ label: 'GP Issue ≤', value: gpIssueTo, onRemove: () => setGpIssueTo?.('') });
+    if (gpIssueFrom) chips.push({ label: 'GP Submitted ≥', value: gpIssueFrom, onRemove: () => setGpIssueFrom?.('') });
+    if (gpIssueTo) chips.push({ label: 'GP Submitted ≤', value: gpIssueTo, onRemove: () => setGpIssueTo?.('') });
     if (gpReceivedFrom) chips.push({ label: 'GP Recv ≥', value: gpReceivedFrom, onRemove: () => setGpReceivedFrom?.('') });
     if (gpReceivedTo) chips.push({ label: 'GP Recv ≤', value: gpReceivedTo, onRemove: () => setGpReceivedTo?.('') });
     if (pidIssueFrom) chips.push({ label: 'PID Issue ≥', value: pidIssueFrom, onRemove: () => setPidIssueFrom?.('') });
@@ -165,7 +165,7 @@ export default function FilterToolbar({
               <DatePickerPill label="TR Approved" from={trApprovedFrom} to={trApprovedTo} onFrom={setTrApprovedFrom} onTo={setTrApprovedTo} color="blue" fullWidth />
             )}
             {setGpIssueFrom && (
-              <DatePickerPill label="GP Issue" from={gpIssueFrom} to={gpIssueTo} onFrom={setGpIssueFrom} onTo={setGpIssueTo} color="emerald" fullWidth />
+              <DatePickerPill label="GP Submitted" from={gpIssueFrom} to={gpIssueTo} onFrom={setGpIssueFrom} onTo={setGpIssueTo} color="emerald" fullWidth />
             )}
             {setGpReceivedFrom && (
               <DatePickerPill label="GP Received" from={gpReceivedFrom} to={gpReceivedTo} onFrom={setGpReceivedFrom} onTo={setGpReceivedTo} color="amber" fullWidth />

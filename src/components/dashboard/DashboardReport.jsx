@@ -86,7 +86,7 @@ function getCellValue(e, colId) {
   }
   if (colId === 'is_active') return e.is_active === false ? 'Inactive' : 'Active';
   if (colId === 'assigned_manager_name') return e.assigned_manager_name || '—';
-  if (['gate_pass_expiry','pid_expiry','pp_expiry'].includes(colId)) return e[colId] ? formatDate(e[colId]) : '—';
+  if (['gate_pass_issue_date','gate_pass_expiry','pid_expiry','pp_expiry'].includes(colId)) return e[colId] ? formatDate(e[colId]) : '—';
   return e[colId] || '—';
 }
 

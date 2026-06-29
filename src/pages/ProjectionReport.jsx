@@ -1033,7 +1033,7 @@ export default function ProjectionReport() {
               </div>
             </div>
             <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Issue</p>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Gate Pass Submitted</p>
               <div className="flex gap-1.5">
                 <Input type="date" value={gpIssueFrom} onChange={e => setGpIssueFrom(e.target.value)} className="text-xs h-8" />
                 <Input type="date" value={gpIssueTo} onChange={e => setGpIssueTo(e.target.value)} className="text-xs h-8" />

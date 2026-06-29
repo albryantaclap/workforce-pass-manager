@@ -326,7 +326,7 @@ export default function MasterList() {
     FTW_Approval_Request: formatDate(e.ftw_approval_request_date), FTW_Count_Days: e.ftw_count_days,
     FTW_Approved_Date: formatDate(e.ftw_approved_date), Medical_Result: e.ftw_result,
     Doctor: e.ftw_doctor, Doctor_Mobile: e.ftw_mobile,
-    Gate_Pass_Issue: formatDate(e.gate_pass_issue_date), Gate_Pass_Received: formatDate(e.gate_pass_received_date),
+    Gate_Pass_Submitted_Date: formatDate(e.gate_pass_issue_date), Gate_Pass_Received: formatDate(e.gate_pass_received_date),
     Gate_Pass_Expiry: formatDate(e.gate_pass_expiry), Staff_No: e.staff_no, RLIC_Status: e.rlic_status,
     PID_No: e.pid, PID_Issue_Date: formatDate(e.pid_issue_date), PID_Expiry: formatDate(e.pid_expiry),
     PID_Projected_Date: formatDate(e.pid_projected_date), PID_Status: e.pid_status,
@@ -434,7 +434,7 @@ export default function MasterList() {
              </div>
            </div>
            <div>
-             <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Issue</p>
+             <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Submitted</p>
              <div className="flex flex-col sm:flex-row sm:items-center gap-1">
                <Input type="date" value={gpIssueFrom} onChange={e => setGpIssueFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
                <span className="hidden sm:block text-muted-foreground text-xs">–</span>
@@ -541,7 +541,7 @@ export default function MasterList() {
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Doctor</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Re-Assess Date</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Medical Remarks</TableHead>
-                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Issue</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Submitted</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Received</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass Expiry</TableHead>
                 {(activeTab === 'gp_soon' || activeTab === 'gp_expired') && <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Days</TableHead>}

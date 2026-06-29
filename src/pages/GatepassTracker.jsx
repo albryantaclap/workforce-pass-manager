@@ -204,7 +204,7 @@ export default function GatepassTracker() {
   const gateBulkFields = [
     { key: 'rlic_status', label: 'RLIC Status', type: 'select', options: allStatusOptions },
     { key: 'gate_pass_expiry', label: 'Gate Pass Expiry', type: 'date' },
-    { key: 'gate_pass_issue_date', label: 'Issue Date', type: 'date' },
+    { key: 'gate_pass_issue_date', label: 'Submitted Date', type: 'date' },
     { key: 'gate_pass_received_date', label: 'Received Date', type: 'date' },
   ];
 
@@ -216,7 +216,7 @@ export default function GatepassTracker() {
 
   const getExportData = () => filtered.map(e => ({
     Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
-    Staff_No: e.staff_no, Gate_Pass_Issue: formatDate(e.gate_pass_issue_date),
+    Staff_No: e.staff_no,     Gate_Pass_Submitted_Date: formatDate(e.gate_pass_issue_date),
     Gate_Pass_Received: formatDate(e.gate_pass_received_date), Gate_Pass_Expiry: formatDate(e.gate_pass_expiry),
     RLIC_Status: e.rlic_status,
   }));
@@ -417,7 +417,7 @@ export default function GatepassTracker() {
                     <TableHead className="text-xs bg-muted/50">Company</TableHead>
                     <TableHead className="text-xs bg-muted/50">QID No</TableHead>
                     <TableHead className="text-xs bg-muted/50">Staff No / RLIC</TableHead>
-                    <TableHead className="text-xs bg-muted/50">Issue Date</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Submitted Date</TableHead>
                     <TableHead className="text-xs bg-muted/50">Received</TableHead>
                     <TableHead className="text-xs bg-muted/50">Expiry</TableHead>
                     <TableHead className="text-xs bg-muted/50">Days Left</TableHead>
