@@ -214,12 +214,22 @@ export default function GatepassTracker() {
     toast({ title: `Updated ${filtered.length} records` });
   };
 
-  const getExportData = () => filtered.map(e => ({
-    Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
-    Staff_No: e.staff_no,     Gate_Pass_Submitted_Date: formatDate(e.gate_pass_issue_date),
-    Gate_Pass_Received: formatDate(e.gate_pass_received_date), Gate_Pass_Expiry: formatDate(e.gate_pass_expiry),
-    RLIC_Status: e.rlic_status,
-  }));
+  const getExportData = () => filtered.map(e => {
+    let processingDays = '—';
+    if (e.gate_pass_issue_date && e.gate_pass_received_date) {
+      const submitted = new Date(e.gate_pass_issue_date); submitted.setHours(0,0,0,0);
+      const received = new Date(e.gate_pass_received_date); received.setHours(0,0,0,0);
+      processingDays = `${Math.round((received - submitted) / (1000 * 60 * 60 * 24))}d`;
+    }
+    return {
+      Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
+      Staff_No: e.staff_no, Gate_Pass_Submitted_Date: formatDate(e.gate_pass_issue_date),
+      Gate_Pass_Received: formatDate(e.gate_pass_received_date),
+      Processing_Days: processingDays,
+      Gate_Pass_Expiry: formatDate(e.gate_pass_expiry),
+      RLIC_Status: e.rlic_status,
+    };
+  });
 
   return (
     <div className="space-y-5">
