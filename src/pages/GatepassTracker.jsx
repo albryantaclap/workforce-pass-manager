@@ -419,6 +419,7 @@ export default function GatepassTracker() {
                     <TableHead className="text-xs bg-muted/50">Staff No / RLIC</TableHead>
                     <TableHead className="text-xs bg-muted/50">Submitted Date</TableHead>
                     <TableHead className="text-xs bg-muted/50">Received</TableHead>
+                    <TableHead className="text-xs bg-muted/50">Processing Days</TableHead>
                     <TableHead className="text-xs bg-muted/50">Expiry</TableHead>
                     <TableHead className="text-xs bg-muted/50">Days Left</TableHead>
                     <TableHead className="text-xs bg-muted/50">Medical</TableHead>
@@ -443,6 +444,14 @@ export default function GatepassTracker() {
                        <TableCell className="text-xs"><InlineEditCell value={emp.staff_no} field="staff_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                        <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_issue_date} field="gate_pass_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                        <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_received_date} field="gate_pass_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
+                       <TableCell className="text-xs">
+                         {emp.gate_pass_issue_date && emp.gate_pass_received_date ? (() => {
+                           const submitted = new Date(emp.gate_pass_issue_date); submitted.setHours(0,0,0,0);
+                           const received = new Date(emp.gate_pass_received_date); received.setHours(0,0,0,0);
+                           const diff = Math.round((received - submitted) / (1000 * 60 * 60 * 24));
+                           return <span className="font-semibold text-blue-600">{diff}d</span>;
+                         })() : <span className="text-muted-foreground">—</span>}
+                       </TableCell>
                        <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_expiry} field="gate_pass_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                         <TableCell>
                           {days !== null ? (
