@@ -248,9 +248,11 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config, 
       if (!acc[p]) acc[p] = { tl: 0, md: 0, gp: 0, tr: 0, pd: 0 };
       acc[p].tl++;
       if ((e.ftw_result || '').trim().toUpperCase() === 'ACCEPTED') acc[p].md++;
-      if ((computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status) || '').toUpperCase() === 'VALID RLIC PASS') acc[p].gp++;
+      const gpS = (computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status) || '').toUpperCase();
+      if (gpS === 'VALID RLIC PASS' || gpS === 'SOON TO EXPIRE') acc[p].gp++;
       if ((e.training_status || '').trim().toUpperCase() === 'DONE') acc[p].tr++;
-      if ((computePassStatus(e.pid_expiry, 'pid', e.pid_status) || '').toUpperCase() === 'VALID PID PASS') acc[p].pd++;
+      const pdS = (computePassStatus(e.pid_expiry, 'pid', e.pid_status) || '').toUpperCase();
+      if (pdS === 'VALID PID PASS' || pdS === 'SOON TO EXPIRE') acc[p].pd++;
       return acc;
     }, {})).sort((a, b) => b[1].tl - a[1].tl).map(([name, stats]) => ({ name, ...stats }));
     const DIRINDIR_SET = new Set(['DIR','INDIR']);
@@ -273,9 +275,9 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config, 
       const companyStats = Object.entries(byCompany).map(([name, rows]) => {
         const tl = rows.length;
         const md = rows.filter(e => (e.ftw_result || '').trim().toUpperCase() === 'ACCEPTED').length;
-        const gp = rows.filter(e => (computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status) || '').toUpperCase() === 'VALID RLIC PASS').length;
+        const gp = rows.filter(e => { const s = (computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status) || '').toUpperCase(); return s === 'VALID RLIC PASS' || s === 'SOON TO EXPIRE'; }).length;
         const tr = rows.filter(e => (e.training_status || '').trim().toUpperCase() === 'DONE').length;
-        const pd = rows.filter(e => (computePassStatus(e.pid_expiry, 'pid', e.pid_status) || '').toUpperCase() === 'VALID PID PASS').length;
+        const pd = rows.filter(e => { const s = (computePassStatus(e.pid_expiry, 'pid', e.pid_status) || '').toUpperCase(); return s === 'VALID PID PASS' || s === 'SOON TO EXPIRE'; }).length;
         return { name, tl, md, gp, tr, pd };
       }).sort((a, b) => b.tl - a.tl);
       const maxCoTL = Math.max(...companyStats.map(c => c.tl), 1);
