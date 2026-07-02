@@ -206,6 +206,7 @@ function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
                 ['#', 'text-center w-6'],
                 ['Full Name', 'text-left'],
                 ['QID Number', 'text-center'],
+                ['PID No.', 'text-center'],
                 ['Mobile Number', 'text-center'],
                 ['Company', 'text-center'],
                 ['Designation / Position', 'text-center'],
@@ -252,6 +253,7 @@ function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
                     <td className="border border-slate-200 px-1 py-1 text-center text-slate-400">{globalIdx + 1}</td>
                     <td className="border border-slate-200 px-2 py-1 font-medium text-slate-800">{emp.name}</td>
                     <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{emp.qid_no || '—'}</td>
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{emp.pid || '—'}</td>
                     <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{emp.contact_details || '—'}</td>
                     <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{emp.company || '—'}</td>
                     <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{emp.designation_org_chart || emp.position_application || '—'}</td>
@@ -558,6 +560,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
           <td class="center">${idx + 1}</td>
           <td>${emp.name || ''}</td>
           <td class="center">${emp.qid_no || ''}</td>
+          <td class="center">${emp.pid || ''}</td>
           <td class="center">${emp.contact_details || ''}</td>
           <td class="center">${emp.company || ''}</td>
           <td class="center">${emp.designation_org_chart || emp.position_application || ''}</td>
@@ -579,7 +582,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         <div class="dept-header">${dept}</div>
         <table>
           <thead><tr>
-            <th>#</th><th style="text-align:left">Full Name</th><th>QID Number</th>
+            <th>#</th><th style="text-align:left">Full Name</th><th>QID Number</th><th>PID No.</th>
             <th>Mobile Number</th><th>Company</th><th>Designation / Position</th>
             <th>Medical</th><th>TR Date Approved</th><th>Gate Pass Status</th><th>Gatepass Received Date</th><th>Training Status</th><th>Training Date Started</th>
             <th class="pid-col">Project ID Status</th><th>Remarks</th>
@@ -616,6 +619,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       { key: 'no',       width: 4  },
       { key: 'name',     width: 28 },
       { key: 'qid',      width: 14 },
+      { key: 'pid_no',   width: 14 },
       { key: 'mobile',   width: 14 },
       { key: 'company',  width: 18 },
       { key: 'position', width: 26 },
@@ -633,7 +637,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       { key: 'days_pid', width: 18 },
     ];
 
-    const TOTAL_COLS = 18;
+    const TOTAL_COLS = 19;
 
     // Color palette
     const C = {
@@ -698,7 +702,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
     }
 
     const COL_HEADERS = [
-      '#', 'Full Name', 'QID Number', 'Mobile Number', 'Company', 'Designation / Position',
+      '#', 'Full Name', 'QID Number', 'PID No.', 'Mobile Number', 'Company', 'Designation / Position',
       'Medical', 'TR Date Approved', 'Gate Pass Status', 'Gatepass Received Date', 'Training Status', 'Training Date Started',
       'Project ID Status', 'Remarks', 'No. Days Since Med Approved', 'No. Days Since Gatepass Received', 'No. Days Since Training Started', 'No. Days Waiting for PID',
     ];
@@ -725,7 +729,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       COL_HEADERS.forEach((h, i) => {
         const cell = hdrRow.getCell(i + 1);
         cell.value = h;
-        const isPid = i === 12;
+        const isPid = i === 13;
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + (isPid ? C.pidHdrBg : C.colHdrBg) } };
         cell.font = { color: { argb: 'FF' + (isPid ? C.pidHdrFg : C.colHdrFg) }, bold: true, size: 9 };
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -767,45 +771,46 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         plain(1, idx + 1);
         plain(2, emp.name || '', 'left');
         plain(3, emp.qid_no || '—');
-        plain(4, emp.contact_details || '—');
-        plain(5, emp.company || '—');
-        plain(6, emp.designation_org_chart || emp.position_application || '—', 'left', true);
+        plain(4, emp.pid || '—');
+        plain(5, emp.contact_details || '—');
+        plain(6, emp.company || '—');
+        plain(7, emp.designation_org_chart || emp.position_application || '—', 'left', true);
 
         // Medical badge
-        const medCell = row.getCell(7);
+        const medCell = row.getCell(8);
         medCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
         applyBadgeCell(medCell, med.color, med.label);
         applyBorder(medCell);
 
         // TR Date
-        plain(8, trDateFmt);
+        plain(9, trDateFmt);
 
         // Gate Pass badge
-        const gpCell = row.getCell(9);
+        const gpCell = row.getCell(10);
         gpCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
         applyBadgeCell(gpCell, gp.color, gp.label);
         applyBorder(gpCell);
 
         // GP Received Date
-        plain(10, gpDateFmt);
+        plain(11, gpDateFmt);
 
         // Training badge
-        const trCell = row.getCell(11);
+        const trCell = row.getCell(12);
         trCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
         applyBadgeCell(trCell, tr.color, tr.label);
         applyBorder(trCell);
 
         // Training Date Started
-        plain(12, trainStartFmt);
+        plain(13, trainStartFmt);
 
         // PID badge (green-tinted cell)
-        const pidCell = row.getCell(13);
+        const pidCell = row.getCell(14);
         pidCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.pidCellBg } };
         applyBadgeCell(pidCell, pid.color, pid.label);
         applyBorder(pidCell);
 
         // Remarks
-        const remCell = row.getCell(14);
+        const remCell = row.getCell(15);
         remCell.value = emp.remarks || '';
         remCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.remarksBg } };
         remCell.font = { size: 9 };
@@ -813,25 +818,25 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         applyBorder(remCell);
 
         // Days cells
-        const daysCell15 = row.getCell(15);
-        daysCell15.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell15, daysMed, pidValid);
-        applyBorder(daysCell15);
-
         const daysCell16 = row.getCell(16);
         daysCell16.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell16, daysGP, pidValid);
+        applyDaysCell(daysCell16, daysMed, pidValid);
         applyBorder(daysCell16);
 
         const daysCell17 = row.getCell(17);
         daysCell17.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell17, daysTrain, pidValid);
+        applyDaysCell(daysCell17, daysGP, pidValid);
         applyBorder(daysCell17);
 
         const daysCell18 = row.getCell(18);
         daysCell18.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell18, daysPID, pidValid);
+        applyDaysCell(daysCell18, daysTrain, pidValid);
         applyBorder(daysCell18);
+
+        const daysCell19 = row.getCell(19);
+        daysCell19.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        applyDaysCell(daysCell19, daysPID, pidValid);
+        applyBorder(daysCell19);
 
         currentRow++;
       });
