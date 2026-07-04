@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import PendingApprovalScreen from '@/components/PendingApprovalScreen';
 import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import MasterList from './pages/MasterList';
@@ -43,6 +44,8 @@ const AuthenticatedApp = () => {
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
+    } else if (authError.type === 'approval_required') {
+      return <PendingApprovalScreen status={authError.status} />;
     } else if (authError.type === 'auth_required') {
       navigateToLogin();
       return null;

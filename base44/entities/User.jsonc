@@ -1,17 +1,25 @@
 {
-  "name": "User",
   "type": "object",
   "properties": {
     "role": {
       "type": "string",
       "enum": [
-        "owner",
         "admin",
-        "user"
+        "user",
+        "owner"
       ],
-      "default": "user",
-      "description": "User role: owner = Super Administrator (full access), admin = Admin (view & edit), user = View only"
+      "default": "user"
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending",
+      "description": "User account approval status"
     }
   },
-  "required": []
+  "name": "User"
 }

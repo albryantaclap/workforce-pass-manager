@@ -93,6 +93,19 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       const currentUser = await base44.auth.me();
       setUser(currentUser);
+
+      // Check approval status for non-builder users
+      const isBuilder = currentUser?.collaborator_role === 'editor' || currentUser?.collaborator_role === 'owner';
+      if (!isBuilder) {
+        const approvalStatus = currentUser?.approval_status;
+        // If approval_status is missing (old users), treat as approved
+        if (approvalStatus && approvalStatus !== 'approved') {
+          setAuthError({ type: 'approval_required', status: approvalStatus });
+          setIsLoadingAuth(false);
+          return;
+        }
+      }
+
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
     } catch (error) {

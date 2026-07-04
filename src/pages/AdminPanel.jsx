@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Users, Trash2, UserPlus, AlertTriangle, List, Crown, Pencil, Eye } from 'lucide-react';
+import { Shield, Users, Trash2, UserPlus, AlertTriangle, List, Crown, Pencil, Eye, Clock, CheckCircle, XCircle } from 'lucide-react';
 import LookupsManager from '../components/admin/LookupsManager';
 import ManagerAssignmentManager from '../components/admin/ManagerAssignmentManager';
 import PositionsManager from '../components/admin/PositionsManager';
@@ -53,9 +53,29 @@ export default function AdminPanel() {
   const isOwner = effectiveRole === 'owner';
   const isAdmin = effectiveRole === 'admin' || isOwner;
 
-  const { data: users = [], isLoading: loadingUsers } = useQuery({
+  const { data: allUsers = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['users'],
     queryFn: () => base44.entities.User.list(),
+  });
+
+  const users = allUsers.filter(u => !u.approval_status || u.approval_status === 'approved');
+  const pendingUsers = allUsers.filter(u => u.approval_status === 'pending');
+  const [pendingRoles, setPendingRoles] = useState({});
+
+  const approveUserMutation = useMutation({
+    mutationFn: ({ id, role }) => base44.entities.User.update(id, { approval_status: 'approved', role: role || 'user' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast({ title: 'User approved successfully' });
+    },
+  });
+
+  const rejectUserMutation = useMutation({
+    mutationFn: ({ id }) => base44.entities.User.update(id, { approval_status: 'rejected' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast({ title: 'User rejected' });
+    },
   });
 
   const { data: employees = [], isLoading: loadingEmps } = useQuery({
@@ -149,6 +169,10 @@ export default function AdminPanel() {
       <Tabs defaultValue="users">
          <TabsList>
            <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Users</TabsTrigger>
+           <TabsTrigger value="pending">
+             <Clock className="w-4 h-4 mr-2" />Pending Requests
+             {pendingUsers.length > 0 && <span className="ml-1.5 bg-amber-100 text-amber-700 text-xs px-1.5 rounded-full font-bold">{pendingUsers.length}</span>}
+           </TabsTrigger>
            <TabsTrigger value="dedup"><AlertTriangle className="w-4 h-4 mr-2" />Duplicates {duplicates.length > 0 && <span className="ml-1 bg-red-100 text-red-700 text-xs px-1.5 rounded-full">{duplicates.length}</span>}</TabsTrigger>
            <TabsTrigger value="lookups"><List className="w-4 h-4 mr-2" />Lookups</TabsTrigger>
            <TabsTrigger value="managers"><Users className="w-4 h-4 mr-2" />Manager Assignments</TabsTrigger>
@@ -208,7 +232,7 @@ export default function AdminPanel() {
 
           {/* User Table */}
           <Card className="overflow-hidden">
-            <CardHeader className="pb-3"><CardTitle className="text-sm">All Users</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-sm">Approved Users ({users.length})</CardTitle></CardHeader>
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -261,6 +285,82 @@ export default function AdminPanel() {
                 ))}
               </TableBody>
             </Table>
+          </Card>
+        </TabsContent>
+
+        {/* Pending Requests Tab */}
+        <TabsContent value="pending" className="space-y-4 mt-4">
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Pending Approval Requests</CardTitle>
+                <span className="text-xs text-muted-foreground">{pendingUsers.length} pending</span>
+              </div>
+            </CardHeader>
+            {loadingUsers ? (
+              <div className="p-6"><Skeleton className="h-20 w-full" /></div>
+            ) : pendingUsers.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <CheckCircle className="w-10 h-10 mx-auto mb-3 text-green-400" />
+                <p className="font-medium text-green-600">No pending requests</p>
+                <p className="text-xs mt-1">All user accounts have been reviewed.</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="text-xs">Name</TableHead>
+                    <TableHead className="text-xs">Email</TableHead>
+                    <TableHead className="text-xs">Requested</TableHead>
+                    <TableHead className="text-xs">Assign Role</TableHead>
+                    <TableHead className="text-xs">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingUsers.map(u => (
+                    <TableRow key={u.id} className="bg-amber-50/40">
+                      <TableCell className="text-sm font-medium">{u.full_name || '—'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{new Date(u.created_date).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={pendingRoles[u.id] || 'user'}
+                          onValueChange={val => setPendingRoles(prev => ({ ...prev, [u.id]: val }))}
+                        >
+                          <SelectTrigger className="w-40 h-7 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">User (View Only)</SelectItem>
+                            <SelectItem value="admin">Admin (View & Edit)</SelectItem>
+                            {isOwner && <SelectItem value="owner">Super Administrator</SelectItem>}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1"
+                            disabled={approveUserMutation.isPending}
+                            onClick={() => approveUserMutation.mutate({ id: u.id, role: pendingRoles[u.id] || 'user' })}
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" /> Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 text-xs gap-1"
+                            disabled={rejectUserMutation.isPending}
+                            onClick={() => rejectUserMutation.mutate({ id: u.id })}
+                          >
+                            <XCircle className="w-3.5 h-3.5" /> Reject
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </Card>
         </TabsContent>
 
