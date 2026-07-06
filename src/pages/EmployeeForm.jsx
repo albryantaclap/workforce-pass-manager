@@ -470,9 +470,25 @@ export default function EmployeeForm() {
         <Card className="p-6">
           <h3 className="text-sm font-semibold mb-4 text-primary">Work Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <SelectInput field="company" label="Company *" options={allCompanies} {...tf} />
+            <Field label="Company *">
+              <SearchableSelect
+                value={form.company || ''}
+                onChange={v => handleChange('company', v)}
+                options={allCompanies}
+                placeholder="Search company..."
+                emptyMessage="No matching companies found"
+              />
+            </Field>
             <SelectInput field="company_type" label="Company Type" options={['MAIN', 'SUB-CONTRACTOR', 'GSO SUPERVISION']} {...tf} />
-            <SelectInput field="department" label="Department" options={allDepartments} {...tf} />
+            <Field label="Department">
+              <SearchableSelect
+                value={form.department || ''}
+                onChange={v => handleChange('department', v)}
+                options={allDepartments}
+                placeholder="Search department..."
+                emptyMessage="No matching departments found"
+              />
+            </Field>
             <SelectInput field="current_location" label="Location / Mobilized" options={allLocations} {...tf} />
             <SelectInput field="dir_indir" label="DIR / INDIR" options={['DIR', 'INDIR']} {...tf} />
             <TextInput field="staff_no" label="Staff No / RLIC No" {...tf} />
