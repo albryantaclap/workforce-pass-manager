@@ -1,16 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, Eye } from 'lucide-react';
+import { Search, Eye, PencilLine } from 'lucide-react';
 import { formatDate, computePassStatus } from '@/utils/constants';
 import { Link } from 'react-router-dom';
 
 const ONGOING_STATUSES = ['SCHEDULED', 'ON-GOING', 'TO BE SCHEDULED'];
+const ALL_TRAINING_STATUSES = ['PENDING', 'SCHEDULED', 'ON-GOING', 'TO BE SCHEDULED', 'DONE', 'NOT REQUIRED'];
 
 const STATUS_COLORS = {
   'SCHEDULED': 'bg-blue-50 text-blue-700',
@@ -19,6 +20,7 @@ const STATUS_COLORS = {
 };
 
 export default function OngoingTraining() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
@@ -26,6 +28,16 @@ export default function OngoingTraining() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [gridEdit, setGridEdit] = useState(false);
+  const [edits, setEdits] = useState({});
+
+  const setField = (empId, field, value) =>
+    setEdits(prev => ({ ...prev, [empId]: { ...(prev[empId] || {}), [field]: value } }));
+
+  const saveField = async (empId, field, value) => {
+    await base44.entities.Employee.update(empId, { [field]: value });
+    queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+  };
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees-active'],
@@ -106,6 +118,9 @@ export default function OngoingTraining() {
             <span className="text-xs text-muted-foreground">—</span>
             <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 text-xs border border-input rounded-md px-2" />
           </div>
+          <Button size="sm" variant={gridEdit ? 'default' : 'outline'} onClick={() => { setGridEdit(g => !g); setEdits({}); }}>
+            <PencilLine className="w-3.5 h-3.5 mr-1.5" />{gridEdit ? 'Done Editing' : 'Edit in Grid'}
+          </Button>
         </div>
       </Card>
 
@@ -144,17 +159,48 @@ export default function OngoingTraining() {
                     <TableCell className="text-xs">{emp.designation_org_chart}</TableCell>
                     <TableCell><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{emp.ftw_result}</span></TableCell>
                     <TableCell><span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status)}</span></TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_scheduled)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_start)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_end)}</TableCell>
-                    <TableCell>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[(emp.training_status || '').toUpperCase()] || 'bg-muted text-muted-foreground'}`}>
-                        {emp.training_status}
-                      </span>
+                    <TableCell className="text-xs whitespace-nowrap">
+                     {gridEdit
+                       ? <input type="date" className="h-7 text-xs border border-input rounded px-1 w-32"
+                           value={edits[emp.id]?.training_date_scheduled ?? (emp.training_date_scheduled || '')}
+                           onChange={e => setField(emp.id, 'training_date_scheduled', e.target.value)}
+                           onBlur={e => saveField(emp.id, 'training_date_scheduled', e.target.value)} />
+                       : formatDate(emp.training_date_scheduled)}
                     </TableCell>
-                    <TableCell className="text-xs">{emp.remarks || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                     {gridEdit
+                       ? <input type="date" className="h-7 text-xs border border-input rounded px-1 w-32"
+                           value={edits[emp.id]?.training_date_start ?? (emp.training_date_start || '')}
+                           onChange={e => setField(emp.id, 'training_date_start', e.target.value)}
+                           onBlur={e => saveField(emp.id, 'training_date_start', e.target.value)} />
+                       : formatDate(emp.training_date_start)}
+                    </TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                     {gridEdit
+                       ? <input type="date" className="h-7 text-xs border border-input rounded px-1 w-32"
+                           value={edits[emp.id]?.training_date_end ?? (emp.training_date_end || '')}
+                           onChange={e => setField(emp.id, 'training_date_end', e.target.value)}
+                           onBlur={e => saveField(emp.id, 'training_date_end', e.target.value)} />
+                       : formatDate(emp.training_date_end)}
+                    </TableCell>
                     <TableCell>
-                      <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>
+                     {gridEdit
+                       ? <Select value={edits[emp.id]?.training_status ?? (emp.training_status || '')}
+                           onValueChange={v => { setField(emp.id, 'training_status', v); saveField(emp.id, 'training_status', v); }}>
+                           <SelectTrigger className="h-7 text-xs w-36"><SelectValue /></SelectTrigger>
+                           <SelectContent>{ALL_TRAINING_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                         </Select>
+                       : <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[(emp.training_status || '').toUpperCase()] || 'bg-muted text-muted-foreground'}`}>{emp.training_status}</span>}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                     {gridEdit
+                       ? <Input className="h-7 text-xs w-36"
+                           defaultValue={emp.remarks || ''}
+                           onBlur={e => saveField(emp.id, 'remarks', e.target.value)} />
+                       : emp.remarks || '—'}
+                    </TableCell>
+                    <TableCell>
+                     <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>
                     </TableCell>
                   </TableRow>
                 ))}

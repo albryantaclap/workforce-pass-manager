@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
-import { Search, FileText, Printer, Download, X, Plus } from 'lucide-react';
+import { Search, FileText, Printer, Download, X, Plus, PencilLine } from 'lucide-react';
 import { computePassStatus, formatDate } from '@/utils/constants';
 import moment from 'moment';
 import ExcelJS from 'exceljs';
@@ -34,6 +34,16 @@ export default function TrainingRequestForm() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState({}); // { empId: { language, remarks, overall_size, shoes_size } }
   const [trainingDate, setTrainingDate] = useState('');
+  const [gridEdit, setGridEdit] = useState(false);
+  const [gridEdits, setGridEdits] = useState({});
+
+  const setGridField = (empId, field, value) =>
+    setGridEdits(prev => ({ ...prev, [empId]: { ...(prev[empId] || {}), [field]: value } }));
+
+  const saveGridField = async (empId, field, value) => {
+    await base44.entities.Employee.update(empId, { [field]: value });
+    queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+  };
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees-active'],
@@ -425,6 +435,9 @@ export default function TrainingRequestForm() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <Input placeholder="Search name, QID, company..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-8 text-xs" />
           </div>
+          <Button size="sm" variant={gridEdit ? 'default' : 'outline'} onClick={() => { setGridEdit(g => !g); setGridEdits({}); }}>
+            <PencilLine className="w-3.5 h-3.5 mr-1.5" />{gridEdit ? 'Done Editing' : 'Edit in Grid'}
+          </Button>
         </div>
         <div className="table-scroll-x">
           <div className="table-scroll-y" style={{ maxHeight: 420 }}>
@@ -466,9 +479,21 @@ export default function TrainingRequestForm() {
                       <TableCell>
                       {isAlreadyBooked
                         ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Already Booked</span>
-                        : <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${TRAINING_STATUS_STYLES[(emp.training_status || '').toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>{emp.training_status || '—'}</span>}
+                        : gridEdit
+                          ? <Select value={gridEdits[emp.id]?.training_status ?? (emp.training_status || '')}
+                              onValueChange={v => { setGridField(emp.id, 'training_status', v); saveGridField(emp.id, 'training_status', v); }}>
+                              <SelectTrigger className="h-7 text-xs w-36"><SelectValue /></SelectTrigger>
+                              <SelectContent>{Object.keys(TRAINING_STATUS_STYLES).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                            </Select>
+                          : <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${TRAINING_STATUS_STYLES[(emp.training_status || '').toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>{emp.training_status || '—'}</span>}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{emp.remarks || '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                       {gridEdit
+                         ? <Input className="h-7 text-xs w-36"
+                             defaultValue={emp.remarks || ''}
+                             onBlur={e => saveGridField(emp.id, 'remarks', e.target.value)} />
+                         : emp.remarks || '—'}
+                      </TableCell>
                       </TableRow>
                   );
                 })}
