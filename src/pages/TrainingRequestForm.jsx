@@ -42,7 +42,9 @@ export default function TrainingRequestForm() {
     setGridEdits(prev => ({ ...prev, [empId]: { ...(prev[empId] || {}), [field]: value } }));
 
   const saveGridField = async (empId, field, value) => {
-    await base44.entities.Employee.update(empId, { [field]: value });
+    const isDateField = field.startsWith('training_date');
+    if (isDateField && !value) return;
+    await base44.entities.Employee.update(empId, { [field]: value || null });
     queryClient.invalidateQueries({ queryKey: ['employees-active'] });
   };
 

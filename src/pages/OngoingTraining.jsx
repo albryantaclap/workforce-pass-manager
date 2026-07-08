@@ -39,7 +39,10 @@ export default function OngoingTraining() {
     setEdits(prev => ({ ...prev, [empId]: { ...(prev[empId] || {}), [field]: value } }));
 
   const saveField = async (empId, field, value) => {
-    await base44.entities.Employee.update(empId, { [field]: value });
+    // Don't send empty strings for date fields — the API rejects them
+    const isDateField = field.startsWith('training_date');
+    if (isDateField && !value) return;
+    await base44.entities.Employee.update(empId, { [field]: value || null });
     queryClient.invalidateQueries({ queryKey: ['employees-active'] });
   };
 
