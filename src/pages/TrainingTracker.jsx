@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, GraduationCap, Eye, Pencil } from 'lucide-react';
 import TrainingRequestForm from './TrainingRequestForm';
 import TrainingRequestLogs from './TrainingRequestLogs';
+import OngoingTraining from './OngoingTraining';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
 import SharepointDocIcon from '../components/common/SharepointDocIcon';
 import { Link } from 'react-router-dom';
@@ -202,6 +203,7 @@ export default function TrainingTracker() {
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="list">List</TabsTrigger>
+          <TabsTrigger value="ongoing">Ongoing Training</TabsTrigger>
           <TabsTrigger value="request">Training Request</TabsTrigger>
           <TabsTrigger value="logs">Request Logs</TabsTrigger>
         </TabsList>
@@ -346,6 +348,10 @@ export default function TrainingTracker() {
               )}
             </div>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ongoing" className="mt-4">
+          <OngoingTraining />
         </TabsContent>
 
         <TabsContent value="request" className="mt-4">

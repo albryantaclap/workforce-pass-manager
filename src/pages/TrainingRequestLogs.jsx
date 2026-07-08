@@ -37,9 +37,30 @@ export default function TrainingRequestLogs() {
   });
 
   const updateStatus = useMutation({
-    mutationFn: ({ id, status }) => base44.entities.TrainingRequest.update(id, { status }),
+    mutationFn: async ({ id, status, prevStatus }) => {
+      await base44.entities.TrainingRequest.update(id, { status });
+
+      // If cancelling, check if employee has other active bookings; if not, reset status
+      if (status === 'Cancelled') {
+        const record = logs.find(r => r.id === id);
+        if (record?.employee_id) {
+          const otherActive = logs.filter(r =>
+            r.id !== id &&
+            r.employee_id === record.employee_id &&
+            r.status !== 'Cancelled'
+          );
+          if (otherActive.length === 0) {
+            await base44.entities.Employee.update(record.employee_id, {
+              training_status: 'PENDING',
+              training_date_scheduled: null,
+            });
+          }
+        }
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
       toast({ title: 'Status updated' });
     }
   });
@@ -244,7 +265,7 @@ export default function TrainingRequestLogs() {
                     <TableCell className="text-xs">{r.shoes_size}</TableCell>
                     <TableCell className="text-xs">{r.remarks}</TableCell>
                     <TableCell>
-                      <Select value={r.status || 'Booked'} onValueChange={v => updateStatus.mutate({ id: r.id, status: v })}>
+                      <Select value={r.status || 'Booked'} onValueChange={v => updateStatus.mutate({ id: r.id, status: v, prevStatus: r.status })}>
                         <SelectTrigger className={`h-6 text-[10px] font-semibold px-2 border-0 rounded-full w-28 ${STATUS_COLORS[r.status] || 'bg-muted text-muted-foreground'}`}>
                           <SelectValue />
                         </SelectTrigger>

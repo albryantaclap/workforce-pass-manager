@@ -48,6 +48,7 @@ export const MEDICAL_RESULTS = [
 export const TRAINING_STATUSES = [
   { value: 'SCHEDULED', label: 'SCHEDULED' },
   { value: 'ON-GOING', label: 'ON-GOING' },
+  { value: 'TO BE SCHEDULED', label: 'TO BE SCHEDULED' },
   { value: 'DONE', label: 'DONE' },
   { value: 'PENDING', label: 'PENDING' },
   { value: 'NOT REQUIRED', label: 'NOT REQUIRED' },

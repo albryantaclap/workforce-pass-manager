@@ -266,7 +266,10 @@
       "enum": [
         "DONE",
         "PENDING",
-        "NOT REQUIRED"
+        "NOT REQUIRED",
+        "SCHEDULED",
+        "ON-GOING",
+        "TO BE SCHEDULED"
       ],
       "description": "Training status"
     },

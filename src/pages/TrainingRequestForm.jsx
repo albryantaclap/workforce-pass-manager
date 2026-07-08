@@ -133,11 +133,11 @@ export default function TrainingRequestForm() {
 
       await base44.entities.TrainingRequest.bulkCreate(records);
 
-      // Update each employee's training_status to PENDING and set scheduled date
+      // Update each employee's training_status to SCHEDULED and set scheduled date
       for (const emp of selectedList) {
         if (emp.training_status !== 'DONE') {
           await base44.entities.Employee.update(emp.id, {
-            training_status: 'PENDING',
+            training_status: 'SCHEDULED',
             training_date_scheduled: trainingDate,
           });
         }
