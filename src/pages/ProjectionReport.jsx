@@ -4,7 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Printer, X, FileText, RefreshCw, Search } from 'lucide-react';
+import { Printer, X, FileText, RefreshCw, Search, Download } from 'lucide-react';
+import { exportGatepassExcel } from '@/utils/exportGatepassExcel';
 import { computePassStatus, COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, normalizeDate } from '@/utils/constants';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -649,6 +650,7 @@ function InlineReport({ reportHTML }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProjectionReport() {
   const [showPreview, setShowPreview] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // ── Shared filters (Dashboard-equivalent) ────────────────────────────────
@@ -1079,9 +1081,32 @@ export default function ProjectionReport() {
               <h2 className="text-xl font-bold tracking-tight">Gatepass Daily Report Update</h2>
               <p className="text-sm text-muted-foreground mt-1">Report date: <strong>{today}</strong></p>
             </div>
-            <Button onClick={() => setShowPreview(true)} disabled={filteredEmployees.length === 0} className="gap-2">
-              <FileText className="w-4 h-4" /> Preview &amp; Print
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  setIsExporting(true);
+                  try {
+                    await exportGatepassExcel({
+                      companyData,
+                      assignments,
+                      displayDate: today,
+                      isoDate: format(new Date(), 'yyyy-MM-dd'),
+                    });
+                  } finally {
+                    setIsExporting(false);
+                  }
+                }}
+                disabled={filteredEmployees.length === 0 || isExporting}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                {isExporting ? 'Exporting...' : 'Export Excel'}
+              </Button>
+              <Button onClick={() => setShowPreview(true)} disabled={filteredEmployees.length === 0} className="gap-2">
+                <FileText className="w-4 h-4" /> Preview &amp; Print
+              </Button>
+            </div>
           </div>
 
           {/* Summary cards */}
