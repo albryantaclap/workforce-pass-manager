@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield, LogOut, UserX, TrendingUp, Trash2, Activity, HardDrive, MessageCircle, FileText } from 'lucide-react';
+import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield, LogOut, UserX, TrendingUp, Trash2, Activity, HardDrive, MessageCircle, FileText, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
 import { usePermissions } from '@/lib/usePermissions';
@@ -19,6 +19,8 @@ const navItems = [
   { label: 'Gate Pass (RLIC)', path: '/gatepass', icon: ShieldCheck },
   { label: 'Project ID', path: '/project-id', icon: BadgeCheck },
   { label: 'Training', path: '/training', icon: GraduationCap },
+  { label: 'Training Request', path: '/training/request', icon: FileText },
+  { label: 'Training Logs', path: '/training/logs', icon: ClipboardList },
   { label: 'Inactive Personnel', path: '/inactive', icon: UserX },
   { label: 'Projection Report', path: '/projection', icon: TrendingUp },
   { label: 'Deleted Personnel', path: '/deleted-personnel', icon: Trash2 },

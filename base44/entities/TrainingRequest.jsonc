@@ -1,0 +1,92 @@
+{
+  "name": "TrainingRequest",
+  "type": "object",
+  "properties": {
+    "request_no": {
+      "type": "string",
+      "description": "Auto-generated request number"
+    },
+    "request_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date request was created"
+    },
+    "requested_by": {
+      "type": "string",
+      "description": "Email of user who created the request"
+    },
+    "requested_by_name": {
+      "type": "string",
+      "description": "Name of user who created the request"
+    },
+    "training_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Scheduled training date"
+    },
+    "employee_id": {
+      "type": "string",
+      "description": "Employee record ID"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Employee full name"
+    },
+    "company": {
+      "type": "string",
+      "description": "Employee company"
+    },
+    "qid_no": {
+      "type": "string",
+      "description": "Employee QID number"
+    },
+    "nationality": {
+      "type": "string",
+      "description": "Employee nationality"
+    },
+    "designation": {
+      "type": "string",
+      "description": "Employee designation"
+    },
+    "language": {
+      "type": "string",
+      "enum": [
+        "ENGLISH",
+        "HINDI",
+        "ARABIC",
+        "OTHER"
+      ],
+      "description": "Language for training"
+    },
+    "remarks": {
+      "type": "string",
+      "default": "BOOKED",
+      "description": "Booking remarks"
+    },
+    "overall_size": {
+      "type": "string",
+      "description": "Overall/coverall size (XS/S/M/L/XL/2XL/3XL)"
+    },
+    "shoes_size": {
+      "type": "string",
+      "description": "Shoes size (numeric)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Booked",
+        "Submitted",
+        "Completed",
+        "Cancelled"
+      ],
+      "default": "Booked",
+      "description": "Booking status"
+    }
+  },
+  "required": [
+    "employee_id",
+    "employee_name",
+    "training_date",
+    "status"
+  ]
+}
