@@ -27,8 +27,7 @@ import DatabaseBackup from './pages/DatabaseBackup';
 import Chat from './pages/Chat';
 import TransmittalForm from './pages/TransmittalForm';
 import Forms from './pages/Forms';
-import TrainingRequestForm from './pages/TrainingRequestForm';
-import TrainingRequestLogs from './pages/TrainingRequestLogs';
+
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
@@ -73,8 +72,7 @@ const AuthenticatedApp = () => {
         <Route path="/gatepass" element={<GatepassTracker />} />
         <Route path="/project-id" element={<ProjectIDTracker />} />
         <Route path="/training" element={<TrainingTracker />} />
-        <Route path="/training/request" element={<TrainingRequestForm />} />
-        <Route path="/training/logs" element={<TrainingRequestLogs />} />
+
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/medical/import" element={<MedicalImport />} />
         <Route path="/master-list/import" element={<MasterImport />} />

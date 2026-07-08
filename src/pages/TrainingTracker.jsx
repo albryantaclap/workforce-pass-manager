@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, GraduationCap, Eye, Pencil } from 'lucide-react';
+import TrainingRequestForm from './TrainingRequestForm';
+import TrainingRequestLogs from './TrainingRequestLogs';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
 import SharepointDocIcon from '../components/common/SharepointDocIcon';
 import { Link } from 'react-router-dom';
@@ -200,6 +202,8 @@ export default function TrainingTracker() {
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="list">List</TabsTrigger>
+          <TabsTrigger value="request">Training Request</TabsTrigger>
+          <TabsTrigger value="logs">Request Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4 mt-4">
@@ -342,6 +346,14 @@ export default function TrainingTracker() {
               )}
             </div>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="request" className="mt-4">
+          <TrainingRequestForm />
+        </TabsContent>
+
+        <TabsContent value="logs" className="mt-4">
+          <TrainingRequestLogs />
         </TabsContent>
       </Tabs>
     </div>
