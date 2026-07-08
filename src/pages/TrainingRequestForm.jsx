@@ -17,6 +17,15 @@ import ExcelJS from 'exceljs';
 const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
 const LANG_OPTIONS = ['ENGLISH', 'HINDI', 'ARABIC', 'OTHER'];
 
+const TRAINING_STATUS_STYLES = {
+  'DONE':             'bg-emerald-50 text-emerald-700',
+  'SCHEDULED':        'bg-blue-50 text-blue-700',
+  'ON-GOING':         'bg-violet-50 text-violet-700',
+  'TO BE SCHEDULED':  'bg-amber-50 text-amber-700',
+  'PENDING':          'bg-slate-100 text-slate-600',
+  'NOT REQUIRED':     'bg-gray-100 text-gray-500',
+};
+
 export default function TrainingRequestForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -455,9 +464,9 @@ export default function TrainingRequestForm() {
                       <TableCell><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{emp.ftw_result}</span></TableCell>
                       <TableCell><span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status)}</span></TableCell>
                       <TableCell>
-                       {isAlreadyBooked
-                         ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Already Booked</span>
-                         : <span className="text-[10px] text-muted-foreground">{emp.training_status || '—'}</span>}
+                      {isAlreadyBooked
+                        ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Already Booked</span>
+                        : <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${TRAINING_STATUS_STYLES[(emp.training_status || '').toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>{emp.training_status || '—'}</span>}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{emp.remarks || '—'}</TableCell>
                       </TableRow>
