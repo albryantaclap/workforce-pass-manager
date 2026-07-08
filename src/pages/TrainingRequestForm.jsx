@@ -161,42 +161,110 @@ export default function TrainingRequestForm() {
       toast({ title: 'Select employees and set training date first.', variant: 'destructive' });
       return;
     }
+    const formattedDate = moment(trainingDate).format('DD-MMM-YYYY');
     const rows = selectedList.map((emp, i) => `
       <tr>
-        <td>${i + 1}</td>
-        <td>${emp.name}</td>
-        <td>${emp.company || ''}</td>
-        <td>${emp.qid_no || ''}</td>
-        <td>${emp.nationality || ''}</td>
-        <td>${emp.designation_org_chart || ''}</td>
-        <td>${selected[emp.id]?.language || 'HINDI'}</td>
-        <td>${moment(trainingDate).format('DD-MMM-YY')}</td>
-        <td style="color:orange;font-weight:bold">${selected[emp.id]?.remarks || 'BOOKED'}</td>
-        <td>${selected[emp.id]?.overall_size || ''}</td>
-        <td>${selected[emp.id]?.shoes_size || ''}</td>
+        <td style="text-align:center">${i + 1}</td>
+        <td style="text-align:left">${emp.name}</td>
+        <td style="text-align:left">${emp.company || ''}</td>
+        <td style="text-align:center">${emp.qid_no || ''}</td>
+        <td style="text-align:center">${emp.nationality || ''}</td>
+        <td style="text-align:left">${emp.designation_org_chart || ''}</td>
+        <td style="text-align:center">${selected[emp.id]?.language || 'HINDI'}</td>
+        <td style="text-align:center">${formattedDate}</td>
+        <td style="text-align:center;color:#F4A259;font-weight:bold">${selected[emp.id]?.remarks || 'BOOKED'}</td>
+        <td style="text-align:center">${selected[emp.id]?.overall_size || ''}</td>
+        <td style="text-align:center">${selected[emp.id]?.shoes_size || ''}</td>
       </tr>`).join('');
 
-    const html = `<!DOCTYPE html><html><head><title>Training Request Form</title>
-    <style>
-      body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; }
-      h2 { text-align: center; background: #f4a460; padding: 8px; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }
-      th { background: #2c3e7b; color: white; font-size: 10px; }
-      tr:nth-child(even) { background: #f9f9f9; }
-      @media print { button { display: none; } }
-    </style></head><body>
-    <h2>TRAINING REQUEST FORM</h2>
-    <table>
-      <thead><tr>
-        <th>SR.No</th><th>EMPLOYEE NAME</th><th>COMPANY</th><th>QID</th><th>NATIONALITY</th>
-        <th>DESIGNATION</th><th>LANGUAGE ENGLISH/HINDI</th><th>Date</th><th>REMARKS</th>
-        <th>Overall Size</th><th>Shoes Size</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <script>window.print();</script>
-    </body></html>`;
+    const html = `<!DOCTYPE html>
+<html><head><title>Training Request Form</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm 8mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; padding: 0; background: #fff; }
+  .title-bar {
+    background: #F4A259;
+    text-align: center;
+    padding: 10px 0;
+    font-size: 22px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #000;
+    margin-bottom: 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  col.sr    { width: 4%; }
+  col.name  { width: 14%; }
+  col.comp  { width: 10%; }
+  col.qid   { width: 10%; }
+  col.nat   { width: 9%; }
+  col.desig { width: 13%; }
+  col.lang  { width: 11%; }
+  col.date  { width: 8%; }
+  col.rem   { width: 8%; }
+  col.over  { width: 7%; }
+  col.shoes { width: 6%; }
+  th {
+    background: #1e3a6e;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    text-align: center;
+    vertical-align: middle;
+    padding: 6px 4px;
+    border: 1px solid #ccc;
+  }
+  td {
+    font-size: 11px;
+    vertical-align: middle;
+    padding: 5px 4px;
+    border: 1px solid #d0d0d0;
+    color: #000;
+    word-break: break-word;
+  }
+  tr:nth-child(even) td { background: #f9f9f9; }
+  tr:nth-child(odd) td { background: #ffffff; }
+  @media print {
+    .title-bar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    thead { display: table-header-group; }
+    .title-bar { page-break-inside: avoid; }
+  }
+</style>
+</head><body>
+<div class="title-bar">TRAINING REQUEST FORM</div>
+<table>
+  <colgroup>
+    <col class="sr"/><col class="name"/><col class="comp"/><col class="qid"/>
+    <col class="nat"/><col class="desig"/><col class="lang"/><col class="date"/>
+    <col class="rem"/><col class="over"/><col class="shoes"/>
+  </colgroup>
+  <thead>
+    <tr>
+      <th>SR.No</th>
+      <th>EMPLOYEE NAME</th>
+      <th>COMPANY</th>
+      <th>QID</th>
+      <th>NATIONALITY</th>
+      <th>DESIGNATION</th>
+      <th>LANGUAGE<br/>ENGLISH/HINDI</th>
+      <th>Date</th>
+      <th>REMARKS</th>
+      <th>Overall<br/>Size</th>
+      <th>Shoes<br/>Size</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+<script>window.onload = function(){ window.print(); }</script>
+</body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html);
     w.document.close();
