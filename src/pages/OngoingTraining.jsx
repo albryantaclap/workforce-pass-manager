@@ -6,10 +6,9 @@ import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search } from 'lucide-react';
-import { formatDate } from '@/utils/constants';
+import { Search, Eye } from 'lucide-react';
+import { formatDate, computePassStatus } from '@/utils/constants';
 import { Link } from 'react-router-dom';
-import { Eye } from 'lucide-react';
 
 const ONGOING_STATUSES = ['SCHEDULED', 'ON-GOING', 'TO BE SCHEDULED'];
 
@@ -34,7 +33,15 @@ export default function OngoingTraining() {
   });
 
   const ongoingEmployees = useMemo(() =>
-    employees.filter(e => ONGOING_STATUSES.includes((e.training_status || '').toUpperCase())),
+    employees.filter(e => {
+      const medical = (e.ftw_result || '').toUpperCase();
+      const rlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+      return (
+        medical === 'ACCEPTED' &&
+        (rlic === 'VALID RLIC PASS' || rlic === 'SOON TO EXPIRE') &&
+        ONGOING_STATUSES.includes((e.training_status || '').toUpperCase())
+      );
+    }),
     [employees]
   );
 
@@ -113,19 +120,21 @@ export default function OngoingTraining() {
                   <TableHead className="bg-muted/50">Company</TableHead>
                   <TableHead className="bg-muted/50">Department</TableHead>
                   <TableHead className="bg-muted/50">Designation</TableHead>
+                  <TableHead className="bg-muted/50 whitespace-nowrap">Medical Status</TableHead>
+                  <TableHead className="bg-muted/50 whitespace-nowrap">Gate Pass Status</TableHead>
                   <TableHead className="bg-muted/50 whitespace-nowrap">Training Date Scheduled</TableHead>
                   <TableHead className="bg-muted/50 whitespace-nowrap">Training Date Started</TableHead>
                   <TableHead className="bg-muted/50 whitespace-nowrap">Training Date End</TableHead>
                   <TableHead className="bg-muted/50">Training Status</TableHead>
                   <TableHead className="bg-muted/50">Remarks</TableHead>
-                  <TableHead className="bg-muted/50"></TableHead>
+                  <TableHead className="bg-muted/50">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={13} className="text-center py-10 text-muted-foreground">Loading...</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">No ongoing training records found</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={13} className="text-center py-10 text-muted-foreground">No ongoing training records found</TableCell></TableRow>
                 ) : filtered.map(emp => (
                   <TableRow key={emp.id} className="hover:bg-muted/30">
                     <TableCell className="text-xs font-medium">{emp.name}</TableCell>
@@ -133,6 +142,8 @@ export default function OngoingTraining() {
                     <TableCell className="text-xs">{emp.company}</TableCell>
                     <TableCell className="text-xs">{emp.department}</TableCell>
                     <TableCell className="text-xs">{emp.designation_org_chart}</TableCell>
+                    <TableCell><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{emp.ftw_result}</span></TableCell>
+                    <TableCell><span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status)}</span></TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_scheduled)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_start)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(emp.training_date_end)}</TableCell>

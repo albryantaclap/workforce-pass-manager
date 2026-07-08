@@ -203,9 +203,9 @@ export default function TrainingTracker() {
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="list">List</TabsTrigger>
-          <TabsTrigger value="ongoing">Ongoing Training</TabsTrigger>
           <TabsTrigger value="request">Training Request</TabsTrigger>
           <TabsTrigger value="logs">Request Logs</TabsTrigger>
+          <TabsTrigger value="ongoing">Ongoing Training</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4 mt-4">
@@ -350,16 +350,16 @@ export default function TrainingTracker() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="ongoing" className="mt-4">
-          <OngoingTraining />
-        </TabsContent>
-
         <TabsContent value="request" className="mt-4">
           <TrainingRequestForm />
         </TabsContent>
 
         <TabsContent value="logs" className="mt-4">
           <TrainingRequestLogs />
+        </TabsContent>
+
+        <TabsContent value="ongoing" className="mt-4">
+          <OngoingTraining />
         </TabsContent>
       </Tabs>
     </div>
