@@ -10,13 +10,17 @@ import { Search, Eye, PencilLine } from 'lucide-react';
 import { formatDate, computePassStatus } from '@/utils/constants';
 import { Link } from 'react-router-dom';
 
-const ONGOING_STATUSES = ['SCHEDULED', 'ON-GOING', 'TO BE SCHEDULED'];
-const ALL_TRAINING_STATUSES = ['PENDING', 'SCHEDULED', 'ON-GOING', 'TO BE SCHEDULED', 'DONE', 'NOT REQUIRED'];
+const ONGOING_STATUSES = ['TO BE SCHEDULED', 'SCHEDULED', 'ON-GOING', 'PENDING', 'ABSENT'];
+const ALL_TRAINING_STATUSES = ['TO BE SCHEDULED', 'SCHEDULED', 'ON-GOING', 'PENDING', 'ABSENT', 'DONE', 'NOT REQUIRED'];
 
 const STATUS_COLORS = {
-  'SCHEDULED': 'bg-blue-50 text-blue-700',
-  'ON-GOING': 'bg-emerald-50 text-emerald-700',
+  'ON-GOING':        'bg-emerald-50 text-emerald-700',
+  'SCHEDULED':       'bg-blue-50 text-blue-700',
   'TO BE SCHEDULED': 'bg-amber-50 text-amber-700',
+  'PENDING':         'bg-yellow-50 text-yellow-700',
+  'ABSENT':          'bg-red-50 text-red-700',
+  'DONE':            'bg-emerald-100 text-emerald-800',
+  'NOT REQUIRED':    'bg-gray-100 text-gray-500',
 };
 
 export default function OngoingTraining() {
@@ -25,7 +29,7 @@ export default function OngoingTraining() {
   const [companyFilter, setCompanyFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [positionFilter, setPositionFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('ON-GOING');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [gridEdit, setGridEdit] = useState(false);
@@ -106,7 +110,7 @@ export default function OngoingTraining() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-36 h-8 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger>
+            <SelectTrigger className="w-40 h-8 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               {ONGOING_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -210,7 +214,7 @@ export default function OngoingTraining() {
         </div>
         <div className="px-4 py-2 border-t bg-muted/30">
           <span className="text-xs text-muted-foreground">
-            Showing <strong>{filtered.length}</strong> of <strong>{ongoingEmployees.length}</strong> ongoing/scheduled
+            Showing <strong>{filtered.length}</strong> of <strong>{ongoingEmployees.length}</strong> eligible employees
           </span>
         </div>
       </Card>

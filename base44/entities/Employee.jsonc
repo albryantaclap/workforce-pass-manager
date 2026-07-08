@@ -269,7 +269,8 @@
         "NOT REQUIRED",
         "SCHEDULED",
         "ON-GOING",
-        "TO BE SCHEDULED"
+        "TO BE SCHEDULED",
+        "ABSENT"
       ],
       "description": "Training status"
     },

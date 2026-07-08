@@ -24,7 +24,7 @@ import TrackerFilters from '../components/common/TrackerFilters';
 import { useToast } from '@/components/ui/use-toast';
 import { useManagerFilter } from '@/hooks/useManagerFilter';
 
-const COLORS = ['#10b981', '#f59e0b', '#94a3b8'];
+const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#eab308', '#ef4444', '#6b7280', '#94a3b8'];
 
 export default function TrainingTracker() {
   const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
@@ -170,7 +170,15 @@ export default function TrainingTracker() {
     Training_Date_Scheduled: formatDate(e.training_date_scheduled), Training_Date_Started: formatDate(e.training_date_start), Training_Date_End: formatDate(e.training_date_end), Training_Status: e.training_status,
   }));
 
-  const statusColors = { DONE: 'bg-emerald-50 text-emerald-700', PENDING: 'bg-amber-50 text-amber-700', 'NOT REQUIRED': 'bg-slate-100 text-slate-600' };
+  const statusColors = {
+    'DONE':             'bg-emerald-100 text-emerald-800',
+    'ON-GOING':         'bg-emerald-50 text-emerald-700',
+    'SCHEDULED':        'bg-blue-50 text-blue-700',
+    'TO BE SCHEDULED':  'bg-amber-50 text-amber-700',
+    'PENDING':          'bg-yellow-50 text-yellow-700',
+    'ABSENT':           'bg-red-50 text-red-700',
+    'NOT REQUIRED':     'bg-gray-100 text-gray-500',
+  };
 
   return (
     <div className="space-y-5">

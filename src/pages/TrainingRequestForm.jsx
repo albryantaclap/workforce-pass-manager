@@ -18,11 +18,12 @@ const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
 const LANG_OPTIONS = ['ENGLISH', 'HINDI', 'ARABIC', 'OTHER'];
 
 const TRAINING_STATUS_STYLES = {
-  'DONE':             'bg-emerald-50 text-emerald-700',
+  'DONE':             'bg-emerald-100 text-emerald-800',
   'SCHEDULED':        'bg-blue-50 text-blue-700',
-  'ON-GOING':         'bg-violet-50 text-violet-700',
+  'ON-GOING':         'bg-emerald-50 text-emerald-700',
   'TO BE SCHEDULED':  'bg-amber-50 text-amber-700',
-  'PENDING':          'bg-slate-100 text-slate-600',
+  'PENDING':          'bg-yellow-50 text-yellow-700',
+  'ABSENT':           'bg-red-50 text-red-700',
   'NOT REQUIRED':     'bg-gray-100 text-gray-500',
 };
 
