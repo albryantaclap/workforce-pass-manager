@@ -7,9 +7,10 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/components/ui/use-toast';
-import { Search, ClipboardList } from 'lucide-react';
+import { Search, ClipboardList, Printer, Download } from 'lucide-react';
 import { formatDate } from '@/utils/constants';
 import moment from 'moment';
+import ExcelJS from 'exceljs';
 
 const STATUS_OPTIONS = ['Booked', 'Submitted', 'Completed', 'Cancelled'];
 
@@ -62,6 +63,96 @@ export default function TrainingRequestLogs() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const pagedRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
+  const handlePrint = () => {
+    const rows = filtered.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${r.request_no || ''}</td>
+        <td>${formatDate(r.request_date)}</td>
+        <td>${r.requested_by_name || r.requested_by || ''}</td>
+        <td>${r.employee_name || ''}</td>
+        <td>${r.qid_no || ''}</td>
+        <td>${r.company || ''}</td>
+        <td>${r.designation || ''}</td>
+        <td>${formatDate(r.training_date)}</td>
+        <td>${r.language || ''}</td>
+        <td>${r.overall_size || ''}</td>
+        <td>${r.shoes_size || ''}</td>
+        <td>${r.remarks || ''}</td>
+        <td>${r.status || ''}</td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html><html><head><title>Training Request Logs</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 10px; margin: 20px; }
+      h2 { text-align: center; background: #f4a460; padding: 8px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+      th { background: #2c3e7b; color: white; font-size: 9px; }
+      tr:nth-child(even) { background: #f9f9f9; }
+      @media print { button { display: none; } }
+    </style></head><body>
+    <h2>TRAINING REQUEST LOGS</h2>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Request No</th><th>Request Date</th><th>Requested By</th>
+        <th>Employee Name</th><th>QID</th><th>Company</th><th>Designation</th>
+        <th>Training Date</th><th>Language</th><th>Overall</th><th>Shoes</th><th>Remarks</th><th>Status</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <script>window.print();</script>
+    </body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+  };
+
+  const handleExport = async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Training Request Logs');
+
+    ws.mergeCells('A1:N1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = 'TRAINING REQUEST LOGS';
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4A460' } };
+
+    const headers = ['#', 'Request No', 'Request Date', 'Requested By', 'Employee Name', 'QID', 'Company', 'Designation', 'Training Date', 'Language', 'Overall Size', 'Shoes Size', 'Remarks', 'Status'];
+    const headerRow = ws.addRow(headers);
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2C3E7B' } };
+      cell.alignment = { horizontal: 'center' };
+    });
+
+    filtered.forEach((r, i) => {
+      ws.addRow([
+        i + 1, r.request_no || '', formatDate(r.request_date),
+        r.requested_by_name || r.requested_by || '', r.employee_name || '',
+        r.qid_no || '', r.company || '', r.designation || '',
+        formatDate(r.training_date), r.language || '',
+        r.overall_size || '', r.shoes_size || '', r.remarks || '', r.status || ''
+      ]);
+    });
+
+    ws.columns = [
+      { width: 5 }, { width: 22 }, { width: 14 }, { width: 20 }, { width: 26 },
+      { width: 16 }, { width: 18 }, { width: 20 }, { width: 14 }, { width: 12 },
+      { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }
+    ];
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `training_request_logs_${moment().format('YYYYMMDD')}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Group by request_no for display
   const grouped = useMemo(() => {
     const map = {};
@@ -74,13 +165,19 @@ export default function TrainingRequestLogs() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center">
-          <ClipboardList className="w-5 h-5 text-orange-600" />
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center">
+            <ClipboardList className="w-5 h-5 text-orange-600" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Training Request Logs</h2>
+            <p className="text-sm text-muted-foreground">History of all training bookings</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Training Request Logs</h2>
-          <p className="text-sm text-muted-foreground">History of all training bookings</p>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={handlePrint}><Printer className="w-3.5 h-3.5 mr-1.5" />Print</Button>
+          <Button size="sm" variant="outline" onClick={handleExport}><Download className="w-3.5 h-3.5 mr-1.5" />Export Excel</Button>
         </div>
       </div>
 
