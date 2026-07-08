@@ -431,6 +431,7 @@ export default function TrainingRequestForm() {
                   <TableHead className="bg-muted/50">Medical</TableHead>
                   <TableHead className="bg-muted/50">Gate Pass</TableHead>
                   <TableHead className="bg-muted/50">Training Status</TableHead>
+                  <TableHead className="bg-muted/50">Remarks</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -454,11 +455,12 @@ export default function TrainingRequestForm() {
                       <TableCell><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{emp.ftw_result}</span></TableCell>
                       <TableCell><span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status)}</span></TableCell>
                       <TableCell>
-                        {isAlreadyBooked
-                          ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Already Booked</span>
-                          : <span className="text-[10px] text-muted-foreground">{emp.training_status || '—'}</span>}
+                       {isAlreadyBooked
+                         ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Already Booked</span>
+                         : <span className="text-[10px] text-muted-foreground">{emp.training_status || '—'}</span>}
                       </TableCell>
-                    </TableRow>
+                      <TableCell className="text-xs text-muted-foreground">{emp.remarks || '—'}</TableCell>
+                      </TableRow>
                   );
                 })}
               </TableBody>
