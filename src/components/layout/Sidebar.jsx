@@ -20,7 +20,7 @@ const navItems = [
   { label: 'Project ID', path: '/project-id', icon: BadgeCheck },
   { label: 'Training', path: '/training', icon: GraduationCap },
 
-  { label: 'Inactive Personnel', path: '/inactive', icon: UserX },
+  { label: 'Inactive / Demobilized', path: '/inactive', icon: UserX },
   { label: 'Projection Report', path: '/projection', icon: TrendingUp },
   { label: 'Deleted Personnel', path: '/deleted-personnel', icon: Trash2 },
   { label: 'Activity Log', path: '/activity-log', icon: Activity },

@@ -440,7 +440,7 @@ export default function InactivePersonnel() {
           <UserX className="w-5 h-5 text-red-600" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Inactive Personnel</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Inactive / Demobilized</h2>
           <p className="text-sm text-muted-foreground">
             <span className="text-red-600 font-semibold">{allInactive.length} inactive</span>
             {' · '}
