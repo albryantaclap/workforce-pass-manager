@@ -16,19 +16,22 @@ import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
 const emptyForm = {
-  sl_no: '', name: '', photo_url: '', position_application: '', designation_org_chart: '', department: '',
-  company: '', company_type: '', nationality: '', religion: '', current_location: '', dir_indir: '',
-  contact_details: '', sponsor: '', remarks: '',
-  qid_no: '', qid_expiry: '', pp_no: '', pp_expiry: '',
-  visa_date_applied: '', visa_date_received: '', visa_expiry: '',
-  ftw_medical_date: '', ftw_received_date: '', ftw_approval_request_date: '', ftw_count_days: '',
-  ftw_approved_date: '', ftw_result: '', ftw_doctor: '', ftw_mobile: '',
-  gate_pass_issue_date: '', gate_pass_received_date: '', gate_pass_expiry: '',
-  staff_no: '', rlic_status: '',
-  pid_issue_date: '', pid_expiry: '', pid: '', pid_status: '', pid_projected_date: '',
-  training_date: '', training_date_scheduled: '', training_status: '',
-  is_manager: false,
-  assigned_manager_id: '', assigned_manager_name: '',
+sl_no: '', name: '', photo_url: '', position_application: '', designation_org_chart: '', department: '',
+company: '', company_type: '', nationality: '', religion: '', current_location: '', dir_indir: '',
+contact_details: '', sponsor: '', remarks: '',
+qid_no: '', qid_expiry: '', pp_no: '', pp_expiry: '',
+visa_date_applied: '', visa_date_received: '', visa_expiry: '',
+ftw_medical_date: '', ftw_received_date: '', ftw_approval_request_date: '', ftw_count_days: '',
+ftw_approved_date: '', ftw_result: '', ftw_doctor: '', ftw_mobile: '',
+gate_pass_issue_date: '', gate_pass_received_date: '', gate_pass_expiry: '',
+staff_no: '', rlic_status: '',
+pid_issue_date: '', pid_expiry: '', pid: '', pid_status: '', pid_projected_date: '',
+training_date: '', training_date_scheduled: '', training_status: '',
+is_manager: false,
+assigned_manager_id: '', assigned_manager_name: '',
+personnel_status: 'Active',
+status_effective_date: '', last_working_date: '', status_reason: '', status_remarks: '',
+demobilization_date: '', demobilization_reason: '',
 };
 
 const Field = ({ label, children }) => (
@@ -254,16 +257,43 @@ export default function EmployeeForm() {
   }, [existingEmp]);
 
   const saveMutation = useMutation({
-    mutationFn: (data) => {
+    mutationFn: async (data) => {
       const cleaned = Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== '' && v !== null && v !== undefined));
       if (currentUser?.email) cleaned._last_updated_by = currentUser.email;
       if (currentUser?.full_name) cleaned._last_updated_by_name = currentUser.full_name;
       if (currentUser?.role) cleaned._last_updated_by_role = currentUser.role;
-      if (isEdit && empId) return base44.entities.Employee.update(empId, cleaned);
-      return base44.entities.Employee.create(cleaned);
+      // Keep is_active in sync with personnel_status
+      cleaned.is_active = cleaned.personnel_status !== 'Inactive' && cleaned.personnel_status !== 'Demobilized';
+      let result;
+      if (isEdit && empId) {
+        result = await base44.entities.Employee.update(empId, cleaned);
+        // Log status change if personnel_status changed
+        const prev = existingEmp?.[0];
+        const prevStatus = prev?.personnel_status || (prev?.is_active === false ? 'Inactive' : 'Active');
+        const newStatus = cleaned.personnel_status || 'Active';
+        if (prevStatus !== newStatus) {
+          await base44.entities.ActivityLog.create({
+            action: 'update', entity_name: 'Employee', entity_id: empId,
+            performed_by: currentUser?.email || 'unknown',
+            record_name: data.name,
+            changed_fields: ['personnel_status'],
+            record_snapshot: {
+              previous_status: prevStatus, new_status: newStatus,
+              effective_date: cleaned.status_effective_date || '',
+              reason: cleaned.status_reason || cleaned.demobilization_reason || '',
+              updated_by: currentUser?.full_name || currentUser?.email || 'unknown',
+            },
+          });
+        }
+      } else {
+        result = await base44.entities.Employee.create(cleaned);
+      }
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
       toast({ title: isEdit ? 'Record updated' : 'Record created' });
       navigate(-1);
     },
@@ -381,23 +411,32 @@ export default function EmployeeForm() {
           </div>
         </div>
         {isEdit && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-muted-foreground">Status:</span>
-            <button
-              type="button"
-              onClick={() => handleChange('is_active', form.is_active === false ? true : false)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                form.is_active === false
-                  ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                  : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-              }`}
-            >
-              {form.is_active === false ? (
-                <><UserX className="w-4 h-4" /> Inactive</>
-              ) : (
-                <><UserCheck className="w-4 h-4" /> Active</>
-              )}
-            </button>
+            {['Active', 'Inactive', 'Demobilized'].map(s => {
+              const isSelected = (form.personnel_status || 'Active') === s;
+              const styles = {
+                Active: isSelected ? 'bg-green-600 text-white border-green-600' : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
+                Inactive: isSelected ? 'bg-red-600 text-white border-red-600' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100',
+                Demobilized: isSelected ? 'bg-orange-600 text-white border-orange-600' : 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100',
+              };
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    handleChange('personnel_status', s);
+                    handleChange('is_active', s === 'Active');
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${styles[s]}`}
+                >
+                  {s === 'Active' && <UserCheck className="w-4 h-4" />}
+                  {s === 'Inactive' && <UserX className="w-4 h-4" />}
+                  {s === 'Demobilized' && <UserX className="w-4 h-4" />}
+                  {s}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -595,6 +634,27 @@ export default function EmployeeForm() {
             </div>
           )}
         </Card>
+
+        {/* Status Details — shown when Inactive or Demobilized */}
+        {(form.personnel_status === 'Inactive' || form.personnel_status === 'Demobilized') && (
+          <Card className="p-6 border-amber-200 bg-amber-50/30">
+            <h3 className="text-sm font-semibold mb-4 text-amber-700">
+              {form.personnel_status === 'Demobilized' ? 'Demobilization Details' : 'Inactive Status Details'}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <TextInput field="status_effective_date" label="Status Effective Date" type="date" {...tf} />
+              <TextInput field="last_working_date" label="Last Working Date" type="date" {...tf} />
+              <TextInput field="status_reason" label="Reason" {...tf} />
+              <TextInput field="status_remarks" label="Remarks" {...tf} />
+              {form.personnel_status === 'Demobilized' && (
+                <>
+                  <TextInput field="demobilization_date" label="Demobilization Date" type="date" {...tf} />
+                  <TextInput field="demobilization_reason" label="Demobilization Reason" {...tf} />
+                </>
+              )}
+            </div>
+          </Card>
+        )}
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>

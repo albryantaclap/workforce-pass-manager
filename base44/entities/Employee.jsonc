@@ -23,6 +23,43 @@
       "description": "Whether the employee is active",
       "default": true
     },
+    "personnel_status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Inactive",
+        "Demobilized"
+      ],
+      "default": "Active",
+      "description": "Personnel status: Active, Inactive, or Demobilized"
+    },
+    "status_effective_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the current status became effective"
+    },
+    "last_working_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Last working date"
+    },
+    "status_reason": {
+      "type": "string",
+      "description": "Reason for status change (inactive/demobilized)"
+    },
+    "status_remarks": {
+      "type": "string",
+      "description": "Additional remarks on status change"
+    },
+    "demobilization_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Demobilization date (for Demobilized status)"
+    },
+    "demobilization_reason": {
+      "type": "string",
+      "description": "Reason for demobilization"
+    },
     "is_manager": {
       "type": "boolean",
       "description": "Whether this person can be assigned as a manager",
