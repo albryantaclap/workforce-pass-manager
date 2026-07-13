@@ -64,7 +64,7 @@ function FilterPanel({ filters, setters, uniqueCompanies, positions, rlicStatusO
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         <div className="relative xl:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Name, QID, Company, Nationality..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-9" />
+          <Input placeholder="Search Name, QID, PID, Passport, Company, Nationality, Designation..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-9" />
         </div>
         <MultiSelect options={uniqueCompanies} value={companyFilter} onChange={v => { setCompanyFilter(v); setPage(0); }} placeholder="All Companies" />
         <MultiSelect options={positions} value={positionFilter} onChange={v => { setPositionFilter(v); setPage(0); }} placeholder="Filter by position" />
@@ -316,9 +316,19 @@ export default function InactivePersonnel() {
   }, [employees]);
 
   const applyFilters = (list) => list.filter(e => {
-    if (search && !e.name?.toLowerCase().includes(search.toLowerCase()) &&
-      !e.qid_no?.includes(search) && !e.company?.toLowerCase().includes(search.toLowerCase()) &&
-      !e.nationality?.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const matched =
+        e.name?.toLowerCase().includes(q) ||
+        e.qid_no?.toLowerCase().includes(q) ||
+        e.pid?.toLowerCase().includes(q) ||
+        e.pp_no?.toLowerCase().includes(q) ||
+        e.company?.toLowerCase().includes(q) ||
+        e.nationality?.toLowerCase().includes(q) ||
+        e.designation_org_chart?.toLowerCase().includes(q) ||
+        e.position_application?.toLowerCase().includes(q);
+      if (!matched) return false;
+    }
     if (companyFilter.length > 0 && !companyFilter.includes(e.company)) return false;
     if (positionFilter.length > 0 && !positionFilter.includes(e.designation_org_chart) && !positionFilter.includes(e.position_application)) return false;
     if (departmentFilter !== 'all' && e.department !== departmentFilter) return false;
