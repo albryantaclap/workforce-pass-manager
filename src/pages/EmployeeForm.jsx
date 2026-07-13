@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Save, Upload, User, UserCheck, UserX, Shield } from 'lucide-react';
 import SharepointFormButton from '@/components/common/SharepointFormButton';
+import StatusChangeModal from '@/components/common/StatusChangeModal';
 import SearchableSelect from '@/components/common/SearchableSelect';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, computePassStatus } from '@/utils/constants';
@@ -86,8 +87,7 @@ export default function EmployeeForm() {
   const [form, setForm] = useState(emptyForm);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [statusWarning, setStatusWarning] = useState('');
-  const statusDetailsSectionRef = useRef(null);
-  const statusEffectiveDateRef = useRef(null);
+  const [statusModal, setStatusModal] = useState({ open: false, newStatus: null });
 
   // Special (non-date-derivable) statuses — never auto-overwrite these
   const RLIC_SPECIAL = new Set([
@@ -381,6 +381,17 @@ export default function EmployeeForm() {
 
   const tf = { form, onChange: handleChange };
 
+  const handleStatusModalConfirm = ({ newStatus, effectiveDate, lastWorkingDate, reason }) => {
+    handleChange('personnel_status', newStatus);
+    handleChange('is_active', false);
+    handleChange('status_effective_date', effectiveDate);
+    if (lastWorkingDate) handleChange('last_working_date', lastWorkingDate);
+    if (reason) handleChange('status_reason', reason);
+    if (newStatus === 'Inactive') handleChange('inactive_date', effectiveDate);
+    if (newStatus === 'Demobilized') handleChange('demobilization_date', effectiveDate);
+    setStatusModal({ open: false, newStatus: null });
+  };
+
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -404,6 +415,13 @@ export default function EmployeeForm() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
+      <StatusChangeModal
+        open={statusModal.open}
+        onClose={() => setStatusModal({ open: false, newStatus: null })}
+        emp={form.name ? { name: form.name, personnel_status: form.personnel_status || 'Active' } : null}
+        newStatus={statusModal.newStatus}
+        onConfirm={handleStatusModalConfirm}
+      />
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4" /></Button>
@@ -427,13 +445,11 @@ export default function EmployeeForm() {
                   key={s}
                   type="button"
                   onClick={() => {
-                    handleChange('personnel_status', s);
-                    handleChange('is_active', s === 'Active');
-                    if (s === 'Inactive' || s === 'Demobilized') {
-                      setTimeout(() => {
-                        statusDetailsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        setTimeout(() => statusEffectiveDateRef.current?.focus(), 300);
-                      }, 50);
+                    if (s === 'Active') {
+                      handleChange('personnel_status', s);
+                      handleChange('is_active', true);
+                    } else {
+                      setStatusModal({ open: true, newStatus: s });
                     }
                   }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${styles[s]}`}
@@ -642,34 +658,6 @@ export default function EmployeeForm() {
             </div>
           )}
         </Card>
-
-        {/* Status Details — shown when Inactive or Demobilized */}
-        {(form.personnel_status === 'Inactive' || form.personnel_status === 'Demobilized') && (
-          <Card ref={statusDetailsSectionRef} className="p-6 border-amber-200 bg-amber-50/30">
-            <h3 className="text-sm font-semibold mb-4 text-amber-700">
-              {form.personnel_status === 'Demobilized' ? 'Demobilization Details' : 'Inactive Status Details'}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Field label="Status Effective Date">
-                <Input
-                  ref={statusEffectiveDateRef}
-                  type="date"
-                  value={toDateValue(form.status_effective_date)}
-                  onChange={e => handleChange('status_effective_date', e.target.value)}
-                />
-              </Field>
-              <TextInput field="last_working_date" label="Last Working Date" type="date" {...tf} />
-              <TextInput field="status_reason" label="Reason" {...tf} />
-              <TextInput field="status_remarks" label="Remarks" {...tf} />
-              {form.personnel_status === 'Demobilized' && (
-                <>
-                  <TextInput field="demobilization_date" label="Demobilization Date" type="date" {...tf} />
-                  <TextInput field="demobilization_reason" label="Demobilization Reason" {...tf} />
-                </>
-              )}
-            </div>
-          </Card>
-        )}
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>

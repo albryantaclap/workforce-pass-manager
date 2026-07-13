@@ -20,8 +20,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+import SharedStatusChangeModal from '@/components/common/StatusChangeModal';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
@@ -49,63 +48,7 @@ function GatePassBadge({ emp }) {
 
 const PAGE_SIZE = 50;
 
-// ── Status Change Modal ───────────────────────────────────────────────────────
-function StatusChangeModal({ open, onClose, emp, newStatus, onConfirm }) {
-  const today = new Date().toISOString().split('T')[0];
-  const [effectiveDate, setEffectiveDate] = useState(today);
-  const [reason, setReason] = useState('');
-
-  if (!emp) return null;
-  const dateLabel = newStatus === 'Demobilized' ? 'Demobilization Date' : 'Inactive Date';
-  const prevStatus = emp.personnel_status || 'Inactive';
-
-  const handleConfirm = () => {
-    onConfirm({ emp, newStatus, effectiveDate, reason });
-    onClose();
-    setEffectiveDate(today);
-    setReason('');
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={v => { if (!v) { onClose(); setEffectiveDate(today); setReason(''); } }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {newStatus === 'Demobilized' ? 'Demobilize Personnel' :
-             newStatus === 'Inactive' ? 'Mark as Inactive' : 'Reactivate Personnel'}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="rounded-lg bg-muted/40 p-3 space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Employee:</span><strong>{emp.name}</strong></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Current Status:</span><span className="font-medium">{prevStatus}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">New Status:</span>
-              <span className={`font-bold ${newStatus === 'Active' ? 'text-green-600' : newStatus === 'Demobilized' ? 'text-orange-600' : 'text-red-600'}`}>{newStatus}</span>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">{dateLabel} *</Label>
-            <Input type="date" value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Reason / Remarks <span className="text-muted-foreground">(optional)</span></Label>
-            <Input placeholder="Enter reason..." value={reason} onChange={e => setReason(e.target.value)} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => { onClose(); setEffectiveDate(today); setReason(''); }}>Cancel</Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={!effectiveDate}
-            className={newStatus === 'Active' ? 'bg-green-600 hover:bg-green-700' : newStatus === 'Demobilized' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-red-600 hover:bg-red-700'}
-          >
-            Confirm
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// StatusChangeModal is imported from @/components/common/StatusChangeModal
 
 // ── Filter Panel ──────────────────────────────────────────────────────────────
 function FilterPanel({ filters, setters, uniqueCompanies, positions, rlicStatusOptions, trainingStatusOptions, onClear }) {
@@ -204,7 +147,7 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
 
   return (
     <>
-      <StatusChangeModal
+      <SharedStatusChangeModal
         open={modalState.open}
         onClose={closeModal}
         emp={modalState.emp}
@@ -407,7 +350,7 @@ export default function InactivePersonnel() {
 
   // ── Status change (covers: Inactive→Demobilized, Demobilized→Inactive, either→Active) ──
   const statusChangeMutation = useMutation({
-    mutationFn: ({ emp, newStatus, effectiveDate, reason }) => {
+    mutationFn: ({ emp, newStatus, effectiveDate, lastWorkingDate, reason }) => {
       const updates = {
         personnel_status: newStatus,
         is_active: newStatus === 'Active',
@@ -416,6 +359,7 @@ export default function InactivePersonnel() {
         status_changed_by: currentUser?.email || 'unknown',
         status_changed_at: new Date().toISOString(),
       };
+      if (lastWorkingDate) updates.last_working_date = lastWorkingDate;
       if (newStatus === 'Inactive') updates.inactive_date = effectiveDate;
       if (newStatus === 'Demobilized') updates.demobilization_date = effectiveDate;
       return base44.entities.Employee.update(emp.id, updates);
