@@ -420,8 +420,9 @@ export default function InactivePersonnel() {
   });
 
   const exportData = (list) => list.map(e => ({
-    Name: e.name, Company: e.company, QID: e.qid_no, Department: e.department,
-    Nationality: e.nationality, Position: e.designation_org_chart || e.position_application,
+    Name: e.name, QID: e.qid_no, PID_No: e.pid || '—', Nationality: e.nationality,
+    Company: e.company, Department: e.department,
+    Position: e.designation_org_chart || e.position_application,
     Personnel_Status: e.personnel_status || 'Inactive',
     Inactive_Date: e.inactive_date, Demobilization_Date: e.demobilization_date,
     Status_Effective_Date: e.status_effective_date, Last_Working_Date: e.last_working_date,
