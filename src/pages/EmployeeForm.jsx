@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -86,6 +86,8 @@ export default function EmployeeForm() {
   const [form, setForm] = useState(emptyForm);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [statusWarning, setStatusWarning] = useState('');
+  const statusDetailsSectionRef = useRef(null);
+  const statusEffectiveDateRef = useRef(null);
 
   // Special (non-date-derivable) statuses — never auto-overwrite these
   const RLIC_SPECIAL = new Set([
@@ -427,6 +429,12 @@ export default function EmployeeForm() {
                   onClick={() => {
                     handleChange('personnel_status', s);
                     handleChange('is_active', s === 'Active');
+                    if (s === 'Inactive' || s === 'Demobilized') {
+                      setTimeout(() => {
+                        statusDetailsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        setTimeout(() => statusEffectiveDateRef.current?.focus(), 300);
+                      }, 50);
+                    }
                   }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${styles[s]}`}
                 >
@@ -637,12 +645,19 @@ export default function EmployeeForm() {
 
         {/* Status Details — shown when Inactive or Demobilized */}
         {(form.personnel_status === 'Inactive' || form.personnel_status === 'Demobilized') && (
-          <Card className="p-6 border-amber-200 bg-amber-50/30">
+          <Card ref={statusDetailsSectionRef} className="p-6 border-amber-200 bg-amber-50/30">
             <h3 className="text-sm font-semibold mb-4 text-amber-700">
               {form.personnel_status === 'Demobilized' ? 'Demobilization Details' : 'Inactive Status Details'}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <TextInput field="status_effective_date" label="Status Effective Date" type="date" {...tf} />
+              <Field label="Status Effective Date">
+                <Input
+                  ref={statusEffectiveDateRef}
+                  type="date"
+                  value={toDateValue(form.status_effective_date)}
+                  onChange={e => handleChange('status_effective_date', e.target.value)}
+                />
+              </Field>
               <TextInput field="last_working_date" label="Last Working Date" type="date" {...tf} />
               <TextInput field="status_reason" label="Reason" {...tf} />
               <TextInput field="status_remarks" label="Remarks" {...tf} />
