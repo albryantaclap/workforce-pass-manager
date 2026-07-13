@@ -38,6 +38,11 @@
       "format": "date",
       "description": "Date the current status became effective"
     },
+    "inactive_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date personnel became inactive"
+    },
     "last_working_date": {
       "type": "string",
       "format": "date",
@@ -50,6 +55,15 @@
     "status_remarks": {
       "type": "string",
       "description": "Additional remarks on status change"
+    },
+    "status_changed_by": {
+      "type": "string",
+      "description": "Email of user who last changed the personnel status"
+    },
+    "status_changed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last status change"
     },
     "demobilization_date": {
       "type": "string",
