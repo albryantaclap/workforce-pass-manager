@@ -46,6 +46,24 @@ function GatePassBadge({ emp }) {
   return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${styles[status] || 'bg-blue-50 text-blue-700 border-blue-200'}`}>{labels[status] || status}</span>;
 }
 
+function PidStatusBadge({ emp }) {
+  const status = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
+  if (!status) return <span className="text-xs text-muted-foreground">—</span>;
+  const styles = {
+    'VALID PID PASS': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'EXPIRED PID PASS': 'bg-red-50 text-red-700 border-red-200',
+    'SOON TO EXPIRE': 'bg-amber-50 text-amber-700 border-amber-200',
+    'NO PID PASS': 'bg-slate-100 text-slate-600 border-slate-200',
+  };
+  const labels = {
+    'VALID PID PASS': 'Valid',
+    'EXPIRED PID PASS': 'Expired',
+    'SOON TO EXPIRE': 'Soon',
+    'NO PID PASS': 'No Pass',
+  };
+  return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${styles[status] || 'bg-blue-50 text-blue-700 border-blue-200'}`}>{labels[status] || status}</span>;
+}
+
 const PAGE_SIZE = 50;
 
 // StatusChangeModal is imported from @/components/common/StatusChangeModal
@@ -170,17 +188,19 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                   <TableHead className="text-xs bg-muted/50">Medical</TableHead>
                   <TableHead className="text-xs bg-muted/50">Gate Pass</TableHead>
                   <TableHead className="text-xs bg-muted/50">Training</TableHead>
+                  <TableHead className="text-xs bg-muted/50">PID Status</TableHead>
+                  <TableHead className="text-xs bg-muted/50">Reason / Remarks</TableHead>
                   <TableHead className="text-xs bg-muted/50 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   Array(5).fill(0).map((_, i) => (
-                    <TableRow key={i}>{Array(11).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                   <TableRow key={i}>{Array(13).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                   ))
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-14">
+                    <TableCell colSpan={13} className="text-center py-14">
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <UserCheck className="w-8 h-8 text-green-500" />
                         <p className="font-medium">{tabType === 'inactive' ? 'No inactive personnel' : 'No demobilized personnel'}</p>
@@ -205,6 +225,10 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                           {emp.training_status
                             ? <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${{ DONE: 'bg-emerald-50 text-emerald-700 border-emerald-200', PENDING: 'bg-amber-50 text-amber-700 border-amber-200', 'NOT REQUIRED': 'bg-slate-100 text-slate-600 border-slate-200' }[emp.training_status] || 'bg-blue-50 text-blue-700 border-blue-200'}`}>{emp.training_status}</span>
                             : <span className="text-xs text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell><PidStatusBadge emp={emp} /></TableCell>
+                        <TableCell className="text-xs max-w-[160px] truncate" title={emp.status_reason || emp.status_remarks || ''}>
+                          {emp.status_reason || emp.status_remarks || <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1 flex-wrap">
@@ -428,7 +452,10 @@ export default function InactivePersonnel() {
     Status_Effective_Date: e.status_effective_date, Last_Working_Date: e.last_working_date,
     Status_Reason: e.status_reason, Status_Changed_By: e.status_changed_by,
     Medical: e.ftw_result, Gate_Pass_Expiry: e.gate_pass_expiry, RLIC_Status: e.rlic_status,
-    Training_Status: e.training_status, Location: e.current_location,
+    Training_Status: e.training_status,
+    PID_Status: computePassStatus(e.pid_expiry, 'pid', e.pid_status) || '—',
+    Reason_Remarks: e.status_reason || e.status_remarks || '—',
+    Location: e.current_location,
   }));
 
   const filters = { search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter };
