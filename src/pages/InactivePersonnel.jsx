@@ -564,6 +564,7 @@ export default function InactivePersonnel() {
               title="GSO Qatar — Inactive Personnel Report"
               appliedFilters={activeAppliedFilters}
               totalFiltered={filteredInactive.length}
+              sortBy={['company', 'designation', 'name']}
             />
             <ExportButton filename="inactive_personnel" label="Export" getData={() => exportData(filteredInactive)} />
           </div>
@@ -584,6 +585,7 @@ export default function InactivePersonnel() {
               title="GSO Qatar — Demobilized Personnel Report"
               appliedFilters={activeAppliedFilters}
               totalFiltered={filteredDemobilized.length}
+              sortBy={['company', 'designation', 'name']}
             />
             <ExportButton filename="demobilized_personnel" label="Export" getData={() => exportData(filteredDemobilized)} />
           </div>
