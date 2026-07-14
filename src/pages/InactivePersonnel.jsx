@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, UserCheck, UserX, Eye, Pencil, X, Trash2, ArrowLeftRight } from 'lucide-react';
 import ExportButton from '../components/common/ExportButton';
+import PrintReportButton from '../components/common/PrintReportButton';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
@@ -461,6 +462,56 @@ export default function InactivePersonnel() {
   const filters = { search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter };
   const setters = { setSearch, setCompanyFilter, setPositionFilter, setDepartmentFilter, setLocationFilter, setDirFilter, setMedicalResultFilter, setTrainingFilter, setGatePassFilter, setPidStatusFilter, setPage: (p) => { setInactivePage(p); setDemobPage(p); } };
 
+  // ── Print / PDF report data ──
+  const printColumns = [
+    { key: 'name', label: 'Name' },
+    { key: 'qid_no', label: 'QID No.' },
+    { key: 'pid', label: 'PID No.' },
+    { key: 'company', label: 'Company' },
+    { key: 'designation', label: 'Designation / Position' },
+    { key: 'status_date', label: 'Inactive / Demobilization Date', align: 'center' },
+    { key: 'medical', label: 'Medical Status', align: 'center' },
+    { key: 'gate_pass', label: 'Gate Pass Status', align: 'center' },
+    { key: 'training', label: 'Training Status', align: 'center' },
+    { key: 'pid_status', label: 'PID Status', align: 'center' },
+    { key: 'reason', label: 'Reason / Remarks' },
+  ];
+
+  const medPrintLabels = { 'ACCEPTED': 'Accepted', 'REJECTED': 'Rejected', 'WAITING TR APPROVAL': 'Waiting TR', 'RE-ASSESS': 'Re-Assess' };
+  const passPrintLabels = { 'VALID RLIC PASS': 'Valid', 'EXPIRED RLIC PASS': 'Expired', 'SOON TO EXPIRE': 'Soon to Expire', 'NO RLIC PASS': 'No Pass', 'VALID PID PASS': 'Valid', 'EXPIRED PID PASS': 'Expired', 'NO PID PASS': 'No Pass' };
+
+  const buildPrintRows = (list, tabType) => list.map(e => {
+    const statusDate = tabType === 'inactive' ? (e.inactive_date || e.status_effective_date) : e.demobilization_date;
+    return {
+      name: e.name || '—',
+      qid_no: e.qid_no || '—',
+      pid: e.pid || '—',
+      company: e.company || '—',
+      designation: e.designation_org_chart || e.position_application || '—',
+      status_date: formatDate(statusDate) || '—',
+      medical: e.ftw_result ? (medPrintLabels[e.ftw_result] || e.ftw_result) : '—',
+      gate_pass: passPrintLabels[computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status)] || '—',
+      training: e.training_status || '—',
+      pid_status: passPrintLabels[computePassStatus(e.pid_expiry, 'pid', e.pid_status)] || '—',
+      reason: e.status_reason || e.status_remarks || '—',
+    };
+  });
+
+  const activeAppliedFilters = useMemo(() => {
+    const items = [];
+    if (search) items.push(`Search: "${search}"`);
+    if (companyFilter.length > 0) items.push(`Company: ${companyFilter.join(', ')}`);
+    if (positionFilter.length > 0) items.push(`Position: ${positionFilter.join(', ')}`);
+    if (departmentFilter !== 'all') items.push(`Department: ${departmentFilter}`);
+    if (locationFilter !== 'all') items.push(`Location: ${locationFilter}`);
+    if (dirFilter !== 'all') items.push(`DIR/INDIR: ${dirFilter}`);
+    if (medicalResultFilter !== 'all') items.push(`Medical: ${MEDICAL_RESULTS.find(r => r.value === medicalResultFilter)?.label || medicalResultFilter}`);
+    if (trainingFilter !== 'all') items.push(`Training: ${trainingFilter}`);
+    if (gatePassFilter.length > 0) items.push(`Gate Pass: ${gatePassFilter.join(', ')}`);
+    if (pidStatusFilter !== 'all') items.push(`PID Status: ${PID_STATUSES.find(s => s.value === pidStatusFilter)?.label || pidStatusFilter}`);
+    return items;
+  }, [search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter]);
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
@@ -506,7 +557,14 @@ export default function InactivePersonnel() {
         </div>
 
         <TabsContent value="inactive">
-          <div className="flex justify-end mb-2">
+          <div className="flex justify-end items-center gap-2 mb-2">
+            <PrintReportButton
+              records={buildPrintRows(filteredInactive, 'inactive')}
+              columns={printColumns}
+              title="GSO Qatar — Inactive Personnel Report"
+              appliedFilters={activeAppliedFilters}
+              totalFiltered={filteredInactive.length}
+            />
             <ExportButton filename="inactive_personnel" label="Export" getData={() => exportData(filteredInactive)} />
           </div>
           <PersonnelTable
@@ -519,7 +577,14 @@ export default function InactivePersonnel() {
         </TabsContent>
 
         <TabsContent value="demobilized">
-          <div className="flex justify-end mb-2">
+          <div className="flex justify-end items-center gap-2 mb-2">
+            <PrintReportButton
+              records={buildPrintRows(filteredDemobilized, 'demobilized')}
+              columns={printColumns}
+              title="GSO Qatar — Demobilized Personnel Report"
+              appliedFilters={activeAppliedFilters}
+              totalFiltered={filteredDemobilized.length}
+            />
             <ExportButton filename="demobilized_personnel" label="Export" getData={() => exportData(filteredDemobilized)} />
           </div>
           <PersonnelTable
