@@ -17,22 +17,25 @@ import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
 const emptyForm = {
-sl_no: '', name: '', photo_url: '', position_application: '', designation_org_chart: '', department: '',
-company: '', company_type: '', nationality: '', religion: '', current_location: '', dir_indir: '',
-contact_details: '', sponsor: '', remarks: '',
-qid_no: '', qid_expiry: '', pp_no: '', pp_expiry: '',
-visa_date_applied: '', visa_date_received: '', visa_expiry: '',
-ftw_medical_date: '', ftw_received_date: '', ftw_approval_request_date: '', ftw_count_days: '',
-ftw_approved_date: '', ftw_result: '', ftw_doctor: '', ftw_mobile: '',
-gate_pass_issue_date: '', gate_pass_received_date: '', gate_pass_expiry: '',
-staff_no: '', rlic_status: '',
-pid_issue_date: '', pid_expiry: '', pid: '', pid_status: '', pid_projected_date: '',
-training_date: '', training_date_scheduled: '', training_status: '',
-is_manager: false,
-assigned_manager_id: '', assigned_manager_name: '',
-personnel_status: 'Active',
-status_effective_date: '', last_working_date: '', status_reason: '', status_remarks: '',
-demobilization_date: '', demobilization_reason: '',
+  sl_no: '', name: '', photo_url: '', sharepoint_url: '',
+  position_application: '', designation_org_chart: '', department: '',
+  company: '', company_type: '', nationality: '', religion: '', current_location: '', dir_indir: '',
+  contact_details: '', sponsor: '', remarks: '',
+  qid_no: '', qid_expiry: '', pp_no: '', pp_expiry: '',
+  visa_date_applied: '', visa_date_received: '', visa_expiry: '',
+  ftw_medical_date: '', ftw_received_date: '', ftw_approval_request_date: '', ftw_count_days: '',
+  ftw_approved_date: '', ftw_result: '', ftw_doctor: '', ftw_mobile: '',
+  ftw_reassess_date: '', ftw_remarks: '',
+  gate_pass_issue_date: '', gate_pass_received_date: '', gate_pass_expiry: '',
+  staff_no: '', rlic_status: '',
+  pid_issue_date: '', pid_expiry: '', pid: '', pid_status: '', pid_projected_date: '',
+  training_date: '', training_date_scheduled: '', training_date_start: '', training_date_end: '', training_status: '',
+  is_manager: false,
+  assigned_manager_id: '', assigned_manager_name: '',
+  personnel_status: 'Active',
+  status_effective_date: '', last_working_date: '', status_reason: '', status_remarks: '',
+  inactive_date: '', demobilization_date: '', demobilization_reason: '',
+  status_changed_by: '', status_changed_at: '',
 };
 
 const Field = ({ label, children }) => (
@@ -41,12 +44,16 @@ const Field = ({ label, children }) => (
 
 function toDateValue(val) {
   if (!val) return '';
-  // If already YYYY-MM-DD, return as-is
-  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-  // Strip time portion from ISO datetime strings
-  const d = new Date(val);
-  if (isNaN(d)) return '';
-  return d.toISOString().split('T')[0];
+  const s = String(val).trim();
+  // Already YYYY-MM-DD (or starts with it) — return the date portion directly
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  // DD/MM/YYYY or DD-MM-YYYY → YYYY-MM-DD
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  // Fallback: parse with Date (may include timezone shift — avoid when possible)
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toISOString().split('T')[0];
+  return '';
 }
 
 const TextInput = ({ field, label, type = 'text', required, form, onChange }) => (
@@ -258,46 +265,86 @@ export default function EmployeeForm() {
     }
   }, [existingEmp]);
 
+  // Field sets used by the save logic
+  const NUMBER_FIELDS = new Set(['sl_no', 'ftw_count_days']);
+  const BUILTIN_FIELDS = new Set(['id', 'created_date', 'updated_date', 'created_by_id']);
+  const META_FIELDS = new Set(['_last_updated_by', '_last_updated_by_name', '_last_updated_by_role', '_last_updated_at']);
+
   const saveMutation = useMutation({
     mutationFn: async (data) => {
-      const cleaned = Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== '' && v !== null && v !== undefined));
-      if (currentUser?.email) cleaned._last_updated_by = currentUser.email;
-      if (currentUser?.full_name) cleaned._last_updated_by_name = currentUser.full_name;
-      if (currentUser?.role) cleaned._last_updated_by_role = currentUser.role;
+      // Build payload — preserve EVERY field the form holds (including intentionally
+      // cleared empty strings for dates/text/dropdowns so they persist as cleared).
+      // Number fields are converted to null when empty to avoid schema validation errors.
+      const payload = {};
+      for (const [key, value] of Object.entries(data)) {
+        if (BUILTIN_FIELDS.has(key)) continue;
+        if (NUMBER_FIELDS.has(key) && (value === '' || value === undefined)) {
+          payload[key] = null;
+        } else {
+          payload[key] = value;
+        }
+      }
+
+      // Recalculate statuses from expiry dates (safety net — guarantees consistency even
+      // if the handler didn't recompute after a date change).
+      payload.rlic_status = autoCalcRlic(payload.gate_pass_expiry, payload.rlic_status);
+      payload.pid_status = autoCalcPid(payload.pid_expiry, payload.pid_status);
+
       // Keep is_active in sync with personnel_status
-      cleaned.is_active = cleaned.personnel_status !== 'Inactive' && cleaned.personnel_status !== 'Demobilized';
+      payload.is_active = payload.personnel_status !== 'Inactive' && payload.personnel_status !== 'Demobilized';
+
+      // Capture who changed the status (stored on the record for quick audit reference).
+      // The full field-level audit trail is generated by the entity automation + logEmployeeActivity.
+      if (isEdit && existingEmp?.[0]) {
+        const prevStatus = existingEmp[0].personnel_status || (existingEmp[0].is_active === false ? 'Inactive' : 'Active');
+        const newStatus = payload.personnel_status || 'Active';
+        if (prevStatus !== newStatus) {
+          payload.status_changed_by = currentUser?.email || '';
+          payload.status_changed_at = new Date().toISOString();
+        }
+      }
+
+      // Audit meta used by the automation to attribute the change to the real user
+      if (currentUser?.email) payload._last_updated_by = currentUser.email;
+      if (currentUser?.full_name) payload._last_updated_by_name = currentUser.full_name;
+      if (currentUser?.role) payload._last_updated_by_role = currentUser.role;
+      payload._last_updated_at = new Date().toISOString();
+
       let result;
       if (isEdit && empId) {
-        result = await base44.entities.Employee.update(empId, cleaned);
-        // Log status change if personnel_status changed
-        const prev = existingEmp?.[0];
-        const prevStatus = prev?.personnel_status || (prev?.is_active === false ? 'Inactive' : 'Active');
-        const newStatus = cleaned.personnel_status || 'Active';
-        if (prevStatus !== newStatus) {
-          await base44.entities.ActivityLog.create({
-            action: 'update', entity_name: 'Employee', entity_id: empId,
-            performed_by: currentUser?.email || 'unknown',
-            record_name: data.name,
-            changed_fields: ['personnel_status'],
-            record_snapshot: {
-              previous_status: prevStatus, new_status: newStatus,
-              effective_date: cleaned.status_effective_date || '',
-              reason: cleaned.status_reason || cleaned.demobilization_reason || '',
-              updated_by: currentUser?.full_name || currentUser?.email || 'unknown',
-            },
-          });
-        }
+        // Updates: send ALL fields. Unchanged fields keep their existing values;
+        // edited fields update; intentionally cleared fields save as empty.
+        result = await base44.entities.Employee.update(empId, payload);
       } else {
+        // Creates: filter out empty/null values so optional fields aren't stored as blanks.
+        const cleaned = Object.fromEntries(
+          Object.entries(payload).filter(([k, v]) => META_FIELDS.has(k) || (v !== '' && v !== null && v !== undefined))
+        );
         result = await base44.entities.Employee.create(cleaned);
       }
       return result;
     },
     onSuccess: () => {
+      // Invalidate every employee-related query so all pages and reports refresh immediately:
+      // Master List, Dashboard, Medical, Gate Pass, Project ID, Training, Projection,
+      // Onboarding Monitoring, Inactive/Demobilized, Workforce Report, Activity Log.
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['employees-active'] });
       queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
-      toast({ title: isEdit ? 'Record updated' : 'Record created' });
+      queryClient.invalidateQueries({ queryKey: ['employee'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['projection'] });
+      toast({
+        title: isEdit ? 'Personnel information updated successfully.' : 'Personnel record created successfully.',
+      });
       navigate(-1);
+    },
+    onError: (error) => {
+      toast({
+        title: isEdit ? 'Update Failed' : 'Create Failed',
+        description: error?.message || 'An error occurred while saving. Your unsaved changes are preserved on the form.',
+        variant: 'destructive',
+      });
     },
   });
 
@@ -363,11 +410,33 @@ export default function EmployeeForm() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // Require an authenticated session so the audit trail attributes to a real user.
+    if (!currentUser?.email) {
+      toast({
+        title: 'Cannot Save',
+        description: 'Your session is still loading. Please wait a moment and try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate required fields before saving (prevents partial updates).
+    if (!form.name || !form.name.trim()) {
+      toast({ title: 'Validation Error', description: 'Full Name is required.', variant: 'destructive' });
+      return;
+    }
+    if (!form.company || !form.company.trim()) {
+      toast({ title: 'Validation Error', description: 'Company is required.', variant: 'destructive' });
+      return;
+    }
+
     // Block save if there's an active status warning
     if (statusWarning) {
       toast({ title: 'Status Mismatch', description: statusWarning, variant: 'destructive' });
       return;
     }
+
     // Validate nationality against approved list
     if (form.nationality && nationalityOptions.length > 0) {
       const isApproved = nationalityOptions.some(o => o.value === form.nationality);
@@ -376,6 +445,7 @@ export default function EmployeeForm() {
         return;
       }
     }
+
     saveMutation.mutate(form);
   };
 

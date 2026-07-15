@@ -1,4 +1,11 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
+
+// Internal meta fields set by the frontend during save — they are NOT meaningful
+// "changed fields" for the audit trail and should not appear in the log display.
+const META_FIELDS = new Set([
+  '_last_updated_by', '_last_updated_by_name',
+  '_last_updated_by_role', '_last_updated_at', 'updated_date',
+]);
 
 Deno.serve(async (req) => {
   try {
@@ -14,9 +21,8 @@ Deno.serve(async (req) => {
     const action = event.type; // create, update, delete
     const entity_id = event.entity_id;
 
-    // For deletes, data is null — use old_data. For creates/updates, data is available.
     const record = data || old_data;
-    const record_name = record?.name || entity_id;
+    const record_name = record?.name || 'Unknown';
 
     // Resolve who performed the action:
     // 1. _last_updated_by_name = full name set by frontend on save
@@ -27,23 +33,40 @@ Deno.serve(async (req) => {
     const performerEmail = record?._last_updated_by || (action === 'create' ? record?.created_by : null) || null;
 
     // Display name: prefer full name, then email, then 'system'
-    let performed_by = performerName || performerEmail || 'system';
+    const performed_by = performerName || performerEmail || 'system';
 
-    // Build audit metadata to store alongside the log
     const audit_meta = {
       performer_name: performerName,
       performer_email: performerEmail,
       performer_role: record?._last_updated_by_role || null,
+      performed_at: record?._last_updated_at || new Date().toISOString(),
     };
 
-    // Log to ActivityLog
+    // Filter out internal meta/audit fields so the audit log only shows real data changes.
+    const filteredChanged = (changed_fields || []).filter((f) => !META_FIELDS.has(f));
+
+    // Build per-field diff (previous → new) for updates, including the full before/after snapshots.
+    let field_changes = null;
+    if (action === 'update' && old_data) {
+      field_changes = filteredChanged.map((f) => ({
+        field: f,
+        previous: old_data[f] ?? null,
+        new: record?.[f] ?? null,
+      }));
+    }
+
     await base44.asServiceRole.entities.ActivityLog.create({
       action,
       entity_name: 'Employee',
       entity_id,
       performed_by,
-      record_snapshot: { ...(record || {}), _audit_meta: audit_meta },
-      changed_fields: changed_fields || [],
+      record_snapshot: {
+        ...(record || {}),
+        _audit_meta: audit_meta,
+        _previous_data: old_data || null,
+        _field_changes: field_changes,
+      },
+      changed_fields: filteredChanged,
       record_name,
     });
 
