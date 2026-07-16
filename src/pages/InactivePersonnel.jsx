@@ -179,19 +179,19 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
             <Table>
               <TableHeader className="sticky top-0 z-10">
                 <TableRow className="bg-muted/50">
-                  <TableHead className="text-xs bg-muted/50 w-10">Photo</TableHead>
-                  <TableHead className="text-xs bg-muted/50 w-8">Docs</TableHead>
-                  <TableHead className="text-xs bg-muted/50">Name</TableHead>
-                  <TableHead className="text-xs bg-muted/50">QID No</TableHead>
-                  <TableHead className="text-xs bg-muted/50">Company</TableHead>
-                  <TableHead className="text-xs bg-muted/50">Designation / Position</TableHead>
-                  <TableHead className="text-xs bg-muted/50">{dateColLabel}</TableHead>
-                  <TableHead className="text-xs bg-muted/50">Medical</TableHead>
-                  <TableHead className="text-xs bg-muted/50">Gate Pass</TableHead>
-                  <TableHead className="text-xs bg-muted/50">Training</TableHead>
-                  <TableHead className="text-xs bg-muted/50">PID Status</TableHead>
-                  <TableHead className="text-xs bg-muted/50">Reason / Remarks</TableHead>
-                  <TableHead className="text-xs bg-muted/50 text-right">Actions</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-10">Photo</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-8">Docs</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-44">Name</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-28">QID No</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-32">Company</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-44">Designation / Position</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-28">{dateColLabel}</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-20">Medical</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-20">Gate Pass</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-20">Training</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-20">PID Status</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 w-44">Reason / Remarks</TableHead>
+                 <TableHead className="text-[11px] bg-muted/50 text-right w-[280px] min-w-[280px] whitespace-nowrap">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -224,23 +224,23 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                         <TableCell><GatePassBadge emp={emp} /></TableCell>
                         <TableCell>
                           {emp.training_status
-                            ? <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${{ DONE: 'bg-emerald-50 text-emerald-700 border-emerald-200', PENDING: 'bg-amber-50 text-amber-700 border-amber-200', 'NOT REQUIRED': 'bg-slate-100 text-slate-600 border-slate-200' }[emp.training_status] || 'bg-blue-50 text-blue-700 border-blue-200'}`}>{emp.training_status}</span>
+                            ? <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${{ DONE: 'bg-emerald-50 text-emerald-700 border-emerald-200', PENDING: 'bg-amber-50 text-amber-700 border-amber-200', 'NOT REQUIRED': 'bg-slate-100 text-slate-600 border-slate-200' }[emp.training_status] || 'bg-blue-50 text-blue-700 border-blue-200'}`}>{emp.training_status}</span>
                             : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell><PidStatusBadge emp={emp} /></TableCell>
-                        <TableCell className="text-xs max-w-[160px] truncate" title={emp.status_reason || emp.status_remarks || ''}>
+                        <TableCell className="text-[11px] max-w-[160px] truncate" title={emp.status_reason || emp.status_remarks || ''}>
                           {emp.status_reason || emp.status_remarks || <span className="text-muted-foreground">—</span>}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1 flex-wrap">
+                        <TableCell className="text-right whitespace-nowrap p-1">
+                          <div className="flex items-center justify-end gap-1 flex-nowrap whitespace-nowrap">
                             <Link to={`/employees/${emp.id}`}>
-                              <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6"><Eye className="w-3.5 h-3.5" /></Button>
                             </Link>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(emp)}><Pencil className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit(emp)}><Pencil className="w-3.5 h-3.5" /></Button>
                             {/* Cross-status button */}
                             <Button
                               variant="outline" size="sm"
-                              className="text-xs h-7 gap-1 text-slate-600"
+                              className="text-[11px] h-6 px-1.5 gap-0.5 text-slate-600"
                               onClick={() => openModal(emp, tabType === 'inactive' ? 'Demobilized' : 'Inactive')}
                             >
                               <ArrowLeftRight className="w-3 h-3" />
@@ -249,7 +249,7 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                             {/* Reactivate */}
                             <Button
                               size="sm"
-                              className="text-xs h-7 bg-green-600 hover:bg-green-700 text-white gap-1"
+                              className="text-[11px] h-6 px-1.5 gap-0.5 bg-green-600 hover:bg-green-700 text-white"
                               onClick={() => openModal(emp, 'Active')}
                             >
                               <UserCheck className="w-3.5 h-3.5" /> Reactivate
@@ -257,7 +257,7 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                             {/* Delete */}
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="text-xs h-7 text-red-600 border-red-200 hover:bg-red-50">
+                                <Button size="sm" variant="outline" className="text-[11px] h-6 px-1.5 text-red-600 border-red-200 hover:bg-red-50">
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               </AlertDialogTrigger>
