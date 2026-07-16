@@ -45,6 +45,13 @@ Deno.serve(async (req) => {
     // Filter out internal meta/audit fields so the audit log only shows real data changes.
     const filteredChanged = (changed_fields || []).filter((f) => !META_FIELDS.has(f));
 
+    // An update that only changed internal meta fields (e.g. a pre-delete identity stamp
+    // so the deletion is attributed to the right user) carries no real data change — skip
+    // creating an audit entry to keep the log clean.
+    if (action === 'update' && filteredChanged.length === 0) {
+      return Response.json({ success: true, skipped: 'no-real-changes' });
+    }
+
     // Build per-field diff (previous → new) for updates, including the full before/after snapshots.
     let field_changes = null;
     if (action === 'update' && old_data) {

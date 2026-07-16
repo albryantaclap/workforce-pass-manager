@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, ShieldCheck, BadgeCheck } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, ShieldCheck, BadgeCheck, UserX, LogOut } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import StatusChangeModal from '../components/common/StatusChangeModal';
 import { differenceInDays } from 'date-fns';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
 import SharepointDocIcon from '../components/common/SharepointDocIcon';
@@ -60,7 +62,7 @@ function saveFilters(f) {
 }
 
 export default function MasterList() {
-  const { canEdit } = usePermissions();
+  const { canEdit, canDelete } = usePermissions();
   const currentUser = useCurrentUser();
   const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
   const [editMode, setEditMode] = useState(false);
@@ -155,13 +157,59 @@ export default function MasterList() {
     toast({ title: `Updated ${filtered.length} records` });
   };
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Employee.update(id, { is_active: false, _last_updated_by: currentUser?.email || '' }),
-    onSuccess: () => {
+  // Move to Inactive or Demobilized — opens the StatusChangeModal, then updates the record.
+  // The entity automation (Track Employee Changes) writes the audit log field-level diff.
+  const [statusModal, setStatusModal] = useState({ open: false, emp: null, newStatus: 'Inactive' });
+  const openStatusModal = (emp, newStatus) => setStatusModal({ open: true, emp, newStatus });
+
+  const statusChangeMutation = useMutation({
+    mutationFn: async ({ emp, newStatus, effectiveDate, lastWorkingDate, reason }) => {
+      const updates = {
+        personnel_status: newStatus,
+        is_active: false,
+        status_effective_date: effectiveDate,
+        status_reason: reason || '',
+        status_changed_by: currentUser?.email || '',
+        status_changed_at: new Date().toISOString(),
+        _last_updated_by: currentUser?.email || '',
+        _last_updated_by_name: currentUser?.full_name || '',
+        _last_updated_by_role: currentUser?.role || '',
+        _last_updated_at: new Date().toISOString(),
+      };
+      if (lastWorkingDate) updates.last_working_date = lastWorkingDate;
+      if (newStatus === 'Inactive') updates.inactive_date = effectiveDate;
+      if (newStatus === 'Demobilized') updates.demobilization_date = effectiveDate;
+      return base44.entities.Employee.update(emp.id, updates);
+    },
+    onSuccess: (_, { emp, newStatus }) => {
       queryClient.invalidateQueries({ queryKey: ['employees-active'] });
       queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
-      toast({ title: 'Record moved to Inactive Personnel' });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      toast({ title: `Status updated to ${newStatus}`, description: `${emp.name} moved to ${newStatus} Personnel.` });
     },
+    onError: () => toast({ title: 'Status change failed', variant: 'destructive' }),
+  });
+
+  // Delete — stamp the deleter's identity first so the automation attributes the delete to the
+  // correct user, then delete. The automation archives the record to Deleted Personnel and
+  // writes the audit log entry. No manual duplicate records are created.
+  const deleteMutation = useMutation({
+    mutationFn: async (emp) => {
+      await base44.entities.Employee.update(emp.id, {
+        _last_updated_by: currentUser?.email || '',
+        _last_updated_by_name: currentUser?.full_name || '',
+        _last_updated_by_role: currentUser?.role || '',
+        _last_updated_at: new Date().toISOString(),
+      });
+      await base44.entities.Employee.delete(emp.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      toast({ title: 'Personnel deleted', description: 'Record moved to Deleted Personnel.' });
+    },
+    onError: () => toast({ title: 'Delete failed', variant: 'destructive' }),
   });
 
   const uniqueCompanies = useMemo(() => {
@@ -635,33 +683,66 @@ export default function MasterList() {
                       )}
                     </TableCell>
                     <TableCell className="sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">
-                      <div className="flex justify-end gap-1">
-                        <Link to={`/employees/${emp.id}`}>
-                          <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button>
-                        </Link>
+                      <TooltipProvider delayDuration={200}>
+                      <div className="flex justify-end gap-0.5">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Link to={`/employees/${emp.id}`}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button>
+                            </Link>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">View Personnel</TooltipContent>
+                        </Tooltip>
                         {canEdit && (
-                          <Link to={`/employees/${emp.id}/edit`}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button>
-                          </Link>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Link to={`/employees/${emp.id}/edit`}>
+                                <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button>
+                              </Link>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">Edit Personnel</TooltipContent>
+                          </Tooltip>
                         )}
                         {canEdit && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Record</AlertDialogTitle>
-                                <AlertDialogDescription>This will move {emp.name} to Inactive Personnel. You can restore them later.</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteMutation.mutate(emp.id)} className="bg-destructive text-destructive-foreground">Set Inactive</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600 hover:text-amber-700" onClick={() => openStatusModal(emp, 'Inactive')}><UserX className="w-3.5 h-3.5" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">Set Inactive</TooltipContent>
+                          </Tooltip>
+                        )}
+                        {canEdit && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-orange-600 hover:text-orange-700" onClick={() => openStatusModal(emp, 'Demobilized')}><LogOut className="w-3.5 h-3.5" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">Demobilize</TooltipContent>
+                          </Tooltip>
+                        )}
+                        {canDelete && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Record</AlertDialogTitle>
+                                    <AlertDialogDescription>This will move {emp.name} to Deleted Personnel. You can restore the record later.</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteMutation.mutate(emp)} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">Delete Record</TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
+                      </TooltipProvider>
                     </TableCell>
                   </TableRow>
                 ))
@@ -685,6 +766,14 @@ export default function MasterList() {
           )}
         </div>
       </Card>
+
+      <StatusChangeModal
+        open={statusModal.open}
+        emp={statusModal.emp}
+        newStatus={statusModal.newStatus}
+        onClose={() => setStatusModal(s => ({ ...s, open: false }))}
+        onConfirm={(data) => { statusChangeMutation.mutate(data); }}
+      />
     </div>
   );
 }
