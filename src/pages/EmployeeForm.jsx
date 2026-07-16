@@ -259,6 +259,11 @@ export default function EmployeeForm() {
     if (existingEmp && existingEmp.length > 0) {
       const emp = existingEmp[0];
       const base = { ...emptyForm, ...Object.fromEntries(Object.entries(emp).filter(([_, v]) => v !== null && v !== undefined)) };
+      // Backfill personnel_status for legacy inactive records stored with only is_active=false
+      // (the Inactive/Demobilized page treats empty personnel_status + inactive as Inactive).
+      if ((!base.personnel_status || base.personnel_status === 'Active') && emp.is_active === false) {
+        base.personnel_status = 'Inactive';
+      }
       // Auto-recalculate statuses on form open
       base.rlic_status = autoCalcRlic(base.gate_pass_expiry, base.rlic_status);
       base.pid_status = autoCalcPid(base.pid_expiry, base.pid_status);
@@ -540,9 +545,6 @@ export default function EmployeeForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Inactive / Demobilized status details — shown only when the record has a non-active status */}
-        <StatusDetailsSection form={form} onChange={handleChange} />
-
         {/* Personal */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
@@ -735,6 +737,9 @@ export default function EmployeeForm() {
             </div>
           )}
         </Card>
+
+        {/* Inactive / Demobilized status details — shown only when the record has a non-active status */}
+        <StatusDetailsSection form={form} onChange={handleChange} />
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
