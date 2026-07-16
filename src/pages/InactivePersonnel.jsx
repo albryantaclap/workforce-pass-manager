@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, UserCheck, UserX, Eye, Pencil, X, Trash2, ArrowLeftRight } from 'lucide-react';
 import ExportButton from '../components/common/ExportButton';
 import PrintReportButton from '../components/common/PrintReportButton';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { formatDate, computePassStatus, normalizeDate, COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, MEDICAL_RESULTS } from '@/utils/constants';
@@ -153,7 +153,7 @@ function FilterPanel({ filters, setters, uniqueCompanies, positions, rlicStatusO
 }
 
 // ── Personnel Table ───────────────────────────────────────────────────────────
-function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, onStatusChange, onDelete }) {
+function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, onStatusChange, onDelete, onEdit }) {
   const [modalState, setModalState] = useState({ open: false, emp: null, newStatus: null });
 
   const totalPages = Math.ceil(rows.length / PAGE_SIZE);
@@ -236,9 +236,7 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                             <Link to={`/employees/${emp.id}`}>
                               <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button>
                             </Link>
-                            <Link to={`/employees/${emp.id}/edit`}>
-                              <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button>
-                            </Link>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(emp)}><Pencil className="w-3.5 h-3.5" /></Button>
                             {/* Cross-status button */}
                             <Button
                               variant="outline" size="sm"
@@ -311,6 +309,8 @@ export default function InactivePersonnel() {
   const { toast } = useToast();
   const { rlicStatusOptions, trainingStatusOptions } = useLookupOptions();
   const currentUser = useCurrentUser();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('inactive');
 
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
@@ -324,6 +324,31 @@ export default function InactivePersonnel() {
   const [pidStatusFilter, setPidStatusFilter] = useState('all');
   const [inactivePage, setInactivePage] = useState(0);
   const [demobPage, setDemobPage] = useState(0);
+
+  // Restore previously-saved list state (tab, pagination, filters, scroll) when returning from edit
+  useEffect(() => {
+    const saved = sessionStorage.getItem('inactiveReturnContext');
+    if (!saved) return;
+    try {
+      const ctx = JSON.parse(saved);
+      if (ctx.tab === 'inactive' || ctx.tab === 'demobilized') setActiveTab(ctx.tab);
+      if (typeof ctx.inactivePage === 'number') setInactivePage(ctx.inactivePage);
+      if (typeof ctx.demobPage === 'number') setDemobPage(ctx.demobPage);
+      if (typeof ctx.search === 'string') setSearch(ctx.search);
+      if (Array.isArray(ctx.companyFilter)) setCompanyFilter(ctx.companyFilter);
+      if (Array.isArray(ctx.positionFilter)) setPositionFilter(ctx.positionFilter);
+      if (ctx.departmentFilter) setDepartmentFilter(ctx.departmentFilter);
+      if (ctx.locationFilter) setLocationFilter(ctx.locationFilter);
+      if (ctx.dirFilter) setDirFilter(ctx.dirFilter);
+      if (ctx.medicalResultFilter) setMedicalResultFilter(ctx.medicalResultFilter);
+      if (ctx.trainingFilter) setTrainingFilter(ctx.trainingFilter);
+      if (Array.isArray(ctx.gatePassFilter)) setGatePassFilter(ctx.gatePassFilter);
+      if (ctx.pidStatusFilter) setPidStatusFilter(ctx.pidStatusFilter);
+      const sy = typeof ctx.scrollY === 'number' ? ctx.scrollY : 0;
+      setTimeout(() => window.scrollTo(0, sy), 80);
+    } catch { /* ignore malformed context */ }
+    sessionStorage.removeItem('inactiveReturnContext');
+  }, []);
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees-inactive'],
@@ -381,6 +406,30 @@ export default function InactivePersonnel() {
     setDepartmentFilter('all'); setLocationFilter('all'); setDirFilter('all');
     setMedicalResultFilter('all'); setTrainingFilter('all'); setGatePassFilter([]); setPidStatusFilter('all');
     setInactivePage(0); setDemobPage(0);
+  };
+
+  // Save the current list context (tab, pagination, filters, scroll) before opening edit,
+  // so the form can return to the exact same list state after saving.
+  const goToEdit = (emp) => {
+    const context = {
+      tab: activeTab,
+      inactivePage,
+      demobPage,
+      search,
+      companyFilter,
+      positionFilter,
+      departmentFilter,
+      locationFilter,
+      dirFilter,
+      medicalResultFilter,
+      trainingFilter,
+      gatePassFilter,
+      pidStatusFilter,
+      scrollY: window.scrollY,
+    };
+    sessionStorage.setItem('inactiveReturnContext', JSON.stringify(context));
+    const section = activeTab === 'demobilized' ? 'demobilization-details' : 'inactive-details';
+    navigate(`/employees/${emp.id}/edit?section=${section}`);
   };
 
   // ── Status change (covers: Inactive→Demobilized, Demobilized→Inactive, either→Active) ──
@@ -540,7 +589,7 @@ export default function InactivePersonnel() {
         onClear={clearFilters}
       />
 
-      <Tabs defaultValue="inactive" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex items-center justify-between mb-3">
           <TabsList>
             <TabsTrigger value="inactive" className="gap-2">
@@ -574,6 +623,7 @@ export default function InactivePersonnel() {
             totalCount={allInactive.length} tabType="inactive"
             onStatusChange={(args) => statusChangeMutation.mutate(args)}
             onDelete={(emp) => deleteMutation.mutate(emp)}
+            onEdit={goToEdit}
           />
         </TabsContent>
 
@@ -595,6 +645,7 @@ export default function InactivePersonnel() {
             totalCount={allDemobilized.length} tabType="demobilized"
             onStatusChange={(args) => statusChangeMutation.mutate(args)}
             onDelete={(emp) => deleteMutation.mutate(emp)}
+            onEdit={goToEdit}
           />
         </TabsContent>
       </Tabs>

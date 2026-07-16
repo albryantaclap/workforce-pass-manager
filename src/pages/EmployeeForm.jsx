@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -96,6 +96,19 @@ export default function EmployeeForm() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [statusWarning, setStatusWarning] = useState('');
   const [statusModal, setStatusModal] = useState({ open: false, newStatus: null });
+  const statusCardRef = useRef(null);
+  const sectionParam = new URLSearchParams(window.location.search).get('section');
+
+  // Auto-scroll to the relevant Inactive/Demobilized details card when opened with ?section=...
+  useEffect(() => {
+    if (!sectionParam) return;
+    const expectedId = form.personnel_status === 'Demobilized' ? 'demobilization-details' : 'inactive-details';
+    if (expectedId !== sectionParam) return; // card not present for the current status
+    const t = setTimeout(() => {
+      statusCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [sectionParam, form.personnel_status]);
 
   // Special (non-date-derivable) statuses — never auto-overwrite these
   const RLIC_SPECIAL = new Set([
@@ -739,7 +752,9 @@ export default function EmployeeForm() {
         </Card>
 
         {/* Inactive / Demobilized status details — shown only when the record has a non-active status */}
-        <StatusDetailsSection form={form} onChange={handleChange} />
+        <div ref={statusCardRef} id={form.personnel_status === 'Demobilized' ? 'demobilization-details' : 'inactive-details'} className="scroll-mt-24">
+          <StatusDetailsSection form={form} onChange={handleChange} />
+        </div>
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
