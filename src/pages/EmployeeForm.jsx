@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Save, Upload, User, UserCheck, UserX, Shield } from 'lucide-react';
 import SharepointFormButton from '@/components/common/SharepointFormButton';
 import StatusChangeModal from '@/components/common/StatusChangeModal';
+import StatusDetailsSection from '@/components/employee/StatusDetailsSection';
 import SearchableSelect from '@/components/common/SearchableSelect';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, computePassStatus } from '@/utils/constants';
@@ -456,7 +457,10 @@ export default function EmployeeForm() {
     handleChange('is_active', false);
     handleChange('status_effective_date', effectiveDate);
     if (lastWorkingDate) handleChange('last_working_date', lastWorkingDate);
-    if (reason) handleChange('status_reason', reason);
+    if (reason) {
+      handleChange('status_reason', reason);
+      if (newStatus === 'Demobilized') handleChange('demobilization_reason', reason);
+    }
     if (newStatus === 'Inactive') handleChange('inactive_date', effectiveDate);
     if (newStatus === 'Demobilized') handleChange('demobilization_date', effectiveDate);
     setStatusModal({ open: false, newStatus: null });
@@ -536,6 +540,9 @@ export default function EmployeeForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Inactive / Demobilized status details — shown only when the record has a non-active status */}
+        <StatusDetailsSection form={form} onChange={handleChange} />
+
         {/* Personal */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
