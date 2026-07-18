@@ -1,22 +1,49 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { format } from 'date-fns';
+import { PencilLine, X, FileText, Sheet, Plus, Trash2, Link2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PencilLine, X, FileText, Sheet, Plus, Trash2, Link2, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
-import { format } from 'date-fns';
+import InlineEditCell from '@/components/common/InlineEditCell';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { usePermissions } from '@/lib/usePermissions';
-import InlineEditCell from '@/components/common/InlineEditCell';
 import {
-  BadgeSpan, medBadge, gpBadge, trainBadge, pidBadge, approvalBadge, matchBadge, fmtDate,
-  defaultSort, MEDICAL_OPTIONS, GP_OPTIONS, TRAINING_OPTIONS, PID_OPTIONS, APPROVAL_STATUS_OPTIONS,
+  BadgeSpan, getMedStatus, getGPStatus, getTrainingStatus, getPIDStatus,
+  defaultSort, fmtOnboardingDate, fmtApprovalDate,
+  EMP_MEDICAL_OPTIONS, EMP_GP_OPTIONS, EMP_TRAINING_OPTIONS, EMP_PID_OPTIONS,
+  APPROVAL_STATUS_OPTIONS, PRINT_CLASS_MAP, EXCEL_COLOR_MAP,
 } from './approvedListHelpers';
 import ApprovedRecordForm from './ApprovedRecordForm';
 
 const PAGE_SIZE = 25;
-const COL_SPAN = 17;
+const COL_SPAN = 18;
+const COL_HDR  = { background: '#DCE6F2', color: '#2D3748' };
+const PID_HDR  = { background: '#DDEFE0', color: '#1A5C2A' };
+const PID_CELL = { background: '#F5FBF6' };
+const REMARKS_BG = '#FAFAFA';
+
+const HEADERS = [
+  ['#', 'center', 'w-10', null],
+  ['Full Name', 'left', '', null],
+  ['QID Number', 'center', 'w-28', null],
+  ['PID No.', 'center', 'w-24', null],
+  ['Mobile Number', 'center', 'w-28', null],
+  ['Company', 'center', 'w-32', null],
+  ['Designation / Position', 'center', 'w-44', null],
+  ['Medical', 'center', 'w-28', null],
+  ['TR Date Approved', 'center', 'w-32', null],
+  ['Gate Pass Status', 'center', 'w-28', null],
+  ['Gatepass Received Date', 'center', 'w-36', null],
+  ['Training Status', 'center', 'w-28', null],
+  ['Training Date Started', 'center', 'w-32', null],
+  ['Project ID Status', 'center', 'w-28', 'pid'],
+  ['Approval Comments', 'left', 'w-44', null],
+  ['Approval Date', 'center', 'w-28', null],
+  ['Remarks', 'left', 'w-44', null],
+  ['Actions', 'center', 'w-20', null],
+];
 
 export default function ApprovedList() {
   const { toast } = useToast();
@@ -54,7 +81,12 @@ export default function ApprovedList() {
     staleTime: 30000,
   });
 
-  // Filter option lists derived from dataset
+  const empMap = useMemo(() => {
+    const m = new Map();
+    for (const e of employees) m.set(e.id, e);
+    return m;
+  }, [employees]);
+
   const companyOptions = useMemo(() => uniq(records.map(r => r.company)), [records]);
   const positionOptions = useMemo(() => uniq(records.map(r => r.designation_position)), [records]);
   const managerOptions = useMemo(() => uniq(records.map(r => r.manager_assigned)), [records]);
@@ -64,9 +96,9 @@ export default function ApprovedList() {
   const trainOptions = useMemo(() => uniq(records.map(r => r.training_status)), [records]);
   const pidOptions = useMemo(() => uniq(records.map(r => r.project_id_status)), [records]);
 
-  const hasFilter = search || companyFilter.length || positionFilter.length || managerFilter.length ||
+  const hasFilter = !!(search || companyFilter.length || positionFilter.length || managerFilter.length ||
     locationFilter.length || medFilter.length || gpFilter.length || trainFilter.length ||
-    pidFilter.length || approvalFilter.length || approvalFrom || approvalTo;
+    pidFilter.length || approvalFilter.length || approvalFrom || approvalTo);
 
   const clearFilters = () => {
     setSearch(''); setCompanyFilter([]); setPositionFilter([]); setManagerFilter([]);
@@ -74,7 +106,6 @@ export default function ApprovedList() {
     setPidFilter([]); setApprovalFilter([]); setApprovalFrom(''); setApprovalTo('');
   };
 
-  // Apply filters + sorting
   const sortedFiltered = useMemo(() => {
     let rows = records.filter(r => {
       if (search) {
@@ -101,7 +132,7 @@ export default function ApprovedList() {
       rows = [...rows].sort((a, b) => {
         const av = a[sortKey] ?? '';
         const bv = b[sortKey] ?? '';
-        let cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
+        const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
         return sortDir === 'asc' ? cmp : -cmp;
       });
     } else {
@@ -110,45 +141,53 @@ export default function ApprovedList() {
     return rows;
   }, [records, search, companyFilter, positionFilter, managerFilter, locationFilter, medFilter, gpFilter, trainFilter, pidFilter, approvalFilter, approvalFrom, approvalTo, sortKey, sortDir]);
 
+  // Preserve page across inline edits — only reset when filters/sort change.
   useEffect(() => { setPage(1); }, [hasFilter, sortKey, sortDir]);
 
-  const totalPages = Math.ceil(sortedFiltered.length / PAGE_SIZE);
-  const paged = sortedFiltered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(sortedFiltered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = sortedFiltered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortKey(key); setSortDir('asc'); }
   };
 
-  // ── Mutations ──────────────────────────────────────────────────────────────
-  const updateMutation = useMutation({
+  // ── Mutations ──────────────────────────────────────────────────────────────────
+  const empUpdate = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees-active'] }),
+    onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
+  });
+  const recUpdate = useMutation({
     mutationFn: ({ id, data }) => base44.entities.ApprovedRecord.update(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['approvedRecords'] }),
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
   });
 
-  const logActivity = (rec, action, changedFields, prev, next) =>
+  const handleEmpSave = (empId, field, newValue) => {
+    const emp = empMap.get(empId);
+    const oldValue = emp ? emp[field] : undefined;
+    empUpdate.mutate({ id: empId, data: { [field]: newValue } });
     base44.entities.ActivityLog.create({
-      action,
-      entity_name: 'ApprovedRecord',
-      entity_id: rec?.id || '',
-      performed_by: currentUser?.email || '',
-      record_name: rec?.full_name || rec?.id || '',
-      changed_fields: changedFields,
-      record_snapshot: { prev, next },
+      action: 'update', entity_name: 'Employee', entity_id: empId,
+      performed_by: currentUser?.email || '', record_name: emp?.name || empId,
+      changed_fields: [field], record_snapshot: { [field]: newValue, _old: { [field]: oldValue } },
     }).catch(() => {});
-
-  const handleCellSave = (recId, field, newValue) => {
+  };
+  const handleRecSave = (recId, field, newValue) => {
     const rec = records.find(r => r.id === recId);
     const oldValue = rec ? rec[field] : undefined;
-    const next = { [field]: newValue };
-    updateMutation.mutate({ id: recId, data: next });
-    logActivity(rec, 'update', [field], { [field]: oldValue }, next);
+    recUpdate.mutate({ id: recId, data: { [field]: newValue } });
+    base44.entities.ActivityLog.create({
+      action: 'update', entity_name: 'ApprovedRecord', entity_id: recId,
+      performed_by: currentUser?.email || '', record_name: rec?.full_name || recId,
+      changed_fields: [field], record_snapshot: { [field]: newValue, _old: { [field]: oldValue } },
+    }).catch(() => {});
   };
 
   const handleSaveForm = async (form) => {
     const isEdit = !!formInitial?.id;
-    // Duplicate prevention: same personnel_id + approval_date
     if (form.personnel_id && form.approval_date) {
       const dup = records.find(r => r.personnel_id === form.personnel_id && r.approval_date === form.approval_date && r.id !== formInitial?.id);
       if (dup) {
@@ -158,29 +197,38 @@ export default function ApprovedList() {
     }
     if (isEdit) {
       await base44.entities.ApprovedRecord.update(formInitial.id, form);
-      logActivity(formInitial, 'update', Object.keys(form).filter(k => form[k] !== formInitial[k]), formInitial, form);
+      base44.entities.ActivityLog.create({
+        action: 'update', entity_name: 'ApprovedRecord', entity_id: formInitial.id,
+        performed_by: currentUser?.email || '', record_name: form?.full_name || formInitial.id,
+        changed_fields: Object.keys(form).filter(k => form[k] !== formInitial[k]),
+        record_snapshot: { prev: formInitial, next: form },
+      }).catch(() => {});
     } else {
       await base44.entities.ApprovedRecord.create(form);
-      logActivity(form, 'create', [], null, form);
+      base44.entities.ActivityLog.create({
+        action: 'create', entity_name: 'ApprovedRecord', entity_id: '',
+        performed_by: currentUser?.email || '', record_name: form?.full_name || '',
+        changed_fields: [], record_snapshot: form,
+      }).catch(() => {});
     }
     queryClient.invalidateQueries({ queryKey: ['approvedRecords'] });
-    setShowForm(false);
-    setFormInitial(null);
+    setShowForm(false); setFormInitial(null);
   };
 
   const handleDelete = async (rec) => {
     await base44.entities.ApprovedRecord.delete(rec.id);
-    logActivity(rec, 'delete', [], rec, null);
+    base44.entities.ActivityLog.create({
+      action: 'delete', entity_name: 'ApprovedRecord', entity_id: rec.id,
+      performed_by: currentUser?.email || '', record_name: rec?.full_name || rec.id,
+      changed_fields: [], record_snapshot: rec,
+    }).catch(() => {});
     queryClient.invalidateQueries({ queryKey: ['approvedRecords'] });
     toast({ title: 'Record deleted' });
   };
 
-  const handleLink = (rec) => {
-    setFormInitial(rec);
-    setShowForm(true);
-  };
+  const handleLink = (rec) => { setFormInitial(rec); setShowForm(true); };
 
-  // ── Export Excel ───────────────────────────────────────────────────────────
+  // ── Excel Export ───────────────────────────────────────────────────────────────
   const handleExcelExport = async () => {
     const ExcelJS = (await import('exceljs')).default;
     const wb = new ExcelJS.Workbook();
@@ -188,40 +236,61 @@ export default function ApprovedList() {
       pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
       views: [{ state: 'frozen', ySplit: 1 }],
     });
-    const HEADERS = ['#', 'Full Name', 'QID Number', 'PID No.', 'Mobile Number', 'Company', 'Designation / Position', 'Medical', 'Gate Pass Status', 'Training Status', 'Project ID Status', 'Manager Assigned', 'Work Location', 'Approval Comments', 'Approval Date', 'Remarks', 'Approval Status', 'Match'];
-    ws.columns = HEADERS.map((h, i) => ({ key: 'c' + i, width: h.length < 8 ? 8 : Math.min(h.length + 4, 30) }));
-    const hdr = ws.getRow(1);
-    HEADERS.forEach((h, i) => {
-      const c = hdr.getCell(i + 1);
-      c.value = h; c.font = { bold: true, size: 9, color: { argb: 'FF2D3748' } };
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCE6F2' } };
-      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    const COL_HEADERS = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Designation / Position','Medical','TR Date Approved','Gate Pass Status','Gatepass Received Date','Training Status','Training Date Started','Project ID Status','Approval Comments','Approval Date','Remarks'];
+    ws.columns = [
+      { key: 'no', width: 4 }, { key: 'name', width: 28 }, { key: 'qid', width: 14 },
+      { key: 'pid', width: 12 }, { key: 'mobile', width: 14 }, { key: 'company', width: 18 },
+      { key: 'position', width: 26 }, { key: 'medical', width: 14 }, { key: 'trDate', width: 16 },
+      { key: 'gp', width: 14 }, { key: 'gpDate', width: 18 }, { key: 'training', width: 14 },
+      { key: 'trainDate', width: 16 }, { key: 'pidStatus', width: 16 },
+      { key: 'approvalComments', width: 30 }, { key: 'approvalDate', width: 14 }, { key: 'remarks', width: 30 },
+    ];
+    const thin = { style: 'thin', color: { argb: 'FFCBD5E1' } };
+    const applyBorder = (cell) => { cell.border = { top: thin, left: thin, bottom: thin, right: thin }; };
+    const hdr = ws.getRow(1); hdr.height = 28;
+    COL_HEADERS.forEach((h, i) => {
+      const cell = hdr.getCell(i + 1); cell.value = h;
+      const isPid = i === 13;
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + (isPid ? 'DDEFE0' : 'DCE6F2') } };
+      cell.font = { color: { argb: 'FF' + (isPid ? '1A5C2A' : '2D3748') }, bold: true, size: 9 };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      applyBorder(cell);
     });
     sortedFiltered.forEach((r, idx) => {
-      const row = ws.getRow(idx + 2);
-      const vals = [
-        idx + 1, r.full_name, r.qid_number, r.pid_no, r.mobile_number, r.company, r.designation_position,
-        r.medical, r.gate_pass_status, r.training_status, r.project_id_status, r.manager_assigned, r.work_location,
-        r.approval_comments, r.approval_date ? format(new Date(r.approval_date.substring(0, 10)), 'dd/MM/yyyy') : '',
-        r.remarks, r.approval_status, r.personnel_match_status,
-      ];
-      vals.forEach((v, i) => {
-        const c = row.getCell(i + 1);
-        c.value = v || '';
-        c.font = { size: 9 };
-        c.alignment = { vertical: 'middle', wrapText: [13, 15].includes(i) };
-        if ([7, 8, 9, 10, 16].includes(i) && v) {
-          const b = [medBadge, gpBadge, trainBadge, pidBadge, approvalBadge][i === 16 ? 4 : i - 7](v);
-          if (b) { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + { green: 'D6EFD8', amber: 'FEF3C7', orange: 'FDEBD0', red: 'FCE4E4', blue: 'DBEAFE', purple: 'EDE9FE', slate: 'F1F5F9' }[b.color] } }; c.font = { size: 9, bold: true }; }
-        }
-      });
-      row.height = 16;
+      const emp = empMap.get(r.personnel_id);
+      const med = getMedStatus(r, emp), gp = getGPStatus(r, emp), tr = getTrainingStatus(r, emp), pid = getPIDStatus(r, emp);
+      const row = ws.getRow(idx + 2); row.height = 18;
+      const rowBg = idx % 2 === 0 ? 'FFFFFF' : 'F7F9FC';
+      const plain = (col, value, align = 'center', wrap = false) => {
+        const cell = row.getCell(col);
+        cell.value = value ?? ''; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        cell.font = { size: 9 }; cell.alignment = { horizontal: align, vertical: 'middle', wrapText: wrap }; applyBorder(cell); return cell;
+      };
+      const badgeCell = (col, b, bgOverride) => {
+        const cell = row.getCell(col);
+        const c = EXCEL_COLOR_MAP[b.colorKey] || EXCEL_COLOR_MAP['badge-softgray'];
+        cell.value = b.label; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + (bgOverride || rowBg) } };
+        cell.font = { color: { argb: 'FF' + c.fg }, bold: true, size: 9 };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }; applyBorder(cell);
+        // overlay badge fill via separate cell not possible; use fill of badge color
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + c.bg } };
+      };
+      plain(1, idx + 1); plain(2, r.full_name || '—', 'left'); plain(3, r.qid_number || '—'); plain(4, r.pid_no || '—');
+      plain(5, r.mobile_number || '—'); plain(6, r.company || '—'); plain(7, r.designation_position || '—', 'left', true);
+      badgeCell(8, med); plain(9, fmtOnboardingDate(emp?.ftw_approved_date)); badgeCell(10, gp);
+      plain(11, fmtOnboardingDate(emp?.gate_pass_received_date)); badgeCell(12, tr); plain(13, fmtOnboardingDate(emp?.training_date_start));
+      badgeCell(14, pid, 'F5FBF6');
+      const ac = row.getCell(15); ac.value = r.approval_comments || ''; ac.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
+      ac.font = { size: 9 }; ac.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }; applyBorder(ac);
+      plain(16, fmtApprovalDate(r.approval_date));
+      const rc = row.getCell(17); rc.value = r.remarks || ''; rc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
+      rc.font = { size: 9 }; rc.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }; applyBorder(rc);
     });
     const buf = await wb.xlsx.writeBuffer();
     downloadBlob(buf, `Approved_List_${format(new Date(), 'yyyy-MM-dd')}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   };
 
-  // ── Print / PDF ────────────────────────────────────────────────────────────
+  // ── Print / PDF ─────────────────────────────────────────────────────────────────
   const handlePrint = () => {
     const applied = [
       search && `Search: "${search}"`,
@@ -236,21 +305,21 @@ export default function ApprovedList() {
       approvalFilter.length && `Approval: ${approvalFilter.join(', ')}`,
       (approvalFrom || approvalTo) && `Approval Date: ${approvalFrom || '…'} → ${approvalTo || '…'}`,
     ].filter(Boolean);
-    const html = buildPrintHTML(sortedFiltered, applied);
     const win = window.open('', '_blank', 'width=1400,height=900');
+    const html = buildPrintHTML(sortedFiltered, empMap, applied);
     win.document.write(`<!DOCTYPE html><html><head><title>Approved Personnel List</title><style>${PRINT_CSS}</style></head><body>${html}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
     win.document.close();
   };
 
+  const today = format(new Date(), 'dd-MMM-yyyy');
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Approved List</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {sortedFiltered.length} of {records.length} records · {records.filter(r => r.personnel_match_status === 'Matched').length} matched
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">{today} · {sortedFiltered.length} of {records.length} records · {records.filter(r => r.personnel_match_status === 'Matched').length} matched</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {canEdit && (
@@ -260,7 +329,7 @@ export default function ApprovedList() {
           )}
           {canEdit && (
             <Button variant="outline" onClick={() => { setFormInitial(null); setShowForm(true); }} className="gap-2">
-              <Plus className="w-4 h-4" /> Add Approved Record
+              <Plus className="w-4 h-4" /> Add Record
             </Button>
           )}
           <Button variant="outline" onClick={handleExcelExport} className="gap-2" disabled={!sortedFiltered.length}>
@@ -292,85 +361,133 @@ export default function ApprovedList() {
         hasFilter={hasFilter} clearFilters={clearFilters}
       />
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border shadow overflow-auto table-scroll-x" style={{ maxHeight: '70vh' }}>
-        <table className="w-full border-collapse text-[11px] table-list-view">
+      {/* Table — same layout system as Onboarding Monitoring */}
+      <div className="rounded-b border border-t-0 overflow-x-auto table-scroll-x">
+        <table className="w-full text-xs border-collapse" style={{ minWidth: 1500 }}>
           <thead className="sticky top-0 z-10">
-            <tr className="bg-muted/50">
-              <Th onClick={() => toggleSort('serial_no')} sorted={sortKey === 'serial_no'} dir={sortDir}>#</Th>
-              <Th onClick={() => toggleSort('full_name')} sorted={sortKey === 'full_name'} dir={sortDir}>Full Name</Th>
-              <Th left onClick={() => toggleSort('qid_number')} sorted={sortKey === 'qid_number'} dir={sortDir}>QID Number</Th>
-              <Th onClick={() => toggleSort('pid_no')} sorted={sortKey === 'pid_no'} dir={sortDir}>PID No.</Th>
-              <Th>Mobile Number</Th>
-              <Th onClick={() => toggleSort('company')} sorted={sortKey === 'company'} dir={sortDir}>Company</Th>
-              <Th onClick={() => toggleSort('designation_position')} sorted={sortKey === 'designation_position'} dir={sortDir}>Designation / Position</Th>
-              <Th>Medical</Th>
-              <Th>Gate Pass Status</Th>
-              <Th>Training Status</Th>
-              <Th>Project ID Status</Th>
-              <Th onClick={() => toggleSort('manager_assigned')} sorted={sortKey === 'manager_assigned'} dir={sortDir}>Manager Assigned</Th>
-              <Th onClick={() => toggleSort('work_location')} sorted={sortKey === 'work_location'} dir={sortDir}>Work Location</Th>
-              <Th>Approval Comments</Th>
-              <Th onClick={() => toggleSort('approval_date')} sorted={sortKey === 'approval_date'} dir={sortDir}>Approval Date</Th>
-              <Th>Remarks</Th>
-              <Th onClick={() => toggleSort('approval_status')} sorted={sortKey === 'approval_status'} dir={sortDir}>Approval Status</Th>
-              <Th>Match</Th>
-              <Th>Actions</Th>
+            <tr>
+              {HEADERS.map(([label, align, w, kind], i) => {
+                const style = kind === 'pid' ? PID_HDR : COL_HDR;
+                const sortable = i >= 1 && i <= 16 && i !== 17;
+                return (
+                  <th key={label}
+                    onClick={() => sortable && toggleSort(sortKeyFor(i))}
+                    className={`border border-slate-300 px-2 py-1.5 font-semibold ${align === 'left' ? 'text-left' : 'text-center'} ${w} ${sortable ? 'cursor-pointer select-none hover:bg-blue-100' : ''}`}
+                    style={style}>
+                    <span className="inline-flex items-center gap-1">{label}
+                      {sortable && sortKey === sortKeyFor(i) && (sortDir === 'asc' ? '▲' : '▼')}
+                    </span>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={COL_SPAN} className="text-center py-10 text-muted-foreground">Loading…</td></tr>
+              <tr><td colSpan={COL_SPAN} className="text-center py-10 text-slate-400 bg-white border">Loading…</td></tr>
             ) : paged.length === 0 ? (
-              <tr><td colSpan={COL_SPAN} className="text-center py-10 text-muted-foreground">No records found.</td></tr>
-            ) : (
-              paged.map((r, idx) => (
-                <tr key={r.id} className={`hover:bg-muted/30 ${idx % 2 ? 'bg-slate-50/40' : 'bg-white'}`}>
-                  <td className="border border-slate-200 px-1 py-1 text-center text-slate-400">{(page - 1) * PAGE_SIZE + idx + 1}</td>
+              <tr><td colSpan={COL_SPAN} className="text-center py-10 text-slate-400 bg-white border">No records found.</td></tr>
+            ) : paged.map((r, idx) => {
+              const emp = empMap.get(r.personnel_id);
+              const med = getMedStatus(r, emp), gp = getGPStatus(r, emp), tr = getTrainingStatus(r, emp), pid = getPIDStatus(r, emp);
+              const rowBg = idx % 2 === 0 ? '#ffffff' : '#F7F9FC';
+              const editableId = r.id;
+              const empId = r.personnel_id;
+              return (
+                <tr key={r.id} style={{ background: rowBg }}>
+                  <td className="border border-slate-200 px-1 py-1 text-center text-slate-400">{(safePage - 1) * PAGE_SIZE + idx + 1}</td>
                   <td className="border border-slate-200 px-2 py-1 font-medium text-slate-800">{r.full_name || '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 font-mono whitespace-nowrap">{r.qid_number || '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 font-mono whitespace-nowrap">{r.pid_no || '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center">{r.mobile_number || '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center">{r.company || '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center">{r.designation_position || '—'}</td>
-                  <td className="border border-slate-200 px-1 py-1 text-center">{r.medical ? <BadgeSpan color={medBadge(r.medical)?.color} label={medBadge(r.medical)?.label} /> : '—'}</td>
-                  <td className="border border-slate-200 px-1 py-1 text-center">{r.gate_pass_status ? <BadgeSpan color={gpBadge(r.gate_pass_status)?.color} label={gpBadge(r.gate_pass_status)?.label} /> : '—'}</td>
-                  <td className="border border-slate-200 px-1 py-1 text-center">{r.training_status ? <BadgeSpan color={trainBadge(r.training_status)?.color} label={trainBadge(r.training_status)?.label} /> : '—'}</td>
-                  <td className="border border-slate-200 px-1 py-1 text-center">{r.project_id_status ? <BadgeSpan color={pidBadge(r.project_id_status)?.color} label={pidBadge(r.project_id_status)?.label} /> : '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center">{editMode ? <InlineEditCell value={r.manager_assigned} field="manager_assigned" empId={r.id} type="text" onSave={handleCellSave} editMode={editMode} /> : (r.manager_assigned || '—')}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center">{editMode ? <InlineEditCell value={r.work_location} field="work_location" empId={r.id} type="text" onSave={handleCellSave} editMode={editMode} /> : (r.work_location || '—')}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-left min-w-[160px]">{editMode ? <InlineEditCell value={r.approval_comments} field="approval_comments" empId={r.id} type="text" onSave={handleCellSave} editMode={editMode} /> : (r.approval_comments || '—')}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center whitespace-nowrap">{editMode ? <InlineEditCell value={r.approval_date} field="approval_date" empId={r.id} type="date" onSave={handleCellSave} editMode={editMode} /> : fmtDate(r.approval_date)}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-left min-w-[140px]">{editMode ? <InlineEditCell value={r.remarks} field="remarks" empId={r.id} type="text" onSave={handleCellSave} editMode={editMode} /> : (r.remarks || '—')}</td>
-                  <td className="border border-slate-200 px-1 py-1 text-center">{editMode ? <InlineEditCell value={r.approval_status} field="approval_status" empId={r.id} type="select" options={APPROVAL_STATUS_OPTIONS} onSave={handleCellSave} editMode={editMode} /> : <BadgeSpan color={approvalBadge(r.approval_status).color} label={approvalBadge(r.approval_status).label} />}</td>
-                  <td className="border border-slate-200 px-1 py-1 text-center"><BadgeSpan color={matchBadge(r.personnel_match_status).color} label={matchBadge(r.personnel_match_status).label} /></td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{r.qid_number || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{r.pid_no || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{r.mobile_number || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{r.company || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{r.designation_position || '—'}</td>
+                  {/* Medical */}
+                  <td className="border border-slate-200 px-1 py-1 text-center">
+                    {emp && editMode
+                      ? <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={empId} type="select" options={EMP_MEDICAL_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
+                      : <BadgeSpan colorKey={med.colorKey} label={med.label} />}
+                  </td>
+                  {/* TR Date Approved */}
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
+                    {emp ? <InlineEditCell value={emp.ftw_approved_date} field="ftw_approved_date" empId={empId} type="date" onSave={handleEmpSave} editMode={editMode} /> : <span className="text-slate-400">—</span>}
+                  </td>
+                  {/* Gate Pass Status */}
+                  <td className="border border-slate-200 px-1 py-1 text-center">
+                    {emp && editMode
+                      ? <InlineEditCell value={emp.rlic_status} field="rlic_status" empId={empId} type="select" options={EMP_GP_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
+                      : <BadgeSpan colorKey={gp.colorKey} label={gp.label} />}
+                  </td>
+                  {/* Gatepass Received Date */}
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
+                    {emp ? <InlineEditCell value={emp.gate_pass_received_date} field="gate_pass_received_date" empId={empId} type="date" onSave={handleEmpSave} editMode={editMode} /> : <span className="text-slate-400">—</span>}
+                  </td>
+                  {/* Training Status */}
+                  <td className="border border-slate-200 px-1 py-1 text-center">
+                    {emp && editMode
+                      ? <InlineEditCell value={emp.training_status} field="training_status" empId={empId} type="select" options={EMP_TRAINING_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
+                      : <BadgeSpan colorKey={tr.colorKey} label={tr.label} />}
+                  </td>
+                  {/* Training Date Started */}
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
+                    {emp ? <InlineEditCell value={emp.training_date_start} field="training_date_start" empId={empId} type="date" onSave={handleEmpSave} editMode={editMode} /> : <span className="text-slate-400">—</span>}
+                  </td>
+                  {/* Project ID Status (green-tinted) */}
+                  <td className="border border-slate-200 px-1 py-1 text-center" style={PID_CELL}>
+                    {emp && editMode
+                      ? <InlineEditCell value={emp.pid_status} field="pid_status" empId={empId} type="select" options={EMP_PID_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
+                      : <BadgeSpan colorKey={pid.colorKey} label={pid.label} />}
+                  </td>
+                  {/* Approval Comments */}
+                  <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[11px] min-w-[160px]" style={{ background: REMARKS_BG }}>
+                    <InlineEditCell value={r.approval_comments} field="approval_comments" empId={editableId} type="text" onSave={handleRecSave} editMode={editMode} />
+                  </td>
+                  {/* Approval Date (DD/MM/YYYY) */}
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
+                    {editMode
+                      ? <InlineEditCell value={r.approval_date} field="approval_date" empId={editableId} type="date" onSave={handleRecSave} editMode={editMode} />
+                      : (r.approval_date ? fmtApprovalDate(r.approval_date) : <span className="text-slate-400">—</span>)}
+                  </td>
+                  {/* Remarks */}
+                  <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[11px] min-w-[140px]" style={{ background: REMARKS_BG }}>
+                    <InlineEditCell value={r.remarks} field="remarks" empId={editableId} type="text" onSave={handleRecSave} editMode={editMode} />
+                  </td>
+                  {/* Actions */}
                   <td className="border border-slate-200 px-1 py-1 text-center whitespace-nowrap">
-                    <div className="flex items-center justify-center gap-0.5 flex-nowrap">
+                    <div className="flex items-center justify-center gap-0.5">
                       {!r.personnel_id && canEdit && (
-                        <button onClick={() => handleLink(r)} title="Link to personnel" className="p-1 hover:bg-accent rounded text-blue-600"><Link2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleLink(r)} title="Link to personnel" className="p-1 hover:bg-blue-50 rounded text-blue-600"><Link2 className="w-3.5 h-3.5" /></button>
                       )}
-                      <button onClick={() => { setFormInitial(r); setShowForm(true); }} title="Edit" className="p-1 hover:bg-accent rounded"><PencilLine className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { setFormInitial(r); setShowForm(true); }} title="Edit" className="p-1 hover:bg-slate-100 rounded"><PencilLine className="w-3.5 h-3.5" /></button>
                       {canDelete && (
                         <button onClick={() => handleDelete(r)} title="Delete" className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))
-            )}
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination — matches Onboarding design */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground">
-          <span>Page {page} of {totalPages} · {sortedFiltered.length} total</span>
+        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-t-0 rounded-b text-xs text-slate-600">
+          <span>Page {safePage} of {totalPages} · {sortedFiltered.length} total</span>
           <div className="flex items-center gap-1">
-            <Button size="sm" variant="outline" onClick={() => setPage(1)} disabled={page === 1}>«</Button>
-            <Button size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</Button>
-            <Button size="sm" variant="outline" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>›</Button>
-            <Button size="sm" variant="outline" onClick={() => setPage(totalPages)} disabled={page === totalPages}>»</Button>
+            <button onClick={() => setPage(1)} disabled={safePage === 1} className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100">«</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100">‹</button>
+            {pageButtons(safePage, totalPages).map((p, i) =>
+              p === '...' ? <span key={`e-${i}`} className="px-1">…</span> : (
+                <button key={p} onClick={() => setPage(p)}
+                  style={safePage === p ? { background: '#1E3A5F', color: '#fff', border: '1px solid #1E3A5F' } : {}}
+                  className={`px-2 py-1 rounded border ${safePage === p ? '' : 'bg-white hover:bg-slate-100'}`}
+                >{p}</button>
+              )
+            )}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100">›</button>
+            <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages} className="px-2 py-1 rounded border bg-white disabled:opacity-40 hover:bg-slate-100">»</button>
           </div>
         </div>
       )}
@@ -388,16 +505,33 @@ export default function ApprovedList() {
   );
 }
 
-// ── Header cell with sort ───────────────────────────────────────────────────────
-function Th({ children, onClick, sorted, dir, left }) {
-  return (
-    <th onClick={onClick} className={`border border-slate-200 px-2 py-1.5 font-semibold ${left ? 'text-left' : 'text-center'} cursor-pointer select-none hover:bg-slate-100`}>
-      <span className="inline-flex items-center gap-1">
-        {children}
-        {sorted && (dir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
-      </span>
-    </th>
-  );
+function sortKeyFor(i) {
+  const map = [null, 'full_name', 'qid_number', 'pid_no', 'mobile_number', 'company', 'designation_position',
+    'medical', 'ftw_approved_date', 'gate_pass_status', 'gate_pass_received_date', 'training_status', 'training_date_start',
+    'project_id_status', 'approval_comments', 'approval_date', 'remarks'];
+  return map[i];
+}
+
+function pageButtons(current, total) {
+  const out = [];
+  for (let p = 1; p <= total; p++) {
+    if (p === 1 || p === total || Math.abs(p - current) <= 2) out.push(p);
+    else if (out[out.length - 1] !== '...') out.push('...');
+  }
+  return out;
+}
+
+function uniq(arr) {
+  const seen = new Set(); const out = [];
+  for (const v of arr) { const k = (v || '').toString().trim(); if (k && !seen.has(k)) { seen.add(k); out.push(k); } }
+  return out.sort();
+}
+function downloadBlob(buf, name, type) {
+  const blob = new Blob([buf], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Filter bar ─────────────────────────────────────────────────────────────────
@@ -405,8 +539,8 @@ function FilterBar(props) {
   return (
     <div className="rounded-xl border bg-card p-3 space-y-2">
       <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-xs">
-          <Input value={props.search} onChange={e => props.setSearch(e.target.value)} placeholder="Search name, QID, PID, company, comments..." className="h-8 text-sm pl-3" />
+        <div className="flex-1 max-w-xs">
+          <Input value={props.search} onChange={e => props.setSearch(e.target.value)} placeholder="Search name, QID, PID, company, comments..." className="h-8 text-sm" />
         </div>
         {props.hasFilter && (
           <button onClick={props.clearFilters} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground h-7 px-2 rounded hover:bg-accent">
@@ -432,13 +566,13 @@ function FilterBar(props) {
 
 function MultiSel({ label, options, value, onChange }) {
   const [open, setOpen] = useState(false);
-  const opts = Array.isArray(options) && options.length && typeof options[0] === 'string' ? options : (Array.isArray(options) ? options.map(o => o.value || o) : []);
+  const opts = Array.isArray(options) ? options : [];
   return (
     <div className="relative">
       <p className="text-[11px] font-medium text-muted-foreground mb-1">{label}</p>
       <button onClick={() => setOpen(o => !o)} className="w-full h-8 text-left text-xs border rounded px-2 flex items-center justify-between hover:bg-accent">
         <span className={value.length ? 'text-foreground' : 'text-muted-foreground'}>{value.length ? `${value.length} selected` : 'All'}</span>
-        <ChevronDown className="w-3 h-3" />
+        <span className="text-muted-foreground">▾</span>
       </button>
       {open && (
         <>
@@ -470,67 +604,64 @@ function DateRange({ label, from, to, setFrom, setTo }) {
   );
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function uniq(arr) {
-  const seen = new Set();
-  const out = [];
-  for (const v of arr) {
-    const k = (v || '').toString().trim();
-    if (k && !seen.has(k)) { seen.add(k); out.push(k); }
-  }
-  return out.sort();
-}
-function downloadBlob(buf, name, type) {
-  const blob = new Blob([buf], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = name; a.click();
-  URL.revokeObjectURL(url);
-}
-
 // ── Print ───────────────────────────────────────────────────────────────────────
 const PRINT_CSS = `
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-body { font-family: Arial, sans-serif; font-size: 8.5px; background: white; color: #1e293b; }
+body { font-family: Arial, sans-serif; font-size: 9px; background: white; color: #1e293b; }
 .wrap { padding: 12px; }
-.title { text-align: center; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-.meta { text-align: center; font-size: 10px; color: #475569; margin: 4px 0 6px; }
-.filters { font-size: 8.5px; color: #475569; margin-bottom: 8px; }
-table { width: 100%; border-collapse: collapse; font-size: 8px; }
-thead th { background: #DCE6F2; color: #2D3748; border: 1px solid #B0C4DE; padding: 4px 3px; text-align: center; font-weight: 700; }
+.title { font-size: 16px; font-weight: 700; text-transform: uppercase; }
+.meta { font-size: 10px; color: #475569; text-align: right; }
+.filters { font-size: 8.5px; color: #475569; margin: 6px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 8.5px; }
 thead { display: table-header-group; }
+th { background: #DCE6F2; color: #2D3748; border: 1px solid #B0C4DE; padding: 3px 2px; text-align: center; font-weight: 700; }
+th.pid-col { background: #DDEFE0; color: #1A5C2A; }
 tbody tr { page-break-inside: avoid; }
+tr:nth-child(odd) td { background: #ffffff; }
+tr:nth-child(even) td { background: #F7F9FC; }
 td { border: 1px solid #CBD5E1; padding: 2px 3px; vertical-align: middle; }
-td.c { text-align: center; }
-.badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 7.5px; font-weight: 600; }
-.b-green { background: #D6EFD8; color: #1A5C2A; } .b-amber { background: #FEF3C7; color: #7C4D00; }
-.b-orange { background: #FDEBD0; color: #7B3500; } .b-red { background: #FCE4E4; color: #8B1A1A; }
-.b-blue { background: #DBEAFE; color: #1E3A6E; } .b-purple { background: #EDE9FE; color: #4B2A8A; }
-.b-slate { background: #F1F5F9; color: #475569; }
+td.center { text-align: center; }
+td.pid-cell { background: #F5FBF6 !important; }
+td.remarks-cell { background: #FAFAFA !important; }
+.badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 8px; font-weight: 600; border: 1px solid transparent; }
+.badge-green  { background: #D6EFD8; color: #1A5C2A; border-color: #A8D5AC; }
+.badge-amber  { background: #FEF3C7; color: #7C4D00; border-color: #F6D860; }
+.badge-orange { background: #FDEBD0; color: #7B3500; border-color: #F5C59A; }
+.badge-red    { background: #FCE4E4; color: #8B1A1A; border-color: #F5A9A9; }
+.badge-blue   { background: #DBEAFE; color: #1E3A6E; border-color: #93C5FD; }
+.badge-purple { background: #EDE9FE; color: #4B2A8A; border-color: #C4B5FD; }
+.badge-slate  { background: #F1F5F9; color: #475569; border-color: #CBD5E1; }
 @media print { @page { size: A3 landscape; margin: 6mm; } }
 `;
 
-function buildPrintHTML(rows, applied) {
+function buildPrintHTML(rows, empMap, applied) {
   const notVal = v => v || '—';
-  const now = format(new Date(), 'dd/MM/yyyy HH:mm');
-  const heads = ['#','Full Name','QID Number','PID No.','Mobile','Company','Designation / Position','Medical','Gate Pass','Training','Project ID','Manager','Work Location','Approval Comments','Approval Date','Remarks','Approval Status','Match'];
+  const now = format(new Date(), 'dd-MMM-yyyy HH:mm');
+  const heads = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Designation / Position','Medical','TR Date Approved','Gate Pass Status','Gatepass Received Date','Training Status','Training Date Started','Project ID Status','Approval Comments','Approval Date','Remarks'];
   const body = rows.map((r, i) => {
-    const badged = (b) => b ? `<span class="badge b-${b.color}">${b.label}</span>` : '—';
+    const emp = empMap.get(r.personnel_id);
+    const med = getMedStatus(r, emp), gp = getGPStatus(r, emp), tr = getTrainingStatus(r, emp), pid = getPIDStatus(r, emp);
+    const badged = b => `<span class="badge ${PRINT_CLASS_MAP[b.colorKey] || 'badge-slate'}">${b.label}</span>`;
     return `<tr>
-      <td class="c">${i+1}</td><td>${notVal(r.full_name)}</td><td class="c">${notVal(r.qid_number)}</td>
-      <td class="c">${notVal(r.pid_no)}</td><td class="c">${notVal(r.mobile_number)}</td><td class="c">${notVal(r.company)}</td>
-      <td class="c">${notVal(r.designation_position)}</td><td class="c">${badged(medBadge(r.medical))}</td>
-      <td class="c">${badged(gpBadge(r.gate_pass_status))}</td><td class="c">${badged(trainBadge(r.training_status))}</td>
-      <td class="c">${badged(pidBadge(r.project_id_status))}</td><td class="c">${notVal(r.manager_assigned)}</td>
-      <td class="c">${notVal(r.work_location)}</td><td>${notVal(r.approval_comments)}</td>
-      <td class="c">${r.approval_date ? format(new Date(r.approval_date.substring(0,10)), 'dd/MM/yyyy') : '—'}</td>
-      <td>${notVal(r.remarks)}</td><td class="c">${badged(approvalBadge(r.approval_status))}</td>
-      <td class="c">${badged(matchBadge(r.personnel_match_status))}</td></tr>`;
+      <td class="center">${i+1}</td><td>${notVal(r.full_name)}</td><td class="center">${notVal(r.qid_number)}</td>
+      <td class="center">${notVal(r.pid_no)}</td><td class="center">${notVal(r.mobile_number)}</td><td class="center">${notVal(r.company)}</td>
+      <td class="center">${notVal(r.designation_position)}</td><td class="center">${badged(med)}</td>
+      <td class="center">${emp?.ftw_approved_date ? fmtOnboardingDate(emp.ftw_approved_date) : '—'}</td>
+      <td class="center">${badged(gp)}</td>
+      <td class="center">${emp?.gate_pass_received_date ? fmtOnboardingDate(emp.gate_pass_received_date) : '—'}</td>
+      <td class="center">${badged(tr)}</td>
+      <td class="center">${emp?.training_date_start ? fmtOnboardingDate(emp.training_date_start) : '—'}</td>
+      <td class="center pid-cell">${badged(pid)}</td>
+      <td class="remarks-cell">${notVal(r.approval_comments)}</td>
+      <td class="center">${r.approval_date ? fmtApprovalDate(r.approval_date) : '—'}</td>
+      <td class="remarks-cell">${notVal(r.remarks)}</td></tr>`;
   }).join('');
   return `<div class="wrap">
-    <div class="title">GSO QATAR — APPROVED PERSONNEL LIST</div>
-    <div class="meta">Generated: ${now} · Total filtered records: ${rows.length}</div>
+    <table style="width:100%; margin-bottom:8px; border:none; border-collapse:collapse;">
+      <tr><td style="border:none;" class="title">GSO QATAR — APPROVED PERSONNEL LIST</td>
+          <td style="border:none;" class="meta">Generated: ${now} · Total: ${rows.length}</td></tr>
+    </table>
     ${applied.length ? `<div class="filters"><strong>Filters:</strong> ${applied.join(' · ')}</div>` : ''}
-    <table><thead><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
+    <table><thead><tr>${heads.map((h, i) => `<th class="${i === 13 ? 'pid-col' : ''}">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
   </div>`;
 }
