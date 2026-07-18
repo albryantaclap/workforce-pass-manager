@@ -85,21 +85,25 @@ export default function ApprovedList() {
     return m;
   }, [employees]);
 
-  const { data: assignments = [] } = useQuery({
-    queryKey: ['managerAssignments'],
-    queryFn: () => base44.entities.ManagerAssignment.list('-created_date', 200),
-    staleTime: 60000,
-  });
-  const mgrByCompany = useMemo(() => {
-    const m = new Map();
-    for (const a of assignments) for (const c of (a.companies || [])) m.set((c || '').trim().toUpperCase(), a.manager_name);
-    return m;
-  }, [assignments]);
-  const getManager = (r) => mgrByCompany.get((r.company || '').trim().toUpperCase()) || r.manager_assigned || '';
+  // Manager Assigned is sourced from the linked personnel's assigned_manager_id
+  // (single source of truth). For unmatched records, show imported text temporarily.
+  const getManager = (r) => {
+    if (r.personnel_id) {
+      const emp = empMap.get(r.personnel_id);
+      if (emp) {
+        if (emp.assigned_manager_id) {
+          const mgr = empMap.get(emp.assigned_manager_id);
+          return (mgr && mgr.name) || emp.assigned_manager_name || '';
+        }
+        return emp.assigned_manager_name || r.manager_assigned || '';
+      }
+    }
+    return r.manager_assigned || '';
+  };
 
   const companyOptions = useMemo(() => uniq(records.map(r => r.company)), [records]);
   const positionOptions = useMemo(() => uniq(records.map(r => r.designation_position)), [records]);
-  const managerOptions = useMemo(() => uniq(records.map(getManager)), [records, mgrByCompany]);
+  const managerOptions = useMemo(() => uniq(records.map(getManager)), [records, employees]);
   const locationOptions = useMemo(() => uniq(records.map(r => r.work_location)), [records]);
   const medOptions = useMemo(() => uniq(records.map(r => r.medical)), [records]);
   const gpOptions = useMemo(() => uniq(records.map(r => r.gate_pass_status)), [records]);
@@ -149,7 +153,7 @@ export default function ApprovedList() {
       rows = defaultSort(rows);
     }
     return rows;
-  }, [records, mgrByCompany, search, companyFilter, positionFilter, managerFilter, locationFilter, medFilter, gpFilter, trainFilter, pidFilter, approvalFilter, approvalFrom, approvalTo, sortKey, sortDir]);
+  }, [records, employees, search, companyFilter, positionFilter, managerFilter, locationFilter, medFilter, gpFilter, trainFilter, pidFilter, approvalFilter, approvalFrom, approvalTo, sortKey, sortDir]);
 
   // Preserve page across inline edits — only reset when filters/sort change.
   useEffect(() => { setPage(1); }, [hasFilter, sortKey, sortDir]);
@@ -313,7 +317,7 @@ export default function ApprovedList() {
       (approvalFrom || approvalTo) && `Approval Date: ${approvalFrom || '…'} → ${approvalTo || '…'}`,
     ].filter(Boolean);
     const win = window.open('', '_blank', 'width=1400,height=900');
-    const html = buildPrintHTML(sortedFiltered, empMap, mgrByCompany, applied);
+    const html = buildPrintHTML(sortedFiltered, empMap, applied);
     win.document.write(`<!DOCTYPE html><html><head><title>Approved Personnel List</title><style>${PRINT_CSS}</style></head><body>${html}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
     win.document.close();
   };
@@ -632,9 +636,21 @@ td.remarks-cell { background: #FAFAFA !important; }
 @media print { @page { size: A3 landscape; margin: 6mm; } }
 `;
 
-function buildPrintHTML(rows, empMap, mgrByCompany, applied) {
+function buildPrintHTML(rows, empMap, applied) {
   const notVal = v => v || '—';
-  const getManager = r => mgrByCompany.get((r.company || '').trim().toUpperCase()) || r.manager_assigned || '';
+  const getManager = r => {
+    if (r.personnel_id) {
+      const emp = empMap.get(r.personnel_id);
+      if (emp) {
+        if (emp.assigned_manager_id) {
+          const mgr = empMap.get(emp.assigned_manager_id);
+          return (mgr && mgr.name) || emp.assigned_manager_name || '';
+        }
+        return emp.assigned_manager_name || r.manager_assigned || '';
+      }
+    }
+    return r.manager_assigned || '';
+  };
   const now = format(new Date(), 'dd-MMM-yyyy HH:mm');
   const heads = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Manager Assigned','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Approval Comments','Approval Date','Remarks'];
   const body = rows.map((r, i) => {

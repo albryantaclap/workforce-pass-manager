@@ -14,6 +14,50 @@ import OnboardingMonitoring from '@/components/projection/OnboardingMonitoring';
 import ApprovedList from '@/components/projection/ApprovedList';
 import { Card } from '@/components/ui/card';
 
+// ── Manager helpers (assigned_manager_id is the single source of truth) ───────
+const UNASSIGNED_MANAGER = '__UNASSIGNED__';
+
+function buildManagerOptions(emps, empById) {
+  const seen = new Map();
+  let hasUnassigned = false;
+  for (const e of emps) {
+    if (e.assigned_manager_id) {
+      if (!seen.has(e.assigned_manager_id)) {
+        const mgr = empById.get(e.assigned_manager_id);
+        seen.set(e.assigned_manager_id, mgr ? mgr.name : (e.assigned_manager_name || e.assigned_manager_id));
+      }
+    } else {
+      hasUnassigned = true;
+    }
+  }
+  const opts = [...seen.entries()]
+    .map(([id, name]) => ({ value: id, label: name }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  if (hasUnassigned) opts.push({ value: UNASSIGNED_MANAGER, label: 'Unassigned' });
+  return opts;
+}
+
+function buildCompanyManagers(emps, empById) {
+  const map = {};
+  for (const e of emps) {
+    const co = (e.company || 'UNKNOWN').trim().toUpperCase();
+    if (!map[co]) map[co] = new Set();
+    let name = '';
+    if (e.assigned_manager_id) {
+      const mgr = empById.get(e.assigned_manager_id);
+      name = mgr ? mgr.name : (e.assigned_manager_name || '');
+    } else {
+      name = e.assigned_manager_name || '';
+    }
+    if (name) map[co].add(name);
+  }
+  const out = {};
+  for (const [co, set] of Object.entries(map)) {
+    out[co] = set.size ? [...set].sort().join(', ').toUpperCase() : '—';
+  }
+  return out;
+}
+
 // ── Column structure ──────────────────────────────────────────────────────────
 const ZERO_ROW = () => ({
   pendingMedical: 0, ftw: 0,
@@ -405,14 +449,9 @@ function buildCompanyTableHTML(company, rows, isGrand = false) {
       </table>
     </div>`;
 }
-function buildGrandTotalHTML(companyData, assignments = []) {
-  // Build manager lookup map
-  const managerMap = {};
-  for (const a of assignments) {
-    for (const co of a.companies) {
-      managerMap[co.trim().toUpperCase()] = a.manager_name;
-    }
-  }
+function buildGrandTotalHTML(companyData, companyManagers = {}) {
+  // Manager per company — sourced from personnel assigned_manager_id.
+  const managerMap = companyManagers;
 
   // CATEGORY MAPPING
   const COMPANY_CATEGORIES = {
@@ -598,9 +637,9 @@ const companies = Object.keys(companyData).sort((a, b) => {
   `;
 }
 
-function buildReportHTML(companyData, displayDate, selectedCompany, assignments = []) {
+function buildReportHTML(companyData, displayDate, selectedCompany, companyManagers = {}) {
   const companies = Object.keys(companyData).sort();
-  const grandHTML = selectedCompany === 'ALL' ? buildGrandTotalHTML(companyData, assignments) : '';
+  const grandHTML = selectedCompany === 'ALL' ? buildGrandTotalHTML(companyData, companyManagers) : '';
   const companyTablesHTML = companies.map(co => buildCompanyTableHTML(co, companyData[co])).join('');
   return `
     <div class="wrap">
@@ -705,17 +744,66 @@ export default function ProjectionReport() {
 
   const today = format(new Date(), 'dd-MM-yyyy');
 
-  const managerOptions = useMemo(() => assignments.map(a => ({ value: a.id, label: a.manager_name })), [assignments]);
+  // ── Manager source of truth: employee.assigned_manager_id ──
+  const empById = useMemo(() => {
+    const m = new Map();
+    for (const e of employees) m.set(e.id, e);
+    return m;
+  }, [employees]);
 
-  const filteredCompaniesFromManagers = useMemo(() => {
-    if (selectedManagers.length === 0) return [];
-    const s = new Set();
-    for (const id of selectedManagers) {
-      const mgr = assignments.find(a => a.id === id);
-      if (mgr) mgr.companies.forEach(co => s.add(co.trim().toUpperCase()));
-    }
-    return Array.from(s);
-  }, [selectedManagers, assignments]);
+  // Personnel filtered by everything EXCEPT the manager filter — used to build
+  // the cascaded manager dropdown options (so they respect other active filters).
+  const managerSourceEmployees = useMemo(() => {
+    return employees.filter(e => {
+      if (e.is_active === false) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchName = (e.name || '').toLowerCase().includes(q);
+        const matchQid = (e.qid_no || '').toLowerCase().includes(q);
+        const matchPp = (e.pp_no || '').toLowerCase().includes(q);
+        const matchPid = (e.pid || '').toLowerCase().includes(q);
+        if (!matchName && !matchQid && !matchPp && !matchPid) return false;
+      }
+      const empCo = (e.company || '').trim().toUpperCase();
+      if (companyFilter.length > 0 && !companyFilter.some(cf => cf.trim().toUpperCase() === empCo)) return false;
+      if (positionFilter.length > 0 && !positionFilter.includes(e.designation_org_chart)) return false;
+      if (departmentFilter.length > 0 && !departmentFilter.includes(e.department)) return false;
+      if (locationFilter.length > 0 && !locationFilter.includes(e.current_location)) return false;
+      if (dirFilter && (e.dir_indir || '').trim().toUpperCase() !== dirFilter.toUpperCase()) return false;
+      const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+      if (gpStatusFilter.length > 0 && !gpStatusFilter.includes(effectiveRlic)) return false;
+      const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
+      if (pidStatusFilter.length > 0 && !pidStatusFilter.includes(effectivePid)) return false;
+      if (trainingStatusFilter.length > 0 && !trainingStatusFilter.includes(e.training_status)) return false;
+      if (medicalResultFilter.length > 0 && !medicalResultFilter.includes(e.ftw_result)) return false;
+      const trainSched = normalizeDate(e.training_date_scheduled) || '';
+      if (trainingScheduledFrom && trainSched < trainingScheduledFrom) return false;
+      if (trainingScheduledTo && trainSched > trainingScheduledTo) return false;
+      const medApproved = normalizeDate(e.ftw_approved_date) || '';
+      if (medicalTrApprovedFrom && medApproved < medicalTrApprovedFrom) return false;
+      if (medicalTrApprovedTo && medApproved > medicalTrApprovedTo) return false;
+      const gpIssueVal = normalizeDate(e.gate_pass_issue_date) || '';
+      if (gpIssueFrom && gpIssueVal < gpIssueFrom) return false;
+      if (gpIssueTo && gpIssueVal > gpIssueTo) return false;
+      const gpRecVal = normalizeDate(e.gate_pass_received_date) || '';
+      if (gpReceivedFrom && gpRecVal < gpReceivedFrom) return false;
+      if (gpReceivedTo && gpRecVal > gpReceivedTo) return false;
+      const pidIssueVal = normalizeDate(e.pid_issue_date) || '';
+      if (pidIssueFrom && pidIssueVal < pidIssueFrom) return false;
+      if (pidIssueTo && pidIssueVal > pidIssueTo) return false;
+      return true;
+    });
+  }, [employees, searchQuery, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, gpStatusFilter, pidStatusFilter, trainingStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+
+  const managerOptions = useMemo(() => buildManagerOptions(managerSourceEmployees, empById), [managerSourceEmployees, empById]);
+
+  // Prune manager selections that are no longer valid after other filters change.
+  useEffect(() => {
+    if (selectedManagers.length === 0) return;
+    const valid = new Set(managerOptions.map(o => o.value));
+    const still = selectedManagers.filter(m => valid.has(m));
+    if (still.length !== selectedManagers.length) setSelectedManagers(still);
+  }, [managerOptions]);
 
   // Build deduplicated company options (same logic as Dashboard)
   const allCompanyOptions = useMemo(() => {
@@ -823,54 +911,17 @@ export default function ProjectionReport() {
   }, [lookupLocations]);
 
   // ── Master filtered employee list (shared across both tabs) ───────────────
+  // Apply the manager filter on top of the cascaded non-manager dataset.
   const filteredEmployees = useMemo(() => {
-    return employees.filter(e => {
-      if (e.is_active === false) return false;
-
-      // Search query filter
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchName = (e.name || '').toLowerCase().includes(q);
-        const matchQid = (e.qid_no || '').toLowerCase().includes(q);
-        const matchPp = (e.pp_no || '').toLowerCase().includes(q);
-        const matchPid = (e.pid || '').toLowerCase().includes(q);
-        if (!matchName && !matchQid && !matchPp && !matchPid) return false;
-      }
-      const empCo = (e.company || '').trim().toUpperCase();
-      // Manager filter takes priority over company multiselect
-      if (selectedManagers.length > 0) {
-        if (!filteredCompaniesFromManagers.includes(empCo)) return false;
-      } else if (companyFilter.length > 0) {
-        if (!companyFilter.some(cf => cf.trim().toUpperCase() === empCo)) return false;
-      }
-      if (positionFilter.length > 0 && !positionFilter.includes(e.designation_org_chart)) return false;
-      if (departmentFilter.length > 0 && !departmentFilter.includes(e.department)) return false;
-      if (locationFilter.length > 0 && !locationFilter.includes(e.current_location)) return false;
-      if (dirFilter && (e.dir_indir || '').trim().toUpperCase() !== dirFilter.toUpperCase()) return false;
-      const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
-      if (gpStatusFilter.length > 0 && !gpStatusFilter.includes(effectiveRlic)) return false;
-      const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
-      if (pidStatusFilter.length > 0 && !pidStatusFilter.includes(effectivePid)) return false;
-      if (trainingStatusFilter.length > 0 && !trainingStatusFilter.includes(e.training_status)) return false;
-      if (medicalResultFilter.length > 0 && !medicalResultFilter.includes(e.ftw_result)) return false;
-      const trainSched = normalizeDate(e.training_date_scheduled) || '';
-      if (trainingScheduledFrom && trainSched < trainingScheduledFrom) return false;
-      if (trainingScheduledTo && trainSched > trainingScheduledTo) return false;
-      const medApproved = normalizeDate(e.ftw_approved_date) || '';
-      if (medicalTrApprovedFrom && medApproved < medicalTrApprovedFrom) return false;
-      if (medicalTrApprovedTo && medApproved > medicalTrApprovedTo) return false;
-      const gpIssueVal = normalizeDate(e.gate_pass_issue_date) || '';
-      if (gpIssueFrom && gpIssueVal < gpIssueFrom) return false;
-      if (gpIssueTo && gpIssueVal > gpIssueTo) return false;
-      const gpRecVal = normalizeDate(e.gate_pass_received_date) || '';
-      if (gpReceivedFrom && gpRecVal < gpReceivedFrom) return false;
-      if (gpReceivedTo && gpRecVal > gpReceivedTo) return false;
-      const pidIssueVal = normalizeDate(e.pid_issue_date) || '';
-      if (pidIssueFrom && pidIssueVal < pidIssueFrom) return false;
-      if (pidIssueTo && pidIssueVal > pidIssueTo) return false;
-      return true;
+    if (selectedManagers.length === 0) return managerSourceEmployees;
+    const wantUnassigned = selectedManagers.includes(UNASSIGNED_MANAGER);
+    const ids = selectedManagers.filter(x => x !== UNASSIGNED_MANAGER);
+    return managerSourceEmployees.filter(e => {
+      if (ids.length && ids.includes(e.assigned_manager_id)) return true;
+      if (wantUnassigned && !e.assigned_manager_id) return true;
+      return false;
     });
-  }, [employees, searchQuery, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, gpStatusFilter, pidStatusFilter, trainingStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagers, filteredCompaniesFromManagers]);
+  }, [managerSourceEmployees, selectedManagers]);
 
   const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || selectedManagers.length > 0 || !!dirFilter || gpStatusFilter.length > 0 || pidStatusFilter.length > 0 || trainingStatusFilter.length > 0 || medicalResultFilter.length > 0 || locationFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!medicalTrApprovedFrom || !!medicalTrApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
@@ -897,19 +948,21 @@ export default function ProjectionReport() {
   }), [positionFilter, departmentFilter, dirFilter, gpStatusFilter, medicalResultFilter, locationFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   const gatepassCompanyFilter = useMemo(() => {
-    if (selectedManagers.length > 0) return 'ALL'; // managers handled in extraFilters via filteredEmployees
     if (companyFilter.length === 1) return companyFilter[0].trim().toUpperCase();
     return 'ALL';
-  }, [companyFilter, selectedManagers]);
+  }, [companyFilter]);
 
   const companyData = useMemo(
     () => buildCompanyData(filteredEmployees, gatepassCompanyFilter, extraFilters),
     [filteredEmployees, gatepassCompanyFilter, extraFilters]
   );
 
+  // Manager Assigned per company — sourced from personnel assigned_manager_id.
+  const companyManagers = useMemo(() => buildCompanyManagers(filteredEmployees, empById), [filteredEmployees, empById]);
+
   const reportHTML = useMemo(
-    () => buildReportHTML(companyData, today, gatepassCompanyFilter, assignments),
-    [companyData, today, gatepassCompanyFilter, assignments]
+    () => buildReportHTML(companyData, today, gatepassCompanyFilter, companyManagers),
+    [companyData, today, gatepassCompanyFilter, companyManagers]
   );
 
   const summaryTotals = useMemo(() => {
@@ -1095,7 +1148,7 @@ export default function ProjectionReport() {
                   try {
                     await exportGatepassExcel({
                       companyData,
-                      assignments,
+                      companyManagers,
                       displayDate: today,
                       isoDate: format(new Date(), 'yyyy-MM-dd'),
                     });

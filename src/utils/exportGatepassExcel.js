@@ -46,12 +46,9 @@ function applyCell(cell, value, fillHex, fontObj, alignObj, brd = true) {
 }
 
 // ── Grand Total summary table ─────────────────────────────────────────────────
-function writeGrandTotal(ws, startRow, companyData, assignments, COMPANY_CATEGORIES) {
-  // Build manager map
-  const managerMap = {};
-  for (const a of assignments) {
-    for (const co of a.companies) managerMap[co.trim().toUpperCase()] = a.manager_name;
-  }
+function writeGrandTotal(ws, startRow, companyData, companyManagers, COMPANY_CATEGORIES) {
+  // Manager per company — sourced from personnel assigned_manager_id.
+  const managerMap = companyManagers;
 
   const companies = Object.keys(companyData).sort((a, b) => {
     const mA = (managerMap[a] || '').toUpperCase();
@@ -193,7 +190,7 @@ function writeCompanyTable(ws, startRow, company, rows, isGrand = false) {
 }
 
 // ── Main export function ──────────────────────────────────────────────────────
-export async function exportGatepassExcel({ companyData, assignments, displayDate, isoDate }) {
+export async function exportGatepassExcel({ companyData, companyManagers, displayDate, isoDate }) {
   const COMPANY_CATEGORIES = {
     'KM STEEL - MOSTAFA (GSO)': 'STEEL STRUCTURE', 'QTRS - ALAVON (GSO)': 'CIVIL',
     'VMANES (GSO)': 'MECHANICAL & CIVIL', 'GSO QATAR': '', 'INTEGRATED (GSO)': 'STEEL STRUCTURE & CIVIL',
@@ -250,7 +247,7 @@ export async function exportGatepassExcel({ companyData, assignments, displayDat
   let currentRow = 4;
 
   // ── Grand Total block ──
-  currentRow = writeGrandTotal(ws, currentRow, companyData, assignments, COMPANY_CATEGORIES);
+  currentRow = writeGrandTotal(ws, currentRow, companyData, companyManagers, COMPANY_CATEGORIES);
 
   // ── Per-company blocks ──
   const companies = Object.keys(companyData).sort();
