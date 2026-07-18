@@ -55,6 +55,9 @@ export const TRAINING_STATUSES = [
 ];
 export const LOCATIONS = ['QATAR', 'COMO CAMP', 'OTHER'];
 
+// Work location options used on the Personnel form and synced to the Approved List.
+export const WORK_LOCATION_OPTIONS = ['COMO CAMP', 'CORRIDOR', 'SITE', 'OFFICE', 'OUTSIDE', 'OTHER'];
+
 // Normalize any date string to YYYY-MM-DD regardless of input format
 // Handles: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY (treated as DD/MM/YYYY for this app)
 export function normalizeDate(dateStr) {

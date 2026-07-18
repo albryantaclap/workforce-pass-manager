@@ -5,6 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Save, Upload, User, UserCheck, UserX, Shield } from 'lucide-react';
@@ -13,7 +14,7 @@ import StatusChangeModal from '@/components/common/StatusChangeModal';
 import StatusDetailsSection from '@/components/employee/StatusDetailsSection';
 import SearchableSelect from '@/components/common/SearchableSelect';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, computePassStatus } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, WORK_LOCATION_OPTIONS, computePassStatus } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
@@ -33,6 +34,7 @@ const emptyForm = {
   training_date: '', training_date_scheduled: '', training_date_start: '', training_date_end: '', training_status: '',
   is_manager: false,
   assigned_manager_id: '', assigned_manager_name: '',
+  work_location: '', approval_date: '', approval_comments: '',
   personnel_status: 'Active',
   status_effective_date: '', last_working_date: '', status_reason: '', status_remarks: '',
   inactive_date: '', demobilization_date: '', demobilization_reason: '',
@@ -289,6 +291,66 @@ export default function EmployeeForm() {
   const BUILTIN_FIELDS = new Set(['id', 'created_date', 'updated_date', 'created_by_id']);
   const META_FIELDS = new Set(['_last_updated_by', '_last_updated_by_name', '_last_updated_by_role', '_last_updated_at']);
 
+  // ── Approved List synchronization ────────────────────────────────────────────
+  // Creates or updates the Approved List record linked to this personnel. The
+  // assigned manager (assigned_manager_id) + approval date are the single source
+  // of truth; when either is missing the record is kept but marked Pending and a
+  // new record is never auto-created.
+  const syncApprovedRecord = async (emp) => {
+    if (!emp || !emp.id) return;
+    const eligible = !!(emp.assigned_manager_id && emp.approval_date);
+    let managerName = emp.assigned_manager_name || '';
+    if (!managerName && emp.assigned_manager_id) {
+      const mgr = allActiveEmps.find(e => e.id === emp.assigned_manager_id);
+      if (mgr?.name) managerName = mgr.name;
+    }
+    const fields = {
+      full_name: emp.name || '',
+      qid_number: emp.qid_no || '',
+      pid_no: emp.pid || '',
+      mobile_number: emp.contact_details || '',
+      company: emp.company || '',
+      designation_position: emp.designation_org_chart || emp.position_application || '',
+      manager_assigned: managerName,
+      work_location: emp.work_location || '',
+      approval_date: emp.approval_date || '',
+      approval_comments: emp.approval_comments || '',
+      medical: emp.ftw_result || '',
+      gate_pass_status: emp.rlic_status || '',
+      training_status: emp.training_status || '',
+      project_id_status: emp.pid_status || '',
+      personnel_match_status: 'Matched',
+      approval_status: eligible ? 'Approved' : 'Pending',
+    };
+
+    const existing = await base44.entities.ApprovedRecord.filter({ personnel_id: emp.id });
+    const linked = existing.find(r => r.personnel_id === emp.id);
+
+    if (!linked) {
+      if (!eligible) return; // not qualified yet — do not create a record
+      const created = await base44.entities.ApprovedRecord.create({ ...fields, personnel_id: emp.id });
+      await base44.entities.ActivityLog.create({
+        action: 'create', entity_name: 'ApprovedRecord', entity_id: created.id,
+        performed_by: currentUser?.email || '', record_name: emp.name || '',
+        changed_fields: [], record_snapshot: { ...fields, personnel_id: emp.id },
+      }).catch(() => {});
+    } else {
+      const changes = {};
+      for (const k of Object.keys(fields)) {
+        if (linked[k] !== fields[k]) changes[k] = fields[k];
+      }
+      if (Object.keys(changes).length) {
+        await base44.entities.ApprovedRecord.update(linked.id, changes);
+        await base44.entities.ActivityLog.create({
+          action: 'update', entity_name: 'ApprovedRecord', entity_id: linked.id,
+          performed_by: currentUser?.email || '', record_name: emp.name || '',
+          changed_fields: Object.keys(changes), record_snapshot: changes,
+        }).catch(() => {});
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['approvedRecords'] });
+  };
+
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       // Build payload — preserve EVERY field the form holds (including intentionally
@@ -343,7 +405,7 @@ export default function EmployeeForm() {
       }
       return result;
     },
-    onSuccess: () => {
+    onSuccess: async (savedEmp) => {
       // Invalidate every employee-related query so all pages and reports refresh immediately:
       // Master List, Dashboard, Medical, Gate Pass, Project ID, Training, Projection,
       // Onboarding Monitoring, Inactive/Demobilized, Workforce Report, Activity Log.
@@ -353,6 +415,19 @@ export default function EmployeeForm() {
       queryClient.invalidateQueries({ queryKey: ['employee'] });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       queryClient.invalidateQueries({ queryKey: ['projection'] });
+
+      // Sync the Approved List along with this personnel record. Failures must not
+      // block the save — surface them as a toast so the user can retry from the grid.
+      try {
+        await syncApprovedRecord(savedEmp);
+      } catch (e) {
+        toast({
+          title: 'Approved List sync issue',
+          description: e?.message || 'Could not sync the Approved List record. You can edit it manually in Reports → Approved List.',
+          variant: 'destructive',
+        });
+      }
+
       toast({
         title: isEdit ? 'Personnel information updated successfully.' : 'Personnel record created successfully.',
       });
@@ -463,6 +538,16 @@ export default function EmployeeForm() {
         toast({ title: 'Invalid Nationality', description: 'Please select a valid nationality from the approved list.', variant: 'destructive' });
         return;
       }
+    }
+
+    // Approved List eligibility check: assignment criteria require BOTH an assigned
+    // manager and an approval date. Warn before saving when the date is set but no
+    // manager is assigned — the linked Approved List record (if any) will go Pending.
+    if (form.approval_date && !form.assigned_manager_id) {
+      const ok = window.confirm(
+        'This personnel will not fully meet the Approved List requirements because no manager is assigned. The linked Approved List record (if any) will be marked Pending. Continue?'
+      );
+      if (!ok) return;
     }
 
     saveMutation.mutate(form);
@@ -672,6 +757,16 @@ export default function EmployeeForm() {
               >
                 {form.is_manager ? '✓ Yes — Can be assigned as manager' : 'No — Regular employee'}
               </button>
+            </Field>
+            <SelectInput field="work_location" label="Work Location" options={WORK_LOCATION_OPTIONS} {...tf} />
+            <TextInput field="approval_date" label="Approval Date" type="date" {...tf} />
+            <Field label="Approval Comments">
+              <Textarea
+                value={form.approval_comments || ''}
+                onChange={e => handleChange('approval_comments', e.target.value)}
+                rows={2}
+                className="text-sm"
+              />
             </Field>
           </div>
         </Card>

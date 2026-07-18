@@ -167,6 +167,10 @@
       ],
       "description": "Direct or Indirect"
     },
+    "work_location": {
+      "type": "string",
+      "description": "Work location (synced to the Approved List)"
+    },
     "contact_details": {
       "type": "string",
       "description": "Contact phone/details"
@@ -178,6 +182,15 @@
     "remarks": {
       "type": "string",
       "description": "Remarks"
+    },
+    "approval_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Approval date used to qualify for the Approved List"
+    },
+    "approval_comments": {
+      "type": "string",
+      "description": "Approval comments synced to the Approved List"
     },
     "qid_no": {
       "type": "string",
