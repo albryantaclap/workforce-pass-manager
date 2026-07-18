@@ -19,11 +19,6 @@ import ApprovedRecordForm from './ApprovedRecordForm';
 
 const PAGE_SIZE = 25;
 const COL_SPAN = 17;
-const EMP_LOCATION_OPTIONS = [
-  { value: 'QATAR', label: 'QATAR' },
-  { value: 'COMO CAMP', label: 'COMO CAMP' },
-  { value: 'OTHER', label: 'OTHER' },
-];
 const COL_HDR  = { background: '#DCE6F2', color: '#2D3748' };
 const PID_HDR  = { background: '#DDEFE0', color: '#1A5C2A' };
 const PID_CELL = { background: '#F5FBF6' };
@@ -107,15 +102,9 @@ export default function ApprovedList() {
     return r.manager_assigned || '';
   };
 
-  // Work Location — sourced from the linked personnel's current_location
-  // (single source of truth). For unmatched records, use imported value.
-  const getLocation = (r) => {
-    if (r.personnel_id) {
-      const emp = empMap.get(r.personnel_id);
-      if (emp) return emp.current_location || '';
-    }
-    return r.work_location || '';
-  };
+  // Work Location — sourced exclusively from the Approved List record's own
+  // work_location field. Never derived from the linked personnel's location.
+  const getLocation = (r) => r.work_location || '';
 
   const companyOptions = useMemo(() => uniq(records.map(r => r.company)), [records]);
   const positionOptions = useMemo(() => uniq(records.map(r => r.designation_position)), [records]);
@@ -458,12 +447,10 @@ export default function ApprovedList() {
                       ? <InlineEditCell value={emp.pid_status} field="pid_status" empId={empId} type="select" options={EMP_PID_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
                       : <BadgeSpan colorKey={pid.colorKey} label={pid.label} />}
                   </td>
-                  {/* Work Location */}
+                  {/* Work Location — saved to the Approved List record only */}
                   <td className="border border-slate-200 px-1 py-1 text-center text-slate-700">
                     {editMode
-                      ? (emp
-                          ? <InlineEditCell value={emp.current_location} field="current_location" empId={empId} type="select" options={EMP_LOCATION_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
-                          : <InlineEditCell value={r.work_location} field="work_location" empId={editableId} type="text" onSave={handleRecSave} editMode={editMode} />)
+                      ? <InlineEditCell value={r.work_location} field="work_location" empId={editableId} type="text" onSave={handleRecSave} editMode={editMode} />
                       : (getLocation(r) || '—')}
                   </td>
                   {/* Approval Comments */}
@@ -676,13 +663,7 @@ function buildPrintHTML(rows, empMap, applied) {
     }
     return r.manager_assigned || '';
   };
-  const getLocation = r => {
-    if (r.personnel_id) {
-      const emp = empMap.get(r.personnel_id);
-      if (emp) return emp.current_location || '';
-    }
-    return r.work_location || '';
-  };
+  const getLocation = r => r.work_location || '';
   const now = format(new Date(), 'dd-MMM-yyyy HH:mm');
   const heads = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Manager Assigned','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Work Location','Approval Comments','Approval Date','Remarks'];
   const body = rows.map((r, i) => {
