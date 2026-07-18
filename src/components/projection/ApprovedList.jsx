@@ -18,7 +18,7 @@ import {
 import ApprovedRecordForm from './ApprovedRecordForm';
 
 const PAGE_SIZE = 25;
-const COL_SPAN = 15;
+const COL_SPAN = 16;
 const COL_HDR  = { background: '#DCE6F2', color: '#2D3748' };
 const PID_HDR  = { background: '#DDEFE0', color: '#1A5C2A' };
 const PID_CELL = { background: '#F5FBF6' };
@@ -31,6 +31,7 @@ const HEADERS = [
   ['PID No.', 'center', 'w-24', null],
   ['Mobile Number', 'center', 'w-28', null],
   ['Company', 'center', 'w-32', null],
+  ['Manager Assigned', 'center', 'w-36', null],
   ['Designation / Position', 'center', 'w-44', null],
   ['Medical', 'center', 'w-28', null],
   ['Gate Pass Status', 'center', 'w-28', null],
@@ -84,9 +85,21 @@ export default function ApprovedList() {
     return m;
   }, [employees]);
 
+  const { data: assignments = [] } = useQuery({
+    queryKey: ['managerAssignments'],
+    queryFn: () => base44.entities.ManagerAssignment.list('-created_date', 200),
+    staleTime: 60000,
+  });
+  const mgrByCompany = useMemo(() => {
+    const m = new Map();
+    for (const a of assignments) for (const c of (a.companies || [])) m.set((c || '').trim().toUpperCase(), a.manager_name);
+    return m;
+  }, [assignments]);
+  const getManager = (r) => mgrByCompany.get((r.company || '').trim().toUpperCase()) || r.manager_assigned || '';
+
   const companyOptions = useMemo(() => uniq(records.map(r => r.company)), [records]);
   const positionOptions = useMemo(() => uniq(records.map(r => r.designation_position)), [records]);
-  const managerOptions = useMemo(() => uniq(records.map(r => r.manager_assigned)), [records]);
+  const managerOptions = useMemo(() => uniq(records.map(getManager)), [records, mgrByCompany]);
   const locationOptions = useMemo(() => uniq(records.map(r => r.work_location)), [records]);
   const medOptions = useMemo(() => uniq(records.map(r => r.medical)), [records]);
   const gpOptions = useMemo(() => uniq(records.map(r => r.gate_pass_status)), [records]);
@@ -107,13 +120,13 @@ export default function ApprovedList() {
     let rows = records.filter(r => {
       if (search) {
         const q = search.toLowerCase();
-        const hay = [r.full_name, r.qid_number, r.pid_no, r.company, r.designation_position, r.manager_assigned, r.approval_comments]
+        const hay = [r.full_name, r.qid_number, r.pid_no, r.company, r.designation_position, getManager(r), r.approval_comments]
           .map(s => (s || '').toLowerCase()).join(' ');
         if (!hay.includes(q)) return false;
       }
       if (companyFilter.length && !companyFilter.includes(r.company)) return false;
       if (positionFilter.length && !positionFilter.includes(r.designation_position)) return false;
-      if (managerFilter.length && !managerFilter.includes(r.manager_assigned)) return false;
+      if (managerFilter.length && !managerFilter.includes(getManager(r))) return false;
       if (locationFilter.length && !locationFilter.includes(r.work_location)) return false;
       if (medFilter.length && !medFilter.includes(r.medical)) return false;
       if (gpFilter.length && !gpFilter.includes(r.gate_pass_status)) return false;
@@ -127,8 +140,8 @@ export default function ApprovedList() {
     });
     if (sortKey) {
       rows = [...rows].sort((a, b) => {
-        const av = a[sortKey] ?? '';
-        const bv = b[sortKey] ?? '';
+        const av = sortKey === 'manager_assigned' ? (getManager(a) || '') : (a[sortKey] ?? '');
+        const bv = sortKey === 'manager_assigned' ? (getManager(b) || '') : (b[sortKey] ?? '');
         const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
         return sortDir === 'asc' ? cmp : -cmp;
       });
@@ -136,7 +149,7 @@ export default function ApprovedList() {
       rows = defaultSort(rows);
     }
     return rows;
-  }, [records, search, companyFilter, positionFilter, managerFilter, locationFilter, medFilter, gpFilter, trainFilter, pidFilter, approvalFilter, approvalFrom, approvalTo, sortKey, sortDir]);
+  }, [records, mgrByCompany, search, companyFilter, positionFilter, managerFilter, locationFilter, medFilter, gpFilter, trainFilter, pidFilter, approvalFilter, approvalFrom, approvalTo, sortKey, sortDir]);
 
   // Preserve page across inline edits — only reset when filters/sort change.
   useEffect(() => { setPage(1); }, [hasFilter, sortKey, sortDir]);
@@ -233,11 +246,11 @@ export default function ApprovedList() {
       pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
       views: [{ state: 'frozen', ySplit: 1 }],
     });
-    const COL_HEADERS = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Approval Comments','Approval Date','Remarks'];
+    const COL_HEADERS = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Manager Assigned','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Approval Comments','Approval Date','Remarks'];
     ws.columns = [
       { key: 'no', width: 4 }, { key: 'name', width: 28 }, { key: 'qid', width: 14 },
       { key: 'pid', width: 12 }, { key: 'mobile', width: 14 }, { key: 'company', width: 18 },
-      { key: 'position', width: 26 }, { key: 'medical', width: 14 },
+      { key: 'manager', width: 18 }, { key: 'position', width: 26 }, { key: 'medical', width: 14 },
       { key: 'gp', width: 14 }, { key: 'training', width: 14 }, { key: 'pidStatus', width: 16 },
       { key: 'approvalComments', width: 30 }, { key: 'approvalDate', width: 14 }, { key: 'remarks', width: 30 },
     ];
@@ -246,7 +259,7 @@ export default function ApprovedList() {
     const hdr = ws.getRow(1); hdr.height = 28;
     COL_HEADERS.forEach((h, i) => {
       const cell = hdr.getCell(i + 1); cell.value = h;
-      const isPid = i === 10;
+      const isPid = i === 11;
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + (isPid ? 'DDEFE0' : 'DCE6F2') } };
       cell.font = { color: { argb: 'FF' + (isPid ? '1A5C2A' : '2D3748') }, bold: true, size: 9 };
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -272,12 +285,12 @@ export default function ApprovedList() {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + c.bg } };
       };
       plain(1, idx + 1); plain(2, r.full_name || '—', 'left'); plain(3, r.qid_number || '—'); plain(4, r.pid_no || '—');
-      plain(5, r.mobile_number || '—'); plain(6, r.company || '—'); plain(7, r.designation_position || '—', 'left', true);
-      badgeCell(8, med); badgeCell(9, gp); badgeCell(10, tr); badgeCell(11, pid, 'F5FBF6');
-      const ac = row.getCell(12); ac.value = r.approval_comments || ''; ac.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
+      plain(5, r.mobile_number || '—'); plain(6, r.company || '—'); plain(7, getManager(r) || '—'); plain(8, r.designation_position || '—', 'left', true);
+      badgeCell(9, med); badgeCell(10, gp); badgeCell(11, tr); badgeCell(12, pid, 'F5FBF6');
+      const ac = row.getCell(13); ac.value = r.approval_comments || ''; ac.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
       ac.font = { size: 9 }; ac.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }; applyBorder(ac);
-      plain(13, fmtApprovalDate(r.approval_date));
-      const rc = row.getCell(14); rc.value = r.remarks || ''; rc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
+      plain(14, fmtApprovalDate(r.approval_date));
+      const rc = row.getCell(15); rc.value = r.remarks || ''; rc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
       rc.font = { size: 9 }; rc.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }; applyBorder(rc);
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -300,7 +313,7 @@ export default function ApprovedList() {
       (approvalFrom || approvalTo) && `Approval Date: ${approvalFrom || '…'} → ${approvalTo || '…'}`,
     ].filter(Boolean);
     const win = window.open('', '_blank', 'width=1400,height=900');
-    const html = buildPrintHTML(sortedFiltered, empMap, applied);
+    const html = buildPrintHTML(sortedFiltered, empMap, mgrByCompany, applied);
     win.document.write(`<!DOCTYPE html><html><head><title>Approved Personnel List</title><style>${PRINT_CSS}</style></head><body>${html}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
     win.document.close();
   };
@@ -362,7 +375,7 @@ export default function ApprovedList() {
             <tr>
               {HEADERS.map(([label, align, w, kind], i) => {
                 const style = kind === 'pid' ? PID_HDR : COL_HDR;
-                const sortable = i >= 1 && i <= 13;
+                const sortable = i >= 1 && i <= 14;
                 return (
                   <th key={label}
                     onClick={() => sortable && toggleSort(sortKeyFor(i))}
@@ -395,6 +408,7 @@ export default function ApprovedList() {
                   <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{r.pid_no || '—'}</td>
                   <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{r.mobile_number || '—'}</td>
                   <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{r.company || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{getManager(r) || '—'}</td>
                   <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{r.designation_position || '—'}</td>
                   {/* Medical */}
                   <td className="border border-slate-200 px-1 py-1 text-center">
@@ -491,7 +505,7 @@ export default function ApprovedList() {
 }
 
 function sortKeyFor(i) {
-  const map = [null, 'full_name', 'qid_number', 'pid_no', 'mobile_number', 'company', 'designation_position',
+  const map = [null, 'full_name', 'qid_number', 'pid_no', 'mobile_number', 'company', 'manager_assigned', 'designation_position',
     'medical', 'gate_pass_status', 'training_status', 'project_id_status', 'approval_comments', 'approval_date', 'remarks'];
   return map[i];
 }
@@ -618,10 +632,11 @@ td.remarks-cell { background: #FAFAFA !important; }
 @media print { @page { size: A3 landscape; margin: 6mm; } }
 `;
 
-function buildPrintHTML(rows, empMap, applied) {
+function buildPrintHTML(rows, empMap, mgrByCompany, applied) {
   const notVal = v => v || '—';
+  const getManager = r => mgrByCompany.get((r.company || '').trim().toUpperCase()) || r.manager_assigned || '';
   const now = format(new Date(), 'dd-MMM-yyyy HH:mm');
-  const heads = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Approval Comments','Approval Date','Remarks'];
+  const heads = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Manager Assigned','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Approval Comments','Approval Date','Remarks'];
   const body = rows.map((r, i) => {
     const emp = empMap.get(r.personnel_id);
     const med = getMedStatus(r, emp), gp = getGPStatus(r, emp), tr = getTrainingStatus(r, emp), pid = getPIDStatus(r, emp);
@@ -629,6 +644,7 @@ function buildPrintHTML(rows, empMap, applied) {
     return `<tr>
       <td class="center">${i+1}</td><td>${notVal(r.full_name)}</td><td class="center">${notVal(r.qid_number)}</td>
       <td class="center">${notVal(r.pid_no)}</td><td class="center">${notVal(r.mobile_number)}</td><td class="center">${notVal(r.company)}</td>
+      <td class="center">${notVal(getManager(r))}</td>
       <td class="center">${notVal(r.designation_position)}</td><td class="center">${badged(med)}</td>
       <td class="center">${badged(gp)}</td>
       <td class="center">${badged(tr)}</td>
@@ -643,6 +659,6 @@ function buildPrintHTML(rows, empMap, applied) {
           <td style="border:none;" class="meta">Generated: ${now} · Total: ${rows.length}</td></tr>
     </table>
     ${applied.length ? `<div class="filters"><strong>Filters:</strong> ${applied.join(' · ')}</div>` : ''}
-    <table><thead><tr>${heads.map((h, i) => `<th class="${i === 10 ? 'pid-col' : ''}">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
+    <table><thead><tr>${heads.map((h, i) => `<th class="${i === 11 ? 'pid-col' : ''}">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
   </div>`;
 }
