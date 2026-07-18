@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MultiSelect from '@/components/common/MultiSelect';
 import OnboardingMonitoring from '@/components/projection/OnboardingMonitoring';
+import ApprovedList from '@/components/projection/ApprovedList';
 import { Card } from '@/components/ui/card';
 
 // ── Column structure ──────────────────────────────────────────────────────────
@@ -1068,7 +1069,12 @@ export default function ProjectionReport() {
         <TabsList className="mb-4">
           <TabsTrigger value="gatepass">Gatepass Daily Report Update</TabsTrigger>
           <TabsTrigger value="onboarding">Onboarding Monitoring</TabsTrigger>
+          <TabsTrigger value="approved">Approved List</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="approved">
+          <ApprovedList />
+        </TabsContent>
 
         <TabsContent value="onboarding">
           <OnboardingMonitoring employees={filteredEmployees} assignments={assignments} />
