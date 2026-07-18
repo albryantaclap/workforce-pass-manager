@@ -14,7 +14,7 @@ import StatusChangeModal from '@/components/common/StatusChangeModal';
 import StatusDetailsSection from '@/components/employee/StatusDetailsSection';
 import SearchableSelect from '@/components/common/SearchableSelect';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, WORK_LOCATION_OPTIONS, computePassStatus } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, computePassStatus } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
@@ -59,11 +59,12 @@ function toDateValue(val) {
   return '';
 }
 
-const TextInput = ({ field, label, type = 'text', required, form, onChange }) => (
+const TextInput = ({ field, label, type = 'text', required, placeholder, form, onChange }) => (
   <Field label={label}>
     <Input
       type={type}
       required={required}
+      placeholder={placeholder}
       value={type === 'date' ? toDateValue(form[field]) : (form[field] || '')}
       onChange={e => onChange(field, e.target.value)}
     />
@@ -370,6 +371,11 @@ export default function EmployeeForm() {
       // if the handler didn't recompute after a date change).
       payload.rlic_status = autoCalcRlic(payload.gate_pass_expiry, payload.rlic_status);
       payload.pid_status = autoCalcPid(payload.pid_expiry, payload.pid_status);
+
+      // Trim free-text work location so leading/trailing spaces don't accumulate.
+      if (typeof payload.work_location === 'string') {
+        payload.work_location = payload.work_location.trim();
+      }
 
       // Keep is_active in sync with personnel_status
       payload.is_active = payload.personnel_status !== 'Inactive' && payload.personnel_status !== 'Demobilized';
@@ -758,7 +764,7 @@ export default function EmployeeForm() {
                 {form.is_manager ? '✓ Yes — Can be assigned as manager' : 'No — Regular employee'}
               </button>
             </Field>
-            <SelectInput field="work_location" label="Work Location" options={WORK_LOCATION_OPTIONS} {...tf} />
+            <TextInput field="work_location" label="Work Location" placeholder="Enter work location..." {...tf} />
             <TextInput field="approval_date" label="Approval Date" type="date" {...tf} />
             <Field label="Approval Comments">
               <Textarea

@@ -197,12 +197,27 @@ export default function ApprovedList() {
   const handleRecSave = (recId, field, newValue) => {
     const rec = records.find(r => r.id === recId);
     const oldValue = rec ? rec[field] : undefined;
-    recUpdate.mutate({ id: recId, data: { [field]: newValue } });
+    const trimmed = (field === 'work_location' && typeof newValue === 'string') ? newValue.trim() : newValue;
+    recUpdate.mutate({ id: recId, data: { [field]: trimmed } });
     base44.entities.ActivityLog.create({
       action: 'update', entity_name: 'ApprovedRecord', entity_id: recId,
       performed_by: currentUser?.email || '', record_name: rec?.full_name || recId,
-      changed_fields: [field], record_snapshot: { [field]: newValue, _old: { [field]: oldValue } },
+      changed_fields: [field], record_snapshot: { [field]: trimmed, _old: { [field]: oldValue } },
     }).catch(() => {});
+    // Sync Work Location back to the linked Employee so the Personnel Form stays
+    // in sync with grid edits (shared update — prevents conflicting values).
+    if (field === 'work_location' && rec?.personnel_id) {
+      const emp = empMap.get(rec.personnel_id);
+      if (emp && emp.work_location !== trimmed) {
+        empUpdate.mutate({ id: emp.id, data: { work_location: trimmed } });
+        base44.entities.ActivityLog.create({
+          action: 'update', entity_name: 'Employee', entity_id: emp.id,
+          performed_by: currentUser?.email || '', record_name: emp?.name || emp.id,
+          changed_fields: ['work_location'],
+          record_snapshot: { work_location: trimmed, _old: { work_location: emp.work_location } },
+        }).catch(() => {});
+      }
+    }
   };
 
   const handleSaveForm = async (form) => {
