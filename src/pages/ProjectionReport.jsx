@@ -654,14 +654,14 @@ function buildReportHTML(companyData, displayDate, selectedCompany, companyManag
 function ReportPreviewModal({ reportHTML, displayDate, onClose }) {
   const handlePrint = () => {
     const win = window.open('', '_blank', 'width=1400,height=900');
-    win.document.write(`<!DOCTYPE html><html><head><title>Projection Report ${displayDate}</title><style>${PRINT_CSS}</style></head><body>${reportHTML}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
+    win.document.write(`<!DOCTYPE html><html><head><title>Reports ${displayDate}</title><style>${PRINT_CSS}</style></head><body>${reportHTML}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
     win.document.close();
   };
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center overflow-auto py-6 px-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl">
         <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-2xl z-10">
-          <h2 className="text-lg font-bold">Projection Report Preview</h2>
+          <h2 className="text-lg font-bold">Reports Preview</h2>
           <div className="flex gap-2">
             <Button onClick={handlePrint} className="gap-2"><Printer className="w-4 h-4" /> Print / Save PDF</Button>
             <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
@@ -986,7 +986,7 @@ export default function ProjectionReport() {
       {/* Page Title */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Projection Report</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Reports</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Live data from masterlist ·{' '}
             {hasFilter
