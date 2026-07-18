@@ -109,19 +109,25 @@ export default function ApprovedRecordForm({ open, onClose, onSave, employees = 
             )}
           </div>
 
+          {matchedEmp && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+              Linked to a personnel record — shared personnel fields are read-only here and come from the Master List (edit them in the Personnel form). Work Location, Approval Date and Approval Comments save back to the personnel record.
+            </p>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Full Name"><Input value={form.full_name} onChange={e => setField('full_name', e.target.value)} className="h-8 text-sm" /></Field>
-            <Field label="QID Number"><Input value={form.qid_number} onChange={e => setField('qid_number', e.target.value)} className="h-8 text-sm" /></Field>
-            <Field label="PID No."><Input value={form.pid_no} onChange={e => setField('pid_no', e.target.value)} className="h-8 text-sm" /></Field>
-            <Field label="Mobile Number"><Input value={form.mobile_number} onChange={e => setField('mobile_number', e.target.value)} className="h-8 text-sm" /></Field>
-            <Field label="Company"><Input value={form.company} onChange={e => setField('company', e.target.value)} className="h-8 text-sm" /></Field>
-            <Field label="Designation / Position"><Input value={form.designation_position} onChange={e => setField('designation_position', e.target.value)} className="h-8 text-sm" /></Field>
-            <SelectField label="Medical Status" value={form.medical} onChange={v => setField('medical', v)} options={MEDICAL_OPTIONS} />
-            <SelectField label="Gate Pass Status" value={form.gate_pass_status} onChange={v => setField('gate_pass_status', v)} options={GP_OPTIONS} />
-            <SelectField label="Training Status" value={form.training_status} onChange={v => setField('training_status', v)} options={TRAINING_OPTIONS} />
-            <SelectField label="Project ID Status" value={form.project_id_status} onChange={v => setField('project_id_status', v)} options={PID_OPTIONS} />
-            <Field label="Manager Assigned"><Input value={form.manager_assigned} onChange={e => setField('manager_assigned', e.target.value)} className="h-8 text-sm" /></Field>
-            <Field label="Work Location"><Input value={form.work_location} onChange={e => setField('work_location', e.target.value)} className="h-8 text-sm" /></Field>
+            <Field label="Full Name"><Input value={form.full_name} onChange={e => setField('full_name', e.target.value)} disabled={!!matchedEmp} className="h-8 text-sm" /></Field>
+            <Field label="QID Number"><Input value={form.qid_number} onChange={e => setField('qid_number', e.target.value)} disabled={!!matchedEmp} className="h-8 text-sm" /></Field>
+            <Field label="PID No."><Input value={form.pid_no} onChange={e => setField('pid_no', e.target.value)} disabled={!!matchedEmp} className="h-8 text-sm" /></Field>
+            <Field label="Mobile Number"><Input value={form.mobile_number} onChange={e => setField('mobile_number', e.target.value)} disabled={!!matchedEmp} className="h-8 text-sm" /></Field>
+            <Field label="Company"><Input value={form.company} onChange={e => setField('company', e.target.value)} disabled={!!matchedEmp} className="h-8 text-sm" /></Field>
+            <Field label="Designation / Position"><Input value={form.designation_position} onChange={e => setField('designation_position', e.target.value)} disabled={!!matchedEmp} className="h-8 text-sm" /></Field>
+            <SelectField label="Medical Status" value={form.medical} onChange={v => setField('medical', v)} options={MEDICAL_OPTIONS} disabled={!!matchedEmp} />
+            <SelectField label="Gate Pass Status" value={form.gate_pass_status} onChange={v => setField('gate_pass_status', v)} options={GP_OPTIONS} disabled={!!matchedEmp} />
+            <SelectField label="Training Status" value={form.training_status} onChange={v => setField('training_status', v)} options={TRAINING_OPTIONS} disabled={!!matchedEmp} />
+            <SelectField label="Project ID Status" value={form.project_id_status} onChange={v => setField('project_id_status', v)} options={PID_OPTIONS} disabled={!!matchedEmp} />
+            <Field label="Manager Assigned"><Input value={form.manager_assigned} onChange={e => setField('manager_assigned', e.target.value)} disabled={!!matchedEmp} className="h-8 text-sm" /></Field>
+            <Field label="Work Location"><Input value={form.work_location} onChange={e => setField('work_location', e.target.value)} placeholder="Enter work location..." className="h-8 text-sm" /></Field>
             <SelectField label="Approval Status" value={form.approval_status} onChange={v => setField('approval_status', v)} options={APPROVAL_STATUS_OPTIONS} />
             <Field label="Approval Date"><Input type="date" value={form.approval_date || ''} onChange={e => setField('approval_date', e.target.value)} className="h-8 text-sm" /></Field>
           </div>
@@ -154,11 +160,11 @@ function Field({ label, children }) {
   );
 }
 
-function SelectField({ label, value, onChange, options }) {
+function SelectField({ label, value, onChange, options, disabled }) {
   return (
     <div className="space-y-1">
       <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
-      <Select value={value || '__none'} onValueChange={v => onChange(v === '__none' ? '' : v)}>
+      <Select value={value || '__none'} onValueChange={v => onChange(v === '__none' ? '' : v)} disabled={!!disabled}>
         <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="__none">—</SelectItem>

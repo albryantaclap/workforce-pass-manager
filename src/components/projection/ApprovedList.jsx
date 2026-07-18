@@ -11,7 +11,7 @@ import { useCurrentUser } from '@/lib/useCurrentUser';
 import { usePermissions } from '@/lib/usePermissions';
 import {
   BadgeSpan, getMedStatus, getGPStatus, getTrainingStatus, getPIDStatus,
-  defaultSort, fmtApprovalDate,
+  fmtApprovalDate,
   EMP_MEDICAL_OPTIONS, EMP_GP_OPTIONS, EMP_TRAINING_OPTIONS, EMP_PID_OPTIONS,
   APPROVAL_STATUS_OPTIONS, PRINT_CLASS_MAP, EXCEL_COLOR_MAP,
 } from './approvedListHelpers';
@@ -77,7 +77,7 @@ export default function ApprovedList() {
   const { data: employees = [] } = useQuery({
     queryKey: ['employees-active'],
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
-    staleTime: 30000,
+    staleTime: 0, // Master List is the source of truth — always refetch on view
   });
 
   const empMap = useMemo(() => {
@@ -102,18 +102,33 @@ export default function ApprovedList() {
     return r.manager_assigned || '';
   };
 
-  // Work Location — sourced exclusively from the Approved List record's own
-  // work_location field. Never derived from the linked personnel's location.
-  const getLocation = (r) => r.work_location || '';
+  // ── Live accessors — Master List is the single source of truth for linked records.
+  // For linked records (personnel_id set), shared personnel fields are read directly
+  // from the current Employee record. Stored ApprovedRecord copies are used only as
+  // a fallback for unmatched imported records.
+  const empFor = (r) => (r.personnel_id ? empMap.get(r.personnel_id) : null);
+  const getFullName = (r) => { const e = empFor(r); return e ? (e.name || r.full_name) : (r.full_name || ''); };
+  const getQid = (r) => { const e = empFor(r); return e ? (e.qid_no || r.qid_number) : (r.qid_number || ''); };
+  const getPidNo = (r) => { const e = empFor(r); return e ? (e.pid || r.pid_no) : (r.pid_no || ''); };
+  const getMobile = (r) => { const e = empFor(r); return e ? (e.contact_details || r.mobile_number) : (r.mobile_number || ''); };
+  const getCompanyVal = (r) => { const e = empFor(r); return e ? (e.company || r.company) : (r.company || ''); };
+  const getDesignation = (r) => { const e = empFor(r); return e ? (e.designation_org_chart || e.position_application || r.designation_position) : (r.designation_position || ''); };
+  const getLocation = (r) => { const e = empFor(r); return e ? (e.work_location ?? r.work_location ?? '') : (r.work_location || ''); };
+  const getApprovalDate = (r) => { const e = empFor(r); return e ? (e.approval_date || r.approval_date || '') : (r.approval_date || ''); };
+  const getApprovalComments = (r) => { const e = empFor(r); return e ? (e.approval_comments ?? r.approval_comments ?? '') : (r.approval_comments || ''); };
+  const getMedLabel = (r) => (getMedStatus(r, empFor(r)) || {}).label || '';
+  const getGPLabel = (r) => (getGPStatus(r, empFor(r)) || {}).label || '';
+  const getTrainLabel = (r) => (getTrainingStatus(r, empFor(r)) || {}).label || '';
+  const getPIDLabel = (r) => (getPIDStatus(r, empFor(r)) || {}).label || '';
 
-  const companyOptions = useMemo(() => uniq(records.map(r => r.company)), [records]);
-  const positionOptions = useMemo(() => uniq(records.map(r => r.designation_position)), [records]);
+  const companyOptions = useMemo(() => uniq(records.map(getCompanyVal)), [records, employees]);
+  const positionOptions = useMemo(() => uniq(records.map(getDesignation)), [records, employees]);
   const managerOptions = useMemo(() => uniq(records.map(getManager)), [records, employees]);
   const locationOptions = useMemo(() => uniq(records.map(getLocation)), [records, employees]);
-  const medOptions = useMemo(() => uniq(records.map(r => r.medical)), [records]);
-  const gpOptions = useMemo(() => uniq(records.map(r => r.gate_pass_status)), [records]);
-  const trainOptions = useMemo(() => uniq(records.map(r => r.training_status)), [records]);
-  const pidOptions = useMemo(() => uniq(records.map(r => r.project_id_status)), [records]);
+  const medOptions = useMemo(() => uniq(records.map(getMedLabel)), [records, employees]);
+  const gpOptions = useMemo(() => uniq(records.map(getGPLabel)), [records, employees]);
+  const trainOptions = useMemo(() => uniq(records.map(getTrainLabel)), [records, employees]);
+  const pidOptions = useMemo(() => uniq(records.map(getPIDLabel)), [records, employees]);
 
   const hasFilter = !!(search || companyFilter.length || positionFilter.length || managerFilter.length ||
     locationFilter.length || medFilter.length || gpFilter.length || trainFilter.length ||
@@ -129,33 +144,62 @@ export default function ApprovedList() {
     let rows = records.filter(r => {
       if (search) {
         const q = search.toLowerCase();
-        const hay = [r.full_name, r.qid_number, r.pid_no, r.company, r.designation_position, getManager(r), getLocation(r), r.approval_comments]
+        const hay = [getFullName(r), getQid(r), getPidNo(r), getCompanyVal(r), getDesignation(r), getManager(r), getLocation(r), getApprovalComments(r)]
           .map(s => (s || '').toLowerCase()).join(' ');
         if (!hay.includes(q)) return false;
       }
-      if (companyFilter.length && !companyFilter.includes(r.company)) return false;
-      if (positionFilter.length && !positionFilter.includes(r.designation_position)) return false;
+      if (companyFilter.length && !companyFilter.includes(getCompanyVal(r))) return false;
+      if (positionFilter.length && !positionFilter.includes(getDesignation(r))) return false;
       if (managerFilter.length && !managerFilter.includes(getManager(r))) return false;
       if (locationFilter.length && !locationFilter.includes(getLocation(r))) return false;
-      if (medFilter.length && !medFilter.includes(r.medical)) return false;
-      if (gpFilter.length && !gpFilter.includes(r.gate_pass_status)) return false;
-      if (trainFilter.length && !trainFilter.includes(r.training_status)) return false;
-      if (pidFilter.length && !pidFilter.includes(r.project_id_status)) return false;
+      if (medFilter.length && !medFilter.includes(getMedLabel(r))) return false;
+      if (gpFilter.length && !gpFilter.includes(getGPLabel(r))) return false;
+      if (trainFilter.length && !trainFilter.includes(getTrainLabel(r))) return false;
+      if (pidFilter.length && !pidFilter.includes(getPIDLabel(r))) return false;
       if (approvalFilter.length && !approvalFilter.includes(r.approval_status)) return false;
-      const ad = r.approval_date ? r.approval_date.substring(0, 10) : '';
+      const ad = getApprovalDate(r) ? String(getApprovalDate(r)).substring(0, 10) : '';
       if (approvalFrom && (!ad || ad < approvalFrom)) return false;
       if (approvalTo && (!ad || ad > approvalTo)) return false;
       return true;
     });
     if (sortKey) {
       rows = [...rows].sort((a, b) => {
-        const av = sortKey === 'manager_assigned' ? (getManager(a) || '') : (sortKey === 'work_location' ? (getLocation(a) || '') : (a[sortKey] ?? ''));
-        const bv = sortKey === 'manager_assigned' ? (getManager(b) || '') : (sortKey === 'work_location' ? (getLocation(b) || '') : (b[sortKey] ?? ''));
-        const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
+        const acc = (x) => {
+          switch (sortKey) {
+            case 'full_name': return getFullName(x);
+            case 'qid_number': return getQid(x);
+            case 'pid_no': return getPidNo(x);
+            case 'mobile_number': return getMobile(x);
+            case 'company': return getCompanyVal(x);
+            case 'designation_position': return getDesignation(x);
+            case 'manager_assigned': return getManager(x);
+            case 'work_location': return getLocation(x);
+            case 'approval_date': return getApprovalDate(x);
+            case 'medical': return getMedLabel(x);
+            case 'gate_pass_status': return getGPLabel(x);
+            case 'training_status': return getTrainLabel(x);
+            case 'project_id_status': return getPIDLabel(x);
+            default: return x[sortKey] ?? '';
+          }
+        };
+        const cmp = String(acc(a) ?? '').localeCompare(String(acc(b) ?? ''), undefined, { numeric: true, sensitivity: 'base' });
         return sortDir === 'asc' ? cmp : -cmp;
       });
     } else {
-      rows = defaultSort(rows);
+      // Default sort: Approval Date DESC → Company ASC → Designation ASC → Name ASC,
+      // rows without an Approval Date sink to the bottom. Uses live Master List values.
+      rows = [...rows].sort((a, b) => {
+        const da = getApprovalDate(a) ? String(getApprovalDate(a)).substring(0, 10) : '';
+        const db = getApprovalDate(b) ? String(getApprovalDate(b)).substring(0, 10) : '';
+        if (da && db && da !== db) return da < db ? 1 : -1;
+        if (da && !db) return -1;
+        if (!da && db) return 1;
+        const co = (getCompanyVal(a) || '').localeCompare(getCompanyVal(b) || '');
+        if (co !== 0) return co;
+        const dp = (getDesignation(a) || '').localeCompare(getDesignation(b) || '');
+        if (dp !== 0) return dp;
+        return (getFullName(a) || '').localeCompare(getFullName(b) || '');
+      });
     }
     return rows;
   }, [records, employees, search, companyFilter, positionFilter, managerFilter, locationFilter, medFilter, gpFilter, trainFilter, pidFilter, approvalFilter, approvalFrom, approvalTo, sortKey, sortDir]);
@@ -184,40 +228,45 @@ export default function ApprovedList() {
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
   });
 
+  // Shared update service — editing a shared personnel field from the Approved List
+  // writes to the Master List (Employee) first; the linked Approved Record cache +
+  // approval_status are refreshed in the same action (no duplicate log entries).
   const handleEmpSave = (empId, field, newValue) => {
     const emp = empMap.get(empId);
     const oldValue = emp ? emp[field] : undefined;
-    empUpdate.mutate({ id: empId, data: { [field]: newValue } });
+    const trimmed = typeof newValue === 'string' ? newValue.trim() : newValue;
+    empUpdate.mutate({ id: empId, data: { [field]: trimmed } });
     base44.entities.ActivityLog.create({
       action: 'update', entity_name: 'Employee', entity_id: empId,
       performed_by: currentUser?.email || '', record_name: emp?.name || empId,
-      changed_fields: [field], record_snapshot: { [field]: newValue, _old: { [field]: oldValue } },
+      changed_fields: [field],
+      record_snapshot: { [field]: trimmed, _old: { [field]: oldValue }, source: 'Approved List grid' },
     }).catch(() => {});
+    const linked = records.find(r => r.personnel_id === empId);
+    if (linked) {
+      const recFieldMap = {
+        work_location: 'work_location', approval_date: 'approval_date', approval_comments: 'approval_comments',
+        ftw_result: 'medical', rlic_status: 'gate_pass_status', training_status: 'training_status', pid_status: 'project_id_status',
+      };
+      const updatedEmp = emp ? { ...emp, [field]: trimmed } : null;
+      const eligible = updatedEmp ? !!(updatedEmp.assigned_manager_id && updatedEmp.approval_date) : (linked.approval_status === 'Approved');
+      const patch = {};
+      if (recFieldMap[field]) patch[recFieldMap[field]] = trimmed;
+      patch.approval_status = eligible ? 'Approved' : 'Pending';
+      recUpdate.mutate({ id: linked.id, data: patch });
+    }
   };
+  // Record-only fields / unmatched imported records — saved to the Approved Record only.
   const handleRecSave = (recId, field, newValue) => {
     const rec = records.find(r => r.id === recId);
     const oldValue = rec ? rec[field] : undefined;
-    const trimmed = (field === 'work_location' && typeof newValue === 'string') ? newValue.trim() : newValue;
+    const trimmed = typeof newValue === 'string' ? newValue.trim() : newValue;
     recUpdate.mutate({ id: recId, data: { [field]: trimmed } });
     base44.entities.ActivityLog.create({
       action: 'update', entity_name: 'ApprovedRecord', entity_id: recId,
       performed_by: currentUser?.email || '', record_name: rec?.full_name || recId,
-      changed_fields: [field], record_snapshot: { [field]: trimmed, _old: { [field]: oldValue } },
+      changed_fields: [field], record_snapshot: { [field]: trimmed, _old: { [field]: oldValue }, source: 'Approved List (unmatched)' },
     }).catch(() => {});
-    // Sync Work Location back to the linked Employee so the Personnel Form stays
-    // in sync with grid edits (shared update — prevents conflicting values).
-    if (field === 'work_location' && rec?.personnel_id) {
-      const emp = empMap.get(rec.personnel_id);
-      if (emp && emp.work_location !== trimmed) {
-        empUpdate.mutate({ id: emp.id, data: { work_location: trimmed } });
-        base44.entities.ActivityLog.create({
-          action: 'update', entity_name: 'Employee', entity_id: emp.id,
-          performed_by: currentUser?.email || '', record_name: emp?.name || emp.id,
-          changed_fields: ['work_location'],
-          record_snapshot: { work_location: trimmed, _old: { work_location: emp.work_location } },
-        }).catch(() => {});
-      }
-    }
   };
 
   const handleSaveForm = async (form) => {
@@ -229,23 +278,49 @@ export default function ApprovedList() {
         return;
       }
     }
+    // For linked records, the shared editable fields (Work Location, Approval Date,
+    // Approval Comments) are written to the Master List (Employee) first. approval_status
+    // follows eligibility: assigned manager + approval date both required.
+    let approvalStatus = form.approval_status;
+    if (form.personnel_id) {
+      const emp = empMap.get(form.personnel_id);
+      const empPatch = {};
+      if (form.work_location !== undefined) empPatch.work_location = String(form.work_location || '').trim();
+      if (form.approval_date !== undefined) empPatch.approval_date = form.approval_date || '';
+      if (form.approval_comments !== undefined) empPatch.approval_comments = form.approval_comments || '';
+      if (Object.keys(empPatch).length) {
+        await base44.entities.Employee.update(form.personnel_id, empPatch);
+        base44.entities.ActivityLog.create({
+          action: 'update', entity_name: 'Employee', entity_id: form.personnel_id,
+          performed_by: currentUser?.email || '', record_name: emp?.name || form.personnel_id,
+          changed_fields: Object.keys(empPatch),
+          record_snapshot: { ...empPatch, _old: emp ? { work_location: emp.work_location, approval_date: emp.approval_date, approval_comments: emp.approval_comments } : {}, source: 'Approved List form' },
+        }).catch(() => {});
+      }
+      const effApprovalDate = empPatch.approval_date !== undefined ? empPatch.approval_date : (emp?.approval_date || '');
+      const eligible = !!(emp?.assigned_manager_id) && !!effApprovalDate;
+      approvalStatus = eligible ? 'Approved' : 'Pending';
+    }
+    const payload = { ...form, approval_status: approvalStatus };
     if (isEdit) {
-      await base44.entities.ApprovedRecord.update(formInitial.id, form);
+      await base44.entities.ApprovedRecord.update(formInitial.id, payload);
       base44.entities.ActivityLog.create({
         action: 'update', entity_name: 'ApprovedRecord', entity_id: formInitial.id,
         performed_by: currentUser?.email || '', record_name: form?.full_name || formInitial.id,
-        changed_fields: Object.keys(form).filter(k => form[k] !== formInitial[k]),
-        record_snapshot: { prev: formInitial, next: form },
+        changed_fields: Object.keys(payload).filter(k => payload[k] !== formInitial[k]),
+        record_snapshot: { prev: formInitial, next: payload, source: 'Approved List form' },
       }).catch(() => {});
     } else {
-      await base44.entities.ApprovedRecord.create(form);
+      await base44.entities.ApprovedRecord.create(payload);
       base44.entities.ActivityLog.create({
         action: 'create', entity_name: 'ApprovedRecord', entity_id: '',
         performed_by: currentUser?.email || '', record_name: form?.full_name || '',
-        changed_fields: [], record_snapshot: form,
+        changed_fields: [], record_snapshot: payload,
       }).catch(() => {});
     }
     queryClient.invalidateQueries({ queryKey: ['approvedRecords'] });
+    queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+    queryClient.invalidateQueries({ queryKey: ['employees'] });
     setShowForm(false); setFormInitial(null);
   };
 
@@ -308,13 +383,13 @@ export default function ApprovedList() {
         // overlay badge fill via separate cell not possible; use fill of badge color
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + c.bg } };
       };
-      plain(1, idx + 1); plain(2, r.full_name || '—', 'left'); plain(3, r.qid_number || '—'); plain(4, r.pid_no || '—');
-      plain(5, r.mobile_number || '—'); plain(6, r.company || '—'); plain(7, getManager(r) || '—'); plain(8, r.designation_position || '—', 'left', true);
+      plain(1, idx + 1); plain(2, getFullName(r) || '—', 'left'); plain(3, getQid(r) || '—'); plain(4, getPidNo(r) || '—');
+      plain(5, getMobile(r) || '—'); plain(6, getCompanyVal(r) || '—'); plain(7, getManager(r) || '—'); plain(8, getDesignation(r) || '—', 'left', true);
       badgeCell(9, med); badgeCell(10, gp); badgeCell(11, tr); badgeCell(12, pid, 'F5FBF6');
       plain(13, getLocation(r) || '—');
-      const ac = row.getCell(14); ac.value = r.approval_comments || ''; ac.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
+      const ac = row.getCell(14); ac.value = getApprovalComments(r) || ''; ac.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
       ac.font = { size: 9 }; ac.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }; applyBorder(ac);
-      plain(15, fmtApprovalDate(r.approval_date));
+      plain(15, fmtApprovalDate(getApprovalDate(r)));
       const rc = row.getCell(16); rc.value = r.remarks || ''; rc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
       rc.font = { size: 9 }; rc.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }; applyBorder(rc);
     });
@@ -428,13 +503,13 @@ export default function ApprovedList() {
               return (
                 <tr key={r.id} style={{ background: rowBg }}>
                   <td className="border border-slate-200 px-1 py-1 text-center text-slate-400">{(safePage - 1) * PAGE_SIZE + idx + 1}</td>
-                  <td className="border border-slate-200 px-2 py-1 font-medium text-slate-800">{r.full_name || '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{r.qid_number || '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{r.pid_no || '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{r.mobile_number || '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{r.company || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 font-medium text-slate-800">{getFullName(r) || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{getQid(r) || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{getPidNo(r) || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{getMobile(r) || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{getCompanyVal(r) || '—'}</td>
                   <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">{getManager(r) || '—'}</td>
-                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{r.designation_position || '—'}</td>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-700">{getDesignation(r) || '—'}</td>
                   {/* Medical */}
                   <td className="border border-slate-200 px-1 py-1 text-center">
                     {emp && editMode
@@ -462,21 +537,28 @@ export default function ApprovedList() {
                       ? <InlineEditCell value={emp.pid_status} field="pid_status" empId={empId} type="select" options={EMP_PID_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
                       : <BadgeSpan colorKey={pid.colorKey} label={pid.label} />}
                   </td>
-                  {/* Work Location — saved to the Approved List record only */}
+                  {/* Work Location — shared with the Master List. For linked records,
+                      edit the Employee (source of truth); for unmatched, edit the record. */}
                   <td className="border border-slate-200 px-1 py-1 text-center text-slate-700">
                     {editMode
-                      ? <InlineEditCell value={r.work_location} field="work_location" empId={editableId} type="text" onSave={handleRecSave} editMode={editMode} />
+                      ? (emp
+                          ? <InlineEditCell value={emp.work_location} field="work_location" empId={emp.id} type="text" onSave={handleEmpSave} editMode={editMode} />
+                          : <InlineEditCell value={r.work_location} field="work_location" empId={editableId} type="text" onSave={handleRecSave} editMode={editMode} />)
                       : (getLocation(r) || '—')}
                   </td>
-                  {/* Approval Comments */}
+                  {/* Approval Comments — shared with the Master List for linked records */}
                   <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[11px] min-w-[160px]" style={{ background: REMARKS_BG }}>
-                    <InlineEditCell value={r.approval_comments} field="approval_comments" empId={editableId} type="text" onSave={handleRecSave} editMode={editMode} />
+                    {emp
+                      ? <InlineEditCell value={emp.approval_comments} field="approval_comments" empId={emp.id} type="text" onSave={handleEmpSave} editMode={editMode} />
+                      : <InlineEditCell value={r.approval_comments} field="approval_comments" empId={editableId} type="text" onSave={handleRecSave} editMode={editMode} />}
                   </td>
-                  {/* Approval Date (DD/MM/YYYY) */}
+                  {/* Approval Date (DD/MM/YYYY) — shared with the Master List for linked records */}
                   <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
                     {editMode
-                      ? <InlineEditCell value={r.approval_date} field="approval_date" empId={editableId} type="date" onSave={handleRecSave} editMode={editMode} />
-                      : (r.approval_date ? fmtApprovalDate(r.approval_date) : <span className="text-slate-400">—</span>)}
+                      ? (emp
+                          ? <InlineEditCell value={emp.approval_date} field="approval_date" empId={emp.id} type="date" onSave={handleEmpSave} editMode={editMode} />
+                          : <InlineEditCell value={r.approval_date} field="approval_date" empId={editableId} type="date" onSave={handleRecSave} editMode={editMode} />)
+                      : (getApprovalDate(r) ? fmtApprovalDate(getApprovalDate(r)) : <span className="text-slate-400">—</span>)}
                   </td>
                   {/* Remarks */}
                   <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[11px] min-w-[140px]" style={{ background: REMARKS_BG }}>
@@ -678,7 +760,16 @@ function buildPrintHTML(rows, empMap, applied) {
     }
     return r.manager_assigned || '';
   };
-  const getLocation = r => r.work_location || '';
+  const empFor = r => (r.personnel_id ? empMap.get(r.personnel_id) : null);
+  const getFullNameP = r => { const e = empFor(r); return e ? (e.name || r.full_name) : (r.full_name || ''); };
+  const getQidP = r => { const e = empFor(r); return e ? (e.qid_no || r.qid_number) : (r.qid_number || ''); };
+  const getPidNoP = r => { const e = empFor(r); return e ? (e.pid || r.pid_no) : (r.pid_no || ''); };
+  const getMobileP = r => { const e = empFor(r); return e ? (e.contact_details || r.mobile_number) : (r.mobile_number || ''); };
+  const getCompanyP = r => { const e = empFor(r); return e ? (e.company || r.company) : (r.company || ''); };
+  const getDesignationP = r => { const e = empFor(r); return e ? (e.designation_org_chart || e.position_application || r.designation_position) : (r.designation_position || ''); };
+  const getLocation = r => { const e = empFor(r); return e ? (e.work_location ?? r.work_location ?? '') : (r.work_location || ''); };
+  const getApprovalDateP = r => { const e = empFor(r); return e ? (e.approval_date || r.approval_date || '') : (r.approval_date || ''); };
+  const getApprovalCommentsP = r => { const e = empFor(r); return e ? (e.approval_comments ?? r.approval_comments ?? '') : (r.approval_comments || ''); };
   const now = format(new Date(), 'dd-MMM-yyyy HH:mm');
   const heads = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Manager Assigned','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Work Location','Approval Comments','Approval Date','Remarks'];
   const body = rows.map((r, i) => {
@@ -686,16 +777,16 @@ function buildPrintHTML(rows, empMap, applied) {
     const med = getMedStatus(r, emp), gp = getGPStatus(r, emp), tr = getTrainingStatus(r, emp), pid = getPIDStatus(r, emp);
     const badged = b => `<span class="badge ${PRINT_CLASS_MAP[b.colorKey] || 'badge-slate'}">${b.label}</span>`;
     return `<tr>
-      <td class="center">${i+1}</td><td>${notVal(r.full_name)}</td><td class="center">${notVal(r.qid_number)}</td>
-      <td class="center">${notVal(r.pid_no)}</td><td class="center">${notVal(r.mobile_number)}</td><td class="center">${notVal(r.company)}</td>
+      <td class="center">${i+1}</td><td>${notVal(getFullNameP(r))}</td><td class="center">${notVal(getQidP(r))}</td>
+      <td class="center">${notVal(getPidNoP(r))}</td><td class="center">${notVal(getMobileP(r))}</td><td class="center">${notVal(getCompanyP(r))}</td>
       <td class="center">${notVal(getManager(r))}</td>
-      <td class="center">${notVal(r.designation_position)}</td><td class="center">${badged(med)}</td>
+      <td class="center">${notVal(getDesignationP(r))}</td><td class="center">${badged(med)}</td>
       <td class="center">${badged(gp)}</td>
       <td class="center">${badged(tr)}</td>
       <td class="center pid-cell">${badged(pid)}</td>
       <td class="center">${notVal(getLocation(r))}</td>
-      <td class="remarks-cell">${notVal(r.approval_comments)}</td>
-      <td class="center">${r.approval_date ? fmtApprovalDate(r.approval_date) : '—'}</td>
+      <td class="remarks-cell">${notVal(getApprovalCommentsP(r))}</td>
+      <td class="center">${getApprovalDateP(r) ? fmtApprovalDate(getApprovalDateP(r)) : '—'}</td>
       <td class="remarks-cell">${notVal(r.remarks)}</td></tr>`;
   }).join('');
   return `<div class="wrap">
