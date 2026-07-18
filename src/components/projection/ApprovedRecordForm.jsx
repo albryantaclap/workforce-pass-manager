@@ -57,6 +57,7 @@ export default function ApprovedRecordForm({ open, onClose, onSave, employees = 
       mobile_number: emp.contact_details || f.mobile_number,
       company: emp.company || f.company,
       designation_position: emp.designation_org_chart || emp.position_application || f.designation_position,
+      work_location: emp.current_location || f.work_location,
     }));
     setSearch('');
   };

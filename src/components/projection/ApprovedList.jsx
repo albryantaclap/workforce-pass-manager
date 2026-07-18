@@ -18,7 +18,12 @@ import {
 import ApprovedRecordForm from './ApprovedRecordForm';
 
 const PAGE_SIZE = 25;
-const COL_SPAN = 16;
+const COL_SPAN = 17;
+const EMP_LOCATION_OPTIONS = [
+  { value: 'QATAR', label: 'QATAR' },
+  { value: 'COMO CAMP', label: 'COMO CAMP' },
+  { value: 'OTHER', label: 'OTHER' },
+];
 const COL_HDR  = { background: '#DCE6F2', color: '#2D3748' };
 const PID_HDR  = { background: '#DDEFE0', color: '#1A5C2A' };
 const PID_CELL = { background: '#F5FBF6' };
@@ -37,6 +42,7 @@ const HEADERS = [
   ['Gate Pass Status', 'center', 'w-28', null],
   ['Training Status', 'center', 'w-28', null],
   ['Project ID Status', 'center', 'w-28', 'pid'],
+  ['Work Location', 'center', 'w-28', null],
   ['Approval Comments', 'left', 'w-44', null],
   ['Approval Date', 'center', 'w-28', null],
   ['Remarks', 'left', 'w-44', null],
@@ -101,10 +107,20 @@ export default function ApprovedList() {
     return r.manager_assigned || '';
   };
 
+  // Work Location — sourced from the linked personnel's current_location
+  // (single source of truth). For unmatched records, use imported value.
+  const getLocation = (r) => {
+    if (r.personnel_id) {
+      const emp = empMap.get(r.personnel_id);
+      if (emp) return emp.current_location || '';
+    }
+    return r.work_location || '';
+  };
+
   const companyOptions = useMemo(() => uniq(records.map(r => r.company)), [records]);
   const positionOptions = useMemo(() => uniq(records.map(r => r.designation_position)), [records]);
   const managerOptions = useMemo(() => uniq(records.map(getManager)), [records, employees]);
-  const locationOptions = useMemo(() => uniq(records.map(r => r.work_location)), [records]);
+  const locationOptions = useMemo(() => uniq(records.map(getLocation)), [records, employees]);
   const medOptions = useMemo(() => uniq(records.map(r => r.medical)), [records]);
   const gpOptions = useMemo(() => uniq(records.map(r => r.gate_pass_status)), [records]);
   const trainOptions = useMemo(() => uniq(records.map(r => r.training_status)), [records]);
@@ -124,14 +140,14 @@ export default function ApprovedList() {
     let rows = records.filter(r => {
       if (search) {
         const q = search.toLowerCase();
-        const hay = [r.full_name, r.qid_number, r.pid_no, r.company, r.designation_position, getManager(r), r.approval_comments]
+        const hay = [r.full_name, r.qid_number, r.pid_no, r.company, r.designation_position, getManager(r), getLocation(r), r.approval_comments]
           .map(s => (s || '').toLowerCase()).join(' ');
         if (!hay.includes(q)) return false;
       }
       if (companyFilter.length && !companyFilter.includes(r.company)) return false;
       if (positionFilter.length && !positionFilter.includes(r.designation_position)) return false;
       if (managerFilter.length && !managerFilter.includes(getManager(r))) return false;
-      if (locationFilter.length && !locationFilter.includes(r.work_location)) return false;
+      if (locationFilter.length && !locationFilter.includes(getLocation(r))) return false;
       if (medFilter.length && !medFilter.includes(r.medical)) return false;
       if (gpFilter.length && !gpFilter.includes(r.gate_pass_status)) return false;
       if (trainFilter.length && !trainFilter.includes(r.training_status)) return false;
@@ -144,8 +160,8 @@ export default function ApprovedList() {
     });
     if (sortKey) {
       rows = [...rows].sort((a, b) => {
-        const av = sortKey === 'manager_assigned' ? (getManager(a) || '') : (a[sortKey] ?? '');
-        const bv = sortKey === 'manager_assigned' ? (getManager(b) || '') : (b[sortKey] ?? '');
+        const av = sortKey === 'manager_assigned' ? (getManager(a) || '') : (sortKey === 'work_location' ? (getLocation(a) || '') : (a[sortKey] ?? ''));
+        const bv = sortKey === 'manager_assigned' ? (getManager(b) || '') : (sortKey === 'work_location' ? (getLocation(b) || '') : (b[sortKey] ?? ''));
         const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
         return sortDir === 'asc' ? cmp : -cmp;
       });
@@ -250,13 +266,13 @@ export default function ApprovedList() {
       pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
       views: [{ state: 'frozen', ySplit: 1 }],
     });
-    const COL_HEADERS = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Manager Assigned','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Approval Comments','Approval Date','Remarks'];
+    const COL_HEADERS = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Manager Assigned','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Work Location','Approval Comments','Approval Date','Remarks'];
     ws.columns = [
       { key: 'no', width: 4 }, { key: 'name', width: 28 }, { key: 'qid', width: 14 },
       { key: 'pid', width: 12 }, { key: 'mobile', width: 14 }, { key: 'company', width: 18 },
       { key: 'manager', width: 18 }, { key: 'position', width: 26 }, { key: 'medical', width: 14 },
       { key: 'gp', width: 14 }, { key: 'training', width: 14 }, { key: 'pidStatus', width: 16 },
-      { key: 'approvalComments', width: 30 }, { key: 'approvalDate', width: 14 }, { key: 'remarks', width: 30 },
+      { key: 'workLocation', width: 16 }, { key: 'approvalComments', width: 30 }, { key: 'approvalDate', width: 14 }, { key: 'remarks', width: 30 },
     ];
     const thin = { style: 'thin', color: { argb: 'FFCBD5E1' } };
     const applyBorder = (cell) => { cell.border = { top: thin, left: thin, bottom: thin, right: thin }; };
@@ -291,10 +307,11 @@ export default function ApprovedList() {
       plain(1, idx + 1); plain(2, r.full_name || '—', 'left'); plain(3, r.qid_number || '—'); plain(4, r.pid_no || '—');
       plain(5, r.mobile_number || '—'); plain(6, r.company || '—'); plain(7, getManager(r) || '—'); plain(8, r.designation_position || '—', 'left', true);
       badgeCell(9, med); badgeCell(10, gp); badgeCell(11, tr); badgeCell(12, pid, 'F5FBF6');
-      const ac = row.getCell(13); ac.value = r.approval_comments || ''; ac.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
+      plain(13, getLocation(r) || '—');
+      const ac = row.getCell(14); ac.value = r.approval_comments || ''; ac.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
       ac.font = { size: 9 }; ac.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }; applyBorder(ac);
-      plain(14, fmtApprovalDate(r.approval_date));
-      const rc = row.getCell(15); rc.value = r.remarks || ''; rc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
+      plain(15, fmtApprovalDate(r.approval_date));
+      const rc = row.getCell(16); rc.value = r.remarks || ''; rc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
       rc.font = { size: 9 }; rc.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }; applyBorder(rc);
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -379,7 +396,7 @@ export default function ApprovedList() {
             <tr>
               {HEADERS.map(([label, align, w, kind], i) => {
                 const style = kind === 'pid' ? PID_HDR : COL_HDR;
-                const sortable = i >= 1 && i <= 14;
+                const sortable = i >= 1 && i <= 15;
                 return (
                   <th key={label}
                     onClick={() => sortable && toggleSort(sortKeyFor(i))}
@@ -440,6 +457,14 @@ export default function ApprovedList() {
                     {emp && editMode
                       ? <InlineEditCell value={emp.pid_status} field="pid_status" empId={empId} type="select" options={EMP_PID_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
                       : <BadgeSpan colorKey={pid.colorKey} label={pid.label} />}
+                  </td>
+                  {/* Work Location */}
+                  <td className="border border-slate-200 px-1 py-1 text-center text-slate-700">
+                    {editMode
+                      ? (emp
+                          ? <InlineEditCell value={emp.current_location} field="current_location" empId={empId} type="select" options={EMP_LOCATION_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
+                          : <InlineEditCell value={r.work_location} field="work_location" empId={editableId} type="text" onSave={handleRecSave} editMode={editMode} />)
+                      : (getLocation(r) || '—')}
                   </td>
                   {/* Approval Comments */}
                   <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[11px] min-w-[160px]" style={{ background: REMARKS_BG }}>
@@ -510,7 +535,7 @@ export default function ApprovedList() {
 
 function sortKeyFor(i) {
   const map = [null, 'full_name', 'qid_number', 'pid_no', 'mobile_number', 'company', 'manager_assigned', 'designation_position',
-    'medical', 'gate_pass_status', 'training_status', 'project_id_status', 'approval_comments', 'approval_date', 'remarks'];
+    'medical', 'gate_pass_status', 'training_status', 'project_id_status', 'work_location', 'approval_comments', 'approval_date', 'remarks'];
   return map[i];
 }
 
@@ -651,8 +676,15 @@ function buildPrintHTML(rows, empMap, applied) {
     }
     return r.manager_assigned || '';
   };
+  const getLocation = r => {
+    if (r.personnel_id) {
+      const emp = empMap.get(r.personnel_id);
+      if (emp) return emp.current_location || '';
+    }
+    return r.work_location || '';
+  };
   const now = format(new Date(), 'dd-MMM-yyyy HH:mm');
-  const heads = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Manager Assigned','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Approval Comments','Approval Date','Remarks'];
+  const heads = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Manager Assigned','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Work Location','Approval Comments','Approval Date','Remarks'];
   const body = rows.map((r, i) => {
     const emp = empMap.get(r.personnel_id);
     const med = getMedStatus(r, emp), gp = getGPStatus(r, emp), tr = getTrainingStatus(r, emp), pid = getPIDStatus(r, emp);
@@ -665,6 +697,7 @@ function buildPrintHTML(rows, empMap, applied) {
       <td class="center">${badged(gp)}</td>
       <td class="center">${badged(tr)}</td>
       <td class="center pid-cell">${badged(pid)}</td>
+      <td class="center">${notVal(getLocation(r))}</td>
       <td class="remarks-cell">${notVal(r.approval_comments)}</td>
       <td class="center">${r.approval_date ? fmtApprovalDate(r.approval_date) : '—'}</td>
       <td class="remarks-cell">${notVal(r.remarks)}</td></tr>`;
