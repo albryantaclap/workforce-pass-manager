@@ -1,0 +1,99 @@
+{
+  "name": "ApprovedRecord",
+  "type": "object",
+  "properties": {
+    "serial_no": {
+      "type": "number",
+      "description": "Original row number from imported file"
+    },
+    "full_name": {
+      "type": "string",
+      "description": "Full name of personnel"
+    },
+    "qid_number": {
+      "type": "string",
+      "description": "QID number (text to preserve leading zeros)"
+    },
+    "pid_no": {
+      "type": "string",
+      "description": "PID number (text to preserve leading zeros)"
+    },
+    "mobile_number": {
+      "type": "string",
+      "description": "Mobile / contact number"
+    },
+    "company": {
+      "type": "string",
+      "description": "Company"
+    },
+    "designation_position": {
+      "type": "string",
+      "description": "Designation / Position"
+    },
+    "medical": {
+      "type": "string",
+      "description": "Medical status label"
+    },
+    "gate_pass_status": {
+      "type": "string",
+      "description": "Gate Pass status label"
+    },
+    "training_status": {
+      "type": "string",
+      "description": "Training status label"
+    },
+    "project_id_status": {
+      "type": "string",
+      "description": "Project ID status label"
+    },
+    "manager_assigned": {
+      "type": "string",
+      "description": "Manager assigned"
+    },
+    "work_location": {
+      "type": "string",
+      "description": "Work location"
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": [
+        "Pending",
+        "Approved",
+        "Rejected",
+        "For Revision"
+      ],
+      "default": "Approved",
+      "description": "Approval workflow status"
+    },
+    "approval_comments": {
+      "type": "string",
+      "description": "Approval comments (multiline)"
+    },
+    "approval_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Approval date"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Remarks (separate from approval comments)"
+    },
+    "personnel_id": {
+      "type": "string",
+      "description": "Linked Employee record ID (if matched)"
+    },
+    "personnel_match_status": {
+      "type": "string",
+      "enum": [
+        "Matched",
+        "Unmatched"
+      ],
+      "default": "Unmatched",
+      "description": "Whether this record is linked to a personnel record"
+    }
+  },
+  "required": [
+    "full_name",
+    "approval_status"
+  ]
+}
