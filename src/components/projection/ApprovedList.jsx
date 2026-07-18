@@ -11,14 +11,14 @@ import { useCurrentUser } from '@/lib/useCurrentUser';
 import { usePermissions } from '@/lib/usePermissions';
 import {
   BadgeSpan, getMedStatus, getGPStatus, getTrainingStatus, getPIDStatus,
-  defaultSort, fmtOnboardingDate, fmtApprovalDate,
+  defaultSort, fmtApprovalDate,
   EMP_MEDICAL_OPTIONS, EMP_GP_OPTIONS, EMP_TRAINING_OPTIONS, EMP_PID_OPTIONS,
   APPROVAL_STATUS_OPTIONS, PRINT_CLASS_MAP, EXCEL_COLOR_MAP,
 } from './approvedListHelpers';
 import ApprovedRecordForm from './ApprovedRecordForm';
 
 const PAGE_SIZE = 25;
-const COL_SPAN = 18;
+const COL_SPAN = 15;
 const COL_HDR  = { background: '#DCE6F2', color: '#2D3748' };
 const PID_HDR  = { background: '#DDEFE0', color: '#1A5C2A' };
 const PID_CELL = { background: '#F5FBF6' };
@@ -33,11 +33,8 @@ const HEADERS = [
   ['Company', 'center', 'w-32', null],
   ['Designation / Position', 'center', 'w-44', null],
   ['Medical', 'center', 'w-28', null],
-  ['TR Date Approved', 'center', 'w-32', null],
   ['Gate Pass Status', 'center', 'w-28', null],
-  ['Gatepass Received Date', 'center', 'w-36', null],
   ['Training Status', 'center', 'w-28', null],
-  ['Training Date Started', 'center', 'w-32', null],
   ['Project ID Status', 'center', 'w-28', 'pid'],
   ['Approval Comments', 'left', 'w-44', null],
   ['Approval Date', 'center', 'w-28', null],
@@ -236,13 +233,12 @@ export default function ApprovedList() {
       pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
       views: [{ state: 'frozen', ySplit: 1 }],
     });
-    const COL_HEADERS = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Designation / Position','Medical','TR Date Approved','Gate Pass Status','Gatepass Received Date','Training Status','Training Date Started','Project ID Status','Approval Comments','Approval Date','Remarks'];
+    const COL_HEADERS = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Approval Comments','Approval Date','Remarks'];
     ws.columns = [
       { key: 'no', width: 4 }, { key: 'name', width: 28 }, { key: 'qid', width: 14 },
       { key: 'pid', width: 12 }, { key: 'mobile', width: 14 }, { key: 'company', width: 18 },
-      { key: 'position', width: 26 }, { key: 'medical', width: 14 }, { key: 'trDate', width: 16 },
-      { key: 'gp', width: 14 }, { key: 'gpDate', width: 18 }, { key: 'training', width: 14 },
-      { key: 'trainDate', width: 16 }, { key: 'pidStatus', width: 16 },
+      { key: 'position', width: 26 }, { key: 'medical', width: 14 },
+      { key: 'gp', width: 14 }, { key: 'training', width: 14 }, { key: 'pidStatus', width: 16 },
       { key: 'approvalComments', width: 30 }, { key: 'approvalDate', width: 14 }, { key: 'remarks', width: 30 },
     ];
     const thin = { style: 'thin', color: { argb: 'FFCBD5E1' } };
@@ -250,7 +246,7 @@ export default function ApprovedList() {
     const hdr = ws.getRow(1); hdr.height = 28;
     COL_HEADERS.forEach((h, i) => {
       const cell = hdr.getCell(i + 1); cell.value = h;
-      const isPid = i === 13;
+      const isPid = i === 10;
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + (isPid ? 'DDEFE0' : 'DCE6F2') } };
       cell.font = { color: { argb: 'FF' + (isPid ? '1A5C2A' : '2D3748') }, bold: true, size: 9 };
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -277,13 +273,11 @@ export default function ApprovedList() {
       };
       plain(1, idx + 1); plain(2, r.full_name || '—', 'left'); plain(3, r.qid_number || '—'); plain(4, r.pid_no || '—');
       plain(5, r.mobile_number || '—'); plain(6, r.company || '—'); plain(7, r.designation_position || '—', 'left', true);
-      badgeCell(8, med); plain(9, fmtOnboardingDate(emp?.ftw_approved_date)); badgeCell(10, gp);
-      plain(11, fmtOnboardingDate(emp?.gate_pass_received_date)); badgeCell(12, tr); plain(13, fmtOnboardingDate(emp?.training_date_start));
-      badgeCell(14, pid, 'F5FBF6');
-      const ac = row.getCell(15); ac.value = r.approval_comments || ''; ac.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
+      badgeCell(8, med); badgeCell(9, gp); badgeCell(10, tr); badgeCell(11, pid, 'F5FBF6');
+      const ac = row.getCell(12); ac.value = r.approval_comments || ''; ac.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
       ac.font = { size: 9 }; ac.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }; applyBorder(ac);
-      plain(16, fmtApprovalDate(r.approval_date));
-      const rc = row.getCell(17); rc.value = r.remarks || ''; rc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
+      plain(13, fmtApprovalDate(r.approval_date));
+      const rc = row.getCell(14); rc.value = r.remarks || ''; rc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } };
       rc.font = { size: 9 }; rc.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }; applyBorder(rc);
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -363,12 +357,12 @@ export default function ApprovedList() {
 
       {/* Table — same layout system as Onboarding Monitoring */}
       <div className="rounded-b border border-t-0 overflow-x-auto table-scroll-x">
-        <table className="w-full text-xs border-collapse" style={{ minWidth: 1500 }}>
+        <table className="w-full text-xs border-collapse" style={{ minWidth: 1300 }}>
           <thead className="sticky top-0 z-10">
             <tr>
               {HEADERS.map(([label, align, w, kind], i) => {
                 const style = kind === 'pid' ? PID_HDR : COL_HDR;
-                const sortable = i >= 1 && i <= 16 && i !== 17;
+                const sortable = i >= 1 && i <= 13;
                 return (
                   <th key={label}
                     onClick={() => sortable && toggleSort(sortKeyFor(i))}
@@ -408,30 +402,21 @@ export default function ApprovedList() {
                       ? <InlineEditCell value={emp.ftw_result} field="ftw_result" empId={empId} type="select" options={EMP_MEDICAL_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
                       : <BadgeSpan colorKey={med.colorKey} label={med.label} />}
                   </td>
-                  {/* TR Date Approved */}
-                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
-                    {emp ? <InlineEditCell value={emp.ftw_approved_date} field="ftw_approved_date" empId={empId} type="date" onSave={handleEmpSave} editMode={editMode} /> : <span className="text-slate-400">—</span>}
-                  </td>
+
                   {/* Gate Pass Status */}
                   <td className="border border-slate-200 px-1 py-1 text-center">
                     {emp && editMode
                       ? <InlineEditCell value={emp.rlic_status} field="rlic_status" empId={empId} type="select" options={EMP_GP_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
                       : <BadgeSpan colorKey={gp.colorKey} label={gp.label} />}
                   </td>
-                  {/* Gatepass Received Date */}
-                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
-                    {emp ? <InlineEditCell value={emp.gate_pass_received_date} field="gate_pass_received_date" empId={empId} type="date" onSave={handleEmpSave} editMode={editMode} /> : <span className="text-slate-400">—</span>}
-                  </td>
+
                   {/* Training Status */}
                   <td className="border border-slate-200 px-1 py-1 text-center">
                     {emp && editMode
                       ? <InlineEditCell value={emp.training_status} field="training_status" empId={empId} type="select" options={EMP_TRAINING_OPTIONS} onSave={handleEmpSave} editMode={editMode} />
                       : <BadgeSpan colorKey={tr.colorKey} label={tr.label} />}
                   </td>
-                  {/* Training Date Started */}
-                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-600">
-                    {emp ? <InlineEditCell value={emp.training_date_start} field="training_date_start" empId={empId} type="date" onSave={handleEmpSave} editMode={editMode} /> : <span className="text-slate-400">—</span>}
-                  </td>
+
                   {/* Project ID Status (green-tinted) */}
                   <td className="border border-slate-200 px-1 py-1 text-center" style={PID_CELL}>
                     {emp && editMode
@@ -507,8 +492,7 @@ export default function ApprovedList() {
 
 function sortKeyFor(i) {
   const map = [null, 'full_name', 'qid_number', 'pid_no', 'mobile_number', 'company', 'designation_position',
-    'medical', 'ftw_approved_date', 'gate_pass_status', 'gate_pass_received_date', 'training_status', 'training_date_start',
-    'project_id_status', 'approval_comments', 'approval_date', 'remarks'];
+    'medical', 'gate_pass_status', 'training_status', 'project_id_status', 'approval_comments', 'approval_date', 'remarks'];
   return map[i];
 }
 
@@ -637,7 +621,7 @@ td.remarks-cell { background: #FAFAFA !important; }
 function buildPrintHTML(rows, empMap, applied) {
   const notVal = v => v || '—';
   const now = format(new Date(), 'dd-MMM-yyyy HH:mm');
-  const heads = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Designation / Position','Medical','TR Date Approved','Gate Pass Status','Gatepass Received Date','Training Status','Training Date Started','Project ID Status','Approval Comments','Approval Date','Remarks'];
+  const heads = ['#','Full Name','QID Number','PID No.','Mobile Number','Company','Designation / Position','Medical','Gate Pass Status','Training Status','Project ID Status','Approval Comments','Approval Date','Remarks'];
   const body = rows.map((r, i) => {
     const emp = empMap.get(r.personnel_id);
     const med = getMedStatus(r, emp), gp = getGPStatus(r, emp), tr = getTrainingStatus(r, emp), pid = getPIDStatus(r, emp);
@@ -646,11 +630,8 @@ function buildPrintHTML(rows, empMap, applied) {
       <td class="center">${i+1}</td><td>${notVal(r.full_name)}</td><td class="center">${notVal(r.qid_number)}</td>
       <td class="center">${notVal(r.pid_no)}</td><td class="center">${notVal(r.mobile_number)}</td><td class="center">${notVal(r.company)}</td>
       <td class="center">${notVal(r.designation_position)}</td><td class="center">${badged(med)}</td>
-      <td class="center">${emp?.ftw_approved_date ? fmtOnboardingDate(emp.ftw_approved_date) : '—'}</td>
       <td class="center">${badged(gp)}</td>
-      <td class="center">${emp?.gate_pass_received_date ? fmtOnboardingDate(emp.gate_pass_received_date) : '—'}</td>
       <td class="center">${badged(tr)}</td>
-      <td class="center">${emp?.training_date_start ? fmtOnboardingDate(emp.training_date_start) : '—'}</td>
       <td class="center pid-cell">${badged(pid)}</td>
       <td class="remarks-cell">${notVal(r.approval_comments)}</td>
       <td class="center">${r.approval_date ? fmtApprovalDate(r.approval_date) : '—'}</td>
@@ -662,6 +643,6 @@ function buildPrintHTML(rows, empMap, applied) {
           <td style="border:none;" class="meta">Generated: ${now} · Total: ${rows.length}</td></tr>
     </table>
     ${applied.length ? `<div class="filters"><strong>Filters:</strong> ${applied.join(' · ')}</div>` : ''}
-    <table><thead><tr>${heads.map((h, i) => `<th class="${i === 13 ? 'pid-col' : ''}">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
+    <table><thead><tr>${heads.map((h, i) => `<th class="${i === 10 ? 'pid-col' : ''}">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
   </div>`;
 }
