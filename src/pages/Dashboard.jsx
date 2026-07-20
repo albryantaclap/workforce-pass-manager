@@ -44,10 +44,10 @@ export default function Dashboard() {
   const [showReportConfig, setShowReportConfig] = useState(false);
   const [reportConfig, setReportConfig] = useState(null);
 
-  // Only fetch active employees for the dashboard — dedicated filter avoids the 2000 list cap
+  // Fetch all active employees — no hard cap; server-side filter + client pagination for performance
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees-active'],
-    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
+    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000),
   });
 
   const { data: lookupCompanies = [] } = useQuery({

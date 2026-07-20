@@ -352,7 +352,7 @@ export default function InactivePersonnel() {
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees-inactive'],
-    queryFn: () => base44.entities.Employee.filter({ is_active: false }, '-created_date', 5000),
+    queryFn: () => base44.entities.Employee.filter({ is_active: false }, '-created_date', 100000),
   });
 
   const uniqueCompanies = useMemo(() => {

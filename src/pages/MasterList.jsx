@@ -129,7 +129,7 @@ export default function MasterList() {
   // Only fetch active employees — dedicated filter avoids the list cap hiding records
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees-active'],
-    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
+    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000),
   });
 
   const updateMutation = useMutation({

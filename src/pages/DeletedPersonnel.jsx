@@ -76,7 +76,7 @@ export default function DeletedPersonnel() {
 
   const { data: deleted = [], isLoading } = useQuery({
     queryKey: ['deleted-employees'],
-    queryFn: () => base44.entities.DeletedEmployee.filter({ recovered: false }, '-deleted_at', 2000),
+    queryFn: () => base44.entities.DeletedEmployee.filter({ recovered: false }, '-deleted_at', 100000),
   });
 
   const uniqueCompanies = useMemo(() => [...new Set(deleted.map(r => r.company).filter(Boolean))].sort(), [deleted]);
@@ -99,7 +99,7 @@ export default function DeletedPersonnel() {
   const recoverMutation = useMutation({
     mutationFn: async (record) => {
       const { employee_data, original_id } = record;
-      const existing = await base44.entities.Employee.filter({ is_active: false }, '-created_date', 5000);
+      const existing = await base44.entities.Employee.filter({ is_active: false }, '-created_date', 100000);
       const match = existing.find(e => e.id === original_id);
       if (match) {
         await base44.entities.Employee.update(original_id, { is_active: true });

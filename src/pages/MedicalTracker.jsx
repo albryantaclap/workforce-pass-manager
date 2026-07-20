@@ -55,7 +55,7 @@ export default function MedicalTracker() {
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees-active'],
-    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
+    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000),
     staleTime: 30000,
     placeholderData: (prev) => prev,
   });

@@ -78,7 +78,7 @@ export default function GatepassTracker() {
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees-active'],
-    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
+    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000),
   });
 
   const { rlicStatusOptions: allStatusOptions, departmentOptions, pidStatusOptions, trainingStatusOptions, medicalResultOptions, companyOptions } = useLookupOptions();

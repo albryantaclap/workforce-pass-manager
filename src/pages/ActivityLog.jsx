@@ -63,7 +63,7 @@ export default function ActivityLog() {
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['activity-logs'],
-    queryFn: () => base44.entities.ActivityLog.list('-created_date', 500),
+    queryFn: () => base44.entities.ActivityLog.list('-created_date', 100000),
     refetchInterval: 30000,
   });
 

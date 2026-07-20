@@ -71,12 +71,12 @@ export default function ApprovedList() {
 
   const { data: records = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ['approvedRecords'],
-    queryFn: () => base44.entities.ApprovedRecord.list('-created_date', 5000),
+    queryFn: () => base44.entities.ApprovedRecord.list('-created_date', 100000),
     staleTime: 5000,
   });
   const { data: employees = [] } = useQuery({
     queryKey: ['employees-active'],
-    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 10000),
+    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000),
     staleTime: 0, // Master List is the source of truth — always refetch on view
   });
 
