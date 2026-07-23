@@ -1,8 +1,11 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { X, Printer } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
 import { computePassStatus, formatDate } from '@/utils/constants';
 import { ALL_PERSONNEL_COLUMNS } from './ReportConfigModal';
+import { applyReportSorting, buildRankMap, DEFAULT_SORT_CONFIG } from './reportSorting';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 function normalizeDept(val) {
@@ -187,8 +190,9 @@ const CSS = `
   }
 `;
 
-function buildReportHTML(filtered, categoryCards, today, companyFilter, config, selectedManagerIds, managers) {
+function buildReportHTML(filtered, categoryCards, today, companyFilter, config, selectedManagerIds, managers, rankMap) {
   const { reportType, dashSections, grouping, selectedCols } = config;
+  const sortCfg = { ...DEFAULT_SORT_CONFIG, ...(config.sort || {}) };
   const showSummary = reportType !== 'personnel';
   const showPersonnel = reportType !== 'summary';
 
@@ -363,7 +367,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config, 
     const headerCells = `<tr><th style="width:32px;text-align:center">#</th>${colDefs.map(c => `<th>${c.label}</th>`).join('')}</tr>`;
     const thead = `<thead>${headerCells}</thead>`;
 
-    const buildRows = (rows) => sortByOnboardingPriority(rows).map((e, i) => {
+    const buildRows = (rows) => applyReportSorting(rows, sortCfg, rankMap).map((e, i) => {
       const bg = i % 2 === 0 ? '#fff' : '#f8fafc';
       const cells = colDefs.map(c => {
         const val = getCellValue(e, c.id);
@@ -428,7 +432,14 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config, 
 // ── component ─────────────────────────────────────────────────────────────
 export default function DashboardReport({ filtered, categoryCards, onClose, companyFilter, config, selectedManagerIds, managers }) {
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const reportHTML = buildReportHTML(filtered, categoryCards, today, companyFilter, config, selectedManagerIds, managers);
+  // Single fetch for the existing Position Hierarchy ranks (Admin Panel → Positions / Designations → Rank)
+  const { data: positionRanks = [] } = useQuery({
+    queryKey: ['positionRanks'],
+    queryFn: () => base44.entities.PositionRank.list(undefined, 100000),
+    staleTime: 30000,
+  });
+  const rankMap = React.useMemo(() => buildRankMap(positionRanks), [positionRanks]);
+  const reportHTML = buildReportHTML(filtered, categoryCards, today, companyFilter, config, selectedManagerIds, managers, rankMap);
 
   const handlePrint = () => {
     const win = window.open('', '_blank', 'width=1100,height=800');

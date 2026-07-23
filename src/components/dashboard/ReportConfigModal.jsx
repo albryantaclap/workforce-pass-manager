@@ -1,7 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { X, Search, FileText, Users, LayoutDashboard } from 'lucide-react';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { X, Search, FileText, Users, LayoutDashboard, Wand2 } from 'lucide-react';
+import {
+  SORT_MODES, SORT_FIELDS, SORT_PRESETS, DEFAULT_SORT_CONFIG,
+  sortModeLabel, sortFieldLabel, directionLabel,
+} from './reportSorting';
 
 const REPORT_TYPES = [
   { id: 'summary', label: 'Workforce Summary Only', desc: 'Dashboard cards, charts, KPIs — no personnel table', icon: LayoutDashboard },
@@ -73,6 +78,8 @@ export default function ReportConfigModal({ filtered, onClose, onGenerate }) {
   const [selectedCols, setSelectedCols] = useState(saved.selectedCols || ALL_PERSONNEL_COLUMNS.map(c => c.id));
   const [colSearch, setColSearch] = useState('');
 
+  const [sort, setSort] = useState(() => ({ ...DEFAULT_SORT_CONFIG, ...(saved.sort || {}) }));
+
   const filteredCols = useMemo(() => {
     if (!colSearch.trim()) return ALL_PERSONNEL_COLUMNS;
     return ALL_PERSONNEL_COLUMNS.filter(c =>
@@ -89,9 +96,23 @@ export default function ReportConfigModal({ filtered, onClose, onGenerate }) {
   const showDashSections = reportType !== 'personnel';
   const showPersonnelCols = reportType !== 'summary';
   const showGrouping = reportType !== 'summary';
+  const showSorting = reportType !== 'summary';
+
+  const applyPreset = (p) => setSort({
+    mode: p.mode, direction: p.direction, secondary: p.secondary, tertiary: p.tertiary || '',
+  });
+
+  const setSortField = (level, value) => {
+    // Prevent selecting the same field at multiple levels
+    const next = { ...sort };
+    const others = ['secondary', 'tertiary'].filter(l => l !== level);
+    if (value && others.some(l => sort[l] === value)) return; // ignore duplicate
+    next[level] = value;
+    setSort(next);
+  };
 
   const handleGenerate = () => {
-    const cfg = { reportType, dashSections, grouping, selectedCols };
+    const cfg = { reportType, dashSections, grouping, selectedCols, sort };
     saveCfg(cfg);
     onGenerate(cfg);
   };
@@ -205,19 +226,105 @@ export default function ReportConfigModal({ filtered, onClose, onGenerate }) {
             </section>
           )}
 
-          {/* Section 5: Preview Summary */}
+          {/* Section 5: Personnel Sorting */}
+          {showSorting && (
+            <section>
+              <h3 className="text-sm font-semibold text-foreground mb-3">Section 5 — Personnel Sorting</h3>
+
+              {/* Recommended presets */}
+              <div className="mb-4">
+                <p className="text-[11px] font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Wand2 className="w-3.5 h-3.5" /> Recommended Presets
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {SORT_PRESETS.map(p => (
+                    <button key={p.id} onClick={() => applyPreset(p)}
+                      className="text-[11px] px-2.5 py-1.5 rounded-lg border bg-muted/30 hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Primary sort mode */}
+              <p className="text-[11px] font-medium text-foreground mb-1.5">Primary Sort</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                {SORT_MODES.map(m => {
+                  const active = sort.mode === m.id;
+                  return (
+                    <button key={m.id} onClick={() => setSort(s => ({ ...s, mode: m.id }))}
+                      className={`text-left p-2.5 rounded-lg border-2 transition-all ${active ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}>
+                      <p className={`text-xs font-semibold mb-0.5 ${active ? 'text-primary' : 'text-foreground'}`}>{m.label}</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight">{m.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Sort direction */}
+              <p className="text-[11px] font-medium text-foreground mb-1.5">Sort Direction</p>
+              <div className="flex gap-2 mb-4">
+                {[
+                  { id: 'asc', label: sort.mode === 'position_rank' ? 'Highest Rank First' : sort.mode === 'onboarding_completion' ? 'Least Completed First' : 'Ascending' },
+                  { id: 'desc', label: sort.mode === 'position_rank' ? 'Lowest Rank First' : sort.mode === 'onboarding_completion' ? 'Fully Completed First' : 'Descending' },
+                ].map(d => (
+                  <button key={d.id} onClick={() => setSort(s => ({ ...s, direction: d.id }))}
+                    className={`flex-1 text-xs font-medium py-2 rounded-lg border-2 transition-all ${sort.direction === d.id ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:border-primary/40 text-foreground'}`}>
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Secondary & tertiary */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-1">
+                <div>
+                  <label className="text-[11px] font-medium text-foreground mb-1.5 block">Secondary Sort</label>
+                  <Select value={sort.secondary || 'none'} onValueChange={v => setSortField('secondary', v === 'none' ? '' : v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {SORT_FIELDS.map(f => (
+                        <SelectItem key={f.id} value={f.id} disabled={f.id === sort.tertiary}>{f.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-foreground mb-1.5 block">Tertiary Sort</label>
+                  <Select value={sort.tertiary || 'none'} onValueChange={v => setSortField('tertiary', v === 'none' ? '' : v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {SORT_FIELDS.map(f => (
+                        <SelectItem key={f.id} value={f.id} disabled={f.id === sort.secondary}>{f.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Sorting applies within the selected grouping. {sortFieldLabel('name')} is used as a final stable tiebreaker.
+              </p>
+            </section>
+          )}
+
+          {/* Section 6: Preview Summary */}
           <section>
-            <h3 className="text-sm font-semibold text-foreground mb-3">Section 5 — Report Summary Preview</h3>
-            <div className="bg-muted/30 border rounded-xl px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Section 6 — Report Summary Preview</h3>
+            <div className="bg-muted/30 border rounded-xl px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: 'Records', value: filtered.length.toLocaleString() },
+                { label: 'Total Personnel', value: filtered.length.toLocaleString() },
                 { label: 'Report Type', value: REPORT_TYPES.find(r => r.id === reportType)?.label || reportType },
                 { label: 'Grouping', value: showGrouping ? GROUPING_OPTIONS.find(g => g.id === grouping)?.label : 'N/A' },
+                { label: 'Primary Sort', value: showSorting ? sortModeLabel(sort.mode) : 'N/A' },
+                { label: 'Secondary Sort', value: showSorting ? sortFieldLabel(sort.secondary) : 'N/A' },
+                { label: 'Tertiary Sort', value: showSorting ? sortFieldLabel(sort.tertiary) : 'N/A' },
+                { label: 'Sort Direction', value: showSorting ? directionLabel(sort.mode, sort.direction) : 'N/A' },
                 { label: 'Dashboard Sections', value: showDashSections ? `${dashSections.length} of ${DASHBOARD_SECTIONS.length}` : 'N/A' },
                 { label: 'Personnel Columns', value: showPersonnelCols ? `${selectedCols.length} of ${ALL_PERSONNEL_COLUMNS.length}` : 'N/A' },
               ].map(item => (
                 <div key={item.label} className="text-center">
-                  <div className="text-base font-bold text-foreground">{item.value}</div>
+                  <div className="text-sm font-bold text-foreground">{item.value}</div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">{item.label}</div>
                 </div>
               ))}
