@@ -535,7 +535,7 @@ export default function ComoCamp() {
   // matching page filter and switches to the personnel list so the user
   // sees the filtered records. Reuses existing filter options so the
   // applied value matches what the FilterToolbar expects.
-  const findOpt = (opts, key) => opts.find(o => (o.value || '').toUpperCase() === (key || '').toUpperCase());
+  const findOpt = (opts, key) => { const k = String(key ?? '').toUpperCase(); return opts.find(o => String(o.value ?? '').toUpperCase() === k); };
   const drillAndShow = (apply) => { apply(); setView('list'); setPage(0); };
   const onDrill = {
     company: (key) => { if (key === 'Unassigned') return; drillAndShow(() => { const o = findOpt(allCompanyOptions, key); setCompanyFilter(o ? [o.value] : [key]); }); },
