@@ -105,7 +105,7 @@ export default function ComoCamp() {
   const { toast } = useToast();
 
   const saved = useMemo(() => loadFilters(), []);
-  const [activeTab, setActiveTab] = useState(saved.activeTab || 'como');
+  const [activeTab, setActiveTab] = useState('como');
   const [searchInput, setSearchInput] = useState(saved.search || '');
   const [search, setSearch] = useState(saved.search || '');
   const [page, setPage] = useState(saved.page || 0);
