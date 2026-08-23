@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2 } from 'lucide-react';
+import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import FilterToolbar from '@/components/common/FilterToolbar';
@@ -167,6 +167,11 @@ export default function ComoCamp() {
   const [statusModal, setStatusModal] = useState({ open: false, emp: null, newStatus: 'Inactive' });
   const openStatusModal = (emp, newStatus) => setStatusModal({ open: true, emp, newStatus });
 
+  // ── Edit in Grid — inline edit Location (current_location) & Contact only ──
+  const [editMode, setEditMode] = useState(false);
+  const [drafts, setDrafts] = useState({});      // { [empId]: { current_location, contact_details } }
+  const [originals, setOriginals] = useState({}); // snapshot at edit entry
+
   const statusChangeMutation = useMutation({
     mutationFn: async ({ emp, newStatus, effectiveDate, lastWorkingDate, reason }) => {
       const updates = {
@@ -212,6 +217,34 @@ export default function ComoCamp() {
       toast({ title: 'Personnel deleted', description: 'Record moved to Deleted Personnel.' });
     },
     onError: () => toast({ title: 'Delete failed', variant: 'destructive' }),
+  });
+
+  // Edit-in-Grid save — single updates per changed row so the "Track Employee
+  // Changes" entity automation logs each field-level change (no duplicate logs).
+  const gridSaveMutation = useMutation({
+    mutationFn: async ({ changes }) => {
+      const results = [];
+      for (const c of changes) {
+        const payload = { ...c.fields };
+        if (currentUser?.email) payload._last_updated_by = currentUser.email;
+        if (currentUser?.full_name) payload._last_updated_by_name = currentUser.full_name;
+        if (currentUser?.role) payload._last_updated_by_role = currentUser.role;
+        payload._last_updated_at = new Date().toISOString();
+        results.push(base44.entities.Employee.update(c.id, payload));
+      }
+      return Promise.all(results);
+    },
+    onSuccess: (_, { changes }) => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
+      queryClient.invalidateQueries({ queryKey: ['employee'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['projection'] });
+      setEditMode(false); setDrafts({}); setOriginals({});
+      toast({ title: `Saved ${changes.length} record(s)`, description: 'Changes synced across all modules.' });
+    },
+    onError: () => toast({ title: 'Save failed', variant: 'destructive' }),
   });
 
   // COMO Camp dataset (Work Location = COMO CAMP, normalized)
@@ -372,16 +405,55 @@ export default function ComoCamp() {
     gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   const switchTab = useCallback((tab) => {
+    if (editMode) return;
     if (tab === activeTab) return;
     setActiveTab(tab);
     setPage(0);
-  }, [activeTab]);
+  }, [activeTab, editMode]);
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   useEffect(() => {
     if (totalPages > 0 && page >= totalPages) setPage(Math.max(0, totalPages - 1));
   }, [totalPages, page]);
   const pagedRows = useMemo(() => sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [sorted, page]);
+
+  // ── Edit in Grid helpers ──
+  const enterEditMode = useCallback(() => {
+    const snap = {}, orig = {};
+    for (const e of pagedRows) {
+      snap[e.id] = { current_location: e.current_location || '', contact_details: e.contact_details || '' };
+      orig[e.id] = { current_location: e.current_location || '', contact_details: e.contact_details || '' };
+    }
+    setDrafts(snap); setOriginals(orig); setEditMode(true);
+  }, [pagedRows]);
+
+  const updateDraft = (empId, field, value) => {
+    setDrafts(prev => prev[empId] ? { ...prev, [empId]: { ...prev[empId], [field]: value } } : prev);
+  };
+
+  const cancelEditMode = () => { setEditMode(false); setDrafts({}); setOriginals({}); };
+
+  const gridChangeCount = useMemo(() => {
+    let n = 0;
+    for (const id of Object.keys(drafts)) {
+      const d = drafts[id], o = originals[id] || {};
+      if ((d.current_location ?? '').trim() !== (o.current_location ?? '') || (d.contact_details ?? '') !== (o.contact_details ?? '')) n++;
+    }
+    return n;
+  }, [drafts, originals]);
+
+  const saveGridChanges = () => {
+    const changes = [];
+    for (const id of Object.keys(drafts)) {
+      const d = drafts[id], o = originals[id] || {};
+      const fields = {};
+      if ((d.current_location ?? '').trim() !== (o.current_location ?? '')) fields.current_location = (d.current_location || '').trim();
+      if ((d.contact_details ?? '') !== (o.contact_details ?? '')) fields.contact_details = d.contact_details ?? '';
+      if (Object.keys(fields).length) changes.push({ id, fields });
+    }
+    if (changes.length === 0) { cancelEditMode(); return; }
+    gridSaveMutation.mutate({ changes });
+  };
 
   const scrollRef = useRef(null);
   const scrollTopRef = useRef(0);
@@ -540,16 +612,37 @@ export default function ComoCamp() {
           </h2>
           <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <ExportButton getData={getExportData} filename={exportFilename} />
-          <PrintReportButton
-            records={printRecords}
-            columns={printColumns}
-            title={reportTitle}
-            appliedFilters={appliedFilters}
-            totalFiltered={sorted.length}
-            sortBy={isComo ? ['Company'] : ['Work Location', 'Company']}
-          />
+        <div className="flex gap-2 flex-wrap items-center">
+          {canEdit && !editMode && (
+            <Button variant="outline" onClick={enterEditMode} className="gap-1.5 rounded-full bg-muted/40 hover:bg-muted/60">
+              <Pencil className="w-3.5 h-3.5" /> Edit in Grid
+            </Button>
+          )}
+          {editMode ? (
+            <>
+              <Button onClick={saveGridChanges} disabled={gridSaveMutation.isPending} className="gap-1.5">
+                <Save className="w-3.5 h-3.5" /> {gridSaveMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button variant="outline" onClick={cancelEditMode} disabled={gridSaveMutation.isPending} className="gap-1.5">
+                <X className="w-3.5 h-3.5" /> Cancel
+              </Button>
+              {gridChangeCount > 0 && (
+                <span className="text-xs text-muted-foreground font-medium">{gridChangeCount} row(s) changed</span>
+              )}
+            </>
+          ) : (
+            <>
+              <ExportButton getData={getExportData} filename={exportFilename} />
+              <PrintReportButton
+                records={printRecords}
+                columns={printColumns}
+                title={reportTitle}
+                appliedFilters={appliedFilters}
+                totalFiltered={sorted.length}
+                sortBy={isComo ? ['Company'] : ['Work Location', 'Company']}
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -557,14 +650,16 @@ export default function ComoCamp() {
       <div className="flex items-center gap-1 border-b">
         <button
           onClick={() => switchTab('all')}
-          className={cn('px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+          disabled={editMode}
+          className={cn('px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
             !isComo ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}
         >
           All Locations <span className="ml-1 text-xs font-semibold">({employees.length})</span>
         </button>
         <button
           onClick={() => switchTab('como')}
-          className={cn('px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+          disabled={editMode}
+          className={cn('px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
             isComo ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}
         >
           COMO Camp <span className="ml-1 text-xs font-semibold">({comoEmployees.length})</span>
@@ -577,7 +672,7 @@ export default function ComoCamp() {
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Search Name, QID, PID, Company, Position, Contact..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} className="pl-9" />
+        <Input placeholder="Search Name, QID, PID, Company, Position, Contact..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} disabled={editMode} className="pl-9" />
       </div>
 
       {/* Filters — same FilterToolbar as Dashboard */}
@@ -654,8 +749,30 @@ export default function ComoCamp() {
                       <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.pid_expiry} type="pid" storedStatus={emp.pid_status} short /></TableCell>
                       <TableCell className="text-xs whitespace-nowrap font-mono">{formatDate(emp.pid_expiry)}</TableCell>
                       <TableCell className="whitespace-nowrap"><PidDaysLeftBadge dateStr={emp.pid_expiry} /></TableCell>
-                      <TableCell className="text-xs whitespace-nowrap uppercase">{emp.current_location || '—'}</TableCell>
-                      <TableCell className="text-xs whitespace-nowrap uppercase">{emp.contact_details || '—'}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {editMode && drafts[emp.id] ? (
+                          <input
+                            value={drafts[emp.id].current_location}
+                            onChange={(e) => updateDraft(emp.id, 'current_location', e.target.value)}
+                            placeholder="e.g. COMO CAMP, CORRIDOR, C3"
+                            className="w-32 text-xs px-1.5 py-1 rounded border border-input bg-background outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        ) : (
+                          <span className="text-xs uppercase">{emp.current_location || '—'}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {editMode && drafts[emp.id] ? (
+                          <input
+                            value={drafts[emp.id].contact_details}
+                            onChange={(e) => updateDraft(emp.id, 'contact_details', e.target.value)}
+                            placeholder="Contact / Mobile"
+                            className="w-32 text-xs px-1.5 py-1 rounded border border-input bg-background outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        ) : (
+                          <span className="text-xs uppercase">{emp.contact_details || '—'}</span>
+                        )}
+                      </TableCell>
                       <TableCell className="sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">
                         <TooltipProvider delayDuration={200}>
                           <div className="flex justify-end gap-0.5">
@@ -731,11 +848,11 @@ export default function ComoCamp() {
           </span>
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(0)} disabled={page === 0}>«</Button>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>‹ Prev</Button>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(0)} disabled={editMode || page === 0}>«</Button>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={editMode || page === 0}>‹ Prev</Button>
               <span className="text-xs px-2">Page {page + 1} / {totalPages}</span>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>Next ›</Button>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}>»</Button>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={editMode || page >= totalPages - 1}>Next ›</Button>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPage(totalPages - 1)} disabled={editMode || page >= totalPages - 1}>»</Button>
             </div>
           )}
         </div>
