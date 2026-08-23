@@ -130,6 +130,8 @@ export default function ComoCamp() {
   const [gpReceivedTo, setGpReceivedTo] = useState(saved.gpReceivedTo || '');
   const [pidIssueFrom, setPidIssueFrom] = useState(saved.pidIssueFrom || '');
   const [pidIssueTo, setPidIssueTo] = useState(saved.pidIssueTo || '');
+  // Quick filter from clicking the Outside / COMO Camp KPI cards (work_location).
+  const [workLocationQuick, setWorkLocationQuick] = useState('');
 
   const {
     companyOptions: allCompanyOptions = [],
@@ -277,6 +279,9 @@ export default function ComoCamp() {
     if (still.length !== companyFilter.length) setCompanyFilter(still);
   }, [cascadedCompanyOptions]);
 
+  // Reset the Work Location quick filter whenever the tab changes.
+  useEffect(() => { setWorkLocationQuick(''); }, [activeTab]);
+
   // Positions from the base dataset, cascaded by company/department/rlic/pid
   const allPositions = useMemo(() => {
     const seen = new Map();
@@ -344,6 +349,7 @@ export default function ComoCamp() {
       const matchesPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
       const matchesTraining = trainingStatusFilter.length === 0 || trainingStatusFilter.includes(emp.training_status);
       const matchesMedical = medicalResultFilter.length === 0 || medicalResultFilter.includes(emp.ftw_result);
+      const matchesWorkLocQuick = !workLocationQuick || (emp.work_location || '').trim().toUpperCase() === workLocationQuick;
 
       const trainSchedDate = normalizeDate(emp.training_date_scheduled) || '';
       const matchTrainSchedFrom = !trainingScheduledFrom || trainSchedDate >= trainingScheduledFrom;
@@ -363,13 +369,14 @@ export default function ComoCamp() {
 
       return matchesSearch && matchesCompany && matchesDepartment && matchesPosition && matchesManager &&
         matchesLocation && matchesDirIndir && matchesRlic && matchesPid && matchesTraining && matchesMedical &&
+        matchesWorkLocQuick &&
         matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo &&
         matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo;
     });
   }, [baseDataset, search, companyFilter, departmentFilter, positionFilter, selectedManagerIds, managers,
     locationFilter, dirIndirFilter, rlicStatusFilter, pidStatusFilter, trainingStatusFilter, medicalResultFilter,
     trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
-    gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+    gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, workLocationQuick]);
 
   // Default sort:
   //  - All Locations: Work Location ASC (blank last) → Company ASC → Position Rank ASC → Full Name ASC
@@ -528,6 +535,7 @@ export default function ComoCamp() {
     setGpIssueFrom(''); setGpIssueTo('');
     setGpReceivedFrom(''); setGpReceivedTo('');
     setPidIssueFrom(''); setPidIssueTo('');
+    setWorkLocationQuick('');
     setPage(0);
   };
 
@@ -548,6 +556,22 @@ export default function ComoCamp() {
     training: (key) => { if (key === 'NO RECORD') return; drillAndShow(() => { const o = findOpt(allTrainingOptions, key); setTrainingStatusFilter(o ? [o.value] : [key]); }); },
     pid: (key) => drillAndShow(() => { const o = findOpt(allPidOptions, key); setPidStatusFilter(o ? [o.value] : [key]); }),
     pidExpiry: (key) => { if (key === 'expired') drillAndShow(() => setPidStatusFilter(['EXPIRED PID PASS'])); },
+  };
+
+  // ── KPI card click → quick filter + switch to personnel list
+  const handleCardClick = (id) => {
+    switch (id) {
+      case 'total': drillAndShow(() => setWorkLocationQuick('')); break;
+      case 'gpValid': drillAndShow(() => setRlicStatusFilter(['VALID RLIC PASS', 'SOON TO EXPIRE'])); break;
+      case 'trainDone': drillAndShow(() => setTrainingStatusFilter(['DONE'])); break;
+      case 'trainOnGoing': drillAndShow(() => setTrainingStatusFilter(['ON-GOING'])); break;
+      case 'trainPending': drillAndShow(() => setTrainingStatusFilter(['PENDING', 'TO BE SCHEDULED'])); break;
+      case 'pidValid': drillAndShow(() => setPidStatusFilter(['VALID PID PASS', 'SOON TO EXPIRE'])); break;
+      case 'pidExpired': drillAndShow(() => setPidStatusFilter(['EXPIRED PID PASS'])); break;
+      case 'outside': drillAndShow(() => setWorkLocationQuick('OUTSIDE')); break;
+      case 'comoCamp': drillAndShow(() => setWorkLocationQuick('COMO CAMP')); break;
+      default: break;
+    }
   };
 
   const getExportData = () => sorted.map(e => {
@@ -783,6 +807,16 @@ export default function ComoCamp() {
         onClearAll={clearFilters}
       />
 
+      {workLocationQuick && (
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs w-fit">
+          <MapPin className="w-3.5 h-3.5 text-primary" />
+          <span className="font-medium text-primary">Work Location: {workLocationQuick}</span>
+          <button onClick={() => setWorkLocationQuick('')} className="text-primary/70 hover:text-primary" title="Clear quick filter">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {view === 'dashboard' && (
         <div className="space-y-3">
           <div className="flex justify-end gap-2">
@@ -793,7 +827,7 @@ export default function ComoCamp() {
               <Printer className="w-3.5 h-3.5" /> Print / PDF
             </Button>
           </div>
-          <ComoCampDashboard data={sorted} isComo={isComo} firstCardLabel={firstCardLabel} onDrill={onDrill} />
+          <ComoCampDashboard data={sorted} isComo={isComo} firstCardLabel={firstCardLabel} onDrill={onDrill} onCard={handleCardClick} />
         </div>
       )}
 

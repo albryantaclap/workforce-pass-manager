@@ -70,6 +70,7 @@ export function aggregateAll(data) {
     gpValid: 0, gpUnderProcess: 0, gpNoPass: 0,
     trainDone: 0, trainOnGoing: 0, trainPending: 0,
     pidValid: 0, pidSoon: 0, pidExpired: 0, pidRenewal: 0, noPid: 0,
+    outside: 0, comoCamp: 0,
   };
 
   const byCompany = new Map();
@@ -87,6 +88,11 @@ export function aggregateAll(data) {
 
   for (const e of data) {
     const f = empFlags(e);
+
+    // Work Location cards (uses work_location, NOT current_location / Location-Mobilized)
+    const workLoc = (e.work_location || '').trim().toUpperCase();
+    if (workLoc === 'OUTSIDE') kpi.outside++;
+    if (workLoc === 'COMO CAMP') kpi.comoCamp++;
 
     if (f.medOk) kpi.medAccepted++; else kpi.medPending++;
     if (f.gpOk) kpi.gpValid++;

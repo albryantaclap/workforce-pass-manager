@@ -24,7 +24,7 @@ function SectionCard({ title, icon: Icon, children }) {
   );
 }
 
-export default function ComoCampDashboard({ data, isComo, firstCardLabel, onDrill }) {
+export default function ComoCampDashboard({ data, isComo, firstCardLabel, onDrill, onCard }) {
   const agg = useMemo(() => aggregateAll(data), [data]);
   const total = agg.kpi.total;
 
@@ -50,7 +50,7 @@ export default function ComoCampDashboard({ data, isComo, firstCardLabel, onDril
 
   return (
     <div className="space-y-4">
-      <DashboardKpiCards kpi={agg.kpi} firstCardLabel={firstCardLabel} />
+      <DashboardKpiCards kpi={agg.kpi} firstCardLabel={firstCardLabel} onCard={onCard} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionCard title="Personnel by Company" icon={Building2}>
