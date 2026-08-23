@@ -28,8 +28,10 @@ export default function ComoCampDashboard({ data, isComo, firstCardLabel, onDril
   const agg = useMemo(() => aggregateAll(data), [data]);
   const total = agg.kpi.total;
 
-  const companyItems = useMemo(() => countItems(agg.byCompany), [agg]);
-  const deptItems = useMemo(() => countItems(agg.byDepartment, '#8b5cf6'), [agg]);
+  // byCompany / byDepartment hold compliance buckets — derive headcount from .total.
+  const headcount = (map, color) => complianceItems(map).map((i) => ({ key: i.key, label: i.label, value: i.total, color }));
+  const companyItems = useMemo(() => headcount(agg.byCompany, '#3b82f6'), [agg]);
+  const deptItems = useMemo(() => headcount(agg.byDepartment, '#8b5cf6'), [agg]);
   const locItems = useMemo(() => countItems(agg.byLocation, '#f59e0b'), [agg]);
   const medItems = useMemo(() => orderedItems(agg.byMedical, MEDICAL_ORDER, MEDICAL_LABELS, STATUS_COLORS), [agg]);
   const gpItems = useMemo(() => orderedItems(agg.byGatePass, GATEPASS_ORDER, GATEPASS_LABELS, STATUS_COLORS), [agg]);
