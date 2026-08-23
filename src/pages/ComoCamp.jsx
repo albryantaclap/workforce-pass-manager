@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save, Check } from 'lucide-react';
+import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save, Check, LayoutDashboard, List, FileSpreadsheet, Printer } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import FilterToolbar from '@/components/common/FilterToolbar';
@@ -22,7 +22,8 @@ import StatusBadge from '../components/common/StatusBadge';
 import ExportButton from '../components/common/ExportButton';
 import PrintReportButton from '../components/common/PrintReportButton';
 import PidDaysLeftBadge from '../components/comocamp/PidDaysLeftBadge';
-import ComoCampSummaryCards from '../components/comocamp/ComoCampSummaryCards';
+import ComoCampDashboard from '../components/comocamp/dashboard/ComoCampDashboard';
+import { exportDashboardExcel, printDashboardPdf } from '../components/comocamp/dashboard/exportComoCampDashboard';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import LocationGridDropdown from '../components/comocamp/LocationGridDropdown';
@@ -106,6 +107,7 @@ export default function ComoCamp() {
 
   const saved = useMemo(() => loadFilters(), []);
   const [activeTab, setActiveTab] = useState('como');
+  const [view, setView] = useState('dashboard');
   const [searchInput, setSearchInput] = useState(saved.search || '');
   const [search, setSearch] = useState(saved.search || '');
   const [page, setPage] = useState(saved.page || 0);
@@ -428,7 +430,7 @@ export default function ComoCamp() {
       snap[e.id] = { current_location: e.current_location || '', contact_details: e.contact_details || '' };
       orig[e.id] = { current_location: e.current_location || '', contact_details: e.contact_details || '' };
     }
-    setDrafts(snap); setOriginals(orig); setSelectedIds(new Set()); setEditMode(true);
+    setDrafts(snap); setOriginals(orig); setSelectedIds(new Set()); setEditMode(true); setView('list');
   }, [pagedRows]);
 
   const updateDraft = (empId, field, value) => {
@@ -527,6 +529,25 @@ export default function ComoCamp() {
     setGpReceivedFrom(''); setGpReceivedTo('');
     setPidIssueFrom(''); setPidIssueTo('');
     setPage(0);
+  };
+
+  // ── Dashboard drill-down — clicking a chart/table item applies the
+  // matching page filter and switches to the personnel list so the user
+  // sees the filtered records. Reuses existing filter options so the
+  // applied value matches what the FilterToolbar expects.
+  const findOpt = (opts, key) => opts.find(o => (o.value || '').toUpperCase() === (key || '').toUpperCase());
+  const drillAndShow = (apply) => { apply(); setView('list'); setPage(0); };
+  const onDrill = {
+    company: (key) => { if (key === 'Unassigned') return; drillAndShow(() => { const o = findOpt(allCompanyOptions, key); setCompanyFilter(o ? [o.value] : [key]); }); },
+    department: (key) => { if (key === 'Unassigned') return; drillAndShow(() => { const o = findOpt(allDepartmentOptions, key); setDepartmentFilter(o ? [o.value] : [key]); }); },
+    location: (key) => { if (key === 'Unassigned') return; drillAndShow(() => { const o = findOpt(allLocationOptions, key); setLocationFilter(o ? [o.value] : [key]); }); },
+    position: (key) => { if (key === 'Unassigned') return; drillAndShow(() => { const o = findOpt(filteredPositions, key); setPositionFilter(o ? [o.value] : [key]); }); },
+    manager: (key) => { if (key === 'Unassigned') return; const m = managers.find(m => (m.label || '').toLowerCase() === (key || '').toLowerCase()); if (m) drillAndShow(() => setSelectedManagerIds([m.id])); },
+    medical: (key) => { if (key === 'NO MEDICAL RECORD') return; drillAndShow(() => { const o = findOpt(allMedicalResultOptions, key); setMedicalResultFilter(o ? [o.value] : [key]); }); },
+    gatePass: (key) => drillAndShow(() => { const o = findOpt(allRlicOptions, key); setRlicStatusFilter(o ? [o.value] : [key]); }),
+    training: (key) => { if (key === 'NO RECORD') return; drillAndShow(() => { const o = findOpt(allTrainingOptions, key); setTrainingStatusFilter(o ? [o.value] : [key]); }); },
+    pid: (key) => drillAndShow(() => { const o = findOpt(allPidOptions, key); setPidStatusFilter(o ? [o.value] : [key]); }),
+    pidExpiry: (key) => { if (key === 'expired') drillAndShow(() => setPidStatusFilter(['EXPIRED PID PASS'])); },
   };
 
   const getExportData = () => sorted.map(e => {
@@ -672,15 +693,19 @@ export default function ComoCamp() {
             </>
           ) : (
             <>
-              <ExportButton getData={getExportData} filename={exportFilename} />
-              <PrintReportButton
-                records={printRecords}
-                columns={printColumns}
-                title={reportTitle}
-                appliedFilters={appliedFilters}
-                totalFiltered={sorted.length}
-                sortBy={isComo ? ['Company'] : ['Work Location', 'Company']}
-              />
+              {view === 'list' && (
+                <>
+                  <ExportButton getData={getExportData} filename={exportFilename} />
+                  <PrintReportButton
+                    records={printRecords}
+                    columns={printColumns}
+                    title={reportTitle}
+                    appliedFilters={appliedFilters}
+                    totalFiltered={sorted.length}
+                    sortBy={isComo ? ['Company'] : ['Work Location', 'Company']}
+                  />
+                </>
+              )}
             </>
           )}
         </div>
@@ -706,8 +731,25 @@ export default function ComoCamp() {
         </button>
       </div>
 
-      {/* Summary cards */}
-      <ComoCampSummaryCards data={sorted} firstCardLabel={firstCardLabel} />
+      {/* View toggle */}
+      <div className="flex items-center gap-1 p-1 bg-muted/40 rounded-lg w-fit">
+        <button
+          onClick={() => !editMode && setView('dashboard')}
+          disabled={editMode}
+          className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50',
+            view === 'dashboard' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+        >
+          <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+        </button>
+        <button
+          onClick={() => !editMode && setView('list')}
+          disabled={editMode}
+          className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50',
+            view === 'list' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+        >
+          <List className="w-3.5 h-3.5" /> Personnel List
+        </button>
+      </div>
 
       {/* Search */}
       <div className="relative">
@@ -741,8 +783,22 @@ export default function ComoCamp() {
         onClearAll={clearFilters}
       />
 
-      {/* Table */}
-      <Card className="overflow-hidden">
+      {view === 'dashboard' && (
+        <div className="space-y-3">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportDashboardExcel({ data: sorted, isComo, filters: appliedFilters })}>
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Export Excel
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => printDashboardPdf({ data: sorted, isComo, filters: appliedFilters })}>
+              <Printer className="w-3.5 h-3.5" /> Print / PDF
+            </Button>
+          </div>
+          <ComoCampDashboard data={sorted} isComo={isComo} firstCardLabel={firstCardLabel} onDrill={onDrill} />
+        </div>
+      )}
+
+      {view === 'list' && (
+        <Card className="overflow-hidden">
         <div className="table-scroll-x">
           <div className="table-scroll-y h-[560px]" ref={scrollRef}>
             <Table className="table-list-view">
@@ -906,6 +962,7 @@ export default function ComoCamp() {
           )}
         </div>
       </Card>
+      )}
 
       <Dialog open={bulkLocDialog.open} onOpenChange={(o) => setBulkLocDialog(s => ({ ...s, open: o }))}>
         <DialogContent className="sm:max-w-md">
