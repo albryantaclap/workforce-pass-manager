@@ -89,10 +89,11 @@ export function aggregateAll(data) {
   for (const e of data) {
     const f = empFlags(e);
 
-    // Work Location cards (uses work_location, NOT current_location / Location-Mobilized)
-    const workLoc = (e.work_location || '').trim().toUpperCase();
-    if (workLoc === 'OUTSIDE') kpi.outside++;
-    if (workLoc === 'COMO CAMP') kpi.comoCamp++;
+    // Outside / COMO Camp cards — counted from current_location (Location/Mobilized),
+    // the same field the COMO Camp page tab filter uses.
+    const curLoc = (e.current_location || '').trim().toUpperCase();
+    if (curLoc === 'OUTSIDE') kpi.outside++;
+    if (curLoc === 'COMO CAMP') kpi.comoCamp++;
 
     if (f.medOk) kpi.medAccepted++; else kpi.medPending++;
     if (f.gpOk) kpi.gpValid++;

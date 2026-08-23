@@ -349,7 +349,7 @@ export default function ComoCamp() {
       const matchesPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
       const matchesTraining = trainingStatusFilter.length === 0 || trainingStatusFilter.includes(emp.training_status);
       const matchesMedical = medicalResultFilter.length === 0 || medicalResultFilter.includes(emp.ftw_result);
-      const matchesWorkLocQuick = !workLocationQuick || (emp.work_location || '').trim().toUpperCase() === workLocationQuick;
+      const matchesWorkLocQuick = !workLocationQuick || (emp.current_location || '').trim().toUpperCase() === workLocationQuick;
 
       const trainSchedDate = normalizeDate(emp.training_date_scheduled) || '';
       const matchTrainSchedFrom = !trainingScheduledFrom || trainSchedDate >= trainingScheduledFrom;
@@ -810,7 +810,7 @@ export default function ComoCamp() {
       {workLocationQuick && (
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs w-fit">
           <MapPin className="w-3.5 h-3.5 text-primary" />
-          <span className="font-medium text-primary">Work Location: {workLocationQuick}</span>
+          <span className="font-medium text-primary">Location: {workLocationQuick}</span>
           <button onClick={() => setWorkLocationQuick('')} className="text-primary/70 hover:text-primary" title="Clear quick filter">
             <X className="w-3.5 h-3.5" />
           </button>
