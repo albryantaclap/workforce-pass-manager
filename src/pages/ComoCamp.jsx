@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save, Check, LayoutDashboard, List, FileSpreadsheet, Printer } from 'lucide-react';
+import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save, Check, LayoutDashboard, List, FileSpreadsheet, Printer, FileText } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import FilterToolbar from '@/components/common/FilterToolbar';
@@ -24,6 +24,8 @@ import PrintReportButton from '../components/common/PrintReportButton';
 import PidDaysLeftBadge from '../components/comocamp/PidDaysLeftBadge';
 import ComoCampDashboard from '../components/comocamp/dashboard/ComoCampDashboard';
 import { exportDashboardExcel, printDashboardPdf } from '../components/comocamp/dashboard/exportComoCampDashboard';
+import ReportConfigModal from '@/components/dashboard/ReportConfigModal';
+import DashboardReport from '@/components/dashboard/DashboardReport';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import LocationGridDropdown from '../components/comocamp/LocationGridDropdown';
@@ -132,6 +134,11 @@ export default function ComoCamp() {
   const [pidIssueTo, setPidIssueTo] = useState(saved.pidIssueTo || '');
   // Quick filter from clicking the Outside / COMO Camp KPI cards (work_location).
   const [workLocationQuick, setWorkLocationQuick] = useState('');
+
+  // Shared Report Configuration (same engine as the main Dashboard).
+  const [showReportConfig, setShowReportConfig] = useState(false);
+  const [reportConfig, setReportConfig] = useState(null);
+  const [showReport, setShowReport] = useState(false);
 
   const {
     companyOptions: allCompanyOptions = [],
@@ -668,7 +675,33 @@ export default function ComoCamp() {
     trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
     gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, search]);
 
-  const reportTitle = isComo ? 'GSO QATAR — COMO CAMP PERSONNEL REPORT' : 'GSO QATAR — PERSONNEL BY WORK LOCATION REPORT';
+  const reportTitle = isComo ? 'GSO QATAR — COMO CAMP PERSONNEL REPORT' : 'GSO QATAR — WORK LOCATION PERSONNEL REPORT';
+
+  // COMO Camp-specific extensions to the shared Report Configuration (the modal
+  // and preview engine are reused from the main Dashboard; these extras surface
+  // Work Location as a first-class section / column / sort field here only).
+  const COMO_EXTRA_SECTIONS = [{ id: 'work_location_summary', label: 'Work Location Summary' }];
+  const COMO_EXTRA_COLUMNS = [
+    { id: 'photo', label: 'Photo' },
+    { id: 'docs', label: 'Docs' },
+    { id: 'company_type', label: 'Company Type' },
+    { id: 'work_location', label: 'Work Location' },
+    { id: 'ftw_medical_date', label: 'Medical Date' },
+    { id: 'ftw_approved_date', label: 'TR Date Approved' },
+    { id: 'gate_pass_received_date', label: 'Gate Pass Received Date' },
+    { id: 'training_date_scheduled', label: 'Training Date Scheduled' },
+    { id: 'training_date_start', label: 'Training Date Started' },
+    { id: 'pid_issue_date', label: 'PID Issue Date' },
+    { id: 'pid_days_left', label: 'PID Days Left' },
+  ];
+  const COMO_EXTRA_SORT_FIELDS = [
+    { id: 'work_location', label: 'Work Location', kind: 'text' },
+    { id: 'pid_days_left', label: 'PID Days Left', kind: 'score' },
+    { id: 'pid_issue_date', label: 'PID Issue Date', kind: 'date' },
+    { id: 'nationality', label: 'Nationality', kind: 'text' },
+    { id: 'contact_details', label: 'Mobile / Contact', kind: 'text' },
+    { id: 'pid', label: 'PID Number', kind: 'text' },
+  ];
   const exportFilename = isComo ? 'como_camp_personnel.csv' : 'personnel_by_work_location.csv';
   const firstCardLabel = isComo ? 'Total COMO Camp' : 'Total Personnel';
   const subtitle = isComo
@@ -676,6 +709,46 @@ export default function ComoCamp() {
     : `${sorted.length} filtered · ${employees.length} total active`;
   const footerTotalLabel = isComo ? `${comoEmployees.length} total COMO Camp` : `${employees.length} total active`;
   const emptyMessage = isComo ? 'No COMO Camp personnel found' : 'No personnel found for the current filters';
+
+  // Category cards for the shared report preview (same shape as the main Dashboard).
+  const getRlicR = (e) => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
+  const getPidR = (e) => computePassStatus(e.pid_expiry, 'pid', e.pid_status);
+  const categoryCards = useMemo(() => {
+    const validRlic = sorted.filter(e => getRlicR(e) === 'VALID RLIC PASS').length;
+    const soonRlic = sorted.filter(e => getRlicR(e) === 'SOON TO EXPIRE').length;
+    const expiredRlic = sorted.filter(e => getRlicR(e) === 'EXPIRED RLIC PASS').length;
+    const validPid = sorted.filter(e => getPidR(e) === 'VALID PID PASS').length;
+    const soonPid = sorted.filter(e => getPidR(e) === 'SOON TO EXPIRE').length;
+    const expiredPid = sorted.filter(e => getPidR(e) === 'EXPIRED PID PASS').length;
+    const medAccepted = sorted.filter(e => (e.ftw_result || '').trim().toUpperCase() === 'ACCEPTED').length;
+    const medWaiting = sorted.filter(e => e.ftw_result === 'WAITING TR APPROVAL').length;
+    const medRejected = sorted.filter(e => e.ftw_result === 'REJECTED').length;
+    const trainDone = sorted.filter(e => (e.training_status || '').trim().toUpperCase() === 'DONE').length;
+    const trainOnGoing = sorted.filter(e => ['ON-GOING', 'ONGOING', 'ON GOING'].includes((e.training_status || '').trim().toUpperCase())).length;
+    const trainPending = sorted.filter(e => ['PENDING', 'TO BE SCHEDULED'].includes((e.training_status || '').trim().toUpperCase())).length;
+    return [
+      { title: 'Medical Data', combined: medAccepted, combinedLabel: 'Accepted', stats: [
+        { label: 'Accepted', value: medAccepted, color: 'text-green-600' },
+        { label: 'Waiting TR', value: medWaiting, color: 'text-amber-600' },
+        { label: 'Rejected', value: medRejected, color: 'text-red-600' },
+      ] },
+      { title: 'Gate Pass (RLIC)', combined: validRlic + soonRlic, combinedLabel: 'Total Valid', stats: [
+        { label: 'Valid', value: validRlic, color: 'text-green-600' },
+        { label: 'Soon', value: soonRlic, color: 'text-amber-600' },
+        { label: 'Expired', value: expiredRlic, color: 'text-red-600' },
+      ] },
+      { title: 'Training', combined: trainDone, combinedLabel: 'Done', stats: [
+        { label: 'Done', value: trainDone, color: 'text-green-600' },
+        { label: 'On-Going', value: trainOnGoing, color: 'text-blue-600' },
+        { label: 'Pending', value: trainPending, color: 'text-amber-600' },
+      ] },
+      { title: 'Project ID', combined: validPid + soonPid, combinedLabel: 'Total Valid', stats: [
+        { label: 'Valid', value: validPid, color: 'text-green-600' },
+        { label: 'Soon', value: soonPid, color: 'text-amber-600' },
+        { label: 'Expired', value: expiredPid, color: 'text-red-600' },
+      ] },
+    ];
+  }, [sorted]);
 
   return (
     <div className="space-y-5">
@@ -717,6 +790,9 @@ export default function ComoCamp() {
             </>
           ) : (
             <>
+              <Button variant="outline" onClick={() => setShowReportConfig(true)} className="gap-1.5 rounded-full bg-muted/40 hover:bg-muted/60">
+                <FileText className="w-3.5 h-3.5" /> Report Configuration
+              </Button>
               {view === 'list' && (
                 <>
                   <ExportButton getData={getExportData} filename={exportFilename} />
@@ -1030,6 +1106,30 @@ export default function ComoCamp() {
         onClose={() => setStatusModal(s => ({ ...s, open: false }))}
         onConfirm={(data) => { statusChangeMutation.mutate(data); }}
       />
+
+      {showReportConfig && (
+        <ReportConfigModal
+          filtered={sorted}
+          extraSections={COMO_EXTRA_SECTIONS}
+          extraColumns={COMO_EXTRA_COLUMNS}
+          extraSortFields={COMO_EXTRA_SORT_FIELDS}
+          onClose={() => setShowReportConfig(false)}
+          onGenerate={(cfg) => { setReportConfig(cfg); setShowReportConfig(false); setShowReport(true); }}
+        />
+      )}
+      {showReport && reportConfig && (
+        <DashboardReport
+          filtered={sorted}
+          categoryCards={categoryCards}
+          reportTitle={reportTitle}
+          extraColumns={COMO_EXTRA_COLUMNS}
+          onClose={() => setShowReport(false)}
+          companyFilter={companyFilter}
+          config={reportConfig}
+          selectedManagerIds={selectedManagerIds}
+          managers={managers}
+        />
+      )}
     </div>
   );
 }

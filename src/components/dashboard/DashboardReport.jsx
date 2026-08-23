@@ -89,7 +89,18 @@ function getCellValue(e, colId) {
   }
   if (colId === 'is_active') return e.is_active === false ? 'Inactive' : 'Active';
   if (colId === 'assigned_manager_name') return e.assigned_manager_name || '—';
-  if (['gate_pass_issue_date','gate_pass_expiry','pid_expiry','pp_expiry'].includes(colId)) return e[colId] ? formatDate(e[colId]) : '—';
+  if (colId === 'work_location') return e.work_location || '—';
+  if (colId === 'company_type') return e.company_type || '—';
+  if (colId === 'photo') return e.photo_url ? '✔' : '—';
+  if (colId === 'docs') return e.sharepoint_url ? '✔' : '—';
+  if (colId === 'pid_days_left') {
+    if (!e.pid_expiry) return '—';
+    const d = new Date(String(e.pid_expiry).substring(0, 10)); d.setHours(0, 0, 0, 0);
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((d - t) / 86400000);
+    return diff < 0 ? `Expired ${Math.abs(diff)}d` : `${diff}d`;
+  }
+  if (['gate_pass_issue_date','gate_pass_expiry','pid_expiry','pp_expiry','ftw_medical_date','ftw_approved_date','gate_pass_received_date','training_date_scheduled','training_date_start','pid_issue_date'].includes(colId)) return e[colId] ? formatDate(e[colId]) : '—';
   return e[colId] || '—';
 }
 
@@ -157,7 +168,9 @@ const sortByOnboardingPriority = (rows) => [...rows].sort((a, b) => {
 });
 
 // ── HTML builder ──────────────────────────────────────────────────────────
-const CSS = `
+function buildCSS(colCount) {
+  return `
+  @page { size: ${colCount > 10 ? 'A3 landscape' : 'auto'}; margin: 10mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; background: white; }
   .wrap { padding: 24px; max-width: 1050px; margin: 0 auto; }
@@ -188,16 +201,17 @@ const CSS = `
     .chart-box { break-inside: avoid; }
     .summary-card { break-inside: avoid; }
   }
-`;
+  `;
+}
 
-function buildReportHTML(filtered, categoryCards, today, companyFilter, config, selectedManagerIds, managers, rankMap) {
+function buildReportHTML(filtered, categoryCards, today, companyFilter, config, selectedManagerIds, managers, rankMap, reportTitle, extraColumns) {
   const { reportType, dashSections, grouping, selectedCols } = config;
   const sortCfg = { ...DEFAULT_SORT_CONFIG, ...(config.sort || {}) };
   const showSummary = reportType !== 'personnel';
   const showPersonnel = reportType !== 'summary';
 
-  // ── resolve ordered columns ──
-  const colDefs = ALL_PERSONNEL_COLUMNS.filter(c => selectedCols.includes(c.id));
+  // ── resolve ordered columns (base + context-specific extras) ──
+  const colDefs = [...ALL_PERSONNEL_COLUMNS, ...(extraColumns || [])].filter(c => selectedCols.includes(c.id));
 
   // ── card icons / colors ──
   const cardIconEmojis = { 'Medical Data': '🩺', 'Gate Pass (RLIC)': '🛡️', 'Project ID': '🪪', 'Training': '🎓' };
@@ -316,6 +330,10 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config, 
       sectionBoxes.push(`<div class="chart-box"><div class="chart-title">📊 Headcount by Company</div>${coHdrRow}${coRows}</div>`);
     }
     if (dashSections.includes('location_summary')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">📍 Location / Mobilized</div>${buildLocationPieHTML(locationCounts)}</div>`);
+    if (dashSections.includes('work_location_summary')) {
+      const wlCounts = Object.entries(filtered.reduce((acc, e) => { const w = (e.work_location || '').trim() || 'Unknown'; acc[w] = (acc[w] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+      sectionBoxes.push(`<div class="chart-box"><div class="chart-title">🏭 Work Location Summary</div>${buildBarChartHTML(wlCounts, Math.max(...wlCounts.map(c => c.count), 1), null)}</div>`);
+    }
     if (dashSections.includes('status_overview')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">📈 Pass & Status Overview</div>${buildBarChartHTML(statusOverview, Math.max(...statusOverview.map(c=>c.count),1), statusColorFn)}</div>`);
     if (dashSections.includes('department_summary')) sectionBoxes.push(`<div class="chart-box"><div class="chart-title">🏗️ Personnel by Department</div>${buildBarChartHTML(deptCounts, Math.max(...deptCounts.map(c=>c.count),1), null)}</div>`);
     if (dashSections.includes('position_summary')) {
@@ -419,7 +437,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config, 
   return `
     <div class="wrap">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
-        <h1>GSO Qatar — Workforce Status Report</h1>
+        <h1>${reportTitle}</h1>
         ${managerHeaderHTML}
       </div>
       <div class="meta">Generated: ${today} &nbsp;|&nbsp; Total Personnel: <strong>${filtered.length}</strong></div>
@@ -430,7 +448,7 @@ function buildReportHTML(filtered, categoryCards, today, companyFilter, config, 
 }
 
 // ── component ─────────────────────────────────────────────────────────────
-export default function DashboardReport({ filtered, categoryCards, onClose, companyFilter, config, selectedManagerIds, managers }) {
+export default function DashboardReport({ filtered, categoryCards, onClose, companyFilter, config, selectedManagerIds, managers, reportTitle = 'GSO Qatar — Workforce Status Report', extraColumns = [] }) {
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   // Single fetch for the existing Position Hierarchy ranks (Admin Panel → Positions / Designations → Rank)
   const { data: positionRanks = [] } = useQuery({
@@ -439,11 +457,13 @@ export default function DashboardReport({ filtered, categoryCards, onClose, comp
     staleTime: 30000,
   });
   const rankMap = React.useMemo(() => buildRankMap(positionRanks), [positionRanks]);
-  const reportHTML = buildReportHTML(filtered, categoryCards, today, companyFilter, config, selectedManagerIds, managers, rankMap);
+  const colCount = React.useMemo(() => [...ALL_PERSONNEL_COLUMNS, ...extraColumns].filter(c => (config.selectedCols || []).includes(c.id)).length, [config, extraColumns]);
+  const css = buildCSS(colCount);
+  const reportHTML = buildReportHTML(filtered, categoryCards, today, companyFilter, config, selectedManagerIds, managers, rankMap, reportTitle, extraColumns);
 
   const handlePrint = () => {
     const win = window.open('', '_blank', 'width=1100,height=800');
-    win.document.write(`<!DOCTYPE html><html><head><title>GSO Qatar Workforce Report</title><style>${CSS}</style></head><body>${reportHTML}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
+    win.document.write(`<!DOCTYPE html><html><head><title>${reportTitle}</title><style>${css}</style></head><body>${reportHTML}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
     win.document.close();
   };
 
@@ -463,7 +483,7 @@ export default function DashboardReport({ filtered, categoryCards, onClose, comp
           </div>
         </div>
         <div className="overflow-auto p-2">
-          <style>{CSS}</style>
+          <style>{css}</style>
           <div dangerouslySetInnerHTML={{ __html: reportHTML }} />
         </div>
       </div>

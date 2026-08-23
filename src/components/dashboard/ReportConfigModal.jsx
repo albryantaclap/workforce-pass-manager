@@ -69,23 +69,29 @@ function saveCfg(cfg) {
   try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(cfg)); } catch {}
 }
 
-export default function ReportConfigModal({ filtered, onClose, onGenerate }) {
+export default function ReportConfigModal({ filtered, onClose, onGenerate, extraSections = [], extraColumns = [], extraSortFields = [] }) {
   const saved = useMemo(loadSaved, []);
 
+  // Merge context-specific extras (e.g. COMO Camp's Work Location section/columns)
+  // with the base lists so the same modal serves both Dashboard and COMO Camp.
+  const DASHBOARD_SECTIONS_ALL = useMemo(() => [...DASHBOARD_SECTIONS, ...extraSections], [extraSections]);
+  const ALL_COLUMNS = useMemo(() => [...ALL_PERSONNEL_COLUMNS, ...extraColumns], [extraColumns]);
+  const ALL_SORT_FIELDS = useMemo(() => [...SORT_FIELDS, ...extraSortFields], [extraSortFields]);
+
   const [reportType, setReportType] = useState(saved.reportType || 'combined');
-  const [dashSections, setDashSections] = useState(saved.dashSections || DASHBOARD_SECTIONS.map(s => s.id));
+  const [dashSections, setDashSections] = useState(saved.dashSections || DASHBOARD_SECTIONS_ALL.map(s => s.id));
   const [grouping, setGrouping] = useState(saved.grouping || 'company');
-  const [selectedCols, setSelectedCols] = useState(saved.selectedCols || ALL_PERSONNEL_COLUMNS.map(c => c.id));
+  const [selectedCols, setSelectedCols] = useState(saved.selectedCols || ALL_COLUMNS.map(c => c.id));
   const [colSearch, setColSearch] = useState('');
 
   const [sort, setSort] = useState(() => ({ ...DEFAULT_SORT_CONFIG, ...(saved.sort || {}) }));
 
   const filteredCols = useMemo(() => {
-    if (!colSearch.trim()) return ALL_PERSONNEL_COLUMNS;
-    return ALL_PERSONNEL_COLUMNS.filter(c =>
+    if (!colSearch.trim()) return ALL_COLUMNS;
+    return ALL_COLUMNS.filter(c =>
       c.label.toLowerCase().includes(colSearch.toLowerCase())
     );
-  }, [colSearch]);
+  }, [colSearch, ALL_COLUMNS]);
 
   const toggleSection = (id) =>
     setDashSections(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
@@ -162,12 +168,12 @@ export default function ReportConfigModal({ filtered, onClose, onGenerate }) {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-foreground">Section 2 — Dashboard Sections</h3>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => setDashSections(DASHBOARD_SECTIONS.map(s => s.id))}>Select All</Button>
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => setDashSections(DASHBOARD_SECTIONS_ALL.map(s => s.id))}>Select All</Button>
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => setDashSections([])}>Unselect All</Button>
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {DASHBOARD_SECTIONS.map(sec => (
+                {DASHBOARD_SECTIONS_ALL.map(sec => (
                   <label key={sec.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-muted/40 cursor-pointer select-none">
                     <input type="checkbox" checked={dashSections.includes(sec.id)} onChange={() => toggleSection(sec.id)}
                       className="w-3.5 h-3.5 rounded accent-primary flex-shrink-0" />
@@ -203,10 +209,10 @@ export default function ReportConfigModal({ filtered, onClose, onGenerate }) {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-foreground">
                   Section 4 — Personnel Columns
-                  <span className="ml-2 text-xs font-normal text-primary">{selectedCols.length} / {ALL_PERSONNEL_COLUMNS.length} selected</span>
+                  <span className="ml-2 text-xs font-normal text-primary">{selectedCols.length} / {ALL_COLUMNS.length} selected</span>
                 </h3>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => setSelectedCols(ALL_PERSONNEL_COLUMNS.map(c => c.id))}>Select All</Button>
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => setSelectedCols(ALL_COLUMNS.map(c => c.id))}>Select All</Button>
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => setSelectedCols([])}>Unselect All</Button>
                 </div>
               </div>
@@ -283,7 +289,7 @@ export default function ReportConfigModal({ filtered, onClose, onGenerate }) {
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {SORT_FIELDS.map(f => (
+                      {ALL_SORT_FIELDS.map(f => (
                         <SelectItem key={f.id} value={f.id} disabled={f.id === sort.tertiary}>{f.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -295,7 +301,7 @@ export default function ReportConfigModal({ filtered, onClose, onGenerate }) {
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {SORT_FIELDS.map(f => (
+                      {ALL_SORT_FIELDS.map(f => (
                         <SelectItem key={f.id} value={f.id} disabled={f.id === sort.secondary}>{f.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -320,8 +326,8 @@ export default function ReportConfigModal({ filtered, onClose, onGenerate }) {
                 { label: 'Secondary Sort', value: showSorting ? sortFieldLabel(sort.secondary) : 'N/A' },
                 { label: 'Tertiary Sort', value: showSorting ? sortFieldLabel(sort.tertiary) : 'N/A' },
                 { label: 'Sort Direction', value: showSorting ? directionLabel(sort.mode, sort.direction) : 'N/A' },
-                { label: 'Dashboard Sections', value: showDashSections ? `${dashSections.length} of ${DASHBOARD_SECTIONS.length}` : 'N/A' },
-                { label: 'Personnel Columns', value: showPersonnelCols ? `${selectedCols.length} of ${ALL_PERSONNEL_COLUMNS.length}` : 'N/A' },
+                { label: 'Dashboard Sections', value: showDashSections ? `${dashSections.length} of ${DASHBOARD_SECTIONS_ALL.length}` : 'N/A' },
+                { label: 'Personnel Columns', value: showPersonnelCols ? `${selectedCols.length} of ${ALL_COLUMNS.length}` : 'N/A' },
               ].map(item => (
                 <div key={item.label} className="text-center">
                   <div className="text-sm font-bold text-foreground">{item.value}</div>

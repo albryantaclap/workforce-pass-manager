@@ -98,6 +98,14 @@ export function completionScore(emp) {
   return score;
 }
 
+// Days remaining until PID expiry (negative = already expired). Missing → 9999 (sorts last).
+export function pidDaysLeft(emp) {
+  if (!emp.pid_expiry) return 9999;
+  const d = new Date(String(emp.pid_expiry).substring(0, 10)); d.setHours(0, 0, 0, 0);
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  return Math.ceil((d - t) / 86400000);
+}
+
 // Workflow progress level (1 = most complete, 12 = worst)
 function workflowLevel(emp) {
   const ftw = normUpper(emp.ftw_result);
@@ -174,6 +182,12 @@ function fieldValue(emp, fieldId, rankMap) {
     case 'approval_date': return emp.approval_date || '';
     case 'gate_pass_expiry': return emp.gate_pass_expiry || '';
     case 'pid_expiry': return emp.pid_expiry || '';
+    case 'work_location': return (emp.work_location || '').trim().toUpperCase();
+    case 'pid_days_left': return pidDaysLeft(emp);
+    case 'pid_issue_date': return emp.pid_issue_date || '';
+    case 'nationality': return (emp.nationality || '').trim().toUpperCase();
+    case 'contact_details': return emp.contact_details || '';
+    case 'pid': return (emp.pid || '').trim();
     default: return '';
   }
 }
