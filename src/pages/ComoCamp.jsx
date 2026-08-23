@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
+import FilterToolbar from '@/components/common/FilterToolbar';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
@@ -20,11 +21,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import StatusBadge from '../components/common/StatusBadge';
 import ExportButton from '../components/common/ExportButton';
 import PrintReportButton from '../components/common/PrintReportButton';
-import MultiSelect from '../components/common/MultiSelect';
 import PidDaysLeftBadge from '../components/comocamp/PidDaysLeftBadge';
 import ComoCampSummaryCards from '../components/comocamp/ComoCampSummaryCards';
 import { useToast } from '@/components/ui/use-toast';
-import { computePassStatus, formatDate } from '@/utils/constants';
+import { computePassStatus, formatDate, normalizeDate } from '@/utils/constants';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
@@ -36,7 +36,6 @@ const SCROLL_KEY = 'comocamp_scroll';
 const PAGE_SIZE = 50;
 
 // Normalized inclusion rule — COMO CAMP lives in `current_location` in the Master List.
-// Matching is case-insensitive and trims extra spaces ("COMO CAMP", "Como Camp", " COMO CAMP ").
 const isComoCamp = (e) => (e.current_location || '').trim().toUpperCase() === 'COMO CAMP';
 
 // ── Inline status pills (Medical / Training) ────────────────────────────────
@@ -67,19 +66,29 @@ function Pill({ value, map, fallback = 'New', emptyCls = 'bg-slate-100 text-slat
 function loadFilters() {
   try {
     const s = JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || {};
+    const arr = (v) => Array.isArray(v) ? v : [];
     return {
       activeTab: s.activeTab === 'como' ? 'como' : 'all',
       search: s.search || '',
-      companyFilter: Array.isArray(s.companyFilter) ? s.companyFilter : [],
-      departmentFilter: Array.isArray(s.departmentFilter) ? s.departmentFilter : [],
-      positionFilter: Array.isArray(s.positionFilter) ? s.positionFilter : [],
-      pidStatusFilter: Array.isArray(s.pidStatusFilter) ? s.pidStatusFilter : [],
-      gpStatusFilter: Array.isArray(s.gpStatusFilter) ? s.gpStatusFilter : [],
-      medicalFilter: Array.isArray(s.medicalFilter) ? s.medicalFilter : [],
-      trainingFilter: Array.isArray(s.trainingFilter) ? s.trainingFilter : [],
-      workLocationFilter: Array.isArray(s.workLocationFilter) ? s.workLocationFilter : [],
-      pidExpiryFrom: s.pidExpiryFrom || '',
-      pidExpiryTo: s.pidExpiryTo || '',
+      companyFilter: arr(s.companyFilter),
+      departmentFilter: arr(s.departmentFilter),
+      positionFilter: arr(s.positionFilter),
+      rlicStatusFilter: arr(s.rlicStatusFilter),
+      trainingStatusFilter: arr(s.trainingStatusFilter),
+      pidStatusFilter: arr(s.pidStatusFilter),
+      medicalResultFilter: arr(s.medicalResultFilter),
+      locationFilter: arr(s.locationFilter),
+      dirIndirFilter: s.dirIndirFilter || '',
+      trainingScheduledFrom: s.trainingScheduledFrom || '',
+      trainingScheduledTo: s.trainingScheduledTo || '',
+      trApprovedFrom: s.trApprovedFrom || '',
+      trApprovedTo: s.trApprovedTo || '',
+      gpIssueFrom: s.gpIssueFrom || '',
+      gpIssueTo: s.gpIssueTo || '',
+      gpReceivedFrom: s.gpReceivedFrom || '',
+      gpReceivedTo: s.gpReceivedTo || '',
+      pidIssueFrom: s.pidIssueFrom || '',
+      pidIssueTo: s.pidIssueTo || '',
       page: typeof s.page === 'number' ? s.page : 0,
     };
   } catch { return { activeTab: 'all' }; }
@@ -101,20 +110,32 @@ export default function ComoCamp() {
   const [companyFilter, setCompanyFilter] = useState(saved.companyFilter || []);
   const [departmentFilter, setDepartmentFilter] = useState(saved.departmentFilter || []);
   const [positionFilter, setPositionFilter] = useState(saved.positionFilter || []);
+  const [rlicStatusFilter, setRlicStatusFilter] = useState(saved.rlicStatusFilter || []);
+  const [trainingStatusFilter, setTrainingStatusFilter] = useState(saved.trainingStatusFilter || []);
   const [pidStatusFilter, setPidStatusFilter] = useState(saved.pidStatusFilter || []);
-  const [gpStatusFilter, setGpStatusFilter] = useState(saved.gpStatusFilter || []);
-  const [medicalFilter, setMedicalFilter] = useState(saved.medicalFilter || []);
-  const [trainingFilter, setTrainingFilter] = useState(saved.trainingFilter || []);
-  const [workLocationFilter, setWorkLocationFilter] = useState(saved.workLocationFilter || []);
-  const [pidExpiryFrom, setPidExpiryFrom] = useState(saved.pidExpiryFrom || '');
-  const [pidExpiryTo, setPidExpiryTo] = useState(saved.pidExpiryTo || '');
+  const [medicalResultFilter, setMedicalResultFilter] = useState(saved.medicalResultFilter || []);
+  const [locationFilter, setLocationFilter] = useState(saved.locationFilter || []);
+  const [dirIndirFilter, setDirIndirFilter] = useState(saved.dirIndirFilter || '');
+  const [trainingScheduledFrom, setTrainingScheduledFrom] = useState(saved.trainingScheduledFrom || '');
+  const [trainingScheduledTo, setTrainingScheduledTo] = useState(saved.trainingScheduledTo || '');
+  const [trApprovedFrom, setTrApprovedFrom] = useState(saved.trApprovedFrom || '');
+  const [trApprovedTo, setTrApprovedTo] = useState(saved.trApprovedTo || '');
+  const [gpIssueFrom, setGpIssueFrom] = useState(saved.gpIssueFrom || '');
+  const [gpIssueTo, setGpIssueTo] = useState(saved.gpIssueTo || '');
+  const [gpReceivedFrom, setGpReceivedFrom] = useState(saved.gpReceivedFrom || '');
+  const [gpReceivedTo, setGpReceivedTo] = useState(saved.gpReceivedTo || '');
+  const [pidIssueFrom, setPidIssueFrom] = useState(saved.pidIssueFrom || '');
+  const [pidIssueTo, setPidIssueTo] = useState(saved.pidIssueTo || '');
 
   const {
-    companyOptions, departmentOptions, pidStatusOptions,
-    rlicStatusOptions, medicalResultOptions, trainingStatusOptions,
+    companyOptions: allCompanyOptions = [],
+    departmentOptions: allDepartmentOptions = [],
+    locationOptions: allLocationOptions = [],
+    rlicStatusOptions: allRlicOptions = [],
+    pidStatusOptions: allPidOptions = [],
+    medicalResultOptions: allMedicalResultOptions = [],
+    trainingStatusOptions: allTrainingOptions = [],
   } = useLookupOptions();
-  const allGpStatusOptions = rlicStatusOptions;
-  const allMedicalOptions = useMemo(() => [{ value: 'NEW', label: 'NEW' }, ...medicalResultOptions], [medicalResultOptions]);
 
   // Debounce search
   const searchDebounceRef = useRef(null);
@@ -143,7 +164,6 @@ export default function ComoCamp() {
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
   });
 
-  // ── Set Inactive / Demobilize — same modal & mutation as Master List.
   const [statusModal, setStatusModal] = useState({ open: false, emp: null, newStatus: 'Inactive' });
   const openStatusModal = (emp, newStatus) => setStatusModal({ open: true, emp, newStatus });
 
@@ -175,7 +195,6 @@ export default function ComoCamp() {
     onError: () => toast({ title: 'Status change failed', variant: 'destructive' }),
   });
 
-  // ── Delete — same soft-delete flow as Master List.
   const deleteMutation = useMutation({
     mutationFn: async (emp) => {
       await base44.entities.Employee.update(emp.id, {
@@ -197,31 +216,67 @@ export default function ComoCamp() {
 
   // COMO Camp dataset (Work Location = COMO CAMP, normalized)
   const comoEmployees = useMemo(() => employees.filter(isComoCamp), [employees]);
-
-  // Base dataset per tab — All Locations uses all active personnel; COMO Camp is locked to COMO CAMP.
   const baseDataset = activeTab === 'como' ? comoEmployees : employees;
+  const isComo = activeTab === 'como';
 
-  // Distinct Work Location values across ALL active personnel (dynamic, free-text field).
-  const workLocationOptions = useMemo(() => {
-    const vals = [...new Set(employees.map(e => (e.current_location || '').trim()).filter(Boolean))].sort((a, b) =>
-      a.toUpperCase().localeCompare(b.toUpperCase()));
-    return vals.map(v => ({ value: v, label: v }));
-  }, [employees]);
+  // Cascading company options: when department is selected, only show companies with employees in that dept
+  const cascadedCompanyOptions = useMemo(() => {
+    if (departmentFilter.length === 0) return allCompanyOptions;
+    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
+    const validCompanies = new Set(
+      baseDataset
+        .filter(e => deptSet.has((e.department || '').trim().toLowerCase()))
+        .map(e => (e.company || '').trim().toUpperCase())
+    );
+    return allCompanyOptions.filter(c => validCompanies.has(c.value.trim().toUpperCase()));
+  }, [allCompanyOptions, departmentFilter, baseDataset]);
 
-  const uniqueCompanies = useMemo(() => {
-    const vals = [...new Set(baseDataset.map(e => e.company).filter(Boolean))].sort();
-    return vals.map(v => ({ value: v, label: v }));
+  useEffect(() => {
+    if (companyFilter.length === 0) return;
+    const validSet = new Set(cascadedCompanyOptions.map(c => c.value.trim().toUpperCase()));
+    const still = companyFilter.filter(cf => validSet.has(cf.trim().toUpperCase()));
+    if (still.length !== companyFilter.length) setCompanyFilter(still);
+  }, [cascadedCompanyOptions]);
+
+  // Positions from the base dataset, cascaded by company/department/rlic/pid
+  const allPositions = useMemo(() => {
+    const seen = new Map();
+    for (const e of baseDataset) {
+      const raw = (e.designation_org_chart || '').trim();
+      if (!raw) continue;
+      const key = raw.toUpperCase();
+      if (!seen.has(key)) seen.set(key, raw);
+    }
+    return [...seen.values()].sort().map(p => ({ value: p, label: p }));
   }, [baseDataset]);
 
-  const positions = useMemo(() => {
-    const pos = [...new Set(baseDataset.map(e => e.designation_org_chart).filter(Boolean))].sort();
-    return pos.map(p => ({ value: p, label: p }));
-  }, [baseDataset]);
+  const filteredPositions = useMemo(() => {
+    const hasFilter = companyFilter.length > 0 || departmentFilter.length > 0 || rlicStatusFilter.length > 0 || pidStatusFilter.length > 0;
+    if (!hasFilter) return allPositions;
+    const coSet = companyFilter.length > 0 ? new Set(companyFilter.map(c => c.trim().toUpperCase())) : null;
+    const deptSet = departmentFilter.length > 0 ? new Set(departmentFilter.map(d => d.trim().toLowerCase())) : null;
+    const seen = new Set();
+    return baseDataset
+      .filter(e => {
+        if (!e.designation_org_chart) return false;
+        if (coSet && !coSet.has((e.company || '').trim().toUpperCase())) return false;
+        if (deptSet && !deptSet.has((e.department || '').trim().toLowerCase())) return false;
+        if (rlicStatusFilter.length > 0 && !rlicStatusFilter.includes(computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status))) return false;
+        if (pidStatusFilter.length > 0 && !pidStatusFilter.includes(computePassStatus(e.pid_expiry, 'pid', e.pid_status))) return false;
+        return true;
+      })
+      .map(e => e.designation_org_chart.trim())
+      .filter(p => { if (seen.has(p)) return false; seen.add(p); return true; })
+      .sort()
+      .map(p => ({ value: p, label: p }));
+  }, [baseDataset, allPositions, companyFilter, departmentFilter, rlicStatusFilter, pidStatusFilter]);
 
-  const departments = useMemo(() => {
-    const vals = [...new Set(baseDataset.map(e => e.department).filter(Boolean))].sort();
-    return vals.map(v => ({ value: v, label: v }));
-  }, [baseDataset]);
+  useEffect(() => {
+    if (positionFilter.length === 0) return;
+    const valid = new Set(filteredPositions.map(p => p.value));
+    const still = positionFilter.filter(p => valid.has(p));
+    if (still.length !== positionFilter.length) setPositionFilter(still);
+  }, [filteredPositions]);
 
   const filtered = useMemo(() => {
     return baseDataset.filter((emp) => {
@@ -235,57 +290,87 @@ export default function ComoCamp() {
         emp.position_application?.toLowerCase().includes(s) ||
         emp.contact_details?.toLowerCase().includes(s);
 
-      const matchesCompany = companyFilter.length === 0 || companyFilter.includes(emp.company);
+      const empCompany = (emp.company || '').trim().toUpperCase();
+      const matchesCompany = companyFilter.length === 0 || companyFilter.some(cf => cf.trim().toUpperCase() === empCompany);
       const matchesDepartment = departmentFilter.length === 0 || departmentFilter.includes(emp.department);
       const matchesPosition = positionFilter.length === 0 || positionFilter.includes(emp.designation_org_chart);
       const matchesManager = selectedManagerIds.length === 0 || selectedManagerIds.some(mid =>
         emp.assigned_manager_id ? emp.assigned_manager_id === mid : emp.assigned_manager_name === managers.find(m => m.id === mid)?.label
       );
-      // Work Location filter only applies on the All Locations tab (COMO Camp tab is locked to COMO CAMP).
-      const matchesWorkLocation = activeTab !== 'all' || workLocationFilter.length === 0 ||
-        workLocationFilter.includes(emp.current_location);
-      const gpStatus = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
-      const matchesGp = gpStatusFilter.length === 0 || gpStatusFilter.includes(gpStatus);
-      const pidStatus = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
-      const matchesPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(pidStatus);
-      const matchesMedical = medicalFilter.length === 0 || medicalFilter.includes(emp.ftw_result) || (medicalFilter.includes('NEW') && !emp.ftw_result);
-      const matchesTraining = trainingFilter.length === 0 || trainingFilter.includes(emp.training_status);
-      const empPidExp = emp.pid_expiry ? emp.pid_expiry.substring(0, 10) : '';
-      const matchesPidFrom = !pidExpiryFrom || (empPidExp && empPidExp >= pidExpiryFrom);
-      const matchesPidTo = !pidExpiryTo || (empPidExp && empPidExp <= pidExpiryTo);
+      const matchesLocation = locationFilter.length === 0 || locationFilter.includes(emp.current_location);
+      const matchesDirIndir = !dirIndirFilter || (emp.dir_indir || '').trim().toUpperCase() === dirIndirFilter.toUpperCase();
+      const effectiveRlic = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
+      const matchesRlic = rlicStatusFilter.length === 0 || rlicStatusFilter.includes(effectiveRlic);
+      const effectivePid = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
+      const matchesPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
+      const matchesTraining = trainingStatusFilter.length === 0 || trainingStatusFilter.includes(emp.training_status);
+      const matchesMedical = medicalResultFilter.length === 0 || medicalResultFilter.includes(emp.ftw_result);
 
-      return matchesSearch && matchesCompany && matchesDepartment && matchesPosition && matchesManager && matchesWorkLocation && matchesGp && matchesPid && matchesMedical && matchesTraining && matchesPidFrom && matchesPidTo;
+      const trainSchedDate = normalizeDate(emp.training_date_scheduled) || '';
+      const matchTrainSchedFrom = !trainingScheduledFrom || trainSchedDate >= trainingScheduledFrom;
+      const matchTrainSchedTo = !trainingScheduledTo || trainSchedDate <= trainingScheduledTo;
+      const trDate = normalizeDate(emp.ftw_approved_date) || '';
+      const matchTrFrom = !trApprovedFrom || trDate >= trApprovedFrom;
+      const matchTrTo = !trApprovedTo || trDate <= trApprovedTo;
+      const gpIssueDateVal = normalizeDate(emp.gate_pass_issue_date) || '';
+      const matchGpIssueFrom = !gpIssueFrom || gpIssueDateVal >= gpIssueFrom;
+      const matchGpIssueTo = !gpIssueTo || gpIssueDateVal <= gpIssueTo;
+      const gpReceivedVal = normalizeDate(emp.gate_pass_received_date) || '';
+      const matchGpReceivedFrom = !gpReceivedFrom || gpReceivedVal >= gpReceivedFrom;
+      const matchGpReceivedTo = !gpReceivedTo || gpReceivedVal <= gpReceivedTo;
+      const pidDate = normalizeDate(emp.pid_issue_date) || '';
+      const matchPidFrom = !pidIssueFrom || pidDate >= pidIssueFrom;
+      const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
+
+      return matchesSearch && matchesCompany && matchesDepartment && matchesPosition && matchesManager &&
+        matchesLocation && matchesDirIndir && matchesRlic && matchesPid && matchesTraining && matchesMedical &&
+        matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo &&
+        matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo;
     });
-  }, [baseDataset, activeTab, search, companyFilter, departmentFilter, positionFilter, selectedManagerIds, managers, workLocationFilter, gpStatusFilter, pidStatusFilter, medicalFilter, trainingFilter, pidExpiryFrom, pidExpiryTo]);
+  }, [baseDataset, search, companyFilter, departmentFilter, positionFilter, selectedManagerIds, managers,
+    locationFilter, dirIndirFilter, rlicStatusFilter, pidStatusFilter, trainingStatusFilter, medicalResultFilter,
+    trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
+    gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   // Default sort:
   //  - All Locations: Work Location ASC (blank last) → Company ASC → Position Rank ASC → Full Name ASC
   //  - COMO Camp:     Company ASC → Position Rank ASC → Full Name ASC
   const sorted = useMemo(() => {
     const companySorted = applyReportSorting(filtered, { mode: 'company', direction: 'asc' }, rankMap);
-    if (activeTab !== 'all') return companySorted;
-    // Stable re-sort by Work Location keeps the company/rank/name order within each location.
-    return [...companySorted].sort((a, b) => {
-      const la = (a.current_location || '').trim().toUpperCase();
-      const lb = (b.current_location || '').trim().toUpperCase();
-      if (!la && !lb) return 0;
-      if (!la) return 1;   // blank Work Location last
-      if (!lb) return -1;
-      return la.localeCompare(lb);
-    });
-  }, [filtered, rankMap, activeTab]);
+    if (!isComo) {
+      return [...companySorted].sort((a, b) => {
+        const la = (a.current_location || '').trim().toUpperCase();
+        const lb = (b.current_location || '').trim().toUpperCase();
+        if (!la && !lb) return 0;
+        if (!la) return 1;
+        if (!lb) return -1;
+        return la.localeCompare(lb);
+      });
+    }
+    return companySorted;
+  }, [filtered, rankMap, isComo]);
 
   useEffect(() => {
-    saveFilters({ activeTab, search, companyFilter, departmentFilter, positionFilter, pidStatusFilter, gpStatusFilter, medicalFilter, trainingFilter, workLocationFilter, pidExpiryFrom, pidExpiryTo, page });
-  }, [activeTab, search, companyFilter, departmentFilter, positionFilter, pidStatusFilter, gpStatusFilter, medicalFilter, trainingFilter, workLocationFilter, pidExpiryFrom, pidExpiryTo, page]);
+    saveFilters({
+      activeTab, search, companyFilter, departmentFilter, positionFilter, rlicStatusFilter,
+      trainingStatusFilter, pidStatusFilter, medicalResultFilter, locationFilter, dirIndirFilter,
+      trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
+      gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page,
+    });
+  }, [activeTab, search, companyFilter, departmentFilter, positionFilter, rlicStatusFilter,
+    trainingStatusFilter, pidStatusFilter, medicalResultFilter, locationFilter, dirIndirFilter,
+    trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
+    gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page]);
 
   const isInitialMount = useRef(true);
   useEffect(() => {
     if (isInitialMount.current) { isInitialMount.current = false; return; }
     setPage(0);
-  }, [companyFilter, departmentFilter, positionFilter, pidStatusFilter, gpStatusFilter, medicalFilter, trainingFilter, workLocationFilter, pidExpiryFrom, pidExpiryTo]);
+  }, [companyFilter, departmentFilter, positionFilter, rlicStatusFilter, trainingStatusFilter,
+    pidStatusFilter, medicalResultFilter, locationFilter, dirIndirFilter,
+    trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
+    gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
-  // Reset to page 0 when switching tabs (record counts differ between tabs).
   const switchTab = useCallback((tab) => {
     if (tab === activeTab) return;
     setActiveTab(tab);
@@ -298,7 +383,6 @@ export default function ComoCamp() {
   }, [totalPages, page]);
   const pagedRows = useMemo(() => sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [sorted, page]);
 
-  // Preserve scroll position across View / Edit navigation
   const scrollRef = useRef(null);
   const scrollTopRef = useRef(0);
   useEffect(() => {
@@ -318,10 +402,24 @@ export default function ComoCamp() {
     if (savedScroll) requestAnimationFrame(() => { el.scrollTop = savedScroll; });
   }, []);
 
-  const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 || departmentFilter.length > 0 || positionFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalFilter.length > 0 || trainingFilter.length > 0 || (activeTab === 'all' && workLocationFilter.length > 0) || pidExpiryFrom || pidExpiryTo;
+  const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 ||
+    departmentFilter.length > 0 || positionFilter.length > 0 || rlicStatusFilter.length > 0 ||
+    trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 ||
+    (activeTab === 'all' && locationFilter.length > 0) || !!dirIndirFilter ||
+    !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo ||
+    !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const clearFilters = () => {
-    setSelectedManagerIds([]); setSearchInput(''); setSearch(''); setCompanyFilter([]); setDepartmentFilter([]); setPositionFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalFilter([]); setTrainingFilter([]); setWorkLocationFilter([]); setPidExpiryFrom(''); setPidExpiryTo(''); setPage(0);
+    setSelectedManagerIds([]); setSearchInput(''); setSearch('');
+    setCompanyFilter([]); setDepartmentFilter([]); setPositionFilter([]);
+    setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]); setMedicalResultFilter([]);
+    setLocationFilter([]); setDirIndirFilter('');
+    setTrainingScheduledFrom(''); setTrainingScheduledTo('');
+    setTrApprovedFrom(''); setTrApprovedTo('');
+    setGpIssueFrom(''); setGpIssueTo('');
+    setGpReceivedFrom(''); setGpReceivedTo('');
+    setPidIssueFrom(''); setPidIssueTo('');
+    setPage(0);
   };
 
   const getExportData = () => sorted.map(e => {
@@ -395,22 +493,29 @@ export default function ComoCamp() {
   ];
 
   const appliedFilters = useMemo(() => {
-    const chips = activeTab === 'como' ? ['Work Location: COMO CAMP'] : [];
-    if (activeTab === 'all' && workLocationFilter.length) chips.push(`Work Location: ${workLocationFilter.join(', ')}`);
+    const chips = isComo ? ['Work Location: COMO CAMP'] : [];
+    if (!isComo && locationFilter.length) chips.push(`Location: ${locationFilter.join(', ')}`);
     if (companyFilter.length) chips.push(`Company: ${companyFilter.join(', ')}`);
     if (departmentFilter.length) chips.push(`Department: ${departmentFilter.join(', ')}`);
-    if (positionFilter.length) chips.push(`Position: ${positionFilter.join(', ')}`);
+    if (positionFilter.length) chips.push(`Position: ${positionFilter.length} selected`);
     if (selectedManagerIds.length) chips.push(`Manager: ${selectedManagerIds.length} selected`);
-    if (medicalFilter.length) chips.push(`Medical: ${medicalFilter.join(', ')}`);
-    if (gpStatusFilter.length) chips.push(`Gate Pass: ${gpStatusFilter.join(', ')}`);
-    if (trainingFilter.length) chips.push(`Training: ${trainingFilter.join(', ')}`);
+    if (dirIndirFilter) chips.push(`DIR/INDIR: ${dirIndirFilter}`);
+    if (medicalResultFilter.length) chips.push(`Medical: ${medicalResultFilter.join(', ')}`);
+    if (rlicStatusFilter.length) chips.push(`Gate Pass: ${rlicStatusFilter.join(', ')}`);
+    if (trainingStatusFilter.length) chips.push(`Training: ${trainingStatusFilter.join(', ')}`);
     if (pidStatusFilter.length) chips.push(`PID Status: ${pidStatusFilter.join(', ')}`);
-    if (pidExpiryFrom || pidExpiryTo) chips.push(`PID Expiry: ${pidExpiryFrom || '…'} → ${pidExpiryTo || '…'}`);
+    if (trainingScheduledFrom || trainingScheduledTo) chips.push(`Train Scheduled: ${trainingScheduledFrom || '…'} → ${trainingScheduledTo || '…'}`);
+    if (trApprovedFrom || trApprovedTo) chips.push(`TR Approved: ${trApprovedFrom || '…'} → ${trApprovedTo || '…'}`);
+    if (gpIssueFrom || gpIssueTo) chips.push(`GP Submitted: ${gpIssueFrom || '…'} → ${gpIssueTo || '…'}`);
+    if (gpReceivedFrom || gpReceivedTo) chips.push(`GP Received: ${gpReceivedFrom || '…'} → ${gpReceivedTo || '…'}`);
+    if (pidIssueFrom || pidIssueTo) chips.push(`PID Issue: ${pidIssueFrom || '…'} → ${pidIssueTo || '…'}`);
     if (search) chips.push(`Search: "${search}"`);
     return chips;
-  }, [activeTab, workLocationFilter, companyFilter, departmentFilter, positionFilter, selectedManagerIds, medicalFilter, gpStatusFilter, trainingFilter, pidStatusFilter, pidExpiryFrom, pidExpiryTo, search]);
+  }, [isComo, locationFilter, companyFilter, departmentFilter, positionFilter, selectedManagerIds,
+    dirIndirFilter, medicalResultFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter,
+    trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
+    gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, search]);
 
-  const isComo = activeTab === 'como';
   const reportTitle = isComo ? 'GSO QATAR — COMO CAMP PERSONNEL REPORT' : 'GSO QATAR — PERSONNEL BY WORK LOCATION REPORT';
   const exportFilename = isComo ? 'como_camp_personnel.csv' : 'personnel_by_work_location.csv';
   const firstCardLabel = isComo ? 'Total COMO Camp' : 'Total Personnel';
@@ -469,47 +574,37 @@ export default function ComoCamp() {
       {/* Summary cards */}
       <ComoCampSummaryCards data={sorted} firstCardLabel={firstCardLabel} />
 
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-3">
-          <div className="relative xl:col-span-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Search Name, QID, PID, Company, Position, Contact..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} className="pl-9" />
-          </div>
-          <MultiSelect options={uniqueCompanies} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" className="dropdown-company" />
-          <MultiSelect options={positions} value={positionFilter} onChange={setPositionFilter} placeholder="Filter by position" className="dropdown-position" />
-          <MultiSelect options={departments} value={departmentFilter} onChange={setDepartmentFilter} placeholder="Filter by department" className="dropdown-department" />
-          <MultiSelect options={pidStatusOptions} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="PID Status" className="dropdown-status" />
-          <MultiSelect options={allGpStatusOptions} value={gpStatusFilter} onChange={setGpStatusFilter} placeholder="Gate Pass Status" className="dropdown-status" />
-          <MultiSelect options={allMedicalOptions} value={medicalFilter} onChange={setMedicalFilter} placeholder="Medical Status" className="dropdown-status" />
-          <MultiSelect options={trainingStatusOptions} value={trainingFilter} onChange={setTrainingFilter} placeholder="Training Status" className="dropdown-training" />
-          <MultiSelect
-            options={managers.map(m => ({ value: m.id, label: m.label }))}
-            value={selectedManagerIds}
-            onChange={setSelectedManagerIds}
-            placeholder="All Managers"
-            className="dropdown-manager"
-          />
-          {activeTab === 'all' && (
-            <MultiSelect options={workLocationOptions} value={workLocationFilter} onChange={setWorkLocationFilter} placeholder="All Work Locations" className="dropdown-location" />
-          )}
-          <div>
-            <p className="text-[10px] font-medium text-muted-foreground mb-1">PID Expiry</p>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-              <Input type="date" value={pidExpiryFrom} onChange={e => setPidExpiryFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
-              <span className="hidden sm:block text-muted-foreground text-xs">–</span>
-              <Input type="date" value={pidExpiryTo} onChange={e => setPidExpiryTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
-            </div>
-          </div>
-        </div>
-        {hasActiveFilters && (
-          <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={clearFilters}>
-              <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
-            </Button>
-          </div>
-        )}
-      </Card>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input placeholder="Search Name, QID, PID, Company, Position, Contact..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} className="pl-9" />
+      </div>
+
+      {/* Filters — same FilterToolbar as Dashboard */}
+      <FilterToolbar
+        companyFilter={companyFilter} setCompanyFilter={setCompanyFilter} companyOptions={cascadedCompanyOptions}
+        departmentFilter={departmentFilter} setDepartmentFilter={setDepartmentFilter} departmentOptions={allDepartmentOptions}
+        positionFilter={positionFilter} setPositionFilter={setPositionFilter} positionOptions={filteredPositions}
+        selectedManagerIds={selectedManagerIds} setSelectedManagerIds={setSelectedManagerIds} managers={managers}
+        locationFilter={locationFilter} setLocationFilter={isComo ? undefined : setLocationFilter} locationOptions={allLocationOptions}
+        dirIndirFilter={dirIndirFilter} setDirIndirFilter={setDirIndirFilter}
+        rlicStatusFilter={rlicStatusFilter} setRlicStatusFilter={setRlicStatusFilter} rlicOptions={allRlicOptions}
+        trainingStatusFilter={trainingStatusFilter} setTrainingStatusFilter={setTrainingStatusFilter} trainingOptions={allTrainingOptions}
+        pidStatusFilter={pidStatusFilter} setPidStatusFilter={setPidStatusFilter} pidOptions={allPidOptions}
+        medicalResultFilter={medicalResultFilter} setMedicalResultFilter={setMedicalResultFilter} medicalOptions={allMedicalResultOptions}
+        trainingScheduledFrom={trainingScheduledFrom} setTrainingScheduledFrom={setTrainingScheduledFrom}
+        trainingScheduledTo={trainingScheduledTo} setTrainingScheduledTo={setTrainingScheduledTo}
+        trApprovedFrom={trApprovedFrom} setTrApprovedFrom={setTrApprovedFrom}
+        trApprovedTo={trApprovedTo} setTrApprovedTo={setTrApprovedTo}
+        gpIssueFrom={gpIssueFrom} setGpIssueFrom={setGpIssueFrom}
+        gpIssueTo={gpIssueTo} setGpIssueTo={setGpIssueTo}
+        gpReceivedFrom={gpReceivedFrom} setGpReceivedFrom={setGpReceivedFrom}
+        gpReceivedTo={gpReceivedTo} setGpReceivedTo={setGpReceivedTo}
+        pidIssueFrom={pidIssueFrom} setPidIssueFrom={setPidIssueFrom}
+        pidIssueTo={pidIssueTo} setPidIssueTo={setPidIssueTo}
+        totalFiltered={sorted.length} totalAll={baseDataset.length}
+        onClearAll={clearFilters}
+      />
 
       {/* Table */}
       <Card className="overflow-hidden">
@@ -578,8 +673,8 @@ export default function ComoCamp() {
                                   <Link to={`/employees/${emp.id}/edit`} onClick={saveScroll}>
                                     <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button>
                                   </Link>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">Edit Personnel</TooltipContent>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">Edit Personnel</TooltipContent>
                               </Tooltip>
                             )}
                             {canEdit && (
