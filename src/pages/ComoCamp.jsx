@@ -35,8 +35,9 @@ const STORAGE_KEY = 'comocamp_filters';
 const SCROLL_KEY = 'comocamp_scroll';
 const PAGE_SIZE = 50;
 
-// Normalized Work Location inclusion rule — handles "COMO CAMP", "Como Camp", "COMO camp", etc.
-const isComoCamp = (e) => (e.work_location || '').trim().toUpperCase() === 'COMO CAMP';
+// Normalized inclusion rule — COMO CAMP lives in `current_location` in the Master List.
+// Matching is case-insensitive and trims extra spaces ("COMO CAMP", "Como Camp", " COMO CAMP ").
+const isComoCamp = (e) => (e.current_location || '').trim().toUpperCase() === 'COMO CAMP';
 
 // ── Inline status pills (Medical / Training) ────────────────────────────────
 const MED_PILLS = {
@@ -310,7 +311,7 @@ export default function ComoCamp() {
       'PID Status': pidStatus,
       'PID Expiry': formatDate(e.pid_expiry),
       'PID Days Left': daysLeft,
-      'Work Location': e.work_location || '—',
+      'Work Location': e.current_location || '—',
       Contact: e.contact_details || '—',
       Department: e.department || '—',
       'Designation / Position': e.designation_org_chart || e.position_application || '—',
@@ -339,7 +340,7 @@ export default function ComoCamp() {
       'PID Status': pidStatus,
       'PID Expiry': formatDate(e.pid_expiry),
       'PID Days Left': daysLeft,
-      'Work Location': e.work_location || '—',
+      'Work Location': e.current_location || '—',
       Contact: e.contact_details || '—',
     };
   }), [sorted]);
@@ -490,7 +491,7 @@ export default function ComoCamp() {
                       <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.pid_expiry} type="pid" storedStatus={emp.pid_status} short /></TableCell>
                       <TableCell className="text-xs whitespace-nowrap font-mono">{formatDate(emp.pid_expiry)}</TableCell>
                       <TableCell className="whitespace-nowrap"><PidDaysLeftBadge dateStr={emp.pid_expiry} /></TableCell>
-                      <TableCell className="text-xs whitespace-nowrap uppercase">{emp.work_location || '—'}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap uppercase">{emp.current_location || '—'}</TableCell>
                       <TableCell className="text-xs whitespace-nowrap uppercase">{emp.contact_details || '—'}</TableCell>
                       <TableCell className="sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">
                         <TooltipProvider delayDuration={200}>
