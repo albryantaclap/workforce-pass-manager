@@ -19,7 +19,7 @@ export default function DashboardBarChart({ items, onClick, emptyLabel = 'No dat
         return (
           <Comp
             key={it.key}
-            onClick={clickable ? () => onClick(it) : undefined}
+            onClick={clickable ? () => onClick(it.key) : undefined}
             className={cn('w-full flex items-center gap-2 text-left', clickable && 'group hover:opacity-90')}
           >
             <span className="w-40 shrink-0 truncate text-[11px] font-medium" title={it.label}>{it.label}</span>

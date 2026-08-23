@@ -18,7 +18,7 @@ export default function DashboardStatusOverview({ items, total, onClick }) {
         return (
           <Comp
             key={it.key}
-            onClick={clickable ? () => onClick(it) : undefined}
+            onClick={clickable ? () => onClick(it.key) : undefined}
             className={cn('w-full text-left', clickable && 'group hover:opacity-90')}
           >
             <div className="flex items-center justify-between text-xs mb-1">
