@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
  *
  * "Valid" totals include "Soon" because Soon is still an active/valid pass.
  */
-export default function ComoCampSummaryCards({ data }) {
+export default function ComoCampSummaryCards({ data, firstCardLabel = 'Total COMO Camp' }) {
   const stats = useMemo(() => {
     const total = data.length;
     const medAccepted = data.filter(e => (e.ftw_result || '').toUpperCase() === 'ACCEPTED').length;
@@ -34,7 +34,7 @@ export default function ComoCampSummaryCards({ data }) {
   }, [data]);
 
   const cards = [
-    { label: 'Total COMO Camp', value: stats.total, icon: Users, cls: 'text-blue-700 bg-blue-50' },
+    { label: firstCardLabel, value: stats.total, icon: Users, cls: 'text-blue-700 bg-blue-50' },
     { label: 'Medical Accepted', value: stats.medAccepted, icon: Stethoscope, cls: 'text-emerald-700 bg-emerald-50' },
     { label: 'Gate Pass Valid / Soon', value: stats.gpValid, icon: ShieldCheck, cls: 'text-emerald-700 bg-emerald-50' },
     { label: 'Training Done', value: stats.trainDone, icon: GraduationCap, cls: 'text-emerald-700 bg-emerald-50' },

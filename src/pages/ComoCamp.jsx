@@ -68,6 +68,7 @@ function loadFilters() {
   try {
     const s = JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || {};
     return {
+      activeTab: s.activeTab === 'como' ? 'como' : 'all',
       search: s.search || '',
       companyFilter: Array.isArray(s.companyFilter) ? s.companyFilter : [],
       departmentFilter: Array.isArray(s.departmentFilter) ? s.departmentFilter : [],
@@ -76,11 +77,12 @@ function loadFilters() {
       gpStatusFilter: Array.isArray(s.gpStatusFilter) ? s.gpStatusFilter : [],
       medicalFilter: Array.isArray(s.medicalFilter) ? s.medicalFilter : [],
       trainingFilter: Array.isArray(s.trainingFilter) ? s.trainingFilter : [],
+      workLocationFilter: Array.isArray(s.workLocationFilter) ? s.workLocationFilter : [],
       pidExpiryFrom: s.pidExpiryFrom || '',
       pidExpiryTo: s.pidExpiryTo || '',
       page: typeof s.page === 'number' ? s.page : 0,
     };
-  } catch { return {}; }
+  } catch { return { activeTab: 'all' }; }
 }
 function saveFilters(f) { try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(f)); } catch {} }
 
@@ -92,6 +94,7 @@ export default function ComoCamp() {
   const { toast } = useToast();
 
   const saved = useMemo(() => loadFilters(), []);
+  const [activeTab, setActiveTab] = useState(saved.activeTab || 'all');
   const [searchInput, setSearchInput] = useState(saved.search || '');
   const [search, setSearch] = useState(saved.search || '');
   const [page, setPage] = useState(saved.page || 0);
@@ -102,6 +105,7 @@ export default function ComoCamp() {
   const [gpStatusFilter, setGpStatusFilter] = useState(saved.gpStatusFilter || []);
   const [medicalFilter, setMedicalFilter] = useState(saved.medicalFilter || []);
   const [trainingFilter, setTrainingFilter] = useState(saved.trainingFilter || []);
+  const [workLocationFilter, setWorkLocationFilter] = useState(saved.workLocationFilter || []);
   const [pidExpiryFrom, setPidExpiryFrom] = useState(saved.pidExpiryFrom || '');
   const [pidExpiryTo, setPidExpiryTo] = useState(saved.pidExpiryTo || '');
 
@@ -140,8 +144,6 @@ export default function ComoCamp() {
   });
 
   // ── Set Inactive / Demobilize — same modal & mutation as Master List.
-  // The entity automation (Track Employee Changes) writes the audit log field-level diff,
-  // so no duplicate log entries are created here.
   const [statusModal, setStatusModal] = useState({ open: false, emp: null, newStatus: 'Inactive' });
   const openStatusModal = (emp, newStatus) => setStatusModal({ open: true, emp, newStatus });
 
@@ -173,9 +175,7 @@ export default function ComoCamp() {
     onError: () => toast({ title: 'Status change failed', variant: 'destructive' }),
   });
 
-  // ── Delete — same soft-delete flow as Master List. Stamps the deleter's identity first
-  // so the automation attributes the delete to the correct user, then deletes. The
-  // automation archives the record to Deleted Personnel and writes the audit log entry.
+  // ── Delete — same soft-delete flow as Master List.
   const deleteMutation = useMutation({
     mutationFn: async (emp) => {
       await base44.entities.Employee.update(emp.id, {
@@ -198,23 +198,33 @@ export default function ComoCamp() {
   // COMO Camp dataset (Work Location = COMO CAMP, normalized)
   const comoEmployees = useMemo(() => employees.filter(isComoCamp), [employees]);
 
-  const uniqueCompanies = useMemo(() => {
-    const vals = [...new Set(comoEmployees.map(e => e.company).filter(Boolean))].sort();
+  // Base dataset per tab — All Locations uses all active personnel; COMO Camp is locked to COMO CAMP.
+  const baseDataset = activeTab === 'como' ? comoEmployees : employees;
+
+  // Distinct Work Location values across ALL active personnel (dynamic, free-text field).
+  const workLocationOptions = useMemo(() => {
+    const vals = [...new Set(employees.map(e => (e.current_location || '').trim()).filter(Boolean))].sort((a, b) =>
+      a.toUpperCase().localeCompare(b.toUpperCase()));
     return vals.map(v => ({ value: v, label: v }));
-  }, [comoEmployees]);
+  }, [employees]);
+
+  const uniqueCompanies = useMemo(() => {
+    const vals = [...new Set(baseDataset.map(e => e.company).filter(Boolean))].sort();
+    return vals.map(v => ({ value: v, label: v }));
+  }, [baseDataset]);
 
   const positions = useMemo(() => {
-    const pos = [...new Set(comoEmployees.map(e => e.designation_org_chart).filter(Boolean))].sort();
+    const pos = [...new Set(baseDataset.map(e => e.designation_org_chart).filter(Boolean))].sort();
     return pos.map(p => ({ value: p, label: p }));
-  }, [comoEmployees]);
+  }, [baseDataset]);
 
   const departments = useMemo(() => {
-    const vals = [...new Set(comoEmployees.map(e => e.department).filter(Boolean))].sort();
+    const vals = [...new Set(baseDataset.map(e => e.department).filter(Boolean))].sort();
     return vals.map(v => ({ value: v, label: v }));
-  }, [comoEmployees]);
+  }, [baseDataset]);
 
   const filtered = useMemo(() => {
-    return comoEmployees.filter((emp) => {
+    return baseDataset.filter((emp) => {
       const s = search.toLowerCase();
       const matchesSearch = !s ||
         emp.name?.toLowerCase().includes(s) ||
@@ -231,6 +241,9 @@ export default function ComoCamp() {
       const matchesManager = selectedManagerIds.length === 0 || selectedManagerIds.some(mid =>
         emp.assigned_manager_id ? emp.assigned_manager_id === mid : emp.assigned_manager_name === managers.find(m => m.id === mid)?.label
       );
+      // Work Location filter only applies on the All Locations tab (COMO Camp tab is locked to COMO CAMP).
+      const matchesWorkLocation = activeTab !== 'all' || workLocationFilter.length === 0 ||
+        workLocationFilter.includes(emp.current_location);
       const gpStatus = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
       const matchesGp = gpStatusFilter.length === 0 || gpStatusFilter.includes(gpStatus);
       const pidStatus = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
@@ -241,22 +254,43 @@ export default function ComoCamp() {
       const matchesPidFrom = !pidExpiryFrom || (empPidExp && empPidExp >= pidExpiryFrom);
       const matchesPidTo = !pidExpiryTo || (empPidExp && empPidExp <= pidExpiryTo);
 
-      return matchesSearch && matchesCompany && matchesDepartment && matchesPosition && matchesManager && matchesGp && matchesPid && matchesMedical && matchesTraining && matchesPidFrom && matchesPidTo;
+      return matchesSearch && matchesCompany && matchesDepartment && matchesPosition && matchesManager && matchesWorkLocation && matchesGp && matchesPid && matchesMedical && matchesTraining && matchesPidFrom && matchesPidTo;
     });
-  }, [comoEmployees, search, companyFilter, departmentFilter, positionFilter, selectedManagerIds, managers, gpStatusFilter, pidStatusFilter, medicalFilter, trainingFilter, pidExpiryFrom, pidExpiryTo]);
+  }, [baseDataset, activeTab, search, companyFilter, departmentFilter, positionFilter, selectedManagerIds, managers, workLocationFilter, gpStatusFilter, pidStatusFilter, medicalFilter, trainingFilter, pidExpiryFrom, pidExpiryTo]);
 
-  // Default sort: Company ASC → Position Rank ASC → Full Name ASC
-  const sorted = useMemo(() => applyReportSorting(filtered, { mode: 'company', direction: 'asc' }, rankMap), [filtered, rankMap]);
+  // Default sort:
+  //  - All Locations: Work Location ASC (blank last) → Company ASC → Position Rank ASC → Full Name ASC
+  //  - COMO Camp:     Company ASC → Position Rank ASC → Full Name ASC
+  const sorted = useMemo(() => {
+    const companySorted = applyReportSorting(filtered, { mode: 'company', direction: 'asc' }, rankMap);
+    if (activeTab !== 'all') return companySorted;
+    // Stable re-sort by Work Location keeps the company/rank/name order within each location.
+    return [...companySorted].sort((a, b) => {
+      const la = (a.current_location || '').trim().toUpperCase();
+      const lb = (b.current_location || '').trim().toUpperCase();
+      if (!la && !lb) return 0;
+      if (!la) return 1;   // blank Work Location last
+      if (!lb) return -1;
+      return la.localeCompare(lb);
+    });
+  }, [filtered, rankMap, activeTab]);
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, departmentFilter, positionFilter, pidStatusFilter, gpStatusFilter, medicalFilter, trainingFilter, pidExpiryFrom, pidExpiryTo, page });
-  }, [search, companyFilter, departmentFilter, positionFilter, pidStatusFilter, gpStatusFilter, medicalFilter, trainingFilter, pidExpiryFrom, pidExpiryTo, page]);
+    saveFilters({ activeTab, search, companyFilter, departmentFilter, positionFilter, pidStatusFilter, gpStatusFilter, medicalFilter, trainingFilter, workLocationFilter, pidExpiryFrom, pidExpiryTo, page });
+  }, [activeTab, search, companyFilter, departmentFilter, positionFilter, pidStatusFilter, gpStatusFilter, medicalFilter, trainingFilter, workLocationFilter, pidExpiryFrom, pidExpiryTo, page]);
 
   const isInitialMount = useRef(true);
   useEffect(() => {
     if (isInitialMount.current) { isInitialMount.current = false; return; }
     setPage(0);
-  }, [companyFilter, departmentFilter, positionFilter, pidStatusFilter, gpStatusFilter, medicalFilter, trainingFilter, pidExpiryFrom, pidExpiryTo]);
+  }, [companyFilter, departmentFilter, positionFilter, pidStatusFilter, gpStatusFilter, medicalFilter, trainingFilter, workLocationFilter, pidExpiryFrom, pidExpiryTo]);
+
+  // Reset to page 0 when switching tabs (record counts differ between tabs).
+  const switchTab = useCallback((tab) => {
+    if (tab === activeTab) return;
+    setActiveTab(tab);
+    setPage(0);
+  }, [activeTab]);
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   useEffect(() => {
@@ -284,10 +318,10 @@ export default function ComoCamp() {
     if (savedScroll) requestAnimationFrame(() => { el.scrollTop = savedScroll; });
   }, []);
 
-  const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 || departmentFilter.length > 0 || positionFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalFilter.length > 0 || trainingFilter.length > 0 || pidExpiryFrom || pidExpiryTo;
+  const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 || departmentFilter.length > 0 || positionFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalFilter.length > 0 || trainingFilter.length > 0 || (activeTab === 'all' && workLocationFilter.length > 0) || pidExpiryFrom || pidExpiryTo;
 
   const clearFilters = () => {
-    setSelectedManagerIds([]); setSearchInput(''); setSearch(''); setCompanyFilter([]); setDepartmentFilter([]); setPositionFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalFilter([]); setTrainingFilter([]); setPidExpiryFrom(''); setPidExpiryTo(''); setPage(0);
+    setSelectedManagerIds([]); setSearchInput(''); setSearch(''); setCompanyFilter([]); setDepartmentFilter([]); setPositionFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalFilter([]); setTrainingFilter([]); setWorkLocationFilter([]); setPidExpiryFrom(''); setPidExpiryTo(''); setPage(0);
   };
 
   const getExportData = () => sorted.map(e => {
@@ -361,7 +395,8 @@ export default function ComoCamp() {
   ];
 
   const appliedFilters = useMemo(() => {
-    const chips = ['Work Location: COMO CAMP'];
+    const chips = activeTab === 'como' ? ['Work Location: COMO CAMP'] : [];
+    if (activeTab === 'all' && workLocationFilter.length) chips.push(`Work Location: ${workLocationFilter.join(', ')}`);
     if (companyFilter.length) chips.push(`Company: ${companyFilter.join(', ')}`);
     if (departmentFilter.length) chips.push(`Department: ${departmentFilter.join(', ')}`);
     if (positionFilter.length) chips.push(`Position: ${positionFilter.join(', ')}`);
@@ -373,7 +408,17 @@ export default function ComoCamp() {
     if (pidExpiryFrom || pidExpiryTo) chips.push(`PID Expiry: ${pidExpiryFrom || '…'} → ${pidExpiryTo || '…'}`);
     if (search) chips.push(`Search: "${search}"`);
     return chips;
-  }, [companyFilter, departmentFilter, positionFilter, selectedManagerIds, medicalFilter, gpStatusFilter, trainingFilter, pidStatusFilter, pidExpiryFrom, pidExpiryTo, search]);
+  }, [activeTab, workLocationFilter, companyFilter, departmentFilter, positionFilter, selectedManagerIds, medicalFilter, gpStatusFilter, trainingFilter, pidStatusFilter, pidExpiryFrom, pidExpiryTo, search]);
+
+  const isComo = activeTab === 'como';
+  const reportTitle = isComo ? 'GSO QATAR — COMO CAMP PERSONNEL REPORT' : 'GSO QATAR — PERSONNEL BY WORK LOCATION REPORT';
+  const exportFilename = isComo ? 'como_camp_personnel.csv' : 'personnel_by_work_location.csv';
+  const firstCardLabel = isComo ? 'Total COMO Camp' : 'Total Personnel';
+  const subtitle = isComo
+    ? `${sorted.length} COMO Camp personnel · ${employees.length} total active`
+    : `${sorted.length} filtered · ${employees.length} total active`;
+  const footerTotalLabel = isComo ? `${comoEmployees.length} total COMO Camp` : `${employees.length} total active`;
+  const emptyMessage = isComo ? 'No COMO Camp personnel found' : 'No personnel found for the current filters';
 
   return (
     <div className="space-y-5">
@@ -382,27 +427,47 @@ export default function ComoCamp() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             COMO Camp
-            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-              <MapPin className="w-3 h-3" /> Work Location: COMO CAMP
-            </span>
+            {isComo && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                <MapPin className="w-3 h-3" /> Work Location: COMO CAMP
+              </span>
+            )}
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">{sorted.length} COMO Camp personnel · {employees.length} total active</p>
+          <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <ExportButton getData={getExportData} filename="como_camp_personnel.csv" />
+          <ExportButton getData={getExportData} filename={exportFilename} />
           <PrintReportButton
             records={printRecords}
             columns={printColumns}
-            title="GSO QATAR — COMO CAMP PERSONNEL REPORT"
+            title={reportTitle}
             appliedFilters={appliedFilters}
             totalFiltered={sorted.length}
-            sortBy={['Company']}
+            sortBy={isComo ? ['Company'] : ['Work Location', 'Company']}
           />
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b">
+        <button
+          onClick={() => switchTab('all')}
+          className={cn('px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            !isComo ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}
+        >
+          All Locations <span className="ml-1 text-xs font-semibold">({employees.length})</span>
+        </button>
+        <button
+          onClick={() => switchTab('como')}
+          className={cn('px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            isComo ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}
+        >
+          COMO Camp <span className="ml-1 text-xs font-semibold">({comoEmployees.length})</span>
+        </button>
+      </div>
+
       {/* Summary cards */}
-      <ComoCampSummaryCards data={sorted} />
+      <ComoCampSummaryCards data={sorted} firstCardLabel={firstCardLabel} />
 
       {/* Filters */}
       <Card className="p-4">
@@ -425,6 +490,9 @@ export default function ComoCamp() {
             placeholder="All Managers"
             className="dropdown-manager"
           />
+          {activeTab === 'all' && (
+            <MultiSelect options={workLocationOptions} value={workLocationFilter} onChange={setWorkLocationFilter} placeholder="All Work Locations" className="dropdown-location" />
+          )}
           <div>
             <p className="text-[10px] font-medium text-muted-foreground mb-1">PID Expiry</p>
             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
@@ -474,7 +542,7 @@ export default function ComoCamp() {
                   ))
                 ) : sorted.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-12 text-muted-foreground">No COMO Camp personnel found</TableCell>
+                    <TableCell colSpan={15} className="text-center py-12 text-muted-foreground">{emptyMessage}</TableCell>
                   </TableRow>
                 ) : (
                   pagedRows.map((emp) => (
@@ -509,9 +577,9 @@ export default function ComoCamp() {
                                 <TooltipTrigger asChild>
                                   <Link to={`/employees/${emp.id}/edit`} onClick={saveScroll}>
                                     <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button>
-                                </Link>
-                              </TooltipTrigger>
-                                <TooltipContent side="top">Edit Personnel</TooltipContent>
+                                  </Link>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">Edit Personnel</TooltipContent>
                               </Tooltip>
                             )}
                             {canEdit && (
@@ -564,7 +632,7 @@ export default function ComoCamp() {
         </div>
         <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between gap-3 flex-wrap">
           <span className="text-xs text-muted-foreground">
-            Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)}</strong> of <strong>{sorted.length}</strong> filtered · <strong>{comoEmployees.length}</strong> total COMO Camp
+            Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)}</strong> of <strong>{sorted.length}</strong> filtered · <strong>{footerTotalLabel}</strong>
           </span>
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
