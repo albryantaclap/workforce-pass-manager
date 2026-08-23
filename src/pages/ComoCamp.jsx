@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save } from 'lucide-react';
+import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save, Check } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import FilterToolbar from '@/components/common/FilterToolbar';
@@ -24,6 +24,8 @@ import PrintReportButton from '../components/common/PrintReportButton';
 import PidDaysLeftBadge from '../components/comocamp/PidDaysLeftBadge';
 import ComoCampSummaryCards from '../components/comocamp/ComoCampSummaryCards';
 import { useToast } from '@/components/ui/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import LocationGridDropdown from '../components/comocamp/LocationGridDropdown';
 import { computePassStatus, formatDate, normalizeDate } from '@/utils/constants';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import { usePermissions } from '@/lib/usePermissions';
@@ -171,6 +173,8 @@ export default function ComoCamp() {
   const [editMode, setEditMode] = useState(false);
   const [drafts, setDrafts] = useState({});      // { [empId]: { current_location, contact_details } }
   const [originals, setOriginals] = useState({}); // snapshot at edit entry
+  const [selectedIds, setSelectedIds] = useState(new Set()); // bulk-edit selection (current page)
+  const [bulkLocDialog, setBulkLocDialog] = useState({ open: false, location: '' });
 
   const statusChangeMutation = useMutation({
     mutationFn: async ({ emp, newStatus, effectiveDate, lastWorkingDate, reason }) => {
@@ -241,7 +245,7 @@ export default function ComoCamp() {
       queryClient.invalidateQueries({ queryKey: ['employee'] });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       queryClient.invalidateQueries({ queryKey: ['projection'] });
-      setEditMode(false); setDrafts({}); setOriginals({});
+      setEditMode(false); setDrafts({}); setOriginals({}); setSelectedIds(new Set());
       toast({ title: `Saved ${changes.length} record(s)`, description: 'Changes synced across all modules.' });
     },
     onError: () => toast({ title: 'Save failed', variant: 'destructive' }),
@@ -424,14 +428,14 @@ export default function ComoCamp() {
       snap[e.id] = { current_location: e.current_location || '', contact_details: e.contact_details || '' };
       orig[e.id] = { current_location: e.current_location || '', contact_details: e.contact_details || '' };
     }
-    setDrafts(snap); setOriginals(orig); setEditMode(true);
+    setDrafts(snap); setOriginals(orig); setSelectedIds(new Set()); setEditMode(true);
   }, [pagedRows]);
 
   const updateDraft = (empId, field, value) => {
     setDrafts(prev => prev[empId] ? { ...prev, [empId]: { ...prev[empId], [field]: value } } : prev);
   };
 
-  const cancelEditMode = () => { setEditMode(false); setDrafts({}); setOriginals({}); };
+  const cancelEditMode = () => { setEditMode(false); setDrafts({}); setOriginals({}); setSelectedIds(new Set()); };
 
   const gridChangeCount = useMemo(() => {
     let n = 0;
@@ -453,6 +457,37 @@ export default function ComoCamp() {
     }
     if (changes.length === 0) { cancelEditMode(); return; }
     gridSaveMutation.mutate({ changes });
+  };
+
+  // ── Bulk Change Location ──
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const allPageSelected = pagedRows.length > 0 && pagedRows.every(r => selectedIds.has(r.id));
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allPageSelected) pagedRows.forEach(r => next.delete(r.id));
+      else pagedRows.forEach(r => next.add(r.id));
+      return next;
+    });
+  };
+  const applyBulkLocation = () => {
+    const loc = (bulkLocDialog.location || '').trim();
+    if (!loc || selectedIds.size === 0) return;
+    setDrafts(prev => {
+      const next = { ...prev };
+      for (const id of Object.keys(next)) {
+        if (selectedIds.has(id)) next[id] = { ...next[id], current_location: loc };
+      }
+      return next;
+    });
+    setBulkLocDialog({ open: false, location: '' });
+    toast({ title: `Location set to "${loc}"`, description: `Applied to ${selectedIds.size} row(s). Click Save Changes to persist.` });
   };
 
   const scrollRef = useRef(null);
@@ -626,6 +661,11 @@ export default function ComoCamp() {
               <Button variant="outline" onClick={cancelEditMode} disabled={gridSaveMutation.isPending} className="gap-1.5">
                 <X className="w-3.5 h-3.5" /> Cancel
               </Button>
+              {selectedIds.size > 0 && (
+                <Button variant="outline" onClick={() => setBulkLocDialog({ open: true, location: '' })} className="gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" /> Change Location ({selectedIds.size})
+                </Button>
+              )}
               {gridChangeCount > 0 && (
                 <span className="text-xs text-muted-foreground font-medium">{gridChangeCount} row(s) changed</span>
               )}
@@ -708,6 +748,11 @@ export default function ComoCamp() {
             <Table className="table-list-view">
               <TableHeader className="sticky top-0 z-10">
                 <TableRow className="bg-muted/50">
+                  {editMode && (
+                    <TableHead className="text-xs bg-muted/50 w-8 text-center">
+                      <input type="checkbox" checked={allPageSelected} onChange={toggleSelectAll} className="h-3.5 w-3.5 cursor-pointer" />
+                    </TableHead>
+                  )}
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap w-10">Photo</TableHead>
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap w-8">Docs</TableHead>
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Name</TableHead>
@@ -732,11 +777,16 @@ export default function ComoCamp() {
                   ))
                 ) : sorted.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-12 text-muted-foreground">{emptyMessage}</TableCell>
+                    <TableCell colSpan={editMode ? 16 : 15} className="text-center py-12 text-muted-foreground">{emptyMessage}</TableCell>
                   </TableRow>
                 ) : (
                   pagedRows.map((emp) => (
                     <TableRow key={emp.id} className="hover:bg-muted/30">
+                      {editMode && (
+                        <TableCell className="p-2 text-center">
+                          <input type="checkbox" checked={selectedIds.has(emp.id)} onChange={() => toggleSelect(emp.id)} className="h-3.5 w-3.5 cursor-pointer" />
+                        </TableCell>
+                      )}
                       <TableCell className="p-2"><PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size={8} /></TableCell>
                       <TableCell className="p-1"><SharepointDocIcon emp={emp} canEdit={canEdit} onSave={(id, url) => updateMutation.mutate({ id, data: { sharepoint_url: url } })} /></TableCell>
                       <TableCell className="text-xs font-medium whitespace-nowrap uppercase">{emp.name || '—'}</TableCell>
@@ -751,11 +801,10 @@ export default function ComoCamp() {
                       <TableCell className="whitespace-nowrap"><PidDaysLeftBadge dateStr={emp.pid_expiry} /></TableCell>
                       <TableCell className="whitespace-nowrap">
                         {editMode && drafts[emp.id] ? (
-                          <input
+                          <LocationGridDropdown
                             value={drafts[emp.id].current_location}
-                            onChange={(e) => updateDraft(emp.id, 'current_location', e.target.value)}
-                            placeholder="e.g. COMO CAMP, CORRIDOR, C3"
-                            className="w-32 text-xs px-1.5 py-1 rounded border border-input bg-background outline-none focus:ring-1 focus:ring-primary"
+                            onChange={(v) => updateDraft(emp.id, 'current_location', v)}
+                            options={allLocationOptions}
                           />
                         ) : (
                           <span className="text-xs uppercase">{emp.current_location || '—'}</span>
@@ -857,6 +906,31 @@ export default function ComoCamp() {
           )}
         </div>
       </Card>
+
+      <Dialog open={bulkLocDialog.open} onOpenChange={(o) => setBulkLocDialog(s => ({ ...s, open: o }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Location — {selectedIds.size} selected</DialogTitle>
+            <DialogDescription>
+              Choose an active Location to apply to all selected personnel. The change is saved when you click Save Changes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">New Location</label>
+            <LocationGridDropdown
+              value={bulkLocDialog.location}
+              onChange={(v) => setBulkLocDialog(s => ({ ...s, location: v }))}
+              options={allLocationOptions}
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setBulkLocDialog({ open: false, location: '' })}>Cancel</Button>
+            <Button onClick={applyBulkLocation} disabled={!bulkLocDialog.location || selectedIds.size === 0}>
+              Apply Location
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <StatusChangeModal
         open={statusModal.open}

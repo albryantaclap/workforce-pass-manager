@@ -152,12 +152,7 @@
     },
     "current_location": {
       "type": "string",
-      "enum": [
-        "QATAR",
-        "COMO CAMP",
-        "OTHER"
-      ],
-      "description": "Current location"
+      "description": "Current location (sourced dynamically from Lookup Management \u2192 Location)"
     },
     "dir_indir": {
       "type": "string",
