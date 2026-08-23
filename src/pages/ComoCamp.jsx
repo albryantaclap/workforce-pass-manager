@@ -7,8 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Pencil, X, MapPin } from 'lucide-react';
+import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import StatusChangeModal from '../components/common/StatusChangeModal';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
 import SharepointDocIcon from '../components/common/SharepointDocIcon';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -79,7 +84,7 @@ function loadFilters() {
 function saveFilters(f) { try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(f)); } catch {} }
 
 export default function ComoCamp() {
-  const { canEdit } = usePermissions();
+  const { canEdit, canDelete } = usePermissions();
   const currentUser = useCurrentUser();
   const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
   const queryClient = useQueryClient();
@@ -131,6 +136,62 @@ export default function ComoCamp() {
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees-active'] }),
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
+  });
+
+  // ── Set Inactive / Demobilize — same modal & mutation as Master List.
+  // The entity automation (Track Employee Changes) writes the audit log field-level diff,
+  // so no duplicate log entries are created here.
+  const [statusModal, setStatusModal] = useState({ open: false, emp: null, newStatus: 'Inactive' });
+  const openStatusModal = (emp, newStatus) => setStatusModal({ open: true, emp, newStatus });
+
+  const statusChangeMutation = useMutation({
+    mutationFn: async ({ emp, newStatus, effectiveDate, lastWorkingDate, reason }) => {
+      const updates = {
+        personnel_status: newStatus,
+        is_active: false,
+        status_effective_date: effectiveDate,
+        status_reason: reason || '',
+        status_changed_by: currentUser?.email || '',
+        status_changed_at: new Date().toISOString(),
+        _last_updated_by: currentUser?.email || '',
+        _last_updated_by_name: currentUser?.full_name || '',
+        _last_updated_by_role: currentUser?.role || '',
+        _last_updated_at: new Date().toISOString(),
+      };
+      if (lastWorkingDate) updates.last_working_date = lastWorkingDate;
+      if (newStatus === 'Inactive') updates.inactive_date = effectiveDate;
+      if (newStatus === 'Demobilized') updates.demobilization_date = effectiveDate;
+      return base44.entities.Employee.update(emp.id, updates);
+    },
+    onSuccess: (_, { emp, newStatus }) => {
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      toast({ title: `Status updated to ${newStatus}`, description: `${emp.name} moved to ${newStatus} Personnel.` });
+    },
+    onError: () => toast({ title: 'Status change failed', variant: 'destructive' }),
+  });
+
+  // ── Delete — same soft-delete flow as Master List. Stamps the deleter's identity first
+  // so the automation attributes the delete to the correct user, then deletes. The
+  // automation archives the record to Deleted Personnel and writes the audit log entry.
+  const deleteMutation = useMutation({
+    mutationFn: async (emp) => {
+      await base44.entities.Employee.update(emp.id, {
+        _last_updated_by: currentUser?.email || '',
+        _last_updated_by_name: currentUser?.full_name || '',
+        _last_updated_by_role: currentUser?.role || '',
+        _last_updated_at: new Date().toISOString(),
+      });
+      await base44.entities.Employee.delete(emp.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      toast({ title: 'Personnel deleted', description: 'Record moved to Deleted Personnel.' });
+    },
+    onError: () => toast({ title: 'Delete failed', variant: 'destructive' }),
   });
 
   // COMO Camp dataset (Work Location = COMO CAMP, normalized)
@@ -452,6 +513,44 @@ export default function ComoCamp() {
                                 <TooltipContent side="top">Edit Personnel</TooltipContent>
                               </Tooltip>
                             )}
+                            {canEdit && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600 hover:text-amber-700" onClick={() => openStatusModal(emp, 'Inactive')}><UserX className="w-3.5 h-3.5" /></Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">Set Inactive</TooltipContent>
+                              </Tooltip>
+                            )}
+                            {canEdit && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-orange-600 hover:text-orange-700" onClick={() => openStatusModal(emp, 'Demobilized')}><LogOut className="w-3.5 h-3.5" /></Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">Demobilize</TooltipContent>
+                              </Tooltip>
+                            )}
+                            {canDelete && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete Record</AlertDialogTitle>
+                                        <AlertDialogDescription>This will move {emp.name} to Deleted Personnel. You can restore the record later.</AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => deleteMutation.mutate(emp)} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">Delete Record</TooltipContent>
+                              </Tooltip>
+                            )}
                           </div>
                         </TooltipProvider>
                       </TableCell>
@@ -477,6 +576,14 @@ export default function ComoCamp() {
           )}
         </div>
       </Card>
+
+      <StatusChangeModal
+        open={statusModal.open}
+        emp={statusModal.emp}
+        newStatus={statusModal.newStatus}
+        onClose={() => setStatusModal(s => ({ ...s, open: false }))}
+        onConfirm={(data) => { statusChangeMutation.mutate(data); }}
+      />
     </div>
   );
 }
