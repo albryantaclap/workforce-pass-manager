@@ -1,0 +1,54 @@
+{
+  "name": "AttendanceCorrection",
+  "type": "object",
+  "properties": {
+    "attendance_id": {
+      "type": "string",
+      "description": "ID of the AttendanceRecord that was corrected"
+    },
+    "personnel_id": {
+      "type": "string",
+      "description": "Linked Employee record ID"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Employee name (denormalized)"
+    },
+    "field_changed": {
+      "type": "string",
+      "enum": [
+        "check_in_at",
+        "check_out_at",
+        "duration_minutes"
+      ],
+      "description": "Field that was corrected"
+    },
+    "original_value": {
+      "type": "string",
+      "description": "Original value before correction"
+    },
+    "new_value": {
+      "type": "string",
+      "description": "New value after correction"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Reason for the correction (required)"
+    },
+    "changed_by": {
+      "type": "string",
+      "description": "Email of the admin who made the correction"
+    },
+    "changed_by_name": {
+      "type": "string",
+      "description": "Display name of the admin who made the correction"
+    }
+  },
+  "required": [
+    "attendance_id",
+    "field_changed",
+    "original_value",
+    "new_value",
+    "reason"
+  ]
+}

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save, Check, LayoutDashboard, List, FileSpreadsheet, Printer, FileText } from 'lucide-react';
+import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save, Check, LayoutDashboard, List, FileSpreadsheet, Printer, FileText, History } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import FilterToolbar from '@/components/common/FilterToolbar';
@@ -26,6 +26,14 @@ import ComoCampDashboard from '../components/comocamp/dashboard/ComoCampDashboar
 import { exportDashboardExcel, printDashboardPdf } from '../components/comocamp/dashboard/exportComoCampDashboard';
 import ReportConfigModal from '@/components/dashboard/ReportConfigModal';
 import DashboardReport from '@/components/dashboard/DashboardReport';
+import { todayStr, formatTime, formatDuration, calcDuration, getAttendanceStatus, statusLabel } from '@/lib/attendanceUtils';
+import CheckInDialog from '../components/comocamp/CheckInDialog';
+import CheckOutDialog from '../components/comocamp/CheckOutDialog';
+import AttendanceHistoryDialog from '../components/comocamp/AttendanceHistoryDialog';
+import AttendanceCorrectionDialog from '../components/comocamp/AttendanceCorrectionDialog';
+import AttendanceKpiCards from '../components/comocamp/AttendanceKpiCards';
+import AttendanceFilterBar from '../components/comocamp/AttendanceFilterBar';
+import { CheckInCell, CheckOutCell } from '../components/comocamp/AttendanceCells';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import LocationGridDropdown from '../components/comocamp/LocationGridDropdown';
@@ -140,6 +148,14 @@ export default function ComoCamp() {
   const [reportConfig, setReportConfig] = useState(null);
   const [showReport, setShowReport] = useState(false);
 
+  // ── Attendance (COMO Camp check-in / check-out) ──
+  const [attendanceDate, setAttendanceDate] = useState(todayStr());
+  const [attendanceStatus, setAttendanceStatus] = useState('all');
+  const [checkInDialog, setCheckInDialog] = useState({ open: false, emp: null });
+  const [checkOutDialog, setCheckOutDialog] = useState({ open: false, emp: null, record: null });
+  const [historyDialog, setHistoryDialog] = useState({ open: false, emp: null });
+  const [correctDialog, setCorrectDialog] = useState({ open: false, record: null, emp: null });
+
   const {
     companyOptions: allCompanyOptions = [],
     departmentOptions: allDepartmentOptions = [],
@@ -170,6 +186,21 @@ export default function ComoCamp() {
     queryFn: () => base44.entities.PositionRank.list(undefined, 100000),
   });
   const rankMap = useMemo(() => buildRankMap(positionRanks), [positionRanks]);
+
+  // Today's attendance for the selected date — one record per personnel.
+  // Loaded only in the COMO Camp tab; full history is fetched on demand.
+  const isToday = attendanceDate === todayStr();
+  const canCorrect = currentUser?.role === 'admin';
+  const { data: dayAttendance = [] } = useQuery({
+    queryKey: ['attendance', attendanceDate],
+    queryFn: () => base44.entities.AttendanceRecord.filter({ attendance_date: attendanceDate }, '-check_in_at', 100000),
+    enabled: activeTab === 'como',
+  });
+  const attendanceByPersonnel = useMemo(() => {
+    const m = new Map();
+    for (const r of dayAttendance) if (r.personnel_id) m.set(r.personnel_id, r);
+    return m;
+  }, [dayAttendance]);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
@@ -232,6 +263,88 @@ export default function ComoCamp() {
       toast({ title: 'Personnel deleted', description: 'Record moved to Deleted Personnel.' });
     },
     onError: () => toast({ title: 'Delete failed', variant: 'destructive' }),
+  });
+
+  // ── Attendance mutations (COMO Camp) ──
+  const checkInMutation = useMutation({
+    mutationFn: async ({ emp, at }) => {
+      const attDate = todayStr();
+      const existing = await base44.entities.AttendanceRecord.filter({ personnel_id: emp.id, attendance_date: attDate }, undefined, 1);
+      if (existing.length > 0) throw new Error('Already has an attendance record for today');
+      const rec = await base44.entities.AttendanceRecord.create({
+        personnel_id: emp.id, employee_name: emp.name, company: emp.company,
+        attendance_date: attDate, check_in_at: at.toISOString(), check_out_at: '',
+        duration_minutes: 0, work_location: emp.current_location || 'COMO CAMP',
+        checked_in_by: currentUser?.email || '', checked_in_by_name: currentUser?.full_name || '',
+        checked_out_by: '', checked_out_by_name: '', status: 'open', source_page: 'COMO Camp',
+      });
+      await base44.entities.ActivityLog.create({
+        action: 'create', entity_name: 'AttendanceRecord', entity_id: rec.id,
+        performed_by: currentUser?.email || '', record_name: emp.name,
+        record_snapshot: { attendance_date: attDate, check_in_at: rec.check_in_at, work_location: rec.work_location, source: 'COMO Camp' },
+        changed_fields: ['check_in_at'],
+      });
+      return rec;
+    },
+    onSuccess: (_, { emp }) => {
+      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-history'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      toast({ title: 'Checked in', description: `${emp.name} checked in at ${formatTime(new Date().toISOString())}` });
+    },
+    onError: (e) => toast({ title: 'Check-in failed', description: e.message || 'Could not check in', variant: 'destructive' }),
+  });
+
+  const checkOutMutation = useMutation({
+    mutationFn: async ({ record, at }) => {
+      const outIso = at.toISOString();
+      const duration = calcDuration(record.check_in_at, outIso);
+      const updated = await base44.entities.AttendanceRecord.update(record.id, {
+        check_out_at: outIso, duration_minutes: duration, status: 'completed',
+        checked_out_by: currentUser?.email || '', checked_out_by_name: currentUser?.full_name || '',
+      });
+      await base44.entities.ActivityLog.create({
+        action: 'update', entity_name: 'AttendanceRecord', entity_id: record.id,
+        performed_by: currentUser?.email || '', record_name: record.employee_name,
+        record_snapshot: { check_out_at: outIso, duration_minutes: duration, work_location: record.work_location, source: 'COMO Camp' },
+        changed_fields: ['check_out_at'],
+      });
+      return updated;
+    },
+    onSuccess: (_, { record }) => {
+      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-history'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      toast({ title: 'Checked out', description: `${record.employee_name} session completed.` });
+    },
+    onError: () => toast({ title: 'Check-out failed', variant: 'destructive' }),
+  });
+
+  const correctAttendanceMutation = useMutation({
+    mutationFn: async ({ record, field, originalValue, newValue, reason }) => {
+      const updates = { [field]: newValue };
+      if (field === 'check_out_at' && record.check_in_at) updates.duration_minutes = calcDuration(record.check_in_at, newValue);
+      if (field === 'check_in_at' && record.check_out_at) updates.duration_minutes = calcDuration(newValue, record.check_out_at);
+      await base44.entities.AttendanceRecord.update(record.id, updates);
+      await base44.entities.AttendanceCorrection.create({
+        attendance_id: record.id, personnel_id: record.personnel_id, employee_name: record.employee_name,
+        field_changed: field, original_value: originalValue, new_value: newValue, reason,
+        changed_by: currentUser?.email || '', changed_by_name: currentUser?.full_name || '',
+      });
+      await base44.entities.ActivityLog.create({
+        action: 'update', entity_name: 'AttendanceRecord', entity_id: record.id,
+        performed_by: currentUser?.email || '', record_name: record.employee_name,
+        record_snapshot: { field, original_value: originalValue, new_value: newValue, reason, correction: true },
+        changed_fields: [field],
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-history'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      toast({ title: 'Attendance corrected', description: 'Correction recorded in the audit log.' });
+    },
+    onError: () => toast({ title: 'Correction failed', variant: 'destructive' }),
   });
 
   // Edit-in-Grid save — single updates per changed row so the "Track Employee
@@ -357,6 +470,8 @@ export default function ComoCamp() {
       const matchesTraining = trainingStatusFilter.length === 0 || trainingStatusFilter.includes(emp.training_status);
       const matchesMedical = medicalResultFilter.length === 0 || medicalResultFilter.includes(emp.ftw_result);
       const matchesWorkLocQuick = !workLocationQuick || (emp.current_location || '').trim().toUpperCase() === workLocationQuick;
+      const attRec = isComo ? attendanceByPersonnel.get(emp.id) : null;
+      const matchesAtt = !isComo || attendanceStatus === 'all' || getAttendanceStatus(attRec) === attendanceStatus;
 
       const trainSchedDate = normalizeDate(emp.training_date_scheduled) || '';
       const matchTrainSchedFrom = !trainingScheduledFrom || trainSchedDate >= trainingScheduledFrom;
@@ -378,12 +493,13 @@ export default function ComoCamp() {
         matchesLocation && matchesDirIndir && matchesRlic && matchesPid && matchesTraining && matchesMedical &&
         matchesWorkLocQuick &&
         matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo &&
-        matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo;
+        matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo &&
+        matchesAtt;
     });
   }, [baseDataset, search, companyFilter, departmentFilter, positionFilter, selectedManagerIds, managers,
     locationFilter, dirIndirFilter, rlicStatusFilter, pidStatusFilter, trainingStatusFilter, medicalResultFilter,
     trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
-    gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, workLocationQuick]);
+    gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, workLocationQuick, isComo, attendanceStatus, attendanceByPersonnel]);
 
   // Default sort:
   //  - All Locations: Work Location ASC (blank last) → Company ASC → Position Rank ASC → Full Name ASC
@@ -402,6 +518,18 @@ export default function ComoCamp() {
     }
     return companySorted;
   }, [filtered, rankMap, isComo]);
+
+  // Augment the filtered dataset with the selected date's attendance fields so
+  // the shared Report Configuration / preview engine can render Check-in /
+  // Check-out / Duration / Attendance Status columns (COMO Camp tab only).
+  const reportDataset = useMemo(() => {
+    if (!isComo) return sorted;
+    return sorted.map(e => {
+      const rec = attendanceByPersonnel.get(e.id);
+      if (!rec) return e;
+      return { ...e, check_in_at: rec.check_in_at, check_out_at: rec.check_out_at, duration_minutes: rec.duration_minutes, attendance_status: getAttendanceStatus(rec) };
+    });
+  }, [sorted, attendanceByPersonnel, isComo]);
 
   useEffect(() => {
     saveFilters({
@@ -530,7 +658,8 @@ export default function ComoCamp() {
     trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 ||
     (activeTab === 'all' && locationFilter.length > 0) || !!dirIndirFilter ||
     !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo ||
-    !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
+    !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo ||
+    (isComo && attendanceStatus !== 'all');
 
   const clearFilters = () => {
     setSelectedManagerIds([]); setSearchInput(''); setSearch('');
@@ -543,6 +672,7 @@ export default function ComoCamp() {
     setGpReceivedFrom(''); setGpReceivedTo('');
     setPidIssueFrom(''); setPidIssueTo('');
     setWorkLocationQuick('');
+    setAttendanceStatus('all');
     setPage(0);
   };
 
@@ -563,6 +693,19 @@ export default function ComoCamp() {
     training: (key) => { if (key === 'NO RECORD') return; drillAndShow(() => { const o = findOpt(allTrainingOptions, key); setTrainingStatusFilter(o ? [o.value] : [key]); }); },
     pid: (key) => drillAndShow(() => { const o = findOpt(allPidOptions, key); setPidStatusFilter(o ? [o.value] : [key]); }),
     pidExpiry: (key) => { if (key === 'expired') drillAndShow(() => setPidStatusFilter(['EXPIRED PID PASS'])); },
+  };
+
+  // ── Attendance KPI card click → set attendance status filter + switch to list
+  const handleAttCardClick = (id) => {
+    const map = {
+      attTotal: 'all', attCheckedIn: 'checked_in', attCheckedOut: 'checked_out',
+      attInside: 'checked_in', attNotCheckedIn: 'not_checked_in',
+    };
+    const st = map[id];
+    if (!st) return;
+    setAttendanceStatus(st);
+    setView('list');
+    setPage(0);
   };
 
   // ── KPI card click → quick filter + switch to personnel list
@@ -607,6 +750,13 @@ export default function ComoCamp() {
       Department: e.department || '—',
       'Designation / Position': e.designation_org_chart || e.position_application || '—',
       'Assigned Manager': e.assigned_manager_name || 'Unassigned',
+      ...(isComo ? {
+        'Check-in Date': (() => { const r = attendanceByPersonnel.get(e.id); return r ? r.attendance_date : '—'; })(),
+        'Check-in Time': (() => { const r = attendanceByPersonnel.get(e.id); return r ? formatTime(r.check_in_at) : '—'; })(),
+        'Check-out Time': (() => { const r = attendanceByPersonnel.get(e.id); return r ? formatTime(r.check_out_at) : '—'; })(),
+        'Duration': (() => { const r = attendanceByPersonnel.get(e.id); return r && r.check_out_at ? formatDuration(r.duration_minutes) : '—'; })(),
+        'Attendance Status': statusLabel(attendanceByPersonnel.get(e.id)),
+      } : {}),
     };
   });
 
@@ -620,6 +770,7 @@ export default function ComoCamp() {
       const diff = Math.ceil((d - t) / 86400000);
       daysLeft = diff < 0 ? `Expired ${Math.abs(diff)}d` : `${diff}d`;
     }
+    const rec = isComo ? attendanceByPersonnel.get(e.id) : null;
     return {
       Name: e.name || '—',
       Company: e.company || '—',
@@ -632,9 +783,12 @@ export default function ComoCamp() {
       'PID Expiry': formatDate(e.pid_expiry),
       'PID Days Left': daysLeft,
       'Work Location': e.current_location || '—',
+      'Check-in': rec ? formatTime(rec.check_in_at) : '—',
+      'Check-out': rec ? formatTime(rec.check_out_at) : '—',
+      'Duration': rec && rec.check_out_at ? formatDuration(rec.duration_minutes) : '—',
       Contact: e.contact_details || '—',
     };
-  }), [sorted]);
+  }), [sorted, isComo, attendanceByPersonnel]);
 
   const printColumns = [
     { key: 'Name', label: 'Name' },
@@ -648,6 +802,11 @@ export default function ComoCamp() {
     { key: 'PID Expiry', label: 'PID Expiry' },
     { key: 'PID Days Left', label: 'PID Days Left' },
     { key: 'Work Location', label: 'Work Location' },
+    ...(isComo ? [
+      { key: 'Check-in', label: 'Check-in' },
+      { key: 'Check-out', label: 'Check-out' },
+      { key: 'Duration', label: 'Duration' },
+    ] : []),
     { key: 'Contact', label: 'Contact' },
   ];
 
@@ -693,6 +852,10 @@ export default function ComoCamp() {
     { id: 'training_date_start', label: 'Training Date Started' },
     { id: 'pid_issue_date', label: 'PID Issue Date' },
     { id: 'pid_days_left', label: 'PID Days Left' },
+    { id: 'check_in_at', label: 'Check-in' },
+    { id: 'check_out_at', label: 'Check-out' },
+    { id: 'duration_minutes', label: 'Duration' },
+    { id: 'attendance_status', label: 'Attendance Status' },
   ];
   const COMO_EXTRA_SORT_FIELDS = [
     { id: 'work_location', label: 'Work Location', kind: 'text' },
@@ -893,6 +1056,15 @@ export default function ComoCamp() {
         </div>
       )}
 
+      {isComo && (
+        <AttendanceFilterBar
+          attendanceDate={attendanceDate}
+          setAttendanceDate={setAttendanceDate}
+          attendanceStatus={attendanceStatus}
+          setAttendanceStatus={setAttendanceStatus}
+        />
+      )}
+
       {view === 'dashboard' && (
         <div className="space-y-3">
           <div className="flex justify-end gap-2">
@@ -903,6 +1075,9 @@ export default function ComoCamp() {
               <Printer className="w-3.5 h-3.5" /> Print / PDF
             </Button>
           </div>
+          {isComo && (
+            <AttendanceKpiCards data={sorted} attendanceByPersonnel={attendanceByPersonnel} onCard={handleAttCardClick} />
+          )}
           <ComoCampDashboard data={sorted} isComo={isComo} firstCardLabel={firstCardLabel} onDrill={onDrill} onCard={handleCardClick} />
         </div>
       )}
@@ -932,6 +1107,8 @@ export default function ComoCamp() {
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Expiry</TableHead>
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID Days Left</TableHead>
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Location</TableHead>
+                  {isComo && <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Check-in</TableHead>}
+                  {isComo && <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Check-out</TableHead>}
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Contact</TableHead>
                   <TableHead className="text-xs text-right bg-muted/50 whitespace-nowrap sticky right-0 z-20 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.08)]">Actions</TableHead>
                 </TableRow>
@@ -976,6 +1153,30 @@ export default function ComoCamp() {
                           <span className="text-xs uppercase">{emp.current_location || '—'}</span>
                         )}
                       </TableCell>
+                      {isComo && (
+                        <TableCell className="whitespace-nowrap">
+                          <CheckInCell
+                            emp={emp}
+                            record={attendanceByPersonnel.get(emp.id)}
+                            canEdit={canEdit}
+                            isToday={isToday}
+                            isComoCamp={(emp.current_location || '').trim().toUpperCase() === 'COMO CAMP'}
+                            onCheckIn={(e) => setCheckInDialog({ open: true, emp: e })}
+                          />
+                        </TableCell>
+                      )}
+                      {isComo && (
+                        <TableCell className="whitespace-nowrap">
+                          <CheckOutCell
+                            emp={emp}
+                            record={attendanceByPersonnel.get(emp.id)}
+                            canEdit={canEdit}
+                            isToday={isToday}
+                            isComoCamp={(emp.current_location || '').trim().toUpperCase() === 'COMO CAMP'}
+                            onCheckOut={(e, r) => setCheckOutDialog({ open: true, emp: e, record: r })}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="whitespace-nowrap">
                         {editMode && drafts[emp.id] ? (
                           <input
@@ -999,6 +1200,16 @@ export default function ComoCamp() {
                               </TooltipTrigger>
                               <TooltipContent side="top">View Personnel</TooltipContent>
                             </Tooltip>
+                            {isComo && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setHistoryDialog({ open: true, emp })}>
+                                    <History className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">Attendance History</TooltipContent>
+                              </Tooltip>
+                            )}
                             {canEdit && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -1109,7 +1320,7 @@ export default function ComoCamp() {
 
       {showReportConfig && (
         <ReportConfigModal
-          filtered={sorted}
+          filtered={reportDataset}
           extraSections={COMO_EXTRA_SECTIONS}
           extraColumns={COMO_EXTRA_COLUMNS}
           extraSortFields={COMO_EXTRA_SORT_FIELDS}
@@ -1119,7 +1330,7 @@ export default function ComoCamp() {
       )}
       {showReport && reportConfig && (
         <DashboardReport
-          filtered={sorted}
+          filtered={reportDataset}
           categoryCards={categoryCards}
           reportTitle={reportTitle}
           extraColumns={COMO_EXTRA_COLUMNS}
@@ -1130,6 +1341,37 @@ export default function ComoCamp() {
           managers={managers}
         />
       )}
+
+      <CheckInDialog
+        open={checkInDialog.open}
+        emp={checkInDialog.emp}
+        onClose={() => setCheckInDialog({ open: false, emp: null })}
+        onConfirm={(emp, at) => { setCheckInDialog({ open: false, emp: null }); checkInMutation.mutate({ emp, at }); }}
+      />
+      <CheckOutDialog
+        open={checkOutDialog.open}
+        emp={checkOutDialog.emp}
+        record={checkOutDialog.record}
+        onClose={() => setCheckOutDialog({ open: false, emp: null, record: null })}
+        onConfirm={(record, at) => { setCheckOutDialog({ open: false, emp: null, record: null }); checkOutMutation.mutate({ record, at }); }}
+      />
+      <AttendanceHistoryDialog
+        open={historyDialog.open}
+        emp={historyDialog.emp}
+        canCorrect={canCorrect}
+        onCorrect={(record, emp) => { setHistoryDialog({ open: false, emp: null }); setCorrectDialog({ open: true, record, emp }); }}
+        onClose={() => setHistoryDialog({ open: false, emp: null })}
+      />
+      <AttendanceCorrectionDialog
+        open={correctDialog.open}
+        record={correctDialog.record}
+        emp={correctDialog.emp}
+        onClose={() => setCorrectDialog({ open: false, record: null, emp: null })}
+        onConfirm={(data) => {
+          setCorrectDialog({ open: false, record: null, emp: null });
+          correctAttendanceMutation.mutate(data);
+        }}
+      />
     </div>
   );
 }
