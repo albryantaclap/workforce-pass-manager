@@ -53,3 +53,33 @@ export const statusLabel = (rec) => {
     : s === 'checked_in' ? 'Checked In'
     : 'Checked Out';
 };
+
+// ── Multi-session helpers (multiple check-in/check-out sessions per date) ──
+
+// Group attendance records by personnel_id.
+export const groupByPersonnel = (records) => {
+  const m = new Map();
+  for (const r of records) {
+    if (!r || !r.personnel_id) continue;
+    if (!m.has(r.personnel_id)) m.set(r.personnel_id, []);
+    m.get(r.personnel_id).push(r);
+  }
+  return m;
+};
+
+// The "latest" session for display: prefer an open session, else the most
+// recent completed session by check_in_at descending.
+export const getLatestSession = (sessions) => {
+  if (!sessions || sessions.length === 0) return null;
+  const open = sessions.find(s => s.check_in_at && !s.check_out_at);
+  if (open) return open;
+  const completed = sessions.filter(s => s.check_in_at);
+  if (completed.length === 0) return null;
+  return [...completed].sort((a, b) => new Date(b.check_in_at) - new Date(a.check_in_at))[0];
+};
+
+// The currently open session (check_in set, check_out blank), if any.
+export const getOpenSession = (sessions) => {
+  if (!sessions) return null;
+  return sessions.find(s => s.check_in_at && !s.check_out_at) || null;
+};

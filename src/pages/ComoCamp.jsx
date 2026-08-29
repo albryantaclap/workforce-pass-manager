@@ -26,7 +26,7 @@ import ComoCampDashboard from '../components/comocamp/dashboard/ComoCampDashboar
 import { exportDashboardExcel, printDashboardPdf } from '../components/comocamp/dashboard/exportComoCampDashboard';
 import ReportConfigModal from '@/components/dashboard/ReportConfigModal';
 import DashboardReport from '@/components/dashboard/DashboardReport';
-import { todayStr, formatTime, formatDuration, calcDuration, getAttendanceStatus, statusLabel } from '@/lib/attendanceUtils';
+import { todayStr, formatTime, formatDuration, calcDuration, getAttendanceStatus, statusLabel, groupByPersonnel, getLatestSession, getOpenSession } from '@/lib/attendanceUtils';
 import CheckInDialog from '../components/comocamp/CheckInDialog';
 import CheckOutDialog from '../components/comocamp/CheckOutDialog';
 import AttendanceHistoryDialog from '../components/comocamp/AttendanceHistoryDialog';
@@ -198,11 +198,26 @@ export default function ComoCamp() {
     queryFn: () => base44.entities.AttendanceRecord.filter({ attendance_date: attendanceDate }, '-check_in_at', 100000),
     enabled: activeTab === 'como',
   });
+  // Multiple sessions per day are supported. Derive three views from the day's
+  // records: latest session (for table display / filters / KPIs), the open
+  // session (for check-out + disabling duplicate check-in), and a per-person
+  // session count (for the "N×" badge).
+  const sessionsByPersonnel = useMemo(() => groupByPersonnel(dayAttendance), [dayAttendance]);
   const attendanceByPersonnel = useMemo(() => {
     const m = new Map();
-    for (const r of dayAttendance) if (r.personnel_id) m.set(r.personnel_id, r);
+    for (const [id, arr] of sessionsByPersonnel) m.set(id, getLatestSession(arr));
     return m;
-  }, [dayAttendance]);
+  }, [sessionsByPersonnel]);
+  const openByPersonnel = useMemo(() => {
+    const m = new Map();
+    for (const [id, arr] of sessionsByPersonnel) { const o = getOpenSession(arr); if (o) m.set(id, o); }
+    return m;
+  }, [sessionsByPersonnel]);
+  const countByPersonnel = useMemo(() => {
+    const m = new Map();
+    for (const [id, arr] of sessionsByPersonnel) m.set(id, arr.length);
+    return m;
+  }, [sessionsByPersonnel]);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
@@ -271,8 +286,9 @@ export default function ComoCamp() {
   const checkInMutation = useMutation({
     mutationFn: async ({ emp, at, checkOutAt }) => {
       const attDate = at.toLocaleDateString('en-CA');
-      const existing = await base44.entities.AttendanceRecord.filter({ personnel_id: emp.id, attendance_date: attDate }, undefined, 1);
-      if (existing.length > 0) throw new Error('Already has an attendance record for this date');
+      const existing = await base44.entities.AttendanceRecord.filter({ personnel_id: emp.id, attendance_date: attDate }, undefined, 1000);
+      const openSession = existing.find(r => r.check_in_at && !r.check_out_at);
+      if (openSession) throw new Error('An open check-in session already exists for this date. Check out first before starting a new session.');
       const completed = !!checkOutAt;
       const outIso = completed ? checkOutAt.toISOString() : '';
       const duration = completed ? calcDuration(at.toISOString(), outIso) : 0;
@@ -357,6 +373,87 @@ export default function ComoCamp() {
       toast({ title: 'Attendance corrected', description: 'Correction recorded in the audit log.' });
     },
     onError: () => toast({ title: 'Correction failed', variant: 'destructive' }),
+  });
+
+  // Consolidated, transactional save from the COMO Camp Edit dialog. Persists
+  // personnel fields (Location / Contact) and the linked attendance session in
+  // one mutation: create a new session, or correct the existing latest session
+  // (with a required reason). Throws on failure so the dialog stays open.
+  const saveEditMutation = useMutation({
+    mutationFn: async ({ emp, record, personnelFields, checkInAt, checkOutAt, reason }) => {
+      const email = currentUser?.email || '';
+      const name = currentUser?.full_name || '';
+      const role = currentUser?.role || '';
+      // 1. Personnel fields (shared Master List record)
+      if (Object.keys(personnelFields).length) {
+        const payload = { ...personnelFields, _last_updated_by: email, _last_updated_by_name: name, _last_updated_by_role: role, _last_updated_at: new Date().toISOString() };
+        await base44.entities.Employee.update(emp.id, payload);
+      }
+      // 2. Attendance session
+      const hasRecord = !!record;
+      if (!hasRecord) {
+        if (!checkInAt) return; // nothing to save
+        const attDate = checkInAt.toLocaleDateString('en-CA');
+        const existing = await base44.entities.AttendanceRecord.filter({ personnel_id: emp.id, attendance_date: attDate }, undefined, 1000);
+        const openSession = existing.find(r => r.check_in_at && !r.check_out_at);
+        if (openSession) throw new Error('An open check-in session already exists for this date. Check out first before starting a new session.');
+        const completed = !!checkOutAt;
+        const outIso = completed ? checkOutAt.toISOString() : '';
+        const duration = completed ? calcDuration(checkInAt.toISOString(), outIso) : 0;
+        const rec = await base44.entities.AttendanceRecord.create({
+          personnel_id: emp.id, employee_name: emp.name, company: emp.company,
+          attendance_date: attDate, check_in_at: checkInAt.toISOString(), check_out_at: outIso,
+          duration_minutes: duration, work_location: emp.current_location || 'COMO CAMP',
+          checked_in_by: email, checked_in_by_name: name,
+          checked_out_by: completed ? email : '', checked_out_by_name: completed ? name : '',
+          status: completed ? 'completed' : 'open', source_page: 'COMO Camp',
+        });
+        await base44.entities.ActivityLog.create({
+          action: 'create', entity_name: 'AttendanceRecord', entity_id: rec.id,
+          performed_by: email, record_name: emp.name,
+          record_snapshot: { attendance_date: attDate, check_in_at: rec.check_in_at, check_out_at: outIso, duration_minutes: duration, source: 'COMO Camp', action_type: completed ? 'Check-in + Check-out' : 'Check-in' },
+          changed_fields: completed ? ['check_in_at', 'check_out_at'] : ['check_in_at'],
+        });
+        return;
+      }
+      // Correct the existing (latest) session
+      const finalIn = checkInAt ? checkInAt.toISOString() : record.check_in_at;
+      const finalOut = checkOutAt ? checkOutAt.toISOString() : '';
+      const inChanged = record.check_in_at && checkInAt && checkInAt.toISOString() !== record.check_in_at;
+      const outChanged = record.check_out_at ? (!!checkOutAt && checkOutAt.toISOString() !== record.check_out_at) : !!checkOutAt;
+      const outCleared = record.check_out_at && !checkOutAt;
+      const anyAttChange = inChanged || outChanged || outCleared;
+      if (!anyAttChange) return;
+      if (!reason.trim()) throw new Error('A correction reason is required when modifying existing attendance.');
+      const updates = {};
+      if (inChanged) updates.check_in_at = finalIn;
+      if (outChanged) updates.check_out_at = finalOut;
+      if (outCleared) updates.check_out_at = '';
+      updates.duration_minutes = (finalIn && finalOut) ? calcDuration(finalIn, finalOut) : 0;
+      updates.status = finalOut ? 'completed' : 'open';
+      if (outChanged || outCleared) {
+        updates.checked_out_by = finalOut ? email : '';
+        updates.checked_out_by_name = finalOut ? name : '';
+      }
+      await base44.entities.AttendanceRecord.update(record.id, updates);
+      if (inChanged) await base44.entities.AttendanceCorrection.create({ attendance_id: record.id, personnel_id: record.personnel_id, employee_name: record.employee_name, field_changed: 'check_in_at', original_value: record.check_in_at, new_value: finalIn, reason: reason.trim(), changed_by: email, changed_by_name: name });
+      if (outChanged) await base44.entities.AttendanceCorrection.create({ attendance_id: record.id, personnel_id: record.personnel_id, employee_name: record.employee_name, field_changed: 'check_out_at', original_value: record.check_out_at, new_value: finalOut, reason: reason.trim(), changed_by: email, changed_by_name: name });
+      if (outCleared) await base44.entities.AttendanceCorrection.create({ attendance_id: record.id, personnel_id: record.personnel_id, employee_name: record.employee_name, field_changed: 'check_out_at', original_value: record.check_out_at, new_value: '', reason: reason.trim(), changed_by: email, changed_by_name: name });
+      await base44.entities.ActivityLog.create({
+        action: 'update', entity_name: 'AttendanceRecord', entity_id: record.id,
+        performed_by: email, record_name: record.employee_name,
+        record_snapshot: { ...updates, correction: true, source: 'COMO Camp Edit', action_type: 'Attendance Corrected', previous_check_in: record.check_in_at, previous_check_out: record.check_out_at, previous_duration: record.duration_minutes, reason: reason.trim() },
+        changed_fields: Object.keys(updates).filter(k => k !== 'duration_minutes' && k !== 'status'),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-history'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      toast({ title: 'Changes saved', description: 'Attendance and personnel updates synced across all modules.' });
+    },
+    onError: (e) => toast({ title: 'Save failed', description: e.message || 'Could not save changes', variant: 'destructive' }),
   });
 
   // Edit-in-Grid save — single updates per changed row so the "Track Employee
@@ -1169,11 +1266,14 @@ export default function ComoCamp() {
                         <TableCell className="whitespace-nowrap">
                           <CheckInCell
                             emp={emp}
-                            record={attendanceByPersonnel.get(emp.id)}
+                            openRecord={openByPersonnel.get(emp.id)}
+                            latestRecord={attendanceByPersonnel.get(emp.id)}
+                            sessionCount={countByPersonnel.get(emp.id) || 0}
                             canEdit={canEdit}
                             isToday={isToday}
                             isComoCamp={(emp.current_location || '').trim().toUpperCase() === 'COMO CAMP'}
                             onCheckIn={(e) => setCheckInDialog({ open: true, emp: e })}
+                            onHistory={(e) => setHistoryDialog({ open: true, emp: e })}
                           />
                         </TableCell>
                       )}
@@ -1181,7 +1281,8 @@ export default function ComoCamp() {
                         <TableCell className="whitespace-nowrap">
                           <CheckOutCell
                             emp={emp}
-                            record={attendanceByPersonnel.get(emp.id)}
+                            openRecord={openByPersonnel.get(emp.id)}
+                            latestRecord={attendanceByPersonnel.get(emp.id)}
                             canEdit={canEdit}
                             isToday={isToday}
                             isComoCamp={(emp.current_location || '').trim().toUpperCase() === 'COMO CAMP'}
@@ -1396,14 +1497,10 @@ export default function ComoCamp() {
         record={editDialog.emp ? attendanceByPersonnel.get(editDialog.emp.id) : null}
         attendanceDate={attendanceDate}
         canEdit={canEdit}
-        canCorrect={canCorrect}
         locationOptions={allLocationOptions}
         onClose={() => setEditDialog({ open: false, emp: null })}
-        onSaveEmployee={(emp, fields) => gridSaveMutation.mutate({ changes: [{ id: emp.id, fields }] })}
-        onCheckIn={(emp, at, checkOutAt) => checkInMutation.mutate({ emp, at, checkOutAt })}
-        onCheckOut={(record, at) => checkOutMutation.mutate({ record, at })}
-        onCorrect={(record, field, newValue, reason) =>
-          correctAttendanceMutation.mutate({ record, field, originalValue: record[field] || '', newValue, reason, source: 'COMO Camp Edit' })}
+        onSave={(emp, record, personnelFields, checkInAt, checkOutAt, reason) =>
+          saveEditMutation.mutateAsync({ emp, record, personnelFields, checkInAt, checkOutAt, reason })}
       />
     </div>
   );

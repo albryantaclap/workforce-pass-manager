@@ -59,7 +59,7 @@ function ReadOnly({ label, value }) {
 
 export default function ComoCampEditDialog({
   open, emp, record, attendanceDate, canEdit, locationOptions,
-  onClose, onSaveEmployee, onCheckIn, onCheckOut, onCorrect,
+  onClose, onSave,
 }) {
   const [locDraft, setLocDraft] = useState('');
   const [contactDraft, setContactDraft] = useState('');
@@ -69,6 +69,7 @@ export default function ComoCampEditDialog({
   const [checkOutTime, setCheckOutTime] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open || !emp) return;
@@ -95,48 +96,40 @@ export default function ComoCampEditDialog({
 
   if (!emp) return null;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setError('');
-    // Validate attendance order (only when both are set)
+    if (hasRecord && !checkInAt) { setError('Check-in date and time are required.'); return; }
     if (checkInAt && checkOutAt && checkOutAt <= checkInAt) {
       setError('Check-out date and time must be later than the Check-in date and time.');
       return;
     }
-    // Determine corrections (editing existing attendance values)
-    const correctingCheckIn = hasRecord && record.check_in_at && checkInAt && checkInAt.toISOString() !== record.check_in_at;
-    const correctingCheckOut = hasRecord && record.check_out_at && checkOutAt && checkOutAt.toISOString() !== record.check_out_at;
-    if ((correctingCheckIn || correctingCheckOut) && !reason.trim()) {
+    const inChanged = hasRecord && record.check_in_at && checkInAt && checkInAt.toISOString() !== record.check_in_at;
+    const outChanged = hasRecord && record.check_out_at ? (!!checkOutAt && checkOutAt.toISOString() !== record.check_out_at) : !!checkOutAt;
+    const outCleared = hasRecord && record.check_out_at && !checkOutAt;
+    const needsReason = hasRecord && (inChanged || outChanged || outCleared);
+    if (needsReason && !reason.trim()) {
       setError('A correction reason is required when modifying existing attendance.');
       return;
     }
-    // 1. Personnel fields (Location / Contact) — shared Master List record
-    const fields = {};
-    if ((locDraft || '').trim() !== (emp.current_location || '').trim()) fields.current_location = (locDraft || '').trim();
-    if ((contactDraft || '') !== (emp.contact_details || '')) fields.contact_details = contactDraft || '';
-    if (Object.keys(fields).length) onSaveEmployee(emp, fields);
-
-    // 2. Check-in — create (optionally completed) or correct. Never creates a
-    //    new record when one already exists.
-    if (checkInAt) {
-      if (!hasRecord) {
-        onCheckIn(emp, checkInAt, checkOutAt || undefined);
-      } else if (correctingCheckIn) {
-        onCorrect(record, 'check_in_at', checkInAt.toISOString(), reason.trim());
-      }
+    const personnelFields = {};
+    if ((locDraft || '').trim() !== (emp.current_location || '').trim()) personnelFields.current_location = (locDraft || '').trim();
+    if ((contactDraft || '') !== (emp.contact_details || '')) personnelFields.contact_details = contactDraft || '';
+    setSaving(true);
+    try {
+      await onSave(emp, record, personnelFields, checkInAt, checkOutAt, reason.trim());
+      onClose();
+    } catch (e) {
+      setError(e.message || 'Save failed. Please try again.');
+    } finally {
+      setSaving(false);
     }
-    // 3. Check-out — complete an open session or correct an existing one.
-    if (checkOutAt) {
-      if (hasRecord && !record.check_out_at) {
-        onCheckOut(record, checkOutAt);
-      } else if (correctingCheckOut) {
-        onCorrect(record, 'check_out_at', checkOutAt.toISOString(), reason.trim());
-      }
-    }
-    onClose();
   };
 
-  const needsReason = (hasRecord && record.check_in_at && checkInAt && checkInAt.toISOString() !== record.check_in_at) ||
-    (hasRecord && record.check_out_at && checkOutAt && checkOutAt.toISOString() !== record.check_out_at);
+  const needsReason = hasRecord && (
+    (record.check_in_at && checkInAt && checkInAt.toISOString() !== record.check_in_at) ||
+    (record.check_out_at ? (!!checkOutAt && checkOutAt.toISOString() !== record.check_out_at) : !!checkOutAt) ||
+    (record.check_out_at && !checkOutAt)
+  );
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -247,7 +240,7 @@ export default function ComoCampEditDialog({
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!canEdit}>Save Changes</Button>
+          <Button onClick={handleSave} disabled={!canEdit || saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
