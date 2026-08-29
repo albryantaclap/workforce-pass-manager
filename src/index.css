@@ -188,8 +188,9 @@
 .dropdown-location:hover { background-color: #fef3c7 !important; }
 .dropdown-location:focus-within { box-shadow: 0 0 0 1px #f59e0b !important; }
 
-/* Compact date picker inputs — consistent across all modules */
-input[type="date"] {
+/* Compact date/time picker inputs — consistent across all modules */
+input[type="date"],
+input[type="time"] {
   font-size: 0.75rem;   /* text-xs */
   height: 2rem;         /* h-8 */
   padding-top: 0.25rem;
@@ -203,7 +204,8 @@ input[type="date"] {
 }
 
 /* Keep the calendar picker icon vertically aligned */
-input[type="date"]::-webkit-calendar-picker-indicator {
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
   width: 14px;
   height: 14px;
   cursor: pointer;
@@ -213,7 +215,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* Firefox date input */
-input[type="date"]::-moz-calendar-picker-indicator {
+input[type="date"]::-moz-calendar-picker-indicator,
+input[type="time"]::-moz-calendar-picker-indicator {
   width: 14px;
   height: 14px;
 }

@@ -268,9 +268,9 @@ export default function ComoCamp() {
   // ── Attendance mutations (COMO Camp) ──
   const checkInMutation = useMutation({
     mutationFn: async ({ emp, at }) => {
-      const attDate = todayStr();
+      const attDate = at.toLocaleDateString('en-CA');
       const existing = await base44.entities.AttendanceRecord.filter({ personnel_id: emp.id, attendance_date: attDate }, undefined, 1);
-      if (existing.length > 0) throw new Error('Already has an attendance record for today');
+      if (existing.length > 0) throw new Error('Already has an attendance record for this date');
       const rec = await base44.entities.AttendanceRecord.create({
         personnel_id: emp.id, employee_name: emp.name, company: emp.company,
         attendance_date: attDate, check_in_at: at.toISOString(), check_out_at: '',
@@ -286,11 +286,11 @@ export default function ComoCamp() {
       });
       return rec;
     },
-    onSuccess: (_, { emp }) => {
+    onSuccess: (_, { emp, at }) => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
       queryClient.invalidateQueries({ queryKey: ['attendance-history'] });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
-      toast({ title: 'Checked in', description: `${emp.name} checked in at ${formatTime(new Date().toISOString())}` });
+      toast({ title: 'Checked in', description: `${emp.name} checked in at ${formatTime(at.toISOString())}` });
     },
     onError: (e) => toast({ title: 'Check-in failed', description: e.message || 'Could not check in', variant: 'destructive' }),
   });
