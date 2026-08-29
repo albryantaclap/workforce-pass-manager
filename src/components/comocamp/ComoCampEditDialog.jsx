@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import StatusBadge from '../common/StatusBadge';
 import PidDaysLeftBadge from './PidDaysLeftBadge';
 import LocationGridDropdown from './LocationGridDropdown';
-import { computePassStatus, formatDate } from '@/utils/constants';
+import { formatDate } from '@/utils/constants';
 import { formatDuration, calcDuration } from '@/lib/attendanceUtils';
 import { cn } from '@/lib/utils';
 
@@ -58,7 +58,7 @@ function ReadOnly({ label, value }) {
 }
 
 export default function ComoCampEditDialog({
-  open, emp, record, attendanceDate, canEdit, canCorrect, locationOptions,
+  open, emp, record, attendanceDate, canEdit, locationOptions,
   onClose, onSaveEmployee, onCheckIn, onCheckOut, onCorrect,
 }) {
   const [locDraft, setLocDraft] = useState('');
@@ -83,10 +83,12 @@ export default function ComoCampEditDialog({
   }, [open, emp, record, attendanceDate]);
 
   const hasRecord = !!record;
-  // Check-in: editable when creating (no record) or correcting (admin only).
-  const checkInEditable = canEdit && (!hasRecord || canCorrect);
-  // Check-out: requires an existing check-in; complete when open, correct when completed (admin).
-  const checkOutEditable = canEdit && hasRecord && !!record?.check_in_at && (!record.check_out_at || canCorrect);
+  // All four attendance fields remain editable at all times for authorized
+  // attendance editors. View-only users (canEdit = false) see them read-only.
+  const checkInEditable = canEdit;
+  // Check-out is meaningful only once a check-in exists (recorded or entered
+  // in the draft above); it stays editable for any authorized editor.
+  const checkOutEditable = canEdit && (!!record?.check_in_at || !!checkInAt);
 
   const checkInAt = useMemo(() => buildDateTime(checkInDate, checkInTime), [checkInDate, checkInTime]);
   const checkOutAt = useMemo(() => buildDateTime(checkOutDate, checkOutTime), [checkOutDate, checkOutTime]);
@@ -114,15 +116,16 @@ export default function ComoCampEditDialog({
     if ((contactDraft || '') !== (emp.contact_details || '')) fields.contact_details = contactDraft || '';
     if (Object.keys(fields).length) onSaveEmployee(emp, fields);
 
-    // 2. Check-in
+    // 2. Check-in — create (optionally completed) or correct. Never creates a
+    //    new record when one already exists.
     if (checkInAt) {
       if (!hasRecord) {
-        onCheckIn(emp, checkInAt);
+        onCheckIn(emp, checkInAt, checkOutAt || undefined);
       } else if (correctingCheckIn) {
         onCorrect(record, 'check_in_at', checkInAt.toISOString(), reason.trim());
       }
     }
-    // 3. Check-out
+    // 3. Check-out — complete an open session or correct an existing one.
     if (checkOutAt) {
       if (hasRecord && !record.check_out_at) {
         onCheckOut(record, checkOutAt);
@@ -133,8 +136,6 @@ export default function ComoCampEditDialog({
     onClose();
   };
 
-  const pidStatus = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
-  const gpStatus = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
   const needsReason = (hasRecord && record.check_in_at && checkInAt && checkInAt.toISOString() !== record.check_in_at) ||
     (hasRecord && record.check_out_at && checkOutAt && checkOutAt.toISOString() !== record.check_out_at);
 
@@ -230,11 +231,8 @@ export default function ComoCampEditDialog({
               <span className="text-xs text-muted-foreground">Duration</span>
               <span className="text-sm font-medium">{formatDuration(duration)}</span>
             </div>
-            {!checkInEditable && hasRecord && (
-              <p className="text-[10px] text-muted-foreground">Check-in is read-only once recorded. Admins can correct it (reason required below).</p>
-            )}
-            {!checkOutEditable && (
-              <p className="text-[10px] text-muted-foreground">Check-out requires an existing check-in{hasRecord && record.check_out_at ? ' and is admin-correctable' : ''}.</p>
+            {!checkOutAt && (
+              <p className="text-[10px] text-muted-foreground">Leave Check-out blank to keep the session as Checked In / Currently Inside.</p>
             )}
             {needsReason && (
               <div className="space-y-1">

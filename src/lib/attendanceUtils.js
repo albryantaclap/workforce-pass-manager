@@ -32,12 +32,12 @@ export const calcDuration = (checkInIso, checkOutIso) => {
   return Math.max(0, Math.round(ms / 60000));
 };
 
-// "10h 18m" style duration label
+// "10h 00m" style duration label (minutes zero-padded)
 export const formatDuration = (mins) => {
   if (!mins || mins <= 0) return '—';
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return `${h}h ${m}m`;
+  return `${h}h ${String(m).padStart(2, '0')}m`;
 };
 
 export const getAttendanceStatus = (rec) => {

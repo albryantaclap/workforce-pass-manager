@@ -269,22 +269,26 @@ export default function ComoCamp() {
 
   // ── Attendance mutations (COMO Camp) ──
   const checkInMutation = useMutation({
-    mutationFn: async ({ emp, at }) => {
+    mutationFn: async ({ emp, at, checkOutAt }) => {
       const attDate = at.toLocaleDateString('en-CA');
       const existing = await base44.entities.AttendanceRecord.filter({ personnel_id: emp.id, attendance_date: attDate }, undefined, 1);
       if (existing.length > 0) throw new Error('Already has an attendance record for this date');
+      const completed = !!checkOutAt;
+      const outIso = completed ? checkOutAt.toISOString() : '';
+      const duration = completed ? calcDuration(at.toISOString(), outIso) : 0;
       const rec = await base44.entities.AttendanceRecord.create({
         personnel_id: emp.id, employee_name: emp.name, company: emp.company,
-        attendance_date: attDate, check_in_at: at.toISOString(), check_out_at: '',
-        duration_minutes: 0, work_location: emp.current_location || 'COMO CAMP',
+        attendance_date: attDate, check_in_at: at.toISOString(), check_out_at: outIso,
+        duration_minutes: duration, work_location: emp.current_location || 'COMO CAMP',
         checked_in_by: currentUser?.email || '', checked_in_by_name: currentUser?.full_name || '',
-        checked_out_by: '', checked_out_by_name: '', status: 'open', source_page: 'COMO Camp',
+        checked_out_by: completed ? currentUser?.email || '' : '', checked_out_by_name: completed ? currentUser?.full_name || '' : '',
+        status: completed ? 'completed' : 'open', source_page: 'COMO Camp',
       });
       await base44.entities.ActivityLog.create({
         action: 'create', entity_name: 'AttendanceRecord', entity_id: rec.id,
         performed_by: currentUser?.email || '', record_name: emp.name,
-        record_snapshot: { attendance_date: attDate, check_in_at: rec.check_in_at, work_location: rec.work_location, source: 'COMO Camp' },
-        changed_fields: ['check_in_at'],
+        record_snapshot: { attendance_date: attDate, check_in_at: rec.check_in_at, check_out_at: outIso, duration_minutes: duration, work_location: rec.work_location, source: 'COMO Camp' },
+        changed_fields: completed ? ['check_in_at', 'check_out_at'] : ['check_in_at'],
       });
       return rec;
     },
@@ -323,8 +327,9 @@ export default function ComoCamp() {
   });
 
   const correctAttendanceMutation = useMutation({
-    mutationFn: async ({ record, field, originalValue, newValue, reason }) => {
+    mutationFn: async ({ record, field, originalValue, newValue, reason, source }) => {
       const updates = { [field]: newValue };
+      const previousDuration = record.duration_minutes || 0;
       if (field === 'check_out_at' && record.check_in_at) updates.duration_minutes = calcDuration(record.check_in_at, newValue);
       if (field === 'check_in_at' && record.check_out_at) updates.duration_minutes = calcDuration(newValue, record.check_out_at);
       await base44.entities.AttendanceRecord.update(record.id, updates);
@@ -336,7 +341,12 @@ export default function ComoCamp() {
       await base44.entities.ActivityLog.create({
         action: 'update', entity_name: 'AttendanceRecord', entity_id: record.id,
         performed_by: currentUser?.email || '', record_name: record.employee_name,
-        record_snapshot: { field, original_value: originalValue, new_value: newValue, reason, correction: true },
+        record_snapshot: {
+          field, original_value: originalValue, new_value: newValue, reason, correction: true,
+          source: source || 'COMO Camp',
+          previous_check_in: record.check_in_at, previous_check_out: record.check_out_at,
+          previous_duration: previousDuration, new_duration: updates.duration_minutes ?? previousDuration,
+        },
         changed_fields: [field],
       });
     },
@@ -1390,10 +1400,10 @@ export default function ComoCamp() {
         locationOptions={allLocationOptions}
         onClose={() => setEditDialog({ open: false, emp: null })}
         onSaveEmployee={(emp, fields) => gridSaveMutation.mutate({ changes: [{ id: emp.id, fields }] })}
-        onCheckIn={(emp, at) => checkInMutation.mutate({ emp, at })}
+        onCheckIn={(emp, at, checkOutAt) => checkInMutation.mutate({ emp, at, checkOutAt })}
         onCheckOut={(record, at) => checkOutMutation.mutate({ record, at })}
         onCorrect={(record, field, newValue, reason) =>
-          correctAttendanceMutation.mutate({ record, field, originalValue: record[field] || '', newValue, reason })}
+          correctAttendanceMutation.mutate({ record, field, originalValue: record[field] || '', newValue, reason, source: 'COMO Camp Edit' })}
       />
     </div>
   );
