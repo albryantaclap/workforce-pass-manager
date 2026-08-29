@@ -83,16 +83,15 @@ export default function ComoCampEditDialog({
   }, [open, emp, record, attendanceDate]);
 
   const hasRecord = !!record;
+  const checkInAt = useMemo(() => buildDateTime(checkInDate, checkInTime), [checkInDate, checkInTime]);
+  const checkOutAt = useMemo(() => buildDateTime(checkOutDate, checkOutTime), [checkOutDate, checkOutTime]);
+  const duration = checkInAt && checkOutAt ? calcDuration(checkInAt.toISOString(), checkOutAt.toISOString()) : 0;
   // All four attendance fields remain editable at all times for authorized
   // attendance editors. View-only users (canEdit = false) see them read-only.
   const checkInEditable = canEdit;
   // Check-out is meaningful only once a check-in exists (recorded or entered
   // in the draft above); it stays editable for any authorized editor.
   const checkOutEditable = canEdit && (!!record?.check_in_at || !!checkInAt);
-
-  const checkInAt = useMemo(() => buildDateTime(checkInDate, checkInTime), [checkInDate, checkInTime]);
-  const checkOutAt = useMemo(() => buildDateTime(checkOutDate, checkOutTime), [checkOutDate, checkOutTime]);
-  const duration = checkInAt && checkOutAt ? calcDuration(checkInAt.toISOString(), checkOutAt.toISOString()) : 0;
 
   if (!emp) return null;
 
