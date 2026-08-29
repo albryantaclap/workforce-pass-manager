@@ -31,6 +31,7 @@ import CheckInDialog from '../components/comocamp/CheckInDialog';
 import CheckOutDialog from '../components/comocamp/CheckOutDialog';
 import AttendanceHistoryDialog from '../components/comocamp/AttendanceHistoryDialog';
 import AttendanceCorrectionDialog from '../components/comocamp/AttendanceCorrectionDialog';
+import ComoCampEditDialog from '../components/comocamp/ComoCampEditDialog';
 import AttendanceKpiCards from '../components/comocamp/AttendanceKpiCards';
 import AttendanceFilterBar from '../components/comocamp/AttendanceFilterBar';
 import { CheckInCell, CheckOutCell } from '../components/comocamp/AttendanceCells';
@@ -155,6 +156,7 @@ export default function ComoCamp() {
   const [checkOutDialog, setCheckOutDialog] = useState({ open: false, emp: null, record: null });
   const [historyDialog, setHistoryDialog] = useState({ open: false, emp: null });
   const [correctDialog, setCorrectDialog] = useState({ open: false, record: null, emp: null });
+  const [editDialog, setEditDialog] = useState({ open: false, emp: null });
 
   const {
     companyOptions: allCompanyOptions = [],
@@ -1213,9 +1215,15 @@ export default function ComoCamp() {
                             {canEdit && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Link to={`/employees/${emp.id}/edit`} onClick={saveScroll}>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button>
-                                  </Link>
+                                  {isComo ? (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditDialog({ open: true, emp })}>
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                  ) : (
+                                    <Link to={`/employees/${emp.id}/edit`} onClick={saveScroll}>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button>
+                                    </Link>
+                                  )}
                                 </TooltipTrigger>
                                 <TooltipContent side="top">Edit Personnel</TooltipContent>
                               </Tooltip>
@@ -1371,6 +1379,21 @@ export default function ComoCamp() {
           setCorrectDialog({ open: false, record: null, emp: null });
           correctAttendanceMutation.mutate(data);
         }}
+      />
+      <ComoCampEditDialog
+        open={editDialog.open}
+        emp={editDialog.emp}
+        record={editDialog.emp ? attendanceByPersonnel.get(editDialog.emp.id) : null}
+        attendanceDate={attendanceDate}
+        canEdit={canEdit}
+        canCorrect={canCorrect}
+        locationOptions={allLocationOptions}
+        onClose={() => setEditDialog({ open: false, emp: null })}
+        onSaveEmployee={(emp, fields) => gridSaveMutation.mutate({ changes: [{ id: emp.id, fields }] })}
+        onCheckIn={(emp, at) => checkInMutation.mutate({ emp, at })}
+        onCheckOut={(record, at) => checkOutMutation.mutate({ record, at })}
+        onCorrect={(record, field, newValue, reason) =>
+          correctAttendanceMutation.mutate({ record, field, originalValue: record[field] || '', newValue, reason })}
       />
     </div>
   );
