@@ -174,10 +174,10 @@ const sortByOnboardingPriority = (rows) => [...rows].sort((a, b) => {
 // ── HTML builder ──────────────────────────────────────────────────────────
 function buildCSS(colCount) {
   return `
-  @page { size: ${colCount > 10 ? 'A3 landscape' : 'auto'}; margin: 10mm; }
+  @page { size: auto; margin: 10mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; background: white; }
-  .wrap { padding: 24px; max-width: 1050px; margin: 0 auto; }
+  .wrap { padding: 24px; max-width: 820px; margin: 0 auto; }
   h1 { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
   .meta { color: #64748b; font-size: 10px; margin-bottom: 20px; }
   h2 { font-size: 13px; font-weight: 700; color: #334155; margin: 20px 0 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; }
