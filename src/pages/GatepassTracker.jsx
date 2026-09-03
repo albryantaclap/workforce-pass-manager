@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import StatusBadge from '../components/common/StatusBadge';
-import { COMPANIES, RLIC_STATUSES, formatDate, daysUntil, computePassStatus } from '@/utils/constants';
+import { COMPANIES, RLIC_STATUSES, formatDate, daysUntil, computePassStatus, calcProcessingDays } from '@/utils/constants';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
@@ -215,12 +215,8 @@ export default function GatepassTracker() {
   };
 
   const getExportData = () => filtered.map(e => {
-    let processingDays = '—';
-    if (e.gate_pass_issue_date && e.gate_pass_received_date) {
-      const submitted = new Date(e.gate_pass_issue_date); submitted.setHours(0,0,0,0);
-      const received = new Date(e.gate_pass_received_date); received.setHours(0,0,0,0);
-      processingDays = `${Math.round((received - submitted) / (1000 * 60 * 60 * 24))}d`;
-    }
+    const pd = calcProcessingDays(e.gate_pass_issue_date, e.gate_pass_received_date);
+    const processingDays = pd === null ? '—' : `${pd}d`;
     return {
       Name: e.name, Company: e.company, Nationality: e.nationality, QID_No: e.qid_no,
       Staff_No: e.staff_no, Gate_Pass_Submitted_Date: formatDate(e.gate_pass_issue_date),
@@ -455,12 +451,10 @@ export default function GatepassTracker() {
                        <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_issue_date} field="gate_pass_issue_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                        <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_received_date} field="gate_pass_received_date" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                        <TableCell className="text-xs">
-                         {emp.gate_pass_issue_date && emp.gate_pass_received_date ? (() => {
-                           const submitted = new Date(emp.gate_pass_issue_date); submitted.setHours(0,0,0,0);
-                           const received = new Date(emp.gate_pass_received_date); received.setHours(0,0,0,0);
-                           const diff = Math.round((received - submitted) / (1000 * 60 * 60 * 24));
-                           return <span className="font-semibold text-blue-600">{diff}d</span>;
-                         })() : <span className="text-muted-foreground">—</span>}
+                         {(() => {
+                           const pd = calcProcessingDays(emp.gate_pass_issue_date, emp.gate_pass_received_date);
+                           return pd === null ? <span className="text-muted-foreground">—</span> : <span className="font-semibold text-blue-600">{pd}d</span>;
+                         })()}
                        </TableCell>
                        <TableCell className="text-xs"><InlineEditCell value={emp.gate_pass_expiry} field="gate_pass_expiry" empId={emp.id} type="date" onSave={handleCellSave} editMode={editMode} onFillDown={editMode ? handleFillDown : undefined} /></TableCell>
                         <TableCell>

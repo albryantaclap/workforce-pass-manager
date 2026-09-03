@@ -113,6 +113,24 @@ export function daysUntil(dateStr) {
   return Math.ceil((d - today) / (1000 * 60 * 60 * 24));
 }
 
+// Shared Gate Pass processing-days calculation (calendar-day difference between
+// the Gate Pass Submitted date and the Gate Pass Received date). Returns the
+// numeric day difference, or null if either date is missing/invalid. Used by
+// the Gate Pass module and Onboarding Monitoring so the same employee never
+// shows different Processing Days on different pages.
+export function calcProcessingDays(submittedDateStr, receivedDateStr) {
+  if (!submittedDateStr || !receivedDateStr) return null;
+  const s = normalizeDate(submittedDateStr);
+  const r = normalizeDate(receivedDateStr);
+  if (!s || !r) return null;
+  const sp = s.split('-').map(Number);
+  const rp = r.split('-').map(Number);
+  if (sp.length !== 3 || rp.length !== 3) return null;
+  const sd = new Date(sp[0], sp[1] - 1, sp[2]);
+  const rd = new Date(rp[0], rp[1] - 1, rp[2]);
+  return Math.round((rd - sd) / (1000 * 60 * 60 * 24));
+}
+
 // Built-in status values that are date-derivable — these should NOT be used as custom overrides
 const BUILT_IN_RLIC = new Set(['VALID RLIC PASS', 'EXPIRED RLIC PASS', 'SOON TO EXPIRE', 'NO RLIC PASS']);
 const BUILT_IN_PID = new Set(['VALID PID PASS', 'EXPIRED PID PASS', 'SOON TO EXPIRE', 'NO PID PASS']);
