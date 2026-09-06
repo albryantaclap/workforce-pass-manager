@@ -111,18 +111,28 @@ export default function ManagerAssignmentManager() {
     }
 
     setBulking(true);
-    await Promise.all(targets.map(e =>
-      base44.entities.Employee.update(e.id, {
+    try {
+      const payload = targets.map(e => ({
+        id: e.id,
         assigned_manager_id: bulkManagerId,
         assigned_manager_name: mgr.name,
-      })
-    ));
-    queryClient.invalidateQueries({ queryKey: ['employees-active'] });
-    queryClient.invalidateQueries({ queryKey: ['employees'] });
-    toast.success(`Assigned ${mgr.name} to ${targets.length} employees`);
-    setBulking(false);
-    setBulkValue('');
-    setBulkManagerId('');
+      }));
+      // bulkUpdate accepts up to 500 records per call — chunk to stay under the limit
+      // and avoid firing hundreds of parallel requests that exceed the API rate limit.
+      const CHUNK = 500;
+      for (let i = 0; i < payload.length; i += CHUNK) {
+        await base44.entities.Employee.bulkUpdate(payload.slice(i, i + CHUNK));
+      }
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      toast.success(`Assigned ${mgr.name} to ${targets.length} employees`);
+      setBulkValue('');
+      setBulkManagerId('');
+    } catch (err) {
+      toast.error(err?.message || 'Bulk assign failed.');
+    } finally {
+      setBulking(false);
+    }
   };
 
   // Unique values for bulk dropdowns
