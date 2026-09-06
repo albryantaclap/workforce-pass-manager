@@ -174,6 +174,10 @@ export default function EmployeeForm() {
     queryKey: ['lookups', 'nationality'],
     queryFn: () => base44.entities.Lookup.filter({ type: 'nationality' }),
   });
+  const { data: lookupWorkLocations = [] } = useQuery({
+    queryKey: ['lookups', 'work_location'],
+    queryFn: () => base44.entities.Lookup.filter({ type: 'work_location' }),
+  });
 
   // Managers: active employees with is_manager = true
   const { data: allActiveEmps = [] } = useQuery({
@@ -270,6 +274,15 @@ export default function EmployeeForm() {
       .filter(n => !n.is_deleted)
       .map(n => ({ value: n.value, label: n.label.toUpperCase() }));
   }, [lookupNationalities]);
+
+  // Work Location options — sourced from Admin Panel → Lookups → Work Locations.
+  // Legacy values not in the lookup are still displayed (SearchableSelect falls
+  // back to the raw value) but only registered entries can be newly selected.
+  const workLocationOptions = useMemo(() => {
+    return lookupWorkLocations
+      .filter(w => !w.is_deleted)
+      .map(w => ({ value: w.value, label: w.label.toUpperCase() }));
+  }, [lookupWorkLocations]);
 
   useEffect(() => {
     if (existingEmp && existingEmp.length > 0) {
@@ -737,7 +750,6 @@ export default function EmployeeForm() {
             </Field>
             <SelectInput field="current_location" label="Location / Mobilized" options={allLocations} {...tf} />
             <SelectInput field="dir_indir" label="DIR / INDIR" options={['DIR', 'INDIR']} {...tf} />
-            <TextInput field="staff_no" label="Staff No / RLIC No" {...tf} />
             <Field label="Assigned Manager">
               <SearchableSelect
                 value={form.assigned_manager_id || ''}
@@ -764,8 +776,15 @@ export default function EmployeeForm() {
                 {form.is_manager ? '✓ Yes — Can be assigned as manager' : 'No — Regular employee'}
               </button>
             </Field>
-            <TextInput field="work_location" label="Work Location" placeholder="Enter work location..." {...tf} />
-            <TextInput field="approval_date" label="Approval Date" type="date" {...tf} />
+            <Field label="Work Location">
+              <SearchableSelect
+                value={form.work_location || ''}
+                onChange={v => handleChange('work_location', v)}
+                options={workLocationOptions}
+                placeholder="Search / Select Work Location"
+                emptyMessage="No matching work locations. Add entries in Admin Panel → Lookups → Work Locations."
+              />
+            </Field>
             <Field label="Approval Comments">
               <Textarea
                 value={form.approval_comments || ''}

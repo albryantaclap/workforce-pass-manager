@@ -13,7 +13,8 @@
         "pid_status",
         "ftw_result",
         "training_status",
-        "nationality"
+        "nationality",
+        "work_location"
       ],
       "description": "Lookup category"
     },

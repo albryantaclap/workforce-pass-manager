@@ -58,7 +58,7 @@ function mergeLookups(base, allDbEntries) {
  * Returns options arrays ready to pass to InlineEditCell or select dropdowns.
  */
 export function useLookupOptions() {
-  const lookupTypes = ['company', 'company_type', 'location', 'department', 'rlic_status', 'pid_status', 'ftw_result', 'training_status', 'nationality'];
+  const lookupTypes = ['company', 'company_type', 'location', 'department', 'rlic_status', 'pid_status', 'ftw_result', 'training_status', 'nationality', 'work_location'];
 
   const queries = lookupTypes.map(type =>
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -79,6 +79,7 @@ export function useLookupOptions() {
     { data: dbMedicalResults = [] },
     { data: dbTrainingStatuses = [] },
     { data: dbNationalities = [] },
+    { data: dbWorkLocations = [] },
   ] = queries;
 
   return useMemo(() => ({
@@ -105,5 +106,8 @@ export function useLookupOptions() {
     nationalityOptions: dbNationalities
       .filter(n => !n.is_deleted)
       .map(n => ({ value: n.value, label: n.label.toUpperCase() })),
-  }), [dbCompanies, dbCompanyTypes, dbLocations, dbDepartments, dbRlicStatuses, dbPidStatuses, dbMedicalResults, dbTrainingStatuses, dbNationalities]);
+    workLocationOptions: dbWorkLocations
+      .filter(w => !w.is_deleted)
+      .map(w => ({ value: w.value, label: w.label.toUpperCase() })),
+  }), [dbCompanies, dbCompanyTypes, dbLocations, dbDepartments, dbRlicStatuses, dbPidStatuses, dbMedicalResults, dbTrainingStatuses, dbNationalities, dbWorkLocations]);
 }

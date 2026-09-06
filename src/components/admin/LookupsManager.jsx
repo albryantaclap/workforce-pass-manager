@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trash2, Plus, Pencil, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Pencil, AlertTriangle, X, Loader2, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   COMPANIES, LOCATIONS, DEPARTMENTS,
@@ -24,6 +24,7 @@ const DEFAULTS = {
   ftw_result:      MEDICAL_RESULTS.map(s => ({ value: s.value, label: s.label })),
   training_status: TRAINING_STATUSES.map(s => ({ value: s.value, label: s.label })),
   nationality:     [],
+  work_location:  [],
 };
 
 const TYPE_TO_FIELD = {
@@ -36,6 +37,7 @@ const TYPE_TO_FIELD = {
   ftw_result:      'ftw_result',
   training_status: 'training_status',
   nationality:     'nationality',
+  work_location:  'work_location',
 };
 
 function EditModal({ entry, isBuiltin, onSave, onClose, loading }) {
@@ -151,9 +153,23 @@ function LookupSection({ type, label, hint }) {
   const [savingEdit, setSavingEdit]       = useState(false);
   const [deleting, setDeleting]           = useState(false);
   const [checkingUsage, setCheckingUsage] = useState(false);
+  const [seeding, setSeeding]             = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const handleSeed = async () => {
+    setSeeding(true);
+    try {
+      const res = await base44.functions.invoke('seedWorkLocationLookups', {});
+      invalidate();
+      toast({ title: res?.message || 'Work Locations seeded from existing data.' });
+    } catch (e) {
+      toast({ title: 'Seed failed', description: e?.message || 'Could not seed work locations.', variant: 'destructive' });
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const { data: allDbEntries = [] } = useQuery({
     queryKey: ['lookups', type],
@@ -309,6 +325,13 @@ function LookupSection({ type, label, hint }) {
 
       {hint && <p className="text-xs text-blue-600 bg-blue-50 rounded px-3 py-2">{hint}</p>}
 
+      {type === 'work_location' && (
+        <Button type="button" variant="outline" size="sm" onClick={handleSeed} disabled={seeding} className="gap-1.5">
+          {seeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+          {seeding ? 'Seeding...' : 'Seed from existing data'}
+        </Button>
+      )}
+
       <form onSubmit={handleAdd} className="flex gap-2">
         <Input placeholder="Value (e.g. ACME CORP)" value={newValue} onChange={e => setNewValue(e.target.value)} className="flex-1" />
         <Input placeholder="Display label (optional)" value={newLabel} onChange={e => setNewLabel(e.target.value)} className="flex-1" />
@@ -382,6 +405,7 @@ export default function LookupsManager() {
           <TabsTrigger value="ftw_result">Medical Result</TabsTrigger>
           <TabsTrigger value="training_status">Training Status</TabsTrigger>
           <TabsTrigger value="nationality">Nationalities</TabsTrigger>
+          <TabsTrigger value="work_location">Work Locations</TabsTrigger>
         </TabsList>
         <TabsContent value="company"><LookupSection type="company" label="Company" /></TabsContent>
         <TabsContent value="company_type"><LookupSection type="company_type" label="Company Type" /></TabsContent>
@@ -392,6 +416,7 @@ export default function LookupsManager() {
         <TabsContent value="ftw_result"><LookupSection type="ftw_result" label="Medical Result" hint="Add custom medical result statuses (e.g. UNDER REVIEW). These will appear as filter options in the Medical dashboard." /></TabsContent>
         <TabsContent value="training_status"><LookupSection type="training_status" label="Training Status" hint="Add custom training statuses (e.g. IN PROGRESS). These will appear as options in the Training section." /></TabsContent>
         <TabsContent value="nationality"><LookupSection type="nationality" label="Nationality" hint="Add approved nationalities. Only entries in this list can be selected when adding or editing personnel records." /></TabsContent>
+        <TabsContent value="work_location"><LookupSection type="work_location" label="Work Location" hint="Add approved work locations (e.g. COMO CAMP, CORRIDOR, SITE, OFFICE, OUTSIDE). Only entries in this list can be selected on the Personnel Form. Click ‘Seed from existing data’ to import all work location values currently stored on personnel/approved records." /></TabsContent>
       </Tabs>
     </Card>
   );
