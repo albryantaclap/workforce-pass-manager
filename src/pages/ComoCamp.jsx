@@ -26,7 +26,8 @@ import ComoCampDashboard from '../components/comocamp/dashboard/ComoCampDashboar
 import { exportDashboardExcel, printDashboardPdf } from '../components/comocamp/dashboard/exportComoCampDashboard';
 import ReportConfigModal from '@/components/dashboard/ReportConfigModal';
 import DashboardReport from '@/components/dashboard/DashboardReport';
-import { todayStr, formatTime, formatDuration, calcDuration, getAttendanceStatus, statusLabel, groupByPersonnel, getLatestSession, getOpenSession } from '@/lib/attendanceUtils';
+import { todayStr, formatTime, formatDuration, calcDuration, getAttendanceStatus, statusLabel, groupByPersonnel, getLatestSession, getOpenSession, ATT_STATUS, formatDateTimeCompact } from '@/lib/attendanceUtils';
+import { useLatestAttendance } from '@/hooks/useLatestAttendance';
 import CheckInDialog from '../components/comocamp/CheckInDialog';
 import CheckOutDialog from '../components/comocamp/CheckOutDialog';
 import AttendanceHistoryDialog from '../components/comocamp/AttendanceHistoryDialog';
@@ -218,6 +219,21 @@ export default function ComoCamp() {
     for (const [id, arr] of sessionsByPersonnel) m.set(id, arr.length);
     return m;
   }, [sessionsByPersonnel]);
+
+  // Latest attendance session per personnel — single shared query with the
+  // Master List (all dates, not just the selected date). This is the source of
+  // truth for the row display so both pages show the exact same values.
+  const { latestByPersonnel } = useLatestAttendance();
+  const latestOpenByPersonnel = useMemo(() => {
+    const m = new Map();
+    for (const [id, rec] of latestByPersonnel) {
+      if (rec && rec.check_in_at && !rec.check_out_at) m.set(id, rec);
+    }
+    return m;
+  }, [latestByPersonnel]);
+  // Personnel IDs that have at least one session on the selected date — used
+  // for the "Not Checked in" KPI / filter (no session on the selected date).
+  const daySessionIds = useMemo(() => new Set(sessionsByPersonnel.keys()), [sessionsByPersonnel]);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
@@ -579,8 +595,17 @@ export default function ComoCamp() {
       const matchesTraining = trainingStatusFilter.length === 0 || trainingStatusFilter.includes(emp.training_status);
       const matchesMedical = medicalResultFilter.length === 0 || medicalResultFilter.includes(emp.ftw_result);
       const matchesWorkLocQuick = !workLocationQuick || (emp.current_location || '').trim().toUpperCase() === workLocationQuick;
-      const attRec = isComo ? attendanceByPersonnel.get(emp.id) : null;
-      const matchesAtt = !isComo || attendanceStatus === 'all' || getAttendanceStatus(attRec) === attendanceStatus;
+      // Attendance status filter uses the LATEST session for Checked In /
+      // Checked Out (so it matches the row display and the Master List), and
+      // the selected-date session set for "Not Checked In" (no session on the
+      // selected date).
+      const latestRec = isComo ? latestByPersonnel.get(emp.id) : null;
+      const latestSt = getAttendanceStatus(latestRec);
+      const hasDaySession = isComo ? daySessionIds.has(emp.id) : false;
+      const matchesAtt = !isComo || attendanceStatus === 'all' ||
+        (attendanceStatus === ATT_STATUS.CHECKED_IN && latestSt === ATT_STATUS.CHECKED_IN) ||
+        (attendanceStatus === ATT_STATUS.CHECKED_OUT && latestSt === ATT_STATUS.CHECKED_OUT) ||
+        (attendanceStatus === ATT_STATUS.NOT_CHECKED_IN && !hasDaySession);
 
       const trainSchedDate = normalizeDate(emp.training_date_scheduled) || '';
       const matchTrainSchedFrom = !trainingScheduledFrom || trainSchedDate >= trainingScheduledFrom;
@@ -608,7 +633,7 @@ export default function ComoCamp() {
   }, [baseDataset, search, companyFilter, departmentFilter, positionFilter, selectedManagerIds, managers,
     locationFilter, dirIndirFilter, rlicStatusFilter, pidStatusFilter, trainingStatusFilter, medicalResultFilter,
     trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
-    gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, workLocationQuick, isComo, attendanceStatus, attendanceByPersonnel]);
+    gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, workLocationQuick, isComo, attendanceStatus, latestByPersonnel, daySessionIds]);
 
   // Default sort:
   //  - All Locations: Work Location ASC (blank last) → Company ASC → Position Rank ASC → Full Name ASC
@@ -634,11 +659,11 @@ export default function ComoCamp() {
   const reportDataset = useMemo(() => {
     if (!isComo) return sorted;
     return sorted.map(e => {
-      const rec = attendanceByPersonnel.get(e.id);
+      const rec = latestByPersonnel.get(e.id);
       if (!rec) return e;
       return { ...e, check_in_at: rec.check_in_at, check_out_at: rec.check_out_at, duration_minutes: rec.duration_minutes, attendance_status: getAttendanceStatus(rec) };
     });
-  }, [sorted, attendanceByPersonnel, isComo]);
+  }, [sorted, latestByPersonnel, isComo]);
 
   useEffect(() => {
     saveFilters({
@@ -860,11 +885,11 @@ export default function ComoCamp() {
       'Designation / Position': e.designation_org_chart || e.position_application || '—',
       'Assigned Manager': e.assigned_manager_name || 'Unassigned',
       ...(isComo ? {
-        'Check-in Date': (() => { const r = attendanceByPersonnel.get(e.id); return r ? r.attendance_date : '—'; })(),
-        'Check-in Time': (() => { const r = attendanceByPersonnel.get(e.id); return r ? formatTime(r.check_in_at) : '—'; })(),
-        'Check-out Time': (() => { const r = attendanceByPersonnel.get(e.id); return r ? formatTime(r.check_out_at) : '—'; })(),
-        'Duration': (() => { const r = attendanceByPersonnel.get(e.id); return r && r.check_out_at ? formatDuration(r.duration_minutes) : '—'; })(),
-        'Attendance Status': statusLabel(attendanceByPersonnel.get(e.id)),
+        'Check-in Date': (() => { const r = latestByPersonnel.get(e.id); return r ? r.attendance_date : '—'; })(),
+        'Check-in Time': (() => { const r = latestByPersonnel.get(e.id); return r ? formatTime(r.check_in_at) : '—'; })(),
+        'Check-out Time': (() => { const r = latestByPersonnel.get(e.id); return r ? formatTime(r.check_out_at) : '—'; })(),
+        'Duration': (() => { const r = latestByPersonnel.get(e.id); return r && r.check_out_at ? formatDuration(r.duration_minutes) : '—'; })(),
+        'Attendance Status': statusLabel(latestByPersonnel.get(e.id)),
       } : {}),
     };
   });
@@ -879,7 +904,7 @@ export default function ComoCamp() {
       const diff = Math.ceil((d - t) / 86400000);
       daysLeft = diff < 0 ? `Expired ${Math.abs(diff)}d` : `${diff}d`;
     }
-    const rec = isComo ? attendanceByPersonnel.get(e.id) : null;
+    const rec = isComo ? latestByPersonnel.get(e.id) : null;
     return {
       Name: e.name || '—',
       Company: e.company || '—',
@@ -897,7 +922,7 @@ export default function ComoCamp() {
       'Duration': rec && rec.check_out_at ? formatDuration(rec.duration_minutes) : '—',
       Contact: e.contact_details || '—',
     };
-  }), [sorted, isComo, attendanceByPersonnel]);
+  }), [sorted, isComo, latestByPersonnel]);
 
   const printColumns = [
     { key: 'Name', label: 'Name' },
@@ -1185,7 +1210,7 @@ export default function ComoCamp() {
             </Button>
           </div>
           {isComo && (
-            <AttendanceKpiCards data={sorted} attendanceByPersonnel={attendanceByPersonnel} onCard={handleAttCardClick} />
+            <AttendanceKpiCards data={sorted} latestByPersonnel={latestByPersonnel} daySessionIds={daySessionIds} onCard={handleAttCardClick} />
           )}
           <ComoCampDashboard data={sorted} isComo={isComo} firstCardLabel={firstCardLabel} onDrill={onDrill} onCard={handleCardClick} />
         </div>
@@ -1266,8 +1291,8 @@ export default function ComoCamp() {
                         <TableCell className="whitespace-nowrap">
                           <CheckInCell
                             emp={emp}
-                            openRecord={openByPersonnel.get(emp.id)}
-                            latestRecord={attendanceByPersonnel.get(emp.id)}
+                            openRecord={latestOpenByPersonnel.get(emp.id)}
+                            latestRecord={latestByPersonnel.get(emp.id)}
                             sessionCount={countByPersonnel.get(emp.id) || 0}
                             canEdit={canEdit}
                             isToday={isToday}
@@ -1281,8 +1306,8 @@ export default function ComoCamp() {
                         <TableCell className="whitespace-nowrap">
                           <CheckOutCell
                             emp={emp}
-                            openRecord={openByPersonnel.get(emp.id)}
-                            latestRecord={attendanceByPersonnel.get(emp.id)}
+                            openRecord={latestOpenByPersonnel.get(emp.id)}
+                            latestRecord={latestByPersonnel.get(emp.id)}
                             canEdit={canEdit}
                             isToday={isToday}
                             isComoCamp={(emp.current_location || '').trim().toUpperCase() === 'COMO CAMP'}
@@ -1494,7 +1519,7 @@ export default function ComoCamp() {
       <ComoCampEditDialog
         open={editDialog.open}
         emp={editDialog.emp}
-        record={editDialog.emp ? attendanceByPersonnel.get(editDialog.emp.id) : null}
+        record={editDialog.emp ? latestByPersonnel.get(editDialog.emp.id) : null}
         attendanceDate={attendanceDate}
         canEdit={canEdit}
         locationOptions={allLocationOptions}

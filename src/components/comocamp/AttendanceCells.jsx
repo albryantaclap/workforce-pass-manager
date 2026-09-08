@@ -1,23 +1,37 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { LogIn, LogOut } from 'lucide-react';
-import { formatTime } from '@/lib/attendanceUtils';
+import { formatDateTimeCompact } from '@/lib/attendanceUtils';
 
-// Check-in column cell. With multiple sessions per day:
-//  - If an open session exists → show its check-in time (currently inside).
+// Compact date + time display matching the Master List format:
+//   DD/MM/YYYY
+//   hh:mm AM/PM
+function DateTimeDisplay({ iso }) {
+  const dt = formatDateTimeCompact(iso);
+  if (!dt) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <div className="leading-tight">
+      <div className="text-xs font-mono whitespace-nowrap">{dt.date}</div>
+      <div className="text-[10px] text-muted-foreground whitespace-nowrap">{dt.time}</div>
+    </div>
+  );
+}
+
+// Check-in column cell. With multiple sessions:
+//  - If an open session exists → show its check-in date/time (currently inside).
 //  - Else if editable today → show a Check In / Check In Again button (creates a new session).
-//  - Else if a completed session exists → show its check-in time.
+//  - Else if a completed session exists → show its check-in date/time.
 export function CheckInCell({ emp, openRecord, latestRecord, sessionCount, canEdit, isToday, isComoCamp, onCheckIn, onHistory }) {
   if (openRecord) {
     return (
       <div className="flex items-center gap-1">
-        <span className="text-xs font-mono whitespace-nowrap">{formatTime(openRecord.check_in_at)}</span>
+        <DateTimeDisplay iso={openRecord.check_in_at} />
         {sessionCount > 1 && (
           <button
             type="button"
             onClick={() => onHistory(emp)}
             className="text-[9px] font-semibold px-1 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
-            title={`${sessionCount} session(s) today — click to view history`}
+            title={`${sessionCount} session(s) — click to view history`}
           >
             {sessionCount}×
           </button>
@@ -33,14 +47,14 @@ export function CheckInCell({ emp, openRecord, latestRecord, sessionCount, canEd
     );
   }
   if (latestRecord) {
-    return <span className="text-xs font-mono whitespace-nowrap">{formatTime(latestRecord.check_in_at)}</span>;
+    return <DateTimeDisplay iso={latestRecord.check_in_at} />;
   }
   return <span className="text-xs text-muted-foreground">—</span>;
 }
 
 // Check-out column cell.
 //  - If an open session exists → show Check Out button (editable today) or dash.
-//  - Else if a completed session exists → show its check-out time.
+//  - Else if a completed session exists → show its check-out date/time.
 export function CheckOutCell({ emp, openRecord, latestRecord, canEdit, isToday, isComoCamp, onCheckOut }) {
   if (openRecord) {
     if (canEdit && isToday && isComoCamp) {
@@ -53,7 +67,7 @@ export function CheckOutCell({ emp, openRecord, latestRecord, canEdit, isToday, 
     return <span className="text-xs text-muted-foreground">—</span>;
   }
   if (latestRecord && latestRecord.check_out_at) {
-    return <span className="text-xs font-mono whitespace-nowrap">{formatTime(latestRecord.check_out_at)}</span>;
+    return <DateTimeDisplay iso={latestRecord.check_out_at} />;
   }
   return <span className="text-xs text-muted-foreground">—</span>;
 }
