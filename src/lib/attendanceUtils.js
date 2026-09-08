@@ -83,3 +83,36 @@ export const getOpenSession = (sessions) => {
   if (!sessions) return null;
   return sessions.find(s => s.check_in_at && !s.check_out_at) || null;
 };
+
+// ── Local-timezone date/time helpers (no UTC drift) ──
+// Used by the Personnel Form and COMO Camp edit dialogs to split an ISO
+// timestamp into separate date/time inputs and rebuild them on save.
+
+export const toDateStr = (iso) => {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('en-CA'); } catch { return ''; }
+};
+
+export const toTimeStr = (iso) => {
+  if (!iso) return '';
+  try { return new Date(iso).toTimeString().slice(0, 5); } catch { return ''; }
+};
+
+export const buildDateTime = (dateStr, timeStr) => {
+  if (!dateStr || !timeStr) return null;
+  const [y, m, day] = dateStr.split('-').map(Number);
+  const [hh, mm] = timeStr.split(':').map(Number);
+  const dt = new Date(y, m - 1, day, hh, mm, 0, 0);
+  return isNaN(dt.getTime()) ? null : dt;
+};
+
+// Compact datetime for table cells: "08/09/2026" on first line, "08:15 AM" on second.
+export const formatDateTimeCompact = (iso) => {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return { date, time };
+  } catch { return null; }
+};

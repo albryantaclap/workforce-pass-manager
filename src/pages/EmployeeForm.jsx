@@ -17,6 +17,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, computePassStatus } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
+import { calcDuration, formatDuration, getLatestSession, toDateStr, toTimeStr, buildDateTime } from '@/lib/attendanceUtils';
+import { saveAttendanceSession } from '@/lib/attendanceSave';
 
 const emptyForm = {
   sl_no: '', name: '', photo_url: '', sharepoint_url: '',
@@ -100,6 +102,14 @@ export default function EmployeeForm() {
   const [statusWarning, setStatusWarning] = useState('');
   const [statusModal, setStatusModal] = useState({ open: false, newStatus: null });
   const statusCardRef = useRef(null);
+  // Attendance (COMO Camp check-in / check-out) — linked via personnel_id to
+  // the shared AttendanceRecord entity. Shown when Location = COMO CAMP.
+  const [attCheckInDate, setAttCheckInDate] = useState('');
+  const [attCheckInTime, setAttCheckInTime] = useState('');
+  const [attCheckOutDate, setAttCheckOutDate] = useState('');
+  const [attCheckOutTime, setAttCheckOutTime] = useState('');
+  const [attReason, setAttReason] = useState('');
+  const [attError, setAttError] = useState('');
   const sectionParam = new URLSearchParams(window.location.search).get('section');
 
   // Auto-scroll to the relevant Inactive/Demobilized details card when opened with ?section=...
@@ -137,6 +147,14 @@ export default function EmployeeForm() {
     queryFn: () => base44.entities.Employee.filter({ id: empId }),
     enabled: !!empId,
   });
+
+  // Latest attendance session for this employee (single query, not N+1).
+  const { data: empAttendance = [] } = useQuery({
+    queryKey: ['attendance', 'employee', empId],
+    queryFn: () => base44.entities.AttendanceRecord.filter({ personnel_id: empId }, '-check_in_at', 1000),
+    enabled: !!empId,
+  });
+  const latestAttSession = useMemo(() => getLatestSession(empAttendance), [empAttendance]);
 
   const { data: lookupCompanies = [] } = useQuery({
     queryKey: ['lookups', 'company'],
@@ -300,6 +318,35 @@ export default function EmployeeForm() {
     }
   }, [existingEmp]);
 
+  // Populate attendance fields from the latest session whenever it changes.
+  // Data is preserved even when Location ≠ COMO CAMP (fields hidden, not cleared).
+  useEffect(() => {
+    if (latestAttSession) {
+      setAttCheckInDate(latestAttSession.check_in_at ? toDateStr(latestAttSession.check_in_at) : '');
+      setAttCheckInTime(latestAttSession.check_in_at ? toTimeStr(latestAttSession.check_in_at) : '');
+      setAttCheckOutDate(latestAttSession.check_out_at ? toDateStr(latestAttSession.check_out_at) : '');
+      setAttCheckOutTime(latestAttSession.check_out_at ? toTimeStr(latestAttSession.check_out_at) : '');
+    } else {
+      setAttCheckInDate(''); setAttCheckInTime(''); setAttCheckOutDate(''); setAttCheckOutTime('');
+    }
+    setAttReason(''); setAttError('');
+  }, [latestAttSession]);
+
+  // Attendance derived values — shown only when Location = COMO CAMP.
+  const isComoCampLocation = (form.current_location || '').trim().toUpperCase() === 'COMO CAMP';
+  const attCheckInAt = useMemo(() => buildDateTime(attCheckInDate, attCheckInTime), [attCheckInDate, attCheckInTime]);
+  const attCheckOutAt = useMemo(() => buildDateTime(attCheckOutDate, attCheckOutTime), [attCheckOutDate, attCheckOutTime]);
+  const attDuration = attCheckInAt && attCheckOutAt ? calcDuration(attCheckInAt.toISOString(), attCheckOutAt.toISOString()) : 0;
+  const attExistingCompleted = !!(latestAttSession?.check_in_at && latestAttSession?.check_out_at);
+  const attInChanged = latestAttSession?.check_in_at && attCheckInAt && attCheckInAt.toISOString() !== latestAttSession.check_in_at;
+  const attOutChanged = latestAttSession?.check_out_at ? (!!attCheckOutAt && attCheckOutAt.toISOString() !== latestAttSession.check_out_at) : !!attCheckOutAt;
+  const attOutCleared = latestAttSession?.check_out_at && !attCheckOutAt;
+  const attAnyChange = attInChanged || attOutChanged || attOutCleared;
+  // When the existing session is completed and check-in changed, a NEW session
+  // is created (no correction reason needed). Otherwise changes are corrections.
+  const attIsNewSession = attExistingCompleted && attInChanged;
+  const attNeedsReason = !!latestAttSession && attAnyChange && !attIsNewSession;
+
   // Field sets used by the save logic
   const NUMBER_FIELDS = new Set(['sl_no', 'ftw_count_days']);
   const BUILTIN_FIELDS = new Set(['id', 'created_date', 'updated_date', 'created_by_id']);
@@ -447,6 +494,36 @@ export default function EmployeeForm() {
         });
       }
 
+      // Save attendance session (only when Location = COMO CAMP). Uses the shared
+      // saveAttendanceSession helper — same logic as COMO Camp. Existing records
+      // are never deleted when Location changes away from COMO CAMP.
+      try {
+        if ((savedEmp.current_location || '').trim().toUpperCase() === 'COMO CAMP') {
+          const result = await saveAttendanceSession({
+            personnelId: savedEmp.id,
+            employeeName: savedEmp.name,
+            company: savedEmp.company,
+            workLocation: savedEmp.current_location,
+            existingRecord: latestAttSession,
+            checkInAt: attCheckInAt,
+            checkOutAt: attCheckOutAt,
+            reason: attReason,
+            currentUser,
+            sourcePage: 'Personnel Form',
+          });
+          if (result.action !== 'none') {
+            queryClient.invalidateQueries({ queryKey: ['attendance'] });
+            queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+          }
+        }
+      } catch (e) {
+        toast({
+          title: 'Attendance Save Issue',
+          description: e?.message || 'Could not save attendance. The personnel record was saved successfully.',
+          variant: 'destructive',
+        });
+      }
+
       toast({
         title: isEdit ? 'Personnel information updated successfully.' : 'Personnel record created successfully.',
       });
@@ -555,6 +632,22 @@ export default function EmployeeForm() {
       const isApproved = nationalityOptions.some(o => o.value === form.nationality);
       if (!isApproved) {
         toast({ title: 'Invalid Nationality', description: 'Please select a valid nationality from the approved list.', variant: 'destructive' });
+        return;
+      }
+    }
+
+    // Attendance validation (only when Location = COMO CAMP)
+    if (isComoCampLocation) {
+      if (latestAttSession && !attCheckInAt) {
+        toast({ title: 'Validation Error', description: 'Check-in date and time are required when an attendance session exists.', variant: 'destructive' });
+        return;
+      }
+      if (attCheckInAt && attCheckOutAt && attCheckOutAt <= attCheckInAt) {
+        toast({ title: 'Validation Error', description: 'Check-out date and time must be later than the Check-in date and time.', variant: 'destructive' });
+        return;
+      }
+      if (attNeedsReason && !attReason.trim()) {
+        toast({ title: 'Validation Error', description: 'A correction reason is required when modifying existing attendance.', variant: 'destructive' });
         return;
       }
     }
@@ -785,6 +878,43 @@ export default function EmployeeForm() {
                 emptyMessage="No matching work locations. Add entries in Admin Panel → Lookups → Work Locations."
               />
             </Field>
+            {isComoCampLocation && (
+              <>
+                <Field label="Check-in Date">
+                  <Input type="date" value={attCheckInDate} onChange={e => { setAttCheckInDate(e.target.value); setAttError(''); }} />
+                </Field>
+                <Field label="Check-in Time">
+                  <Input type="time" value={attCheckInTime} onChange={e => { setAttCheckInTime(e.target.value); setAttError(''); }} />
+                </Field>
+                <Field label="Check-out Date">
+                  <Input type="date" value={attCheckOutDate} onChange={e => { setAttCheckOutDate(e.target.value); setAttError(''); }} />
+                </Field>
+                <Field label="Check-out Time">
+                  <Input type="time" value={attCheckOutTime} onChange={e => { setAttCheckOutTime(e.target.value); setAttError(''); }} />
+                </Field>
+                <div className="md:col-span-2 lg:col-span-4 space-y-1">
+                  <div className="flex justify-between gap-4 text-xs">
+                    <span className="text-muted-foreground">
+                      Duration: <span className="font-medium text-foreground">{attCheckOutAt ? formatDuration(attDuration) : attCheckInAt ? 'Currently Checked In' : '—'}</span>
+                    </span>
+                    {latestAttSession && <span className="text-muted-foreground">Latest session loaded · {attIsNewSession ? 'New session will be created (previous completed)' : 'Changes require a correction reason'}</span>}
+                  </div>
+                  {attNeedsReason && (
+                    <div>
+                      <Label className="text-xs">Correction Reason <span className="text-destructive">*</span></Label>
+                      <Textarea
+                        value={attReason}
+                        onChange={e => { setAttReason(e.target.value); setAttError(''); }}
+                        rows={2}
+                        placeholder="Reason for correcting existing attendance"
+                        className="text-sm mt-1"
+                      />
+                    </div>
+                  )}
+                  {attError && <p className="text-xs text-destructive">{attError}</p>}
+                </div>
+              </>
+            )}
             <Field label="Approval Comments">
               <Textarea
                 value={form.approval_comments || ''}

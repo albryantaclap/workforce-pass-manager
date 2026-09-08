@@ -23,6 +23,8 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, MEDICAL_RESULTS, FTW_RESULTS, TRAINING_STATUSES, formatDate, computePassStatus } from '@/utils/constants';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
+import { useLatestAttendance } from '@/hooks/useLatestAttendance';
+import { formatTime, formatDateOnly, formatDuration, getAttendanceStatus, formatDateTimeCompact, ATT_STATUS } from '@/lib/attendanceUtils';
 
 import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
@@ -53,6 +55,7 @@ function loadFilters() {
       pidStatusFilter: Array.isArray(saved.pidStatusFilter) ? saved.pidStatusFilter : [],
       gpStatusFilter: Array.isArray(saved.gpStatusFilter) ? saved.gpStatusFilter : [],
       medicalResultFilter: Array.isArray(saved.medicalResultFilter) ? saved.medicalResultFilter : [],
+      attendanceFilter: saved.attendanceFilter || 'all',
       page: typeof saved.page === 'number' ? saved.page : 0,
     };
   } catch { return {}; }
@@ -93,6 +96,7 @@ export default function MasterList() {
   const [gpStatusFilter, setGpStatusFilter] = useState(saved.gpStatusFilter || []);
   const [medicalResultFilter, setMedicalResultFilter] = useState(saved.medicalResultFilter || []);
   const [trainingStatusFilter, setTrainingStatusFilter] = useState(saved.trainingStatusFilter || 'all');
+  const [attendanceFilter, setAttendanceFilter] = useState(saved.attendanceFilter || 'all');
   const [trainingScheduledFrom, setTrainingScheduledFrom] = useState(saved.trainingScheduledFrom || '');
   const [trainingScheduledTo, setTrainingScheduledTo] = useState(saved.trainingScheduledTo || '');
   const [medicalTrApprovedFrom, setMedicalTrApprovedFrom] = useState(saved.medicalTrApprovedFrom || '');
@@ -105,15 +109,15 @@ export default function MasterList() {
   const [pidIssueTo, setPidIssueTo] = useState(saved.pidIssueTo || '');
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page]);
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page]);
 
   // Reset page on filter changes (skip initial mount to allow sessionStorage restore)
   const isInitialMount = useRef(true);
   useEffect(() => {
     if (isInitialMount.current) { isInitialMount.current = false; return; }
     setPage(0);
-  }, [companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+  }, [companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -132,6 +136,9 @@ export default function MasterList() {
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000),
   });
 
+  // Latest attendance session per personnel — single query, shared with COMO Camp.
+  const { latestByPersonnel: latestAttByPersonnel } = useLatestAttendance();
+
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees-active'] }),
@@ -142,7 +149,7 @@ export default function MasterList() {
     updateMutation.mutate({ id, data: { [field]: value } });
   };
 
-  const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || trainingStatusFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo;
+  const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || trainingStatusFilter !== 'all' || attendanceFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo;
 
   const masterBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: medicalResultOptions },
@@ -312,9 +319,12 @@ export default function MasterList() {
       const empPidIssue = emp.pid_issue_date ? emp.pid_issue_date.substring(0, 10) : '';
       const matchesPidIssueFrom = !pidIssueFrom || (empPidIssue && empPidIssue >= pidIssueFrom);
       const matchesPidIssueTo = !pidIssueTo || (empPidIssue && empPidIssue <= pidIssueTo);
-      return matchesSearch && matchesCompany && matchesManager && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesTrainingScheduledFrom && matchesTrainingScheduledTo && matchesMedicalTrApprovedFrom && matchesMedicalTrApprovedTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidIssueFrom && matchesPidIssueTo;
+      const attRec = latestAttByPersonnel.get(emp.id);
+      const attSt = getAttendanceStatus(attRec);
+      const matchesAttendance = attendanceFilter === 'all' || attSt === attendanceFilter;
+      return matchesSearch && matchesCompany && matchesManager && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesAttendance && matchesTrainingScheduledFrom && matchesTrainingScheduledTo && matchesMedicalTrApprovedFrom && matchesMedicalTrApprovedTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidIssueFrom && matchesPidIssueTo;
     });
-  },     [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerIds, managers]);
+  },     [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerIds, managers, latestAttByPersonnel]);
 
   // ── Expiry tab lists (derived from filtered, matching Dashboard logic) ──
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
@@ -362,25 +372,36 @@ export default function MasterList() {
   }, [totalPages, page, activeTab]);
   const pagedRows = useMemo(() => tabData.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [tabData, page]);
 
-  const getExportData = () => tabData.map(e => ({
-    SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
-    Designation_Org_Chart: e.designation_org_chart, Department: e.department,
-    Company: e.company, Company_Type: e.company_type, Nationality: e.nationality,
-    Religion: e.religion, Location: e.current_location, DIR_INDIR: e.dir_indir,
-    Contact: e.contact_details, Sponsor: e.sponsor, Remarks: e.remarks,
-    QID_No: e.qid_no, QID_Expiry: formatDate(e.qid_expiry), Passport_No: e.pp_no, PP_Expiry: formatDate(e.pp_expiry),
-    Visa_Date_Applied: formatDate(e.visa_date_applied), Visa_Date_Received: formatDate(e.visa_date_received), Visa_Expiry: formatDate(e.visa_expiry),
-    Medical_Date: formatDate(e.ftw_medical_date), FTW_Received_Date: formatDate(e.ftw_received_date),
-    FTW_Approval_Request: formatDate(e.ftw_approval_request_date), FTW_Count_Days: e.ftw_count_days,
-    FTW_Approved_Date: formatDate(e.ftw_approved_date), Medical_Result: e.ftw_result,
-    Doctor: e.ftw_doctor, Doctor_Mobile: e.ftw_mobile,
-    Gate_Pass_Submitted_Date: formatDate(e.gate_pass_issue_date), Gate_Pass_Received: formatDate(e.gate_pass_received_date),
-    Gate_Pass_Expiry: formatDate(e.gate_pass_expiry), Staff_No: e.staff_no, RLIC_Status: e.rlic_status,
-    PID_No: e.pid, PID_Issue_Date: formatDate(e.pid_issue_date), PID_Expiry: formatDate(e.pid_expiry),
-    PID_Projected_Date: formatDate(e.pid_projected_date), PID_Status: e.pid_status,
-    Training_Date_Scheduled: formatDate(e.training_date_scheduled), Training_Date_Start: formatDate(e.training_date_start), Training_Date_End: formatDate(e.training_date_end), Training_Status: e.training_status,
-    Assigned_Manager: e.assigned_manager_name || 'Unassigned',
-  }));
+  const getExportData = () => tabData.map(e => {
+    const att = latestAttByPersonnel.get(e.id);
+    const ci = att?.check_in_at ? new Date(att.check_in_at) : null;
+    const co = att?.check_out_at ? new Date(att.check_out_at) : null;
+    return {
+      SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
+      Designation_Org_Chart: e.designation_org_chart, Department: e.department,
+      Company: e.company, Company_Type: e.company_type, Nationality: e.nationality,
+      Religion: e.religion, Location: e.current_location,
+      Check_in_Date: ci ? ci.toLocaleDateString('en-CA') : '',
+      Check_in_Time: ci ? ci.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '',
+      Check_out_Date: co ? co.toLocaleDateString('en-CA') : '',
+      Check_out_Time: co ? co.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '',
+      Attendance_Duration: att?.check_out_at ? formatDuration(att.duration_minutes) : '',
+      DIR_INDIR: e.dir_indir,
+      Contact: e.contact_details, Sponsor: e.sponsor, Remarks: e.remarks,
+      QID_No: e.qid_no, QID_Expiry: formatDate(e.qid_expiry), Passport_No: e.pp_no, PP_Expiry: formatDate(e.pp_expiry),
+      Visa_Date_Applied: formatDate(e.visa_date_applied), Visa_Date_Received: formatDate(e.visa_date_received), Visa_Expiry: formatDate(e.visa_expiry),
+      Medical_Date: formatDate(e.ftw_medical_date), FTW_Received_Date: formatDate(e.ftw_received_date),
+      FTW_Approval_Request: formatDate(e.ftw_approval_request_date), FTW_Count_Days: e.ftw_count_days,
+      FTW_Approved_Date: formatDate(e.ftw_approved_date), Medical_Result: e.ftw_result,
+      Doctor: e.ftw_doctor, Doctor_Mobile: e.ftw_mobile,
+      Gate_Pass_Submitted_Date: formatDate(e.gate_pass_issue_date), Gate_Pass_Received: formatDate(e.gate_pass_received_date),
+      Gate_Pass_Expiry: formatDate(e.gate_pass_expiry), Staff_No: e.staff_no, RLIC_Status: e.rlic_status,
+      PID_No: e.pid, PID_Issue_Date: formatDate(e.pid_issue_date), PID_Expiry: formatDate(e.pid_expiry),
+      PID_Projected_Date: formatDate(e.pid_projected_date), PID_Status: e.pid_status,
+      Training_Date_Scheduled: formatDate(e.training_date_scheduled), Training_Date_Start: formatDate(e.training_date_start), Training_Date_End: formatDate(e.training_date_end), Training_Status: e.training_status,
+      Assigned_Manager: e.assigned_manager_name || 'Unassigned',
+    };
+  });
 
   return (
     <div className="space-y-5">
@@ -454,6 +475,15 @@ export default function MasterList() {
                {trainingStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
              </SelectContent>
            </Select>
+           <Select value={attendanceFilter} onValueChange={setAttendanceFilter}>
+             <SelectTrigger className="dropdown-status"><SelectValue placeholder="Attendance" /></SelectTrigger>
+             <SelectContent>
+               <SelectItem value="all">All Attendance</SelectItem>
+               <SelectItem value={ATT_STATUS.CHECKED_IN}>Checked In</SelectItem>
+               <SelectItem value={ATT_STATUS.CHECKED_OUT}>Checked Out</SelectItem>
+               <SelectItem value={ATT_STATUS.NOT_CHECKED_IN}>Not Checked In</SelectItem>
+             </SelectContent>
+           </Select>
            <MultiSelect
              options={managers.map(m => ({ value: m.id, label: m.label }))}
              value={selectedManagerIds}
@@ -508,7 +538,7 @@ export default function MasterList() {
          </div>
         {hasActiveFilters && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSelectedManagerIds([]); setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter([]); setTrainingStatusFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSelectedManagerIds([]); setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter([]); setTrainingStatusFilter('all'); setAttendanceFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
@@ -570,6 +600,8 @@ export default function MasterList() {
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Nationality</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Religion</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Location</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Check-in</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Check-out</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">DIR/INDIR</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Contact</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Sponsor</TableHead>
@@ -613,11 +645,11 @@ export default function MasterList() {
             <TableBody>
               {isLoading ? (
                 Array(8).fill(0).map((_, i) => (
-                  <TableRow key={i}>{Array(43).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                  <TableRow key={i}>{Array(45).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={43} className="text-center py-12 text-muted-foreground">No records found</TableCell>
+                  <TableCell colSpan={45} className="text-center py-12 text-muted-foreground">No records found</TableCell>
                 </TableRow>
               ) : (
                 pagedRows.map((emp) => (
@@ -633,6 +665,8 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.nationality} field="nationality" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.religion} field="religion" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.current_location} field="current_location" empId={emp.id} type="select" options={locationOptions} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    {(() => { const att = latestAttByPersonnel.get(emp.id); const ci = att?.check_in_at ? formatDateTimeCompact(att.check_in_at) : null; return <TableCell className="text-xs whitespace-nowrap">{ci ? <><div>{ci.date}</div><div className="text-muted-foreground">{ci.time}</div></> : <span className="text-muted-foreground">—</span>}</TableCell>; })()}
+                    {(() => { const att = latestAttByPersonnel.get(emp.id); const co = att?.check_out_at ? formatDateTimeCompact(att.check_out_at) : null; return <TableCell className="text-xs whitespace-nowrap">{co ? <><div>{co.date}</div><div className="text-muted-foreground">{co.time}</div></> : <span className="text-muted-foreground">—</span>}</TableCell>; })()}
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.dir_indir} field="dir_indir" empId={emp.id} type="select" options={[{value:'DIR',label:'DIR'},{value:'INDIR',label:'INDIR'}]} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.contact_details} field="contact_details" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.sponsor} field="sponsor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>

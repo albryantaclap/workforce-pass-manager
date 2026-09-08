@@ -58,6 +58,9 @@ export const ALL_PERSONNEL_COLUMNS = [
   { id: 'staff_no', label: 'Staff / RLIC No.' },
   { id: 'sponsor', label: 'Sponsor' },
   { id: 'is_active', label: 'Active Status' },
+  { id: 'check_in_at', label: 'Check-in (Date & Time)' },
+  { id: 'check_out_at', label: 'Check-out (Date & Time)' },
+  { id: 'duration_minutes', label: 'Attendance Duration' },
 ];
 
 const SESSION_KEY = 'report_config';
