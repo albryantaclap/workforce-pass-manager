@@ -4,7 +4,7 @@ import {
   LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap,
   HardHat, Plus, Shield, LogOut, UserX, TrendingUp, Trash2, Activity, HardDrive,
   MessageCircle, FileText, Tent, Clock, Briefcase, Settings, Users, Timer,
-  FileBarChart, ChevronRight,
+  FileBarChart, ScanLine, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -49,6 +49,7 @@ const navGroups = [
     items: [
       { label: 'Dashboard', path: '/daily-attendance?tab=dashboard', icon: LayoutDashboard },
       { label: 'Employee Summary', path: '/daily-attendance?tab=summary', icon: Users },
+      { label: 'Attendance Clock', path: '/daily-attendance?tab=scan', icon: ScanLine },
       { label: 'Time Entries', path: '/daily-attendance?tab=entries', icon: Timer },
       { label: 'Attendance Reports', path: '/daily-attendance?tab=reports', icon: FileBarChart },
       { label: 'Attendance Settings', path: '/daily-attendance?tab=settings', icon: Settings },

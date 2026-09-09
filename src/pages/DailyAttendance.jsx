@@ -8,10 +8,12 @@ import TimeEntries from '@/components/attendance/TimeEntries';
 import EmployeeSummary from '@/components/attendance/EmployeeSummary';
 import AttendanceSettings from '@/components/attendance/AttendanceSettings';
 import AttendanceReports from '@/components/attendance/AttendanceReports';
+import AttendanceClock from '@/components/attendance/AttendanceClock';
 
 const TABS = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'summary', label: 'Employee Summary' },
+  { key: 'scan', label: 'Attendance Clock' },
   { key: 'entries', label: 'Time Entries' },
   { key: 'reports', label: 'Attendance Reports' },
   { key: 'settings', label: 'Attendance Settings' },
@@ -130,6 +132,9 @@ export default function DailyAttendance() {
               filters={filters}
               setFilters={setFilters}
             />
+          )}
+          {activeTab === 'scan' && (
+            <AttendanceClock employees={employees} onRecorded={refetchAtt} />
           )}
           {activeTab === 'entries' && (
             <TimeEntries

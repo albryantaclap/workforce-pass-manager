@@ -1,0 +1,284 @@
+import React, { useState, useRef } from "react";
+import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  CheckCircle2,
+  Loader2,
+  RefreshCw,
+  XCircle,
+  CreditCard,
+} from "lucide-react";
+import IdCardScanner from "@/components/attendance/IdCardScanner";
+import { motion, AnimatePresence } from "framer-motion";
+import { useToast } from "@/components/ui/use-toast";
+import { useCurrentUser } from "@/lib/useCurrentUser";
+import { recordPunch } from "@/lib/attendanceService";
+
+const STEP = {
+  STANDBY: "standby",
+  SCANNING: "scanning",
+  PROCESSING: "processing",
+  SUCCESS: "success",
+  FAILED: "failed",
+};
+
+// Attendance Clock — scan an ID card to clock an employee in or out.
+// Integrates with the existing AttendanceRecord/AttendancePunch system via
+// recordPunch(). The punch direction (IN/OUT) is derived from today's session:
+// an open session → clock OUT, otherwise → clock IN.
+export default function AttendanceClock({ employees = [], onRecorded }) {
+  const [step, setStep] = useState(STEP.STANDBY);
+  const [matchedEmployee, setMatchedEmployee] = useState(null);
+  const [failReason, setFailReason] = useState("");
+  const [successType, setSuccessType] = useState(null);
+  const [successEmployee, setSuccessEmployee] = useState(null);
+  const [scannerKey, setScannerKey] = useState(0);
+
+  const user = useCurrentUser();
+  const { toast } = useToast();
+  const processingLockRef = useRef(false);
+
+  const handleEmployeeFound = async (emp) => {
+    if (processingLockRef.current) return;
+    processingLockRef.current = true;
+
+    setMatchedEmployee(emp);
+    setStep(STEP.PROCESSING);
+
+    try {
+      const today = new Date().toLocaleDateString("en-CA");
+      const existing = await base44.entities.AttendanceRecord.filter(
+        { personnel_id: emp.id, attendance_date: today, is_deleted: { $ne: true } },
+        undefined,
+        100
+      );
+      const hasOpen = existing.some(
+        (r) => r.check_in_at && !r.check_out_at && r.status === "open"
+      );
+      const punchType = hasOpen ? "OUT" : "IN";
+
+      await recordPunch({
+        personnelId: emp.id,
+        employeeName: emp.name,
+        company: emp.company || "",
+        punchType,
+        timestamp: new Date(),
+        source: "ID Card Scanner",
+        location: emp.current_location || "",
+        workLocation: emp.current_location || "",
+        currentUser: user,
+      });
+
+      setSuccessType(hasOpen ? "out" : "in");
+      setSuccessEmployee(emp);
+      setStep(STEP.SUCCESS);
+      if (onRecorded) onRecorded();
+      setTimeout(() => resumeForNextEmployee(), 3500);
+    } catch (err) {
+      setFailReason(err.message || "Failed to record attendance.");
+      setStep(STEP.FAILED);
+    } finally {
+      processingLockRef.current = false;
+    }
+  };
+
+  const resumeForNextEmployee = () => {
+    setMatchedEmployee(null);
+    setFailReason("");
+    setSuccessType(null);
+    setSuccessEmployee(null);
+    setStep(STEP.SCANNING);
+    setScannerKey((k) => k + 1);
+  };
+
+  const handleStop = () => {
+    setStep(STEP.STANDBY);
+    setMatchedEmployee(null);
+    setFailReason("");
+    setSuccessType(null);
+    setSuccessEmployee(null);
+  };
+
+  const handleStart = () => {
+    setStep(STEP.SCANNING);
+    setScannerKey((k) => k + 1);
+  };
+
+  return (
+    <div className="max-w-lg mx-auto space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Attendance Clock</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">
+          Scan an ID card to clock in or out automatically
+        </p>
+      </div>
+
+      <Card className="rounded-2xl overflow-hidden min-h-[520px] flex flex-col">
+        <AnimatePresence mode="wait">
+          {step === STEP.STANDBY && (
+            <motion.div
+              key="standby"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col items-center justify-center gap-6 p-8 text-center"
+            >
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                <CreditCard className="w-10 h-10 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Attendance Clock</h2>
+                <p className="text-muted-foreground text-sm mt-2 max-w-xs">
+                  Press <strong>Start Scanning</strong> to activate the ID card
+                  scanner. The system will automatically detect and record
+                  attendance.
+                </p>
+              </div>
+              <Button
+                onClick={handleStart}
+                size="lg"
+                className="gap-2 w-full max-w-xs text-base h-12"
+              >
+                <CreditCard className="w-5 h-5" /> Start Scanning
+              </Button>
+            </motion.div>
+          )}
+
+          {step === STEP.SCANNING && (
+            <motion.div
+              key="scanning"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col gap-4 p-5"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-sm">Scanner Active</p>
+                  <p className="text-xs text-muted-foreground">
+                    Scanning continuously for employees
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs text-emerald-700 font-medium">Live</span>
+                </div>
+              </div>
+              <IdCardScanner
+                key={scannerKey}
+                employees={employees}
+                onEmployeeFound={handleEmployeeFound}
+                onStop={handleStop}
+              />
+            </motion.div>
+          )}
+
+          {step === STEP.PROCESSING && (
+            <motion.div
+              key="processing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col items-center justify-center gap-5 p-8 text-center"
+            >
+              <div className="relative">
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                </div>
+              </div>
+              <div>
+                <p className="font-bold text-lg">{matchedEmployee?.name}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Recording attendance...
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {step === STEP.SUCCESS && (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col items-center justify-center gap-5 p-8 text-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                className={`w-24 h-24 rounded-full flex items-center justify-center ${
+                  successType === "in" ? "bg-emerald-100" : "bg-blue-100"
+                }`}
+              >
+                <CheckCircle2
+                  className={`w-14 h-14 ${
+                    successType === "in" ? "text-emerald-500" : "text-blue-500"
+                  }`}
+                />
+              </motion.div>
+              <div>
+                <p
+                  className={`text-3xl font-bold ${
+                    successType === "in" ? "text-emerald-600" : "text-blue-600"
+                  }`}
+                >
+                  {successType === "in"
+                    ? "Clock In Successful"
+                    : "Clock Out Successful"}
+                </p>
+                <p className="text-xl font-semibold mt-2">
+                  {successEmployee?.name}
+                </p>
+                <p className="text-muted-foreground text-sm mt-1">
+                  {[successEmployee?.department, successEmployee?.company]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <p className="text-2xl font-bold mt-3 text-foreground">
+                  {new Date().toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true,
+                  })}
+                </p>
+                <p className="text-sm text-muted-foreground mt-4">
+                  Thank you! Preparing for next scan...
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {step === STEP.FAILED && (
+            <motion.div
+              key="failed"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col items-center justify-center gap-5 p-8 text-center"
+            >
+              <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center">
+                <XCircle className="w-12 h-12 text-red-500" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-red-600">Cannot Process</p>
+                <p className="text-sm text-muted-foreground mt-2 max-w-xs">
+                  {failReason}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button onClick={resumeForNextEmployee} className="gap-2">
+                  <RefreshCw className="w-4 h-4" /> Continue Scanning
+                </Button>
+                <Button onClick={handleStop} variant="outline">
+                  Stop
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Card>
+    </div>
+  );
+}
