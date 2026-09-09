@@ -39,6 +39,9 @@ function hasShiftExpired(shift: any, attendanceDate: string, bufferMinutes: numb
 
 function calculateDuration(record: any) {
   if (!record) return 0;
+  // Backward-compat fallbacks: old records have check_in_at/check_out_at but not first_in_at/final_out_at
+  const firstIn = record.first_in_at || record.check_in_at || "";
+  const finalOut = record.final_out_at || record.check_out_at || "";
   let total = 0;
   const calc = (a: string, b: string) => {
     if (!a || !b) return 0;
@@ -51,15 +54,22 @@ function calculateDuration(record: any) {
   if (record.second_in_at && record.final_out_at) {
     total += calc(record.second_in_at, record.final_out_at);
   }
-  if (!record.first_out_at && !record.second_in_at && record.first_in_at && record.final_out_at) {
-    total = calc(record.first_in_at, record.final_out_at);
+  // Single session (no split): first_in → final_out (with fallback to check_in/check_out)
+  if (!record.first_out_at && !record.second_in_at && firstIn && finalOut) {
+    total = calc(firstIn, finalOut);
   }
   return total;
 }
 
 function getMissingPunchLabel(record: any) {
   if (!record) return "";
-  if (!record.first_in_at) return "Missing First Punch In";
+  // Backward-compat: fall back to check_in_at/check_out_at for old records
+  const firstIn = record.first_in_at || record.check_in_at || "";
+  const finalOut = record.final_out_at || record.check_out_at || "";
+  if (!firstIn) return "Missing First Punch In";
+  if (record.first_out_at && !record.second_in_at && !finalOut) return "Missing Final Punch Out";
+  if (record.first_out_at && record.second_in_at && !record.final_out_at) return "Missing Final Punch Out";
+  if (record.first_out_at && !record.second_in_at) return ""; // single session complete
   if (!record.first_out_at) return "Missing First Punch Out";
   if (!record.second_in_at) return "Missing Second Punch In";
   if (!record.final_out_at) return "Missing Final Punch Out";
@@ -132,11 +142,12 @@ Deno.serve(async (req) => {
     // the hourly workflow will process remaining sessions in subsequent runs)
     const openRecords = await base44.entities.AttendanceRecord.filter(
       { status: "open", is_deleted: { $ne: true } },
-      "-attendance_date", 500
+      "-attendance_date", 100
     );
 
     let closedCount = 0;
     const closedDetails: any[] = [];
+    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
     for (const rec of openRecords) {
       const shift = resolveShiftForRecord(rec, assignments, shifts, settings);
@@ -144,16 +155,20 @@ Deno.serve(async (req) => {
 
       const missingLabel = getMissingPunchLabel(rec);
       const duration = calculateDuration(rec);
-      const lastOut = rec.final_out_at || rec.first_out_at || "";
+      const lastOut = rec.final_out_at || rec.check_out_at || rec.first_out_at || "";
 
       const updates: any = {
         status: "completed",
         attendance_status: "Missing Check-out",
         duration_minutes: duration,
       };
+      // Sync backward-compat fields and populate new fields from old ones if needed
       if (!rec.check_out_at && lastOut) updates.check_out_at = lastOut;
+      if (!rec.first_in_at && rec.check_in_at) updates.first_in_at = rec.check_in_at;
+      if (!rec.final_out_at && rec.check_out_at) updates.final_out_at = rec.check_out_at;
 
       await base44.entities.AttendanceRecord.update(rec.id, updates);
+      await sleep(100); // small delay to avoid rate limits
 
       // Log activity
       try {

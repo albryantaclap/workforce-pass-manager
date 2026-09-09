@@ -125,19 +125,31 @@ export const hasShiftExpired = (shift, attendanceDate, bufferMinutes = 0) => {
 };
 
 // ── Punch sequence helpers ──
+// Backward-compat helpers: old records have check_in_at/check_out_at but not
+// the new first_in_at/final_out_at fields. These fallbacks ensure old records
+// are handled correctly by the new multi-punch logic.
+export const getFirstIn = (record) => record?.first_in_at || record?.check_in_at || '';
+export const getFinalOut = (record) => record?.final_out_at || record?.check_out_at || '';
+
 // Determines the next expected punch type based on what's already recorded.
 export const getNextExpectedPunch = (record) => {
-  if (!record || !record.first_in_at) return 'IN'; // First Punch In
+  const firstIn = getFirstIn(record);
+  if (!firstIn) return 'IN'; // First Punch In
   if (!record.first_out_at) return 'OUT'; // First Punch Out
   if (!record.second_in_at) return 'IN'; // Second Punch In
-  if (!record.final_out_at) return 'OUT'; // Final Punch Out
+  if (!record.final_out_at && !record.check_out_at) return 'OUT'; // Final Punch Out
   return null; // Session complete
 };
 
 // Determines the missing punch label for an incomplete/expired session.
 export const getMissingPunchLabel = (record) => {
   if (!record) return '';
-  if (!record.first_in_at) return 'Missing First Punch In';
+  const firstIn = getFirstIn(record);
+  const finalOut = getFinalOut(record);
+  if (!firstIn) return 'Missing First Punch In';
+  if (record.first_out_at && record.second_in_at && !record.final_out_at) return 'Missing Final Punch Out';
+  if (record.first_out_at && !record.second_in_at && !finalOut) return 'Missing Final Punch Out';
+  if (record.first_out_at && !record.second_in_at) return ''; // single session complete
   if (!record.first_out_at) return 'Missing First Punch Out';
   if (!record.second_in_at) return 'Missing Second Punch In';
   if (!record.final_out_at) return 'Missing Final Punch Out';
@@ -148,8 +160,11 @@ export const getMissingPunchLabel = (record) => {
 // Sum of completed IN→OUT pairs. Does not count open/incomplete pairs.
 // Pair 1: first_in_at → first_out_at
 // Pair 2: second_in_at → final_out_at
+// Falls back to check_in_at/check_out_at for old records.
 export const calculateDurationFromRecord = (record) => {
   if (!record) return 0;
+  const firstIn = getFirstIn(record);
+  const finalOut = getFinalOut(record);
   let total = 0;
   if (record.first_in_at && record.first_out_at) {
     total += _calcDuration(record.first_in_at, record.first_out_at);
@@ -157,9 +172,9 @@ export const calculateDurationFromRecord = (record) => {
   if (record.second_in_at && record.final_out_at) {
     total += _calcDuration(record.second_in_at, record.final_out_at);
   }
-  // Single session (no split): first_in → final_out
-  if (!record.first_out_at && !record.second_in_at && record.first_in_at && record.final_out_at) {
-    total = _calcDuration(record.first_in_at, record.final_out_at);
+  // Single session (no split): first_in → final_out (with fallback)
+  if (!record.first_out_at && !record.second_in_at && firstIn && finalOut) {
+    total = _calcDuration(firstIn, finalOut);
   }
   return total;
 };
@@ -174,11 +189,12 @@ export const calculateOvertime = (durationMinutes, settings) => {
 // ── Late calculation ──
 // Returns { isLate, lateMinutes } based on first clock-in vs shift start + grace.
 export const calculateLate = (record, shift) => {
-  if (!record?.first_in_at || !shift) return { isLate: false, lateMinutes: 0 };
+  const firstIn = getFirstIn(record);
+  if (!firstIn || !shift) return { isLate: false, lateMinutes: 0 };
   const bounds = resolveShiftBounds(shift, record.attendance_date);
   if (!bounds) return { isLate: false, lateMinutes: 0 };
   const grace = (shift.grace_minutes ?? 0) * 60000;
-  const checkIn = new Date(record.first_in_at);
+  const checkIn = new Date(firstIn);
   const lateMs = checkIn.getTime() - (bounds.start.getTime() + grace);
   if (lateMs <= 0) return { isLate: false, lateMinutes: 0 };
   return { isLate: true, lateMinutes: Math.round(lateMs / 60000) };
