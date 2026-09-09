@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Clock } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAttendanceData } from '@/hooks/useAttendanceData';
 import AttendanceDashboard from '@/components/attendance/AttendanceDashboard';
@@ -17,7 +18,10 @@ const TABS = [
 ];
 
 export default function DailyAttendance() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const validTabs = TABS.map(t => t.key);
+  const activeTab = validTabs.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'dashboard';
+  const setActiveTab = (key) => setSearchParams({ tab: key }, { replace: true });
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('en-CA'));
 
   const {

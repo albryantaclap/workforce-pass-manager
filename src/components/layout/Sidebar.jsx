@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield, LogOut, UserX, TrendingUp, Trash2, Activity, HardDrive, MessageCircle, FileText, Tent, Clock } from 'lucide-react';
+import {
+  LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap,
+  HardHat, Plus, Shield, LogOut, UserX, TrendingUp, Trash2, Activity, HardDrive,
+  MessageCircle, FileText, Tent, Clock, Briefcase, Settings, Users, Timer,
+  FileBarChart, ChevronRight,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
 import { usePermissions } from '@/lib/usePermissions';
@@ -11,16 +16,19 @@ const ROLE_LABELS = {
   user: 'View Only',
 };
 
-// Navigation organized into groups. Dashboard is standalone at the top.
+// Standalone items rendered at the top (no group).
+const standaloneItems = [
+  { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+];
+
+// Collapsible main groups. Each group has its own icon, a default landing
+// route, and a list of subpages that reuse existing routes/permissions.
 const navGroups = [
   {
-    label: null, // standalone items (no group header)
-    items: [
-      { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-    ],
-  },
-  {
+    key: 'workforce',
     label: 'Workforce Management',
+    icon: Briefcase,
+    defaultPath: '/master-list',
     items: [
       { label: 'Master List', path: '/master-list', icon: List },
       { label: 'Add Personnel', path: '/employees/new', icon: Plus },
@@ -34,13 +42,23 @@ const navGroups = [
     ],
   },
   {
+    key: 'attendance',
     label: 'Daily Attendance',
+    icon: Clock,
+    defaultPath: '/daily-attendance?tab=dashboard',
     items: [
-      { label: 'Daily Attendance', path: '/daily-attendance', icon: Clock },
+      { label: 'Dashboard', path: '/daily-attendance?tab=dashboard', icon: LayoutDashboard },
+      { label: 'Employee Summary', path: '/daily-attendance?tab=summary', icon: Users },
+      { label: 'Time Entries', path: '/daily-attendance?tab=entries', icon: Timer },
+      { label: 'Attendance Reports', path: '/daily-attendance?tab=reports', icon: FileBarChart },
+      { label: 'Attendance Settings', path: '/daily-attendance?tab=settings', icon: Settings },
     ],
   },
   {
+    key: 'system',
     label: 'System',
+    icon: Settings,
+    defaultPath: '/activity-log',
     items: [
       { label: 'Deleted Personnel', path: '/deleted-personnel', icon: Trash2 },
       { label: 'Activity Log', path: '/activity-log', icon: Activity },
@@ -52,10 +70,66 @@ const navGroups = [
   },
 ];
 
+// Split a path into its base route and optional ?tab= value.
+function parsePath(path) {
+  const [base, query] = path.split('?');
+  let tab = null;
+  if (query) {
+    const params = new URLSearchParams(query);
+    tab = params.get('tab');
+  }
+  return { base, tab };
+}
+
 export default function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { isAdmin, isOwner, canEdit, isSuperAdminOnly } = usePermissions();
+  const { isOwner, canEdit, isSuperAdminOnly } = usePermissions();
+
+  // Whether a single nav item is the active route (honoring ?tab= for attendance).
+  const isActiveItem = (item) => {
+    const { base, tab } = parsePath(item.path);
+    if (location.pathname !== base) return false;
+    if (tab) {
+      const currentTab = new URLSearchParams(location.search).get('tab') || 'dashboard';
+      return currentTab === tab;
+    }
+    // For '/', only exact match; for others, prefix match (existing behavior).
+    return base === '/' ? location.pathname === '/' : true;
+  };
+
+  // Which group contains the currently active route (undefined for Dashboard).
+  const activeGroupKey = useMemo(
+    () => navGroups.find(g => g.items.some(isActiveItem))?.key,
+    [location.pathname, location.search]
+  );
+
+  // Accordion state: only one group open at a time. Auto-open the active group
+  // on first render and whenever the active group changes (covers refresh + nav).
+  const [openGroup, setOpenGroup] = useState(activeGroupKey);
+  const prevActive = useRef(activeGroupKey);
+  useEffect(() => {
+    if (activeGroupKey && activeGroupKey !== prevActive.current) {
+      setOpenGroup(activeGroupKey);
+    }
+    prevActive.current = activeGroupKey;
+  }, [activeGroupKey]);
+
+  // Existing per-item permission filter (unchanged behavior).
+  const canShowItem = (item) => {
+    if (isSuperAdminOnly) {
+      return item.path === '/database-backup' || item.path === '/admin';
+    }
+    if (item.path === '/admin') return isOwner;
+    if (item.path === '/database-backup') return isOwner;
+    if (item.path === '/chat') return true;
+    if (item.path === '/employees/new') return canEdit;
+    return true;
+  };
+
+  const toggleGroup = (key) => {
+    setOpenGroup(prev => (prev === key ? null : key));
+  };
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar text-sidebar-foreground flex flex-col shadow-xl">
@@ -71,44 +145,89 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {navGroups.map((group, gi) => (
-          <div key={gi} className="space-y-0.5">
-            {group.label && (
-              <p className="px-3 pt-3 pb-1 text-[9px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground/30">
-                {group.label}
-              </p>
-            )}
-            {group.items.filter(item => {
-              if (isSuperAdminOnly) {
-                return item.path === '/database-backup' || item.path === '/admin';
-              }
-              if (item.path === '/admin') return isOwner;
-              if (item.path === '/database-backup') return isOwner;
-              if (item.path === '/chat') return true;
-              if (item.path === '/employees/new') return canEdit;
-              return true;
-            }).map((item) => {
-              const isActive = location.pathname === item.path ||
-                (item.path !== '/' && location.pathname.startsWith(item.path));
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        {/* Standalone Dashboard */}
+        {standaloneItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+                isActive
+                  ? 'bg-sidebar-primary text-white shadow-md shadow-sidebar-primary/30'
+                  : 'text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent'
+              )}
+            >
+              <item.icon className={cn('w-4 h-4 shrink-0', isActive ? 'opacity-100' : 'opacity-70')} />
+              <span className="truncate">{item.label}</span>
+            </Link>
+          );
+        })}
+
+        {/* Collapsible groups */}
+        {navGroups.map((group) => {
+          const visibleItems = group.items.filter(canShowItem);
+          if (visibleItems.length === 0) return null;
+          const isOpen = openGroup === group.key;
+          const isGroupActive = activeGroupKey === group.key;
+
+          return (
+            <div key={group.key} className="space-y-0.5">
+              {/* Group header — click toggles expand */}
+              <button
+                onClick={() => toggleGroup(group.key)}
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150',
+                  isGroupActive
+                    ? 'text-sidebar-foreground bg-sidebar-accent'
+                    : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60'
+                )}
+              >
+                <group.icon className={cn('w-4 h-4 shrink-0', isGroupActive ? 'opacity-100' : 'opacity-80')} />
+                <span className="truncate flex-1 text-left">{group.label}</span>
+                <ChevronRight
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-                    isActive
-                      ? 'bg-sidebar-primary text-white shadow-md shadow-sidebar-primary/30'
-                      : 'text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent'
+                    'w-4 h-4 shrink-0 transition-transform duration-200',
+                    isOpen && 'rotate-90'
                   )}
-                >
-                  <item.icon className={cn('w-4 h-4 shrink-0', isActive ? 'opacity-100' : 'opacity-70')} />
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+                />
+              </button>
+
+              {/* Submenu — smooth height animation via grid-rows trick */}
+              <div
+                className={cn(
+                  'grid transition-all duration-200 ease-out',
+                  isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                )}
+              >
+                <div className="overflow-hidden">
+                  <div className="pl-4 pt-1 space-y-0.5">
+                    {visibleItems.map((item) => {
+                      const isActive = isActiveItem(item);
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          className={cn(
+                            'flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150',
+                            isActive
+                              ? 'bg-sidebar-primary text-white shadow-sm shadow-sidebar-primary/30'
+                              : 'text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent'
+                          )}
+                        >
+                          <item.icon className={cn('w-3.5 h-3.5 shrink-0', isActive ? 'opacity-100' : 'opacity-70')} />
+                          <span className="truncate">{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </nav>
 
       {/* Footer */}
