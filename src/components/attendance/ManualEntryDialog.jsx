@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/AuthContext';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import { toDateStr, toTimeStr, buildDateTime } from '@/lib/attendanceUtils';
 import { saveManualEntry } from '@/lib/attendanceService';
-import { resolveShift } from '@/lib/attendanceEngine';
+import { resolveShift, getFirstIn, getFinalOut } from '@/lib/attendanceEngine';
 
 export default function ManualEntryDialog({
   open, onClose, employees, settings, shifts, assignments,
@@ -37,14 +37,16 @@ export default function ManualEntryDialog({
       const emp = employees.find(e => e.id === editRecord.personnel_id);
       setSelectedEmp(emp || { id: editRecord.personnel_id, name: editRecord.employee_name, company: editRecord.company });
       setDate(editRecord.attendance_date || selectedDate || '');
-      setFirstInDate(toDateStr(editRecord.first_in_at));
-      setFirstInTime(toTimeStr(editRecord.first_in_at));
+      const firstIn = getFirstIn(editRecord);
+      const finalOut = getFinalOut(editRecord);
+      setFirstInDate(toDateStr(firstIn));
+      setFirstInTime(toTimeStr(firstIn));
       setFirstOutDate(toDateStr(editRecord.first_out_at));
       setFirstOutTime(toTimeStr(editRecord.first_out_at));
       setSecondInDate(toDateStr(editRecord.second_in_at));
       setSecondInTime(toTimeStr(editRecord.second_in_at));
-      setFinalOutDate(toDateStr(editRecord.final_out_at));
-      setFinalOutTime(toTimeStr(editRecord.final_out_at));
+      setFinalOutDate(toDateStr(finalOut));
+      setFinalOutTime(toTimeStr(finalOut));
       setReason(editRecord.manual_reason || '');
       setRemarks(editRecord.remarks || '');
     } else {

@@ -13,7 +13,7 @@ import { usePermissions } from '@/lib/usePermissions';
 import { useAuth } from '@/lib/AuthContext';
 import {
   formatTimeShort, formatDateShort, formatMinutes, getDurationColor,
-  STATUS_COLORS, isWorkingDay, isHoliday,
+  STATUS_COLORS, isWorkingDay, isHoliday, getFirstIn, getFinalOut,
 } from '@/lib/attendanceEngine';
 import { saveManualEntry, softDeleteAttendance } from '@/lib/attendanceService';
 
@@ -189,10 +189,10 @@ export default function TimeEntries({
                     <td className="px-3 py-2 text-muted-foreground">{emp.department || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{emp.current_location || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatDateShort(selectedDate)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(att?.first_in_at)}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(getFirstIn(att))}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(att?.first_out_at)}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(att?.second_in_at)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(att?.final_out_at)}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(getFinalOut(att))}</td>
                     <td className={cn('px-3 py-2 font-medium', getDurationColor(att?.duration_minutes))}>
                       {formatMinutes(att?.duration_minutes)}
                     </td>
@@ -212,7 +212,7 @@ export default function TimeEntries({
                                 className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit">
                                 <Edit2 className="w-3 h-3" />
                               </button>
-                              <button onClick={() => setDeleteConfirm({ id: att, reason: '' })}
+                              <button onClick={() => setDeleteConfirm({ id: att.id, reason: '' })}
                                 className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600" title="Delete">
                                 <Trash2 className="w-3 h-3" />
                               </button>

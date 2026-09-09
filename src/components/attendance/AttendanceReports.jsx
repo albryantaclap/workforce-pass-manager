@@ -9,6 +9,7 @@ import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import {
   isWorkingDay, isHoliday, calculateDurationFromRecord,
   formatMinutes, formatTimeShort, formatDateShort, STATUS_COLORS,
+  getFirstIn, getFinalOut,
 } from '@/lib/attendanceEngine';
 
 const REPORT_TYPES = [
@@ -65,10 +66,10 @@ export default function AttendanceReports({
 
   const exportCSV = () => {
     const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Source'];
-    const rows = reportRows.map(({ r, emp }) => [
+    const rows = reportRows.map(({ record: r, emp }) => [
       emp?.name || r.employee_name, emp?.company || r.company, emp?.department || '',
-      r.attendance_date, formatTimeShort(r.first_in_at), formatTimeShort(r.first_out_at),
-      formatTimeShort(r.second_in_at), formatTimeShort(r.final_out_at),
+      r.attendance_date, formatTimeShort(getFirstIn(r)), formatTimeShort(r.first_out_at),
+      formatTimeShort(r.second_in_at), formatTimeShort(getFinalOut(r)),
       r.duration_minutes || 0, r.overtime_minutes || 0, r.attendance_status || '', r.source || '',
     ]);
     const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
@@ -148,10 +149,10 @@ export default function AttendanceReports({
                     <td className="px-3 py-2 text-muted-foreground">{emp?.company || r.company || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{emp?.department || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatDateShort(r.attendance_date)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(r.first_in_at)}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(getFirstIn(r))}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(r.first_out_at)}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(r.second_in_at)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(r.final_out_at)}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(getFinalOut(r))}</td>
                     <td className="px-3 py-2 text-foreground">{formatMinutes(r.duration_minutes)}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatMinutes(r.overtime_minutes)}</td>
                     <td className="px-3 py-2">

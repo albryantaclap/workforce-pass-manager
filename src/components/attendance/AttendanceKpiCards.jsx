@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
   isWorkingDay, isHoliday, calculateDailyStatus, STATUS_COLORS,
+  getFirstIn, getFinalOut,
 } from '@/lib/attendanceEngine';
 
 // KPI cards for the Daily Attendance dashboard. All cards respect active filters.
@@ -28,8 +29,10 @@ export default function AttendanceKpiCards({ employees, attendanceByPersonnel, s
       else if (status === 'Rest Day') restDay++;
       else if (status === 'Holiday') restDay++;
 
-      if (att?.first_in_at && !att?.final_out_at) { checkedIn++; currentlyWorking++; }
-      if (att?.final_out_at) checkedOut++;
+      const firstIn = att ? getFirstIn(att) : '';
+      const finalOut = att ? getFinalOut(att) : '';
+      if (firstIn && !finalOut) { checkedIn++; currentlyWorking++; }
+      if (finalOut) checkedOut++;
     }
 
     const expected = employees.length - onLeave - restDay;

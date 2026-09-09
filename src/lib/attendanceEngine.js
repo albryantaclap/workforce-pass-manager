@@ -208,13 +208,12 @@ export const calculateDailyStatus = (record, shift, settings, holidays = []) => 
   if (holiday) return 'Holiday';
   if (!isWorkingDay(dateStr, settings)) return 'Rest Day';
 
-  const hasFirstIn = !!record?.first_in_at;
-  if (!hasFirstIn) return 'Absent';
+  const firstIn = getFirstIn(record);
+  if (!firstIn) return 'Absent';
 
-  const hasFinalOut = !!record?.final_out_at;
-  const hasFirstOut = !!record?.first_out_at;
+  const finalOut = getFinalOut(record);
 
-  if (!hasFinalOut) {
+  if (!finalOut) {
     // Session is still open or was auto-closed without final out
     return 'Missing Check-out';
   }

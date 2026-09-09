@@ -104,8 +104,11 @@ export async function autoCloseExpiredSessions(personnelId, settings, shifts, as
     };
 
     // Sync check_out_at with the latest available out timestamp for backward compat
-    const lastOut = rec.final_out_at || rec.first_out_at || '';
+    const lastOut = rec.final_out_at || rec.check_out_at || rec.first_out_at || '';
     if (!rec.check_out_at && lastOut) updates.check_out_at = lastOut;
+    // Populate new fields from old ones if missing
+    if (!rec.first_in_at && rec.check_in_at) updates.first_in_at = rec.check_in_at;
+    if (!rec.final_out_at && rec.check_out_at) updates.final_out_at = rec.check_out_at;
 
     await base44.entities.AttendanceRecord.update(rec.id, updates);
     await logActivity('update', rec.id, rec.employee_name, {
@@ -143,10 +146,12 @@ export async function recordPunch({
   );
   let session = existing.find(r => r.status === 'open') || existing[0] || null;
 
-  // Determine punch sequence
+  // Determine punch sequence (with backward-compat fallback for old records)
+  const sessFirstIn = session ? (session.first_in_at || session.check_in_at) : '';
   let punchSeq = 1;
   if (session) {
-    if (!session.first_in_at) punchSeq = 1;
+    if (!sessFirstIn) punchSeq = 1;
+    else if (!session.first_out_at && !session.second_in_at && !session.final_out_at) punchSeq = 2; // single-session OUT = final out
     else if (!session.first_out_at) punchSeq = 2;
     else if (!session.second_in_at) punchSeq = 3;
     else if (!session.final_out_at) punchSeq = 4;
@@ -188,20 +193,32 @@ export async function recordPunch({
   // Update existing session
   const updates = {};
   if (punchType === 'IN') {
-    if (!session.first_in_at) {
+    if (!sessFirstIn) {
       updates.first_in_at = tsIso;
       updates.check_in_at = tsIso;
       updates.checked_in_by = email;
       updates.checked_in_by_name = name;
-    } else if (!session.second_in_at) {
+    } else if (!session.second_in_at && session.first_out_at) {
+      // Second IN (return from break) — only valid after first_out
       updates.second_in_at = tsIso;
+    } else if (!session.second_in_at && !session.first_out_at) {
+      throw new Error('Cannot punch in — session is already open. Punch OUT to check out.');
     } else {
       throw new Error('No more IN punches expected for this session.');
     }
   } else { // OUT
-    if (!session.first_out_at) {
+    // Single-session mode: if no break punches exist, first OUT = final OUT (session complete)
+    if (!session.first_out_at && !session.second_in_at && !session.final_out_at) {
+      updates.final_out_at = tsIso;
+      updates.check_out_at = tsIso;
+      updates.checked_out_by = email;
+      updates.checked_out_by_name = name;
+      updates.status = 'completed';
+    } else if (!session.first_out_at) {
+      // Break start (lunch out)
       updates.first_out_at = tsIso;
     } else if (!session.final_out_at) {
+      // Final out after break
       updates.final_out_at = tsIso;
       updates.check_out_at = tsIso;
       updates.checked_out_by = email;
