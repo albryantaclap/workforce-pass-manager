@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield, LogOut, UserX, TrendingUp, Trash2, Activity, HardDrive, MessageCircle, FileText, Tent } from 'lucide-react';
+import { LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap, HardHat, Plus, Shield, LogOut, UserX, TrendingUp, Trash2, Activity, HardDrive, MessageCircle, FileText, Tent, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
 import { usePermissions } from '@/lib/usePermissions';
@@ -11,24 +11,45 @@ const ROLE_LABELS = {
   user: 'View Only',
 };
 
-const navItems = [
-  { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { label: 'Master List', path: '/master-list', icon: List },
-  { label: 'Add Personnel', path: '/employees/new', icon: Plus },
-  { label: 'Medical', path: '/medical', icon: Stethoscope },
-  { label: 'Gate Pass (RLIC)', path: '/gatepass', icon: ShieldCheck },
-  { label: 'Project ID', path: '/project-id', icon: BadgeCheck },
-  { label: 'Training', path: '/training', icon: GraduationCap },
-  { label: 'COMO Camp', path: '/como-camp', icon: Tent },
-
-  { label: 'Inactive / Demobilized', path: '/inactive', icon: UserX },
-  { label: 'Reports', path: '/projection', icon: TrendingUp },
-  { label: 'Deleted Personnel', path: '/deleted-personnel', icon: Trash2 },
-  { label: 'Activity Log', path: '/activity-log', icon: Activity },
-  { label: 'Team Chat', path: '/chat', icon: MessageCircle },
-  { label: 'Forms', path: '/forms', icon: FileText },
-  { label: 'DB Backup', path: '/database-backup', icon: HardDrive },
-  { label: 'Admin Panel', path: '/admin', icon: Shield },
+// Navigation organized into groups. Dashboard is standalone at the top.
+const navGroups = [
+  {
+    label: null, // standalone items (no group header)
+    items: [
+      { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'Workforce Management',
+    items: [
+      { label: 'Master List', path: '/master-list', icon: List },
+      { label: 'Add Personnel', path: '/employees/new', icon: Plus },
+      { label: 'Medical', path: '/medical', icon: Stethoscope },
+      { label: 'Gate Pass (RLIC)', path: '/gatepass', icon: ShieldCheck },
+      { label: 'Project ID', path: '/project-id', icon: BadgeCheck },
+      { label: 'Training', path: '/training', icon: GraduationCap },
+      { label: 'COMO Camp', path: '/como-camp', icon: Tent },
+      { label: 'Inactive / Demobilized', path: '/inactive', icon: UserX },
+      { label: 'Reports', path: '/projection', icon: TrendingUp },
+    ],
+  },
+  {
+    label: 'Daily Attendance',
+    items: [
+      { label: 'Daily Attendance', path: '/daily-attendance', icon: Clock },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { label: 'Deleted Personnel', path: '/deleted-personnel', icon: Trash2 },
+      { label: 'Activity Log', path: '/activity-log', icon: Activity },
+      { label: 'Team Chat', path: '/chat', icon: MessageCircle },
+      { label: 'Forms', path: '/forms', icon: FileText },
+      { label: 'DB Backup', path: '/database-backup', icon: HardDrive },
+      { label: 'Admin Panel', path: '/admin', icon: Shield },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -51,34 +72,43 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.filter(item => {
-          if (isSuperAdminOnly) {
-            return item.path === '/database-backup' || item.path === '/admin';
-          }
-          if (item.path === '/admin') return isOwner;
-          if (item.path === '/database-backup') return isOwner;
-          if (item.path === '/chat') return true;
-          if (item.path === '/employees/new') return canEdit;
-          return true;
-        }).map((item) => {
-          const isActive = location.pathname === item.path ||
-            (item.path !== '/' && location.pathname.startsWith(item.path));
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-                isActive
-                  ? 'bg-sidebar-primary text-white shadow-md shadow-sidebar-primary/30'
-                  : 'text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent'
-              )}
-            >
-              <item.icon className={cn('w-4 h-4 shrink-0', isActive ? 'opacity-100' : 'opacity-70')} />
-              <span className="truncate">{item.label}</span>
-            </Link>
-          );
-        })}
+        {navGroups.map((group, gi) => (
+          <div key={gi} className="space-y-0.5">
+            {group.label && (
+              <p className="px-3 pt-3 pb-1 text-[9px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground/30">
+                {group.label}
+              </p>
+            )}
+            {group.items.filter(item => {
+              if (isSuperAdminOnly) {
+                return item.path === '/database-backup' || item.path === '/admin';
+              }
+              if (item.path === '/admin') return isOwner;
+              if (item.path === '/database-backup') return isOwner;
+              if (item.path === '/chat') return true;
+              if (item.path === '/employees/new') return canEdit;
+              return true;
+            }).map((item) => {
+              const isActive = location.pathname === item.path ||
+                (item.path !== '/' && location.pathname.startsWith(item.path));
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+                    isActive
+                      ? 'bg-sidebar-primary text-white shadow-md shadow-sidebar-primary/30'
+                      : 'text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent'
+                  )}
+                >
+                  <item.icon className={cn('w-4 h-4 shrink-0', isActive ? 'opacity-100' : 'opacity-70')} />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}

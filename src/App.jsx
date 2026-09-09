@@ -16,6 +16,7 @@ import GatepassTracker from './pages/GatepassTracker';
 import ProjectIDTracker from './pages/ProjectIDTracker';
 import TrainingTracker from './pages/TrainingTracker';
 import ComoCamp from './pages/ComoCamp';
+import DailyAttendance from './pages/DailyAttendance';
 import AdminPanel from './pages/AdminPanel';
 import MedicalImport from './pages/MedicalImport';
 import MasterImport from './pages/MasterImport';
@@ -74,6 +75,7 @@ const AuthenticatedApp = () => {
         <Route path="/project-id" element={<ProjectIDTracker />} />
         <Route path="/training" element={<TrainingTracker />} />
         <Route path="/como-camp" element={<ComoCamp />} />
+        <Route path="/daily-attendance" element={<DailyAttendance />} />
 
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/medical/import" element={<MedicalImport />} />

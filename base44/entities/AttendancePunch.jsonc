@@ -1,0 +1,82 @@
+{
+  "name": "AttendancePunch",
+  "type": "object",
+  "properties": {
+    "personnel_id": {
+      "type": "string",
+      "description": "Linked Employee record ID (Master List identity)"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Employee full name (denormalized for display only)"
+    },
+    "company": {
+      "type": "string",
+      "description": "Employee company (denormalized for display only)"
+    },
+    "attendance_date": {
+      "type": "string",
+      "format": "date",
+      "description": "The attendance date (YYYY-MM-DD) determined by shift/session date, not calendar midnight"
+    },
+    "punch_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp of the punch"
+    },
+    "punch_type": {
+      "type": "string",
+      "enum": [
+        "IN",
+        "OUT"
+      ],
+      "description": "Punch direction: IN (clock in) or OUT (clock out)"
+    },
+    "punch_sequence": {
+      "type": "number",
+      "description": "Sequence within the day: 1=First In, 2=First Out, 3=Second In, 4=Final Out"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "Manual",
+        "COMO Camp",
+        "Employee Portal",
+        "ID Card Scanner",
+        "Biometric Device",
+        "Admin Entry",
+        "Imported",
+        "API"
+      ],
+      "default": "Admin Entry",
+      "description": "Where the punch originated"
+    },
+    "location": {
+      "type": "string",
+      "description": "Branch/location where the punch was recorded"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "Device identifier for biometric/scanner punches"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email of the user who created the punch"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Display name of the user who created the punch"
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete flag"
+    }
+  },
+  "required": [
+    "personnel_id",
+    "attendance_date",
+    "punch_timestamp",
+    "punch_type"
+  ]
+}

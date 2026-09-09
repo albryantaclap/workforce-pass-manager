@@ -1,0 +1,90 @@
+{
+  "name": "AttendanceSetting",
+  "type": "object",
+  "properties": {
+    "setting_key": {
+      "type": "string",
+      "description": "Unique setting key. Use 'global' for the system-wide default."
+    },
+    "working_days": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ]
+      },
+      "default": [
+        "Sun",
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu"
+      ],
+      "description": "Default working days of the week"
+    },
+    "default_shift_start": {
+      "type": "string",
+      "default": "07:00",
+      "description": "Default shift start time HH:mm (used when no shift is assigned)"
+    },
+    "default_shift_end": {
+      "type": "string",
+      "default": "17:00",
+      "description": "Default shift end time HH:mm (used when no shift is assigned)"
+    },
+    "break_minutes": {
+      "type": "number",
+      "default": 60,
+      "description": "Default break duration in minutes"
+    },
+    "late_grace_minutes": {
+      "type": "number",
+      "default": 10,
+      "description": "Default late grace period in minutes"
+    },
+    "half_day_threshold_hours": {
+      "type": "number",
+      "default": 4,
+      "description": "Working hours threshold below which a day is a Half Day"
+    },
+    "overtime_start_hours": {
+      "type": "number",
+      "default": 8,
+      "description": "Working hours after which overtime begins"
+    },
+    "max_working_hours": {
+      "type": "number",
+      "default": 12,
+      "description": "Maximum working hours per day"
+    },
+    "auto_close_open_sessions": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to automatically close open sessions after the shift ends + buffer"
+    },
+    "auto_close_buffer_minutes": {
+      "type": "number",
+      "default": 120,
+      "description": "Minutes after shift end after which an open session is auto-closed as Missing Check-out"
+    },
+    "first_punch_window_minutes": {
+      "type": "number",
+      "default": 180,
+      "description": "Minutes before shift start during which the First Punch In is accepted"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of user who last updated settings"
+    }
+  },
+  "required": [
+    "setting_key"
+  ]
+}

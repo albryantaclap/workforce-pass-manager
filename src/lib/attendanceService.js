@@ -1,0 +1,400 @@
+// Centralized Attendance Service — API-calling functions that use the
+// attendance engine. This is the single shared service used by Daily Attendance,
+// COMO Camp, Master List, and Personnel Form.
+//
+// All functions preserve existing data. No destructive operations.
+// Raw punches are always recorded in AttendancePunch. Sessions are maintained
+// in AttendanceRecord with backward-compatible check_in_at/check_out_at fields.
+
+import { base44 } from '@/api/base44Client';
+import {
+  calculateDurationFromRecord, calculateOvertime, calculateLate,
+  calculateDailyStatus, hasShiftExpired, resolveShift, resolveShiftBounds,
+  getNextExpectedPunch, getMissingPunchLabel, isWorkingDay, isHoliday,
+} from './attendanceEngine';
+
+// ── Settings ──
+export async function getSettings() {
+  const rows = await base44.entities.AttendanceSetting.filter({ setting_key: 'global' }, undefined, 10);
+  if (rows.length > 0) return rows[0];
+  // Create default settings if none exist
+  return await base44.entities.AttendanceSetting.create({
+    setting_key: 'global',
+    working_days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu'],
+    default_shift_start: '07:00',
+    default_shift_end: '17:00',
+    break_minutes: 60,
+    late_grace_minutes: 10,
+    half_day_threshold_hours: 4,
+    overtime_start_hours: 8,
+    max_working_hours: 12,
+    auto_close_open_sessions: true,
+    auto_close_buffer_minutes: 120,
+    first_punch_window_minutes: 180,
+  });
+}
+
+// ── Shifts & assignments ──
+export async function getShifts() {
+  return await base44.entities.AttendanceShift.list('-created_date', 1000);
+}
+
+export async function getShiftAssignments() {
+  return await base44.entities.AttendanceShiftAssignment.list('-created_date', 5000);
+}
+
+export async function getHolidays() {
+  return await base44.entities.AttendanceHoliday.filter({ is_active: true }, undefined, 1000);
+}
+
+// ── Activity logging ──
+async function logActivity(action, entityId, recordName, snapshot, changedFields, userEmail) {
+  try {
+    await base44.entities.ActivityLog.create({
+      action,
+      entity_name: 'AttendanceRecord',
+      entity_id: entityId,
+      performed_by: userEmail || '',
+      record_name: recordName,
+      record_snapshot: snapshot,
+      changed_fields: changedFields,
+    });
+  } catch { /* non-fatal */ }
+}
+
+// ── Auto-close expired incomplete sessions (Day Reset Logic) ──
+// This is the core fix: when a shift has ended + buffer has passed, any open
+// session for that date is closed as "Missing Check-out". All existing punches
+// are preserved — no timestamps are fabricated. The employee is then free to
+// start a new session on the next working day.
+//
+// This function is called:
+//   1. Lazily — before any punch operation (clockIn/clockOut/recordPunch)
+//   2. Lazily — when fetching daily attendance (getDailyAttendance)
+//   3. Via a scheduled workflow (see base44/workflows/)
+export async function autoCloseExpiredSessions(personnelId, settings, shifts, assignments, holidays, currentUser) {
+  if (!personnelId || !settings?.auto_close_open_sessions) return [];
+  const buffer = settings.auto_close_buffer_minutes ?? 120;
+
+  // Find all open sessions for this employee
+  const openRecords = await base44.entities.AttendanceRecord.filter(
+    { personnel_id: personnelId, status: 'open', is_deleted: { $ne: true } },
+    '-attendance_date', 500
+  );
+
+  const closed = [];
+  for (const rec of openRecords) {
+    // Resolve the shift for this record's date
+    const dummyEmp = { id: personnelId, company: rec.company };
+    const shift = resolveShift(dummyEmp, assignments, shifts, settings);
+    const effectiveShift = shift || {
+      start_time: settings.default_shift_start,
+      end_time: settings.default_shift_end,
+      cross_midnight: false,
+    };
+
+    if (!hasShiftExpired(effectiveShift, rec.attendance_date, buffer)) continue;
+
+    // The shift has expired — close the session
+    const missingLabel = getMissingPunchLabel(rec);
+    const updates = {
+      status: 'completed',
+      attendance_status: 'Missing Check-out',
+      duration_minutes: calculateDurationFromRecord(rec),
+    };
+
+    // Sync check_out_at with the latest available out timestamp for backward compat
+    const lastOut = rec.final_out_at || rec.first_out_at || '';
+    if (!rec.check_out_at && lastOut) updates.check_out_at = lastOut;
+
+    await base44.entities.AttendanceRecord.update(rec.id, updates);
+    await logActivity('update', rec.id, rec.employee_name, {
+      ...updates, auto_closed: true, missing_label: missingLabel,
+      previous_status: 'open', reason: `Auto-closed: shift expired (${missingLabel})`,
+    }, ['status', 'attendance_status', 'duration_minutes'], currentUser?.email);
+
+    closed.push(rec.id);
+  }
+  return closed;
+}
+
+// ── Record a punch (IN or OUT) ──
+// Records the raw punch in AttendancePunch and updates the AttendanceRecord session.
+// Automatically closes any expired open sessions first (day reset logic).
+export async function recordPunch({
+  personnelId, employeeName, company, punchType, // 'IN' | 'OUT'
+  timestamp, source = 'Admin Entry', location = '', workLocation = '',
+  currentUser, shiftId = '', shiftName = '',
+}) {
+  if (!personnelId) throw new Error('Employee is required.');
+  if (!timestamp) throw new Error('Punch timestamp is required.');
+
+  // Load settings/shifts to auto-close expired sessions
+  const settings = await getSettings();
+  const [shifts, assignments] = await Promise.all([getShifts(), getShiftAssignments()]);
+  await autoCloseExpiredSessions(personnelId, settings, shifts, assignments, [], currentUser);
+
+  const attDate = timestamp.toLocaleDateString('en-CA');
+
+  // Find existing session for this date (non-deleted)
+  const existing = await base44.entities.AttendanceRecord.filter(
+    { personnel_id: personnelId, attendance_date: attDate, is_deleted: { $ne: true } },
+    undefined, 100
+  );
+  let session = existing.find(r => r.status === 'open') || existing[0] || null;
+
+  // Determine punch sequence
+  let punchSeq = 1;
+  if (session) {
+    if (!session.first_in_at) punchSeq = 1;
+    else if (!session.first_out_at) punchSeq = 2;
+    else if (!session.second_in_at) punchSeq = 3;
+    else if (!session.final_out_at) punchSeq = 4;
+    else throw new Error('All 4 punches already recorded for this date. Edit the record instead.');
+  }
+
+  // Record raw punch
+  const tsIso = timestamp.toISOString();
+  await base44.entities.AttendancePunch.create({
+    personnel_id: personnelId, employee_name: employeeName, company,
+    attendance_date: attDate, punch_timestamp: tsIso, punch_type: punchType,
+    punch_sequence: punchSeq, source, location,
+    created_by: currentUser?.email || '', created_by_name: currentUser?.full_name || '',
+  });
+
+  const email = currentUser?.email || '';
+  const name = currentUser?.full_name || '';
+
+  if (!session) {
+    // Create new session
+    if (punchType !== 'IN') throw new Error('Cannot clock out — no open session for this date.');
+    session = await base44.entities.AttendanceRecord.create({
+      personnel_id: personnelId, employee_name: employeeName, company,
+      attendance_date: attDate,
+      check_in_at: tsIso, first_in_at: tsIso,
+      check_out_at: '', first_out_at: '', second_in_at: '', final_out_at: '',
+      duration_minutes: 0, overtime_minutes: 0,
+      work_location: workLocation || location || '',
+      checked_in_by: email, checked_in_by_name: name,
+      status: 'open', source, source_page: source,
+      shift_id: shiftId, shift_name: shiftName,
+    });
+    await logActivity('create', session.id, employeeName,
+      { attendance_date: attDate, first_in_at: tsIso, source, punch_sequence: 1 },
+      ['first_in_at'], email);
+    return { action: 'created', record: session, punchSequence: 1 };
+  }
+
+  // Update existing session
+  const updates = {};
+  if (punchType === 'IN') {
+    if (!session.first_in_at) {
+      updates.first_in_at = tsIso;
+      updates.check_in_at = tsIso;
+      updates.checked_in_by = email;
+      updates.checked_in_by_name = name;
+    } else if (!session.second_in_at) {
+      updates.second_in_at = tsIso;
+    } else {
+      throw new Error('No more IN punches expected for this session.');
+    }
+  } else { // OUT
+    if (!session.first_out_at) {
+      updates.first_out_at = tsIso;
+    } else if (!session.final_out_at) {
+      updates.final_out_at = tsIso;
+      updates.check_out_at = tsIso;
+      updates.checked_out_by = email;
+      updates.checked_out_by_name = name;
+      updates.status = 'completed';
+    } else {
+      throw new Error('All punches already recorded for this date.');
+    }
+  }
+
+  // Recalculate duration
+  const merged = { ...session, ...updates };
+  updates.duration_minutes = calculateDurationFromRecord(merged);
+  if (updates.status === 'completed') {
+    updates.overtime_minutes = calculateOvertime(updates.duration_minutes, settings);
+  }
+
+  await base44.entities.AttendanceRecord.update(session.id, updates);
+  await logActivity('update', session.id, employeeName,
+    { ...updates, punch_type: punchType, punch_sequence: punchSeq },
+    Object.keys(updates).filter(k => k !== 'duration_minutes' && k !== 'overtime_minutes'), email);
+
+  return { action: 'updated', record: { ...session, ...updates }, punchSequence: punchSeq };
+}
+
+// Convenience wrappers
+export async function clockIn(opts) {
+  return recordPunch({ ...opts, punchType: 'IN' });
+}
+export async function clockOut(opts) {
+  return recordPunch({ ...opts, punchType: 'OUT' });
+}
+
+// ── Manual entry — create or update a full day's attendance with all 4 punches ──
+export async function saveManualEntry({
+  personnelId, employeeName, company, attendanceDate,
+  firstInAt, firstOutAt, secondInAt, finalOutAt,
+  reason, remarks, workLocation, currentUser,
+  shiftId = '', shiftName = '',
+}) {
+  if (!personnelId) throw new Error('Employee is required.');
+  if (!attendanceDate) throw new Error('Attendance date is required.');
+  if (!reason?.trim()) throw new Error('A reason is required for manual entry.');
+
+  const email = currentUser?.email || '';
+  const name = currentUser?.full_name || '';
+
+  // Find existing record for this date
+  const existing = await base44.entities.AttendanceRecord.filter(
+    { personnel_id: personnelId, attendance_date: attendanceDate, is_deleted: { $ne: true } },
+    undefined, 100
+  );
+  const record = existing[0] || null;
+
+  const toIso = (dt) => dt ? dt.toISOString() : '';
+  const firstInIso = toIso(firstInAt);
+  const firstOutIso = toIso(firstOutAt);
+  const secondInIso = toIso(secondInAt);
+  const finalOutIso = toIso(finalOutAt);
+
+  // Sync backward-compat fields
+  const checkInIso = firstInIso;
+  const checkOutIso = finalOutIso || firstOutIso;
+
+  const isCompleted = !!finalOutIso || (!!firstOutIso && !secondInIso);
+  const tempRec = { first_in_at: firstInIso, first_out_at: firstOutIso, second_in_at: secondInIso, final_out_at: finalOutIso };
+  const duration = calculateDurationFromRecord(tempRec);
+  const settings = await getSettings();
+  const overtime = calculateOvertime(duration, settings);
+
+  const payload = {
+    personnel_id: personnelId, employee_name: employeeName, company,
+    attendance_date: attendanceDate,
+    check_in_at: checkInIso, check_out_at: checkOutIso,
+    first_in_at: firstInIso, first_out_at: firstOutIso,
+    second_in_at: secondInIso, final_out_at: finalOutIso,
+    duration_minutes: duration, overtime_minutes: overtime,
+    work_location: workLocation || '',
+    status: isCompleted ? 'completed' : 'open',
+    source: 'Manual', source_page: 'Daily Attendance',
+    is_manual: true, manual_reason: reason.trim(), remarks: remarks || '',
+    shift_id: shiftId, shift_name: shiftName,
+  };
+
+  if (record) {
+    // Update existing — log correction
+    await base44.entities.AttendanceRecord.update(record.id, payload);
+    await base44.entities.AttendanceCorrection.create({
+      attendance_id: record.id, personnel_id: personnelId, employee_name: employeeName,
+      field_changed: 'manual_entry',
+      original_value: JSON.stringify({ first_in_at: record.first_in_at, first_out_at: record.first_out_at, second_in_at: record.second_in_at, final_out_at: record.final_out_at }),
+      new_value: JSON.stringify({ first_in_at: firstInIso, first_out_at: firstOutIso, second_in_at: secondInIso, final_out_at: finalOutIso }),
+      reason: reason.trim(), changed_by: email, changed_by_name: name,
+    });
+    await logActivity('update', record.id, employeeName,
+      { ...payload, manual_correction: true, reason: reason.trim(), previous: { first_in_at: record.first_in_at, first_out_at: record.first_out_at, second_in_at: record.second_in_at, final_out_at: record.final_out_at } },
+      ['first_in_at', 'first_out_at', 'second_in_at', 'final_out_at', 'manual_reason'], email);
+    return { action: 'updated', record: { ...record, ...payload } };
+  }
+
+  const newRec = await base44.entities.AttendanceRecord.create({
+    ...payload,
+    checked_in_by: email, checked_in_by_name: name,
+    checked_out_by: isCompleted ? email : '', checked_out_by_name: isCompleted ? name : '',
+  });
+  await logActivity('create', newRec.id, employeeName,
+    { ...payload, manual_entry: true },
+    ['first_in_at', 'first_out_at', 'second_in_at', 'final_out_at', 'manual_reason'], email);
+  return { action: 'created', record: newRec };
+}
+
+// ── Soft delete ──
+export async function softDeleteAttendance(recordId, reason, currentUser) {
+  if (!reason?.trim()) throw new Error('A deletion reason is required.');
+  const rec = await base44.entities.AttendanceRecord.get(recordId);
+  await base44.entities.AttendanceRecord.update(recordId, {
+    is_deleted: true,
+    deleted_at: new Date().toISOString(),
+    deleted_by: currentUser?.email || '',
+    deletion_reason: reason.trim(),
+  });
+  await logActivity('delete', recordId, rec.employee_name,
+    { reason: reason.trim(), deleted_by: currentUser?.email }, ['is_deleted'], currentUser?.email);
+  return { action: 'deleted', recordId };
+}
+
+// ── Restore soft-deleted record ──
+export async function restoreAttendance(recordId, currentUser) {
+  await base44.entities.AttendanceRecord.update(recordId, {
+    is_deleted: false, deleted_at: '', deleted_by: '', deletion_reason: '',
+  });
+  const rec = await base44.entities.AttendanceRecord.get(recordId);
+  await logActivity('update', recordId, rec.employee_name,
+    { restored: true, restored_by: currentUser?.email }, ['is_deleted'], currentUser?.email);
+  return { action: 'restored', recordId };
+}
+
+// ── Get daily attendance for a date ──
+// Returns attendance records for the given date, auto-closing expired sessions.
+export async function getDailyAttendance(dateStr, filters = {}) {
+  const [settings, shifts, assignments, holidays] = await Promise.all([
+    getSettings(), getShifts(), getShiftAssignments(), getHolidays(),
+  ]);
+
+  // Fetch all attendance records for this date (non-deleted)
+  const records = await base44.entities.AttendanceRecord.filter(
+    { attendance_date: dateStr, is_deleted: { $ne: true } },
+    '-check_in_at', 100000
+  );
+
+  // Auto-close expired open sessions
+  const personnelIds = [...new Set(records.map(r => r.personnel_id))];
+  for (const pid of personnelIds) {
+    await autoCloseExpiredSessions(pid, settings, shifts, assignments, holidays, null);
+  }
+
+  // Re-fetch after auto-close
+  const updated = await base44.entities.AttendanceRecord.filter(
+    { attendance_date: dateStr, is_deleted: { $ne: true } },
+    '-check_in_at', 100000
+  );
+
+  // Calculate statuses for records that don't have one
+  for (const rec of updated) {
+    if (!rec.attendance_status) {
+      const emp = { id: rec.personnel_id, company: rec.company };
+      const shift = resolveShift(emp, assignments, shifts, settings);
+      const status = calculateDailyStatus(rec, shift, settings, holidays);
+      const { isLate, lateMinutes } = calculateLate(rec, shift);
+      // Only update if status changed
+      if (status !== rec.attendance_status || isLate !== rec.is_late) {
+        await base44.entities.AttendanceRecord.update(rec.id, {
+          attendance_status: status, is_late: isLate, late_minutes: lateMinutes,
+        });
+        rec.attendance_status = status;
+        rec.is_late = isLate;
+        rec.late_minutes = lateMinutes;
+      }
+    }
+  }
+
+  return { records: updated, settings, shifts, assignments, holidays };
+}
+
+// ── Get employee attendance summary for a date range ──
+export async function getEmployeeAttendanceSummary(personnelId, dateFrom, dateTo) {
+  const records = await base44.entities.AttendanceRecord.filter(
+    { personnel_id: personnelId, is_deleted: { $ne: true } },
+    '-attendance_date', 10000
+  );
+  return records.filter(r => {
+    if (dateFrom && r.attendance_date < dateFrom) return false;
+    if (dateTo && r.attendance_date > dateTo) return false;
+    return true;
+  });
+}

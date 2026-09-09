@@ -38,6 +38,7 @@ export async function saveAttendanceSession({
     const rec = await base44.entities.AttendanceRecord.create({
       personnel_id: personnelId, employee_name: employeeName, company,
       attendance_date: attDate, check_in_at: checkInAt.toISOString(), check_out_at: outIso,
+      first_in_at: checkInAt.toISOString(), final_out_at: outIso, first_out_at: '', second_in_at: '',
       duration_minutes: duration, work_location: workLocation || 'COMO CAMP',
       checked_in_by: email, checked_in_by_name: name,
       checked_out_by: completed ? email : '', checked_out_by_name: completed ? name : '',
@@ -77,6 +78,7 @@ export async function saveAttendanceSession({
     const rec = await base44.entities.AttendanceRecord.create({
       personnel_id: personnelId, employee_name: employeeName, company,
       attendance_date: attDate, check_in_at: checkInAt.toISOString(), check_out_at: outIso,
+      first_in_at: checkInAt.toISOString(), final_out_at: outIso, first_out_at: '', second_in_at: '',
       duration_minutes: duration, work_location: workLocation || 'COMO CAMP',
       checked_in_by: email, checked_in_by_name: name,
       checked_out_by: completed ? email : '', checked_out_by_name: completed ? name : '',
@@ -99,9 +101,9 @@ export async function saveAttendanceSession({
   const finalIn = checkInAt ? checkInAt.toISOString() : existingRecord.check_in_at;
   const finalOut = checkOutAt ? checkOutAt.toISOString() : '';
   const updates = {};
-  if (inChanged) updates.check_in_at = finalIn;
-  if (outChanged) updates.check_out_at = finalOut;
-  if (outCleared) updates.check_out_at = '';
+  if (inChanged) { updates.check_in_at = finalIn; updates.first_in_at = finalIn; }
+  if (outChanged) { updates.check_out_at = finalOut; updates.final_out_at = finalOut; }
+  if (outCleared) { updates.check_out_at = ''; updates.final_out_at = ''; }
   updates.duration_minutes = (finalIn && finalOut) ? calcDuration(finalIn, finalOut) : 0;
   updates.status = finalOut ? 'completed' : 'open';
   if (outChanged || outCleared) {

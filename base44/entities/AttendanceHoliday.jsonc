@@ -1,0 +1,55 @@
+{
+  "name": "AttendanceHoliday",
+  "type": "object",
+  "properties": {
+    "holiday_name": {
+      "type": "string",
+      "description": "Holiday name"
+    },
+    "holiday_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Holiday date (YYYY-MM-DD)"
+    },
+    "holiday_type": {
+      "type": "string",
+      "enum": [
+        "Public Holiday",
+        "Company Holiday",
+        "Emergency Holiday"
+      ],
+      "default": "Public Holiday",
+      "description": "Type of holiday"
+    },
+    "repeat_yearly": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this holiday repeats every year on the same date"
+    },
+    "company": {
+      "type": "string",
+      "description": "Company filter (empty = applies to all companies)"
+    },
+    "branch_location": {
+      "type": "string",
+      "description": "Branch/location filter (empty = applies to all branches)"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Additional remarks"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this holiday is active"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of user who last updated this holiday"
+    }
+  },
+  "required": [
+    "holiday_name",
+    "holiday_date"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "name": "AttendanceShift",
+  "type": "object",
+  "properties": {
+    "shift_name": {
+      "type": "string",
+      "description": "Shift name (e.g. Day Shift, Night Shift, Custom Shift)"
+    },
+    "start_time": {
+      "type": "string",
+      "description": "Shift start time in HH:mm format (24-hour)"
+    },
+    "end_time": {
+      "type": "string",
+      "description": "Shift end time in HH:mm format (24-hour). If cross_midnight, this is the next day."
+    },
+    "break_minutes": {
+      "type": "number",
+      "default": 60,
+      "description": "Break duration in minutes deducted from total working time"
+    },
+    "grace_minutes": {
+      "type": "number",
+      "default": 10,
+      "description": "Late grace period in minutes \u2014 clock-in after shift start + grace = Late"
+    },
+    "overtime_start_hours": {
+      "type": "number",
+      "default": 8,
+      "description": "Working hours after which overtime begins"
+    },
+    "cross_midnight": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this shift spans midnight (end_time is on the next calendar day)"
+    },
+    "color": {
+      "type": "string",
+      "description": "Display color (hex code) for visual identification"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this shift is active and available for assignment"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of user who last updated this shift"
+    }
+  },
+  "required": [
+    "shift_name",
+    "start_time",
+    "end_time"
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "name": "AttendanceShiftAssignment",
+  "type": "object",
+  "properties": {
+    "shift_id": {
+      "type": "string",
+      "description": "Linked AttendanceShift record ID"
+    },
+    "shift_name": {
+      "type": "string",
+      "description": "Shift name (denormalized for display)"
+    },
+    "assignment_type": {
+      "type": "string",
+      "enum": [
+        "employee",
+        "company",
+        "department",
+        "branch"
+      ],
+      "description": "How this shift is assigned: to a specific employee, company, department, or branch"
+    },
+    "personnel_id": {
+      "type": "string",
+      "description": "Specific Employee record ID (only when assignment_type = employee)"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Employee name (denormalized, only when assignment_type = employee)"
+    },
+    "company": {
+      "type": "string",
+      "description": "Company filter (only when assignment_type = company; empty = all companies)"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department filter (only when assignment_type = department; empty = all departments)"
+    },
+    "branch_location": {
+      "type": "string",
+      "description": "Branch/location filter (only when assignment_type = branch; empty = all branches)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this assignment is active"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of user who last updated this assignment"
+    }
+  },
+  "required": [
+    "shift_id",
+    "shift_name",
+    "assignment_type"
+  ]
+}

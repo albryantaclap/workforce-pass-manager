@@ -17,42 +17,67 @@
     "attendance_date": {
       "type": "string",
       "format": "date",
-      "description": "The attendance date (YYYY-MM-DD). One open session per personnel per date."
+      "description": "The attendance date (YYYY-MM-DD). Determined by the assigned shift/session date, not calendar midnight, to support cross-midnight shifts."
     },
     "check_in_at": {
       "type": "string",
       "format": "date-time",
-      "description": "Check-in timestamp (ISO). Empty string while no session exists."
+      "description": "First/earliest clock-in timestamp (ISO). Kept in sync with first_in_at for backward compatibility with COMO Camp and Master List. Empty string while no session exists."
     },
     "check_out_at": {
       "type": "string",
       "format": "date-time",
-      "description": "Check-out timestamp (ISO). Empty while the session is still open."
+      "description": "Latest clock-out timestamp (ISO). Kept in sync with final_out_at for backward compatibility. Empty while the session is still open."
+    },
+    "first_in_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "First Punch In timestamp (ISO) \u2014 earliest clock-in for the day"
+    },
+    "first_out_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "First Punch Out timestamp (ISO) \u2014 first clock-out"
+    },
+    "second_in_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Second Punch In timestamp (ISO) \u2014 clock-in after break"
+    },
+    "final_out_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Final Punch Out timestamp (ISO) \u2014 latest clock-out for the day"
     },
     "duration_minutes": {
       "type": "number",
-      "description": "Total stay duration in minutes (calculated on check-out)",
+      "description": "Total working duration in minutes (sum of completed IN\u2192OUT pairs, minus break if configured)",
+      "default": 0
+    },
+    "overtime_minutes": {
+      "type": "number",
+      "description": "Overtime duration in minutes (working time beyond overtime_start_hours)",
       "default": 0
     },
     "work_location": {
       "type": "string",
-      "description": "Work location at the time of check-in (preserved historically)"
+      "description": "Work location / branch at the time of check-in (preserved historically)"
     },
     "checked_in_by": {
       "type": "string",
-      "description": "Email of the authenticated user who performed check-in"
+      "description": "Email of the authenticated user who performed the first check-in"
     },
     "checked_in_by_name": {
       "type": "string",
-      "description": "Display name of the user who performed check-in"
+      "description": "Display name of the user who performed the first check-in"
     },
     "checked_out_by": {
       "type": "string",
-      "description": "Email of the authenticated user who performed check-out"
+      "description": "Email of the authenticated user who performed the final check-out"
     },
     "checked_out_by_name": {
       "type": "string",
-      "description": "Display name of the user who performed check-out"
+      "description": "Display name of the user who performed the final check-out"
     },
     "status": {
       "type": "string",
@@ -61,12 +86,90 @@
         "completed"
       ],
       "default": "open",
-      "description": "Attendance session status: open (checked in, not out) or completed"
+      "description": "Attendance session status: open (checked in, not fully checked out) or completed (final out recorded or auto-closed)"
+    },
+    "attendance_status": {
+      "type": "string",
+      "enum": [
+        "Present",
+        "Absent",
+        "Late",
+        "Half Day",
+        "On Leave",
+        "Rest Day",
+        "Holiday",
+        "Missing Check-out",
+        "Incomplete"
+      ],
+      "description": "Calculated daily attendance status based on shift, working day, punches, and rules"
+    },
+    "is_late": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the first clock-in was after shift start + grace period"
+    },
+    "late_minutes": {
+      "type": "number",
+      "default": 0,
+      "description": "Minutes late beyond the grace period"
+    },
+    "shift_id": {
+      "type": "string",
+      "description": "Linked AttendanceShift record ID (the shift assigned to this employee for this day)"
+    },
+    "shift_name": {
+      "type": "string",
+      "description": "Shift name (denormalized for display)"
     },
     "source_page": {
       "type": "string",
       "default": "COMO Camp",
-      "description": "Page where the attendance was recorded"
+      "description": "Page where the attendance was originally recorded"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "Manual",
+        "COMO Camp",
+        "Employee Portal",
+        "ID Card Scanner",
+        "Biometric Device",
+        "Admin Entry",
+        "Imported",
+        "API"
+      ],
+      "description": "Source of the attendance record"
+    },
+    "is_manual": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this record was created via manual entry"
+    },
+    "manual_reason": {
+      "type": "string",
+      "description": "Reason provided for manual entry/correction"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Additional remarks"
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete flag \u2014 deleted records are hidden from views but retained for history"
+    },
+    "deleted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the record was soft-deleted"
+    },
+    "deleted_by": {
+      "type": "string",
+      "description": "Email of the user who soft-deleted this record"
+    },
+    "deletion_reason": {
+      "type": "string",
+      "description": "Reason for soft-deleting this record"
     }
   },
   "required": [
