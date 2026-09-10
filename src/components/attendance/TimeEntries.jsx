@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/AuthContext';
 import {
   formatTimeShort, formatDateShort, formatMinutes, getDurationColor,
   STATUS_COLORS, isWorkingDay, isHoliday, getFirstIn, getFinalOut,
+  resolveShift, isSplitEffective, getSplitPunchStatuses,
 } from '@/lib/attendanceEngine';
 import { saveManualEntry, softDeleteAttendance } from '@/lib/attendanceService';
 
@@ -40,12 +41,15 @@ export default function TimeEntries({
     return employees.map(emp => {
       const att = attendanceByPersonnel.get(emp.id) || null;
       const status = att?.attendance_status || (att ? 'Present' : (holiday ? 'Holiday' : (workingDay ? 'Absent' : 'Rest Day')));
-      return { emp, att, status };
+      const shift = resolveShift(emp, assignments, shifts, settings);
+      const splitEffective = isSplitEffective(shift, selectedDate);
+      const splitStatuses = splitEffective ? getSplitPunchStatuses(att, shift, new Date()) : null;
+      return { emp, att, status, splitEffective, splitStatuses };
     }).filter(row => {
       if (!showAbsent && !row.att) return false;
       return true;
     });
-  }, [employees, attendanceByPersonnel, settings, holidays, selectedDate, showAbsent]);
+  }, [employees, attendanceByPersonnel, settings, holidays, selectedDate, showAbsent, assignments, shifts]);
 
   const paginatedRows = useMemo(() => {
     const start = page * pageSize;
@@ -82,6 +86,20 @@ export default function TimeEntries({
     } catch (e) {
       toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
     }
+  };
+
+  // Render a single punch cell. Done punches show the time; for split-shift
+  // employees, not-yet-done punches show "Waiting" until their window passes,
+  // then "Missed" — never "Missed" while the shift is still in progress.
+  const renderPunch = (value, punchKey, splitOn, statuses) => {
+    if (value) return <span className="text-muted-foreground">{formatTimeShort(value)}</span>;
+    if (splitOn && statuses) {
+      const s = statuses[punchKey];
+      if (s === 'waiting') return <span className="inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-semibold border bg-amber-50 text-amber-600 border-amber-200">Waiting</span>;
+      if (s === 'missed') return <span className="inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-semibold border bg-red-50 text-red-600 border-red-200">Missed</span>;
+      if (s === 'not_required') return <span className="text-slate-300">—</span>;
+    }
+    return <span className="text-slate-300">—</span>;
   };
 
   return (
@@ -169,7 +187,7 @@ export default function TimeEntries({
               </tr>
             </thead>
             <tbody>
-              {paginatedRows.map(({ emp, att, status }) => {
+              {paginatedRows.map(({ emp, att, status, splitEffective, splitStatuses }) => {
                 const colors = STATUS_COLORS[status] || STATUS_COLORS['Absent'];
                 return (
                   <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/30">
@@ -189,10 +207,10 @@ export default function TimeEntries({
                     <td className="px-3 py-2 text-muted-foreground">{emp.department || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{emp.current_location || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatDateShort(selectedDate)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(getFirstIn(att))}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(att?.first_out_at)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(att?.second_in_at)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(getFinalOut(att))}</td>
+                    <td className="px-3 py-2">{renderPunch(getFirstIn(att), 'FIRST_IN', splitEffective, splitStatuses)}</td>
+                    <td className="px-3 py-2">{renderPunch(att?.first_out_at, 'FIRST_OUT', splitEffective, splitStatuses)}</td>
+                    <td className="px-3 py-2">{renderPunch(att?.second_in_at, 'SECOND_IN', splitEffective, splitStatuses)}</td>
+                    <td className="px-3 py-2">{renderPunch(getFinalOut(att), 'FINAL_OUT', splitEffective, splitStatuses)}</td>
                     <td className={cn('px-3 py-2 font-medium', getDurationColor(att?.duration_minutes))}>
                       {formatMinutes(att?.duration_minutes)}
                     </td>
