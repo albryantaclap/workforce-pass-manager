@@ -148,6 +148,18 @@ export async function recordPunch({
   let emp = { id: personnelId, company };
   try { emp = (await base44.entities.Employee.get(personnelId)) || emp; } catch {}
   const shift = resolveShift(emp, assignments, shifts, settings);
+  console.debug('[recordPunch] resolved shift', {
+    personnelId,
+    employee: emp?.name || employeeName,
+    company: emp?.company,
+    branch: emp?.current_location,
+    department: emp?.department,
+    shiftId: shift?.id,
+    shiftName: shift?.shift_name,
+    splitEnabled: shift?.split_shift_enabled,
+    splitEffective: shift ? isSplitEffective(shift, attDate) : false,
+    attDate,
+  });
   if (shift && isSplitEffective(shift, attDate)) {
     return processSplitPunch({
       personnelId, employeeName, company, shift, attDate, timestamp,
@@ -288,17 +300,44 @@ async function processSplitPunch({
     throw new Error('All required split-shift punches already recorded for this date.');
   }
 
-  // Punch-window validation (only when the shift configures a window for this punch)
+  // Punch-window validation (only when the shift configures a window for this punch).
+  // The window and the reject/accept decision are computed once, here, from the
+  // same resolvePunchWindow used for display — never calculated separately.
   const { earliest, latest } = resolvePunchWindow(expectedKey, shift, attDate);
+  const _fmt = (d) => (d ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Qatar' }) : '—');
+  const decision = !earliest || !latest
+    ? 'ACCEPT (no window configured)'
+    : timestamp < earliest
+      ? 'REJECT (not yet open)'
+      : timestamp > latest
+        ? 'REJECT (window closed)'
+        : 'ACCEPT';
+  // Temporary diagnostic — shows the resolved shift + calculated window so the
+  // scanner can be verified against the configured Split Shift FIRST IN rules.
+  console.debug('[processSplitPunch]', {
+    employee: `${employeeName} (${personnelId})`,
+    shiftId: shift?.id,
+    shiftName: shift?.shift_name,
+    splitEnabled: shift?.split_shift_enabled,
+    attendanceDate: attDate,
+    expectedPunch: expectedKey,
+    firstInStart: shift?.split_first_in_start,
+    enableBefore: shift?.split_first_in_enable_before_min,
+    cutoff: shift?.split_first_in_cutoff,
+    windowOpen: _fmt(earliest),
+    windowClose: _fmt(latest),
+    currentTime: _fmt(timestamp),
+    decision,
+  });
   if (earliest && latest) {
     const label = expectedKey.replace(/_/g, ' ');
     if (timestamp < earliest) {
       throw new Error(
-        `Punch window not yet open for ${label}. Opens at ${earliest.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Qatar' })}.`
+        `Punch window not yet open for ${label}. Opens at ${_fmt(earliest)} (until ${_fmt(latest)}).`
       );
     }
     if (timestamp > latest) {
-      throw new Error(`Punch window has closed for ${label}.`);
+      throw new Error(`Punch window has closed for ${label} (was ${_fmt(earliest)}–${_fmt(latest)}).`);
     }
   }
 
