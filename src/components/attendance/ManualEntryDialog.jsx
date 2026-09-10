@@ -253,8 +253,8 @@ function PunchInput({ label, date, time, onDate, onTime }) {
     <div className="space-y-1">
       <label className="text-xs font-semibold text-muted-foreground uppercase">{label}</label>
       <div className="flex gap-1.5 min-w-0">
-        <Input type="date" value={date} onChange={e => onDate(e.target.value)} className="min-w-0 flex-1" />
-        <Input type="time" value={time} onChange={e => onTime(e.target.value)} className="w-20 flex-shrink-0" />
+        <Input type="date" value={date} onChange={e => onDate(e.target.value)} className="min-w-0 flex-1" style={{ width: 'auto' }} />
+        <Input type="time" value={time} onChange={e => onTime(e.target.value)} className="flex-shrink-0" style={{ width: '5rem' }} />
       </div>
     </div>
   );
