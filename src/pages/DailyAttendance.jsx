@@ -168,6 +168,7 @@ export default function DailyAttendance() {
               shifts={shifts}
               assignments={assignments}
               holidays={holidays}
+              employees={employees}
             />
           )}
         </>

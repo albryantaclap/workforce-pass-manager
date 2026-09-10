@@ -10,6 +10,7 @@ import { usePermissions } from '@/lib/usePermissions';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Edit2, X, Clock, Calendar, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
+import ShiftAssignEmployees from './ShiftAssignEmployees';
 
 const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -21,7 +22,7 @@ const SETTINGS_TABS = [
   { key: 'rules', label: 'Late & Overtime Rules', icon: SettingsIcon },
 ];
 
-export default function AttendanceSettings({ settings, shifts, assignments, holidays }) {
+export default function AttendanceSettings({ settings, shifts, assignments, holidays, employees }) {
   const [activeTab, setActiveTab] = useState('working-days');
   const { canEdit } = usePermissions();
 
@@ -40,7 +41,7 @@ export default function AttendanceSettings({ settings, shifts, assignments, holi
 
       {activeTab === 'working-days' && <WorkingDaysSettings settings={settings} canEdit={canEdit} />}
       {activeTab === 'working-hours' && <WorkingHoursSettings settings={settings} canEdit={canEdit} />}
-      {activeTab === 'shifts' && <ShiftsSettings shifts={shifts} canEdit={canEdit} />}
+      {activeTab === 'shifts' && <ShiftsSettings shifts={shifts} assignments={assignments} employees={employees} canEdit={canEdit} />}
       {activeTab === 'holidays' && <HolidaysSettings holidays={holidays} canEdit={canEdit} />}
       {activeTab === 'rules' && <RulesSettings settings={settings} canEdit={canEdit} />}
     </div>
@@ -213,20 +214,56 @@ function RulesSettings({ settings, canEdit }) {
 }
 
 // ── Shifts ──
-function ShiftsSettings({ shifts, canEdit }) {
+function ShiftsSettings({ shifts, assignments, employees, canEdit }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(null);
 
-  const save = async (data) => {
+  const save = async (data, selectedIds = []) => {
     try {
-      if (editing?.id) {
-        await base44.entities.AttendanceShift.update(editing.id, { ...data, updated_by: user?.email });
+      let shiftId = editing?.id;
+      if (shiftId) {
+        await base44.entities.AttendanceShift.update(shiftId, { ...data, updated_by: user?.email });
       } else {
-        await base44.entities.AttendanceShift.create({ ...data, updated_by: user?.email });
+        const created = await base44.entities.AttendanceShift.create({ ...data, updated_by: user?.email });
+        shiftId = created.id;
       }
+
+      // Sync employee assignments through the existing AttendanceShiftAssignment
+      // relationship (assignment_type='employee'). Reassigning removes the old
+      // assignment but preserves all attendance/history (records bind to personnel_id).
+      const empAssignments = (assignments || []).filter(
+        (a) => a.shift_id === shiftId && a.assignment_type === 'employee'
+      );
+      const existingIds = new Set(empAssignments.map((a) => a.personnel_id).filter(Boolean));
+      const toCreate = (selectedIds || []).filter((id) => !existingIds.has(id));
+      const toDelete = empAssignments
+        .filter((a) => !selectedIds.includes(a.personnel_id))
+        .map((a) => a.id);
+
+      if (toCreate.length) {
+        await base44.entities.AttendanceShiftAssignment.bulkCreate(
+          toCreate.map((pid) => {
+            const emp = (employees || []).find((e) => e.id === pid);
+            return {
+              shift_id: shiftId,
+              shift_name: data.shift_name,
+              assignment_type: 'employee',
+              personnel_id: pid,
+              employee_name: emp?.name || '',
+              is_active: true,
+              updated_by: user?.email,
+            };
+          })
+        );
+      }
+      for (const aid of toDelete) {
+        await base44.entities.AttendanceShiftAssignment.delete(aid);
+      }
+
       qc.invalidateQueries({ queryKey: ['attendance-shifts'] });
+      qc.invalidateQueries({ queryKey: ['attendance-assignments'] });
       toast({ title: 'Shift saved.' });
       setEditing(null);
     } catch (e) { toast({ title: 'Save failed', description: e.message, variant: 'destructive' }); }
@@ -277,12 +314,20 @@ function ShiftsSettings({ shifts, canEdit }) {
           <p className="text-sm text-muted-foreground text-center py-8">No shifts configured. Add a shift to get started.</p>
         )}
       </div>
-      {editing && <ShiftEditDialog shift={editing} onClose={() => setEditing(null)} onSave={save} />}
+      {editing && <ShiftEditDialog shift={editing} employees={employees} assignments={assignments} onClose={() => setEditing(null)} onSave={save} />}
     </Card>
   );
 }
 
-function ShiftEditDialog({ shift, onClose, onSave }) {
+function ShiftEditDialog({ shift, onClose, onSave, employees, assignments }) {
+  const [selectedIds, setSelectedIds] = useState(() =>
+    shift.id
+      ? (assignments || [])
+          .filter((a) => a.shift_id === shift.id && a.assignment_type === 'employee' && a.is_active !== false)
+          .map((a) => a.personnel_id)
+          .filter(Boolean)
+      : []
+  );
   const [form, setForm] = useState({
     shift_name: shift.shift_name || '',
     start_time: shift.start_time || '07:00',
@@ -440,11 +485,14 @@ function ShiftEditDialog({ shift, onClose, onSave }) {
               </div>
             )}
           </div>
+
+          {/* ── Assign Employees ── */}
+          <ShiftAssignEmployees employees={employees} selectedIds={selectedIds} setSelectedIds={setSelectedIds} />
         </div>
 
         <div className="flex justify-end gap-2 p-4 border-t border-border">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSave(form)} disabled={!form.shift_name?.trim()}>{shift.id ? 'Update Shift' : 'Save Shift'}</Button>
+          <Button onClick={() => onSave(form, selectedIds)} disabled={!form.shift_name?.trim()}>{shift.id ? 'Update Shift' : 'Save Shift'}</Button>
         </div>
       </Card>
     </div>
