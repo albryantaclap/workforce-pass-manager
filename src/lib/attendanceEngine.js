@@ -5,6 +5,14 @@
 
 import { calcDuration as _calcDuration } from './attendanceUtils';
 
+// Qatar (Arabia Standard Time) is UTC+3 year-round with no DST. Shift times are
+// stored as Qatar-local "HH:mm" strings; these helpers build absolute Date
+// instants for those wall-clock times so the engine is correct regardless of
+// the browser's own timezone (e.g. when the preview runs in UTC).
+const QATAR_OFFSET_MIN = 180;
+const qatarDateFromParts = (y, monthIdx, d, h, mm) =>
+  new Date(Date.UTC(y, monthIdx, d, h, mm, 0, 0) - QATAR_OFFSET_MIN * 60000);
+
 // ── Day-of-week helpers ──
 export const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -102,14 +110,14 @@ export const resolveShiftBounds = (shift, attendanceDate) => {
   const [y, m, d] = attendanceDate.split('-').map(Number);
   const [sh, sm] = (shift.start_time || '00:00').split(':').map(Number);
   const [eh, em] = (shift.end_time || '00:00').split(':').map(Number);
-  const start = new Date(y, m - 1, d, sh, sm, 0, 0);
-  let end = new Date(y, m - 1, d, eh, em, 0, 0);
+  const start = qatarDateFromParts(y, m - 1, d, sh, sm);
+  let end = qatarDateFromParts(y, m - 1, d, eh, em);
   if (shift.cross_midnight) {
-    end = new Date(y, m - 1, d + 1, eh, em, 0, 0);
+    end = qatarDateFromParts(y, m - 1, d + 1, eh, em);
   }
   // If end <= start and not cross_midnight, assume end is next day
   if (!shift.cross_midnight && end <= start) {
-    end = new Date(y, m - 1, d + 1, eh, em, 0, 0);
+    end = qatarDateFromParts(y, m - 1, d + 1, eh, em);
   }
   return { start, end };
 };
@@ -267,7 +275,7 @@ export const formatMinutes = (mins) => {
 export const formatTimeShort = (iso) => {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Qatar' });
   } catch { return '—'; }
 };
 
@@ -308,7 +316,7 @@ const resolvePunchDateTime = (timeStr, shift, attendanceDate) => {
   const [sh, sm] = (shift?.start_time || '00:00').split(':').map(Number);
   let dayOffset = 0;
   if (ph < sh || (ph === sh && pm < sm)) dayOffset = 1;
-  return new Date(y, m - 1, d + dayOffset, ph, pm, 0, 0);
+  return qatarDateFromParts(y, m - 1, d + dayOffset, ph, pm);
 };
 
 // Returns { earliest: Date|null, latest: Date|null } for a punch key on a date.

@@ -294,7 +294,7 @@ async function processSplitPunch({
     const label = expectedKey.replace(/_/g, ' ');
     if (timestamp < earliest) {
       throw new Error(
-        `Punch window not yet open for ${label}. Opens at ${earliest.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}.`
+        `Punch window not yet open for ${label}. Opens at ${earliest.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Qatar' })}.`
       );
     }
     if (timestamp > latest) {
