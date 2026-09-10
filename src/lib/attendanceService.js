@@ -331,13 +331,14 @@ async function processSplitPunch({
   });
   if (earliest && latest) {
     const label = expectedKey.replace(/_/g, ' ');
+    const _date = (d) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'Asia/Qatar' });
     if (timestamp < earliest) {
       throw new Error(
-        `Punch window not yet open for ${label}. Opens at ${_fmt(earliest)} (until ${_fmt(latest)}).`
+        `Punch window not yet open for ${label}. Opens at ${_fmt(earliest)} on ${_date(earliest)} (until ${_fmt(latest)}). Current time: ${_fmt(timestamp)}.`
       );
     }
     if (timestamp > latest) {
-      throw new Error(`Punch window has closed for ${label} (was ${_fmt(earliest)}–${_fmt(latest)}).`);
+      throw new Error(`Punch window has closed for ${label} (was ${_fmt(earliest)}–${_fmt(latest)} on ${_date(earliest)}). Current time: ${_fmt(timestamp)}.`);
     }
   }
 

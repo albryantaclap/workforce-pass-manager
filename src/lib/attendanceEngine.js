@@ -309,13 +309,18 @@ export const isSplitEffective = (shift, attendanceDate) => {
 
 // Resolve a "HH:mm" time to a Date on the shift's attendance date, advancing to
 // the next calendar day when the time is earlier than the shift start (cross-midnight).
-const resolvePunchDateTime = (timeStr, shift, attendanceDate) => {
+// `forceSameDay` overrides the next-day jump — used for FIRST IN, which always
+// belongs on the shift's attendance date (the shift-start day), even when its
+// configured start is earlier than shift.start_time.
+const resolvePunchDateTime = (timeStr, shift, attendanceDate, forceSameDay = false) => {
   if (!timeStr || !attendanceDate) return null;
   const [y, m, d] = attendanceDate.split('-').map(Number);
   const [ph, pm] = timeStr.split(':').map(Number);
-  const [sh, sm] = (shift?.start_time || '00:00').split(':').map(Number);
   let dayOffset = 0;
-  if (ph < sh || (ph === sh && pm < sm)) dayOffset = 1;
+  if (!forceSameDay) {
+    const [sh, sm] = (shift?.start_time || '00:00').split(':').map(Number);
+    if (ph < sh || (ph === sh && pm < sm)) dayOffset = 1;
+  }
   return qatarDateFromParts(y, m - 1, d + dayOffset, ph, pm);
 };
 
@@ -325,8 +330,11 @@ export const resolvePunchWindow = (punchKey, shift, attendanceDate) => {
   if (!isSplitEffective(shift, attendanceDate)) return { earliest: null, latest: null };
   const eb = (min) => (min || 0) * 60000;
   if (punchKey === 'FIRST_IN') {
-    const start = resolvePunchDateTime(shift.split_first_in_start, shift, attendanceDate);
-    const cutoff = resolvePunchDateTime(shift.split_first_in_cutoff, shift, attendanceDate);
+    // FIRST IN always belongs on the shift's attendance date (the shift-start
+    // day). forceSameDay prevents the cross-midnight next-day jump from pushing
+    // the window to tomorrow when split_first_in_start < shift.start_time.
+    const start = resolvePunchDateTime(shift.split_first_in_start, shift, attendanceDate, true);
+    const cutoff = resolvePunchDateTime(shift.split_first_in_cutoff, shift, attendanceDate, true);
     if (!start || !cutoff) return { earliest: null, latest: null };
     return { earliest: new Date(start.getTime() - eb(shift.split_first_in_enable_before_min)), latest: cutoff };
   }
