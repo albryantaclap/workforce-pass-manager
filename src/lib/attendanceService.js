@@ -11,6 +11,8 @@ import {
   calculateDurationFromRecord, calculateOvertime, calculateLate,
   calculateDailyStatus, hasShiftExpired, resolveShift, resolveShiftBounds,
   getNextExpectedPunch, getMissingPunchLabel, isWorkingDay, isHoliday,
+  isSplitEffective, determineSplitExpectedPunch, resolvePunchWindow,
+  punchDirection, punchSequence,
 } from './attendanceEngine';
 
 // ── Settings ──
@@ -139,6 +141,21 @@ export async function recordPunch({
 
   const attDate = timestamp.toLocaleDateString('en-CA');
 
+  // ── Split-shift path ──
+  // When the employee's shift has split-shift rules enabled and effective for
+  // this date, route through the split-shift punch processor. Normal shifts
+  // keep their existing behavior unchanged.
+  let emp = { id: personnelId, company };
+  try { emp = (await base44.entities.Employee.get(personnelId)) || emp; } catch {}
+  const shift = resolveShift(emp, assignments, shifts, settings);
+  if (shift && isSplitEffective(shift, attDate)) {
+    return processSplitPunch({
+      personnelId, employeeName, company, shift, attDate, timestamp,
+      source, location, workLocation, currentUser, settings,
+      shiftId: shift.id, shiftName: shift.shift_name,
+    });
+  }
+
   // Find existing session for this date (non-deleted)
   const existing = await base44.entities.AttendanceRecord.filter(
     { personnel_id: personnelId, attendance_date: attDate, is_deleted: { $ne: true } },
@@ -242,6 +259,111 @@ export async function recordPunch({
     Object.keys(updates).filter(k => k !== 'duration_minutes' && k !== 'overtime_minutes'), email);
 
   return { action: 'updated', record: { ...session, ...updates }, punchSequence: punchSeq };
+}
+
+// ── Split-shift punch processor ──
+// Used by recordPunch when the employee's shift has split-shift rules enabled
+// and effective for the attendance date. Enforces the 4-punch sequence
+// (FIRST IN → FIRST OUT → SECOND IN → FINAL OUT), punch-order protection,
+// per-punch window validation, and cross-midnight handling — all under the
+// shift's attendance_date. Normal-shift behavior is untouched.
+async function processSplitPunch({
+  personnelId, employeeName, company, shift, attDate, timestamp,
+  source, location, workLocation, currentUser, settings, shiftId, shiftName,
+}) {
+  if (!personnelId) throw new Error('Employee is required.');
+  if (!timestamp) throw new Error('Punch timestamp is required.');
+  const email = currentUser?.email || '';
+  const name = currentUser?.full_name || '';
+  const tsIso = timestamp.toISOString();
+
+  const existing = await base44.entities.AttendanceRecord.filter(
+    { personnel_id: personnelId, attendance_date: attDate, is_deleted: { $ne: true } },
+    undefined, 100
+  );
+  let session = existing.find((r) => r.status === 'open') || existing[0] || null;
+
+  const expectedKey = determineSplitExpectedPunch(session, shift);
+  if (!expectedKey) {
+    throw new Error('All required split-shift punches already recorded for this date.');
+  }
+
+  // Punch-window validation (only when the shift configures a window for this punch)
+  const { earliest, latest } = resolvePunchWindow(expectedKey, shift, attDate);
+  if (earliest && latest) {
+    const label = expectedKey.replace(/_/g, ' ');
+    if (timestamp < earliest) {
+      throw new Error(
+        `Punch window not yet open for ${label}. Opens at ${earliest.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}.`
+      );
+    }
+    if (timestamp > latest) {
+      throw new Error(`Punch window has closed for ${label}.`);
+    }
+  }
+
+  const pType = punchDirection(expectedKey);
+  const pSeq = punchSequence(expectedKey);
+
+  // Record the raw punch
+  await base44.entities.AttendancePunch.create({
+    personnel_id: personnelId, employee_name: employeeName, company,
+    attendance_date: attDate, punch_timestamp: tsIso, punch_type: pType,
+    punch_sequence: pSeq, source, location,
+    created_by: email, created_by_name: name,
+  });
+
+  // No session yet → first punch must be FIRST IN
+  if (!session) {
+    if (expectedKey !== 'FIRST_IN') {
+      throw new Error('Cannot start a split shift without a First Punch In.');
+    }
+    session = await base44.entities.AttendanceRecord.create({
+      personnel_id: personnelId, employee_name: employeeName, company,
+      attendance_date: attDate,
+      check_in_at: tsIso, first_in_at: tsIso,
+      check_out_at: '', first_out_at: '', second_in_at: '', final_out_at: '',
+      duration_minutes: 0, overtime_minutes: 0,
+      work_location: workLocation || location || '',
+      checked_in_by: email, checked_in_by_name: name,
+      status: 'open', source, source_page: source,
+      shift_id: shiftId, shift_name: shiftName,
+    });
+    await logActivity('create', session.id, employeeName,
+      { attendance_date: attDate, first_in_at: tsIso, source, split_shift: true, punch_sequence: pSeq },
+      ['first_in_at'], email);
+    return { action: 'created', record: session, punchSequence: pSeq, punchKey: expectedKey };
+  }
+
+  // Update existing session with the expected punch (order is enforced because
+  // the expected punch is derived from the recorded state — duplicates and
+  // out-of-sequence attempts are rejected).
+  const updates = {};
+  if (expectedKey === 'FIRST_IN') {
+    updates.first_in_at = tsIso; updates.check_in_at = tsIso;
+    updates.checked_in_by = email; updates.checked_in_by_name = name;
+  } else if (expectedKey === 'FIRST_OUT') {
+    updates.first_out_at = tsIso;
+  } else if (expectedKey === 'SECOND_IN') {
+    updates.second_in_at = tsIso;
+  } else if (expectedKey === 'FINAL_OUT') {
+    updates.final_out_at = tsIso; updates.check_out_at = tsIso;
+    updates.checked_out_by = email; updates.checked_out_by_name = name;
+    updates.status = 'completed';
+  }
+
+  const merged = { ...session, ...updates };
+  updates.duration_minutes = calculateDurationFromRecord(merged);
+  if (updates.status === 'completed') {
+    updates.overtime_minutes = calculateOvertime(updates.duration_minutes, settings);
+  }
+
+  await base44.entities.AttendanceRecord.update(session.id, updates);
+  await logActivity('update', session.id, employeeName,
+    { ...updates, punch_key: expectedKey, punch_type: pType, punch_sequence: pSeq, split_shift: true },
+    Object.keys(updates).filter((k) => k !== 'duration_minutes' && k !== 'overtime_minutes'), email);
+
+  return { action: 'updated', record: { ...session, ...updates }, punchSequence: pSeq, punchKey: expectedKey };
 }
 
 // Convenience wrappers

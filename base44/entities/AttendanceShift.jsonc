@@ -46,6 +46,93 @@
     "updated_by": {
       "type": "string",
       "description": "Email of user who last updated this shift"
+    },
+    "split_shift_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this shift uses split-shift 4-punch rules (FIRST IN / FIRST OUT / SECOND IN / FINAL OUT). When OFF, normal attendance behavior applies."
+    },
+    "split_first_in_start": {
+      "type": "string",
+      "description": "Split: First Punch In start time HH:mm (same day as shift start)"
+    },
+    "split_first_in_enable_before_min": {
+      "type": "number",
+      "default": 30,
+      "description": "Split: minutes before First Punch In start that the punch becomes available (earliest = start - this)"
+    },
+    "split_first_in_cutoff": {
+      "type": "string",
+      "description": "Split: First Punch In latest cut-off time HH:mm (latest allowed punch)"
+    },
+    "split_first_out_required": {
+      "type": "boolean",
+      "default": true,
+      "description": "Split: whether First Punch Out is required. If false, the punch is optional and skipped in the required sequence."
+    },
+    "split_first_out_target": {
+      "type": "string",
+      "description": "Split: First Punch Out target time HH:mm"
+    },
+    "split_first_out_enable_before_min": {
+      "type": "number",
+      "default": 120,
+      "description": "Split: minutes before First Punch Out target that the punch becomes available (earliest = target - this)"
+    },
+    "split_first_out_window_min": {
+      "type": "number",
+      "default": 30,
+      "description": "Split: First Punch Out window length in minutes after target (latest = target + this)"
+    },
+    "split_second_in_required": {
+      "type": "boolean",
+      "default": true,
+      "description": "Split: whether Second Punch In is required. If false, the punch is optional and skipped in the required sequence."
+    },
+    "split_second_in_target": {
+      "type": "string",
+      "description": "Split: Second Punch In target time HH:mm (may be next day for cross-midnight shifts)"
+    },
+    "split_second_in_enable_before_min": {
+      "type": "number",
+      "default": 15,
+      "description": "Split: minutes before Second Punch In target that the punch becomes available (earliest = target - this)"
+    },
+    "split_second_in_window_min": {
+      "type": "number",
+      "default": 45,
+      "description": "Split: Second Punch In window length in minutes after target (latest = target + this)"
+    },
+    "split_final_out_earliest": {
+      "type": "string",
+      "description": "Split: Final Punch Out earliest time HH:mm (may be next day for cross-midnight shifts)"
+    },
+    "split_final_out_enable_before_min": {
+      "type": "number",
+      "default": 15,
+      "description": "Split: minutes before Final Punch Out earliest that the punch becomes available (earliest = earliest - this)"
+    },
+    "split_final_out_latest": {
+      "type": "string",
+      "description": "Split: Final Punch Out latest time HH:mm (may be next day for cross-midnight shifts)"
+    },
+    "split_break_start": {
+      "type": "string",
+      "description": "Split: break start time HH:mm (the gap between First Punch Out and Second Punch In)"
+    },
+    "split_break_end": {
+      "type": "string",
+      "description": "Split: break end time HH:mm"
+    },
+    "split_effective_from": {
+      "type": "string",
+      "format": "date",
+      "description": "Split: date the split-shift rules become effective (empty = always)"
+    },
+    "split_effective_to": {
+      "type": "string",
+      "format": "date",
+      "description": "Split: date the split-shift rules stop being effective (empty = indefinite)"
     }
   },
   "required": [

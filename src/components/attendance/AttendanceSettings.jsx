@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
 import { usePermissions } from '@/lib/usePermissions';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Edit2, X, Clock, Calendar, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
 
 const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -291,37 +292,159 @@ function ShiftEditDialog({ shift, onClose, onSave }) {
     overtime_start_hours: shift.overtime_start_hours ?? 8,
     cross_midnight: shift.cross_midnight ?? false,
     color: shift.color || '#10b981',
+    // ── Split-shift punch rules ──
+    split_shift_enabled: shift.split_shift_enabled ?? false,
+    split_first_in_start: shift.split_first_in_start || '',
+    split_first_in_enable_before_min: shift.split_first_in_enable_before_min ?? 30,
+    split_first_in_cutoff: shift.split_first_in_cutoff || '',
+    split_first_out_required: shift.split_first_out_required ?? true,
+    split_first_out_target: shift.split_first_out_target || '',
+    split_first_out_enable_before_min: shift.split_first_out_enable_before_min ?? 120,
+    split_first_out_window_min: shift.split_first_out_window_min ?? 30,
+    split_second_in_required: shift.split_second_in_required ?? true,
+    split_second_in_target: shift.split_second_in_target || '',
+    split_second_in_enable_before_min: shift.split_second_in_enable_before_min ?? 15,
+    split_second_in_window_min: shift.split_second_in_window_min ?? 45,
+    split_final_out_earliest: shift.split_final_out_earliest || '',
+    split_final_out_enable_before_min: shift.split_final_out_enable_before_min ?? 15,
+    split_final_out_latest: shift.split_final_out_latest || '',
+    split_break_start: shift.split_break_start || '',
+    split_break_end: shift.split_break_end || '',
+    split_effective_from: shift.split_effective_from || '',
+    split_effective_to: shift.split_effective_to || '',
   });
+
+  const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <Card className="max-w-md w-full" onClick={e => e.stopPropagation()}>
+      <Card className="max-w-2xl w-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="font-semibold">{shift.id ? 'Edit Shift' : 'New Shift'}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold">{shift.id ? 'Edit Shift' : 'New Shift'}</h3>
+            {form.cross_midnight && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                Night Shift (crosses midnight)
+              </span>
+            )}
+          </div>
           <button onClick={onClose}><X className="w-4 h-4" /></button>
         </div>
-        <div className="p-4 space-y-3">
-          <Field label="Shift Name"><Input value={form.shift_name} onChange={e => setForm(f => ({ ...f, shift_name: e.target.value }))} /></Field>
+
+        <div className="overflow-y-auto p-4 space-y-4">
+          {/* Basic info */}
+          <Field label="Shift Name"><Input value={form.shift_name} onChange={e => set('shift_name', e.target.value)} /></Field>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Start Time"><Input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} /></Field>
-            <Field label="End Time"><Input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} /></Field>
+            <Field label="Start Time"><Input type="time" value={form.start_time} onChange={e => set('start_time', e.target.value)} /></Field>
+            <Field label="End Time"><Input type="time" value={form.end_time} onChange={e => set('end_time', e.target.value)} /></Field>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <Field label="Break (min)"><Input type="number" value={form.break_minutes} onChange={e => setForm(f => ({ ...f, break_minutes: Number(e.target.value) }))} /></Field>
-            <Field label="Grace (min)"><Input type="number" value={form.grace_minutes} onChange={e => setForm(f => ({ ...f, grace_minutes: Number(e.target.value) }))} /></Field>
-            <Field label="OT Start (hrs)"><Input type="number" value={form.overtime_start_hours} onChange={e => setForm(f => ({ ...f, overtime_start_hours: Number(e.target.value) }))} /></Field>
+            <Field label="Break (min)"><Input type="number" value={form.break_minutes} onChange={e => set('break_minutes', Number(e.target.value))} /></Field>
+            <Field label="Grace (min)"><Input type="number" value={form.grace_minutes} onChange={e => set('grace_minutes', Number(e.target.value))} /></Field>
+            <Field label="OT Start (hrs)"><Input type="number" value={form.overtime_start_hours} onChange={e => set('overtime_start_hours', Number(e.target.value))} /></Field>
           </div>
           <Field label="Color">
-            <Input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} className="h-8 w-16 p-1" />
+            <Input type="color" value={form.color} onChange={e => set('color', e.target.value)} className="h-8 w-16 p-1" />
           </Field>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.cross_midnight} onChange={e => setForm(f => ({ ...f, cross_midnight: e.target.checked }))} />
+            <input type="checkbox" checked={form.cross_midnight} onChange={e => set('cross_midnight', e.target.checked)} />
             Cross-midnight shift (end time is on the next day)
           </label>
+
+          {/* ── Split-Shift Punch Rules ── */}
+          <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.split_shift_enabled}
+                  onCheckedChange={(v) => set('split_shift_enabled', v)}
+                />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Enable Split-Shift Punch Rules</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Configured for FIRST IN / FIRST OUT / SECOND IN / FINAL OUT
+                  </p>
+                </div>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              When enabled, employees follow a split shift schedule. All punches stay under the shift
+              start date (no separate after-midnight day is created).
+            </p>
+
+            {form.split_shift_enabled && (
+              <div className="space-y-3 pt-1">
+                {/* FIRST IN */}
+                <div className="rounded-lg bg-white border border-slate-200 p-3 space-y-2">
+                  <p className="text-xs font-bold text-blue-700">FIRST IN</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Field label="First Punch In Start"><Input type="time" value={form.split_first_in_start} onChange={e => set('split_first_in_start', e.target.value)} /></Field>
+                    <Field label="Enable Before (min)"><Input type="number" value={form.split_first_in_enable_before_min} onChange={e => set('split_first_in_enable_before_min', Number(e.target.value))} /></Field>
+                    <Field label="Cut-Off"><Input type="time" value={form.split_first_in_cutoff} onChange={e => set('split_first_in_cutoff', e.target.value)} /></Field>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Punch enables this many minutes before start; latest accepted punch is the cut-off.</p>
+                </div>
+
+                {/* FIRST OUT */}
+                <div className="rounded-lg bg-white border border-slate-200 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-blue-700">FIRST OUT</p>
+                    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <input type="checkbox" checked={form.split_first_out_required} onChange={e => set('split_first_out_required', e.target.checked)} />
+                      Required
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Field label="First Punch Out Target"><Input type="time" value={form.split_first_out_target} onChange={e => set('split_first_out_target', e.target.value)} /></Field>
+                    <Field label="Enable Before (min)"><Input type="number" value={form.split_first_out_enable_before_min} onChange={e => set('split_first_out_enable_before_min', Number(e.target.value))} /></Field>
+                    <Field label="Window (min)"><Input type="number" value={form.split_first_out_window_min} onChange={e => set('split_first_out_window_min', Number(e.target.value))} /></Field>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Punch enables this many minutes before target; window stays open for Window minutes after target.</p>
+                </div>
+
+                {/* SECOND IN */}
+                <div className="rounded-lg bg-white border border-slate-200 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-blue-700">SECOND IN</p>
+                    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <input type="checkbox" checked={form.split_second_in_required} onChange={e => set('split_second_in_required', e.target.checked)} />
+                      Required
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Field label="Second Punch In Target"><Input type="time" value={form.split_second_in_target} onChange={e => set('split_second_in_target', e.target.value)} /></Field>
+                    <Field label="Enable Before (min)"><Input type="number" value={form.split_second_in_enable_before_min} onChange={e => set('split_second_in_enable_before_min', Number(e.target.value))} /></Field>
+                    <Field label="Window (min)"><Input type="number" value={form.split_second_in_window_min} onChange={e => set('split_second_in_window_min', Number(e.target.value))} /></Field>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Supports crossing midnight — a target earlier than the shift start is treated as next day.</p>
+                </div>
+
+                {/* FINAL OUT */}
+                <div className="rounded-lg bg-white border border-slate-200 p-3 space-y-2">
+                  <p className="text-xs font-bold text-blue-700">FINAL OUT</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Field label="Final Punch Out Earliest"><Input type="time" value={form.split_final_out_earliest} onChange={e => set('split_final_out_earliest', e.target.value)} /></Field>
+                    <Field label="Enable Before (min)"><Input type="number" value={form.split_final_out_enable_before_min} onChange={e => set('split_final_out_enable_before_min', Number(e.target.value))} /></Field>
+                    <Field label="Final Punch Out Latest"><Input type="time" value={form.split_final_out_latest} onChange={e => set('split_final_out_latest', e.target.value)} /></Field>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Earliest/latest support next-day times for cross-midnight shifts.</p>
+                </div>
+
+                {/* Break + effective dates */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1">
+                  <Field label="Split Break Start"><Input type="time" value={form.split_break_start} onChange={e => set('split_break_start', e.target.value)} /></Field>
+                  <Field label="Split Break End"><Input type="time" value={form.split_break_end} onChange={e => set('split_break_end', e.target.value)} /></Field>
+                  <Field label="Effective From"><Input type="date" value={form.split_effective_from} onChange={e => set('split_effective_from', e.target.value)} /></Field>
+                  <Field label="Effective To"><Input type="date" value={form.split_effective_to} onChange={e => set('split_effective_to', e.target.value)} /></Field>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+
         <div className="flex justify-end gap-2 p-4 border-t border-border">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSave(form)} disabled={!form.shift_name?.trim()}>Save Shift</Button>
+          <Button onClick={() => onSave(form)} disabled={!form.shift_name?.trim()}>{shift.id ? 'Update Shift' : 'Save Shift'}</Button>
         </div>
       </Card>
     </div>

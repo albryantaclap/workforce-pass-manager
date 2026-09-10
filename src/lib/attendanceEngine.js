@@ -273,3 +273,129 @@ export const formatDateShort = (dateStr) => {
     return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   } catch { return '—'; }
 };
+
+// ── Split-Shift Punch Rules ───────────────────────────────────────────────
+// Enabled per-shift via shift.split_shift_enabled. When ON, the shift follows a
+// 4-punch sequence: FIRST IN → FIRST OUT → SECOND IN → FINAL OUT, with
+// configurable windows per punch and cross-midnight support. All punches stay
+// under the shift's attendance_date (no separate after-midnight day is created).
+// When OFF, normal attendance behavior is unchanged.
+
+export const PUNCH_KEYS = ['FIRST_IN', 'FIRST_OUT', 'SECOND_IN', 'FINAL_OUT'];
+
+export const isSplitShiftEnabled = (shift) => !!(shift && shift.split_shift_enabled);
+
+// Whether split-shift rules are effective for a given attendance date
+// (respects split_effective_from / split_effective_to).
+export const isSplitEffective = (shift, attendanceDate) => {
+  if (!isSplitShiftEnabled(shift) || !attendanceDate) return false;
+  if (shift.split_effective_from && attendanceDate < shift.split_effective_from) return false;
+  if (shift.split_effective_to && attendanceDate > shift.split_effective_to) return false;
+  return true;
+};
+
+// Resolve a "HH:mm" time to a Date on the shift's attendance date, advancing to
+// the next calendar day when the time is earlier than the shift start (cross-midnight).
+const resolvePunchDateTime = (timeStr, shift, attendanceDate) => {
+  if (!timeStr || !attendanceDate) return null;
+  const [y, m, d] = attendanceDate.split('-').map(Number);
+  const [ph, pm] = timeStr.split(':').map(Number);
+  const [sh, sm] = (shift?.start_time || '00:00').split(':').map(Number);
+  let dayOffset = 0;
+  if (ph < sh || (ph === sh && pm < sm)) dayOffset = 1;
+  return new Date(y, m - 1, d + dayOffset, ph, pm, 0, 0);
+};
+
+// Returns { earliest: Date|null, latest: Date|null } for a punch key on a date.
+// earliest/latest are the inclusive bounds within which the punch is accepted.
+export const resolvePunchWindow = (punchKey, shift, attendanceDate) => {
+  if (!isSplitEffective(shift, attendanceDate)) return { earliest: null, latest: null };
+  const eb = (min) => (min || 0) * 60000;
+  if (punchKey === 'FIRST_IN') {
+    const start = resolvePunchDateTime(shift.split_first_in_start, shift, attendanceDate);
+    const cutoff = resolvePunchDateTime(shift.split_first_in_cutoff, shift, attendanceDate);
+    if (!start || !cutoff) return { earliest: null, latest: null };
+    return { earliest: new Date(start.getTime() - eb(shift.split_first_in_enable_before_min)), latest: cutoff };
+  }
+  if (punchKey === 'FIRST_OUT') {
+    const target = resolvePunchDateTime(shift.split_first_out_target, shift, attendanceDate);
+    if (!target) return { earliest: null, latest: null };
+    return {
+      earliest: new Date(target.getTime() - eb(shift.split_first_out_enable_before_min)),
+      latest: new Date(target.getTime() + (shift.split_first_out_window_min || 0) * 60000),
+    };
+  }
+  if (punchKey === 'SECOND_IN') {
+    const target = resolvePunchDateTime(shift.split_second_in_target, shift, attendanceDate);
+    if (!target) return { earliest: null, latest: null };
+    return {
+      earliest: new Date(target.getTime() - eb(shift.split_second_in_enable_before_min)),
+      latest: new Date(target.getTime() + (shift.split_second_in_window_min || 0) * 60000),
+    };
+  }
+  if (punchKey === 'FINAL_OUT') {
+    const earliestT = resolvePunchDateTime(shift.split_final_out_earliest, shift, attendanceDate);
+    const latestT = resolvePunchDateTime(shift.split_final_out_latest, shift, attendanceDate);
+    if (!earliestT || !latestT) return { earliest: null, latest: null };
+    return {
+      earliest: new Date(earliestT.getTime() - eb(shift.split_final_out_enable_before_min)),
+      latest: latestT,
+    };
+  }
+  return { earliest: null, latest: null };
+};
+
+// Whether a punch is required. FIRST_IN and FINAL_OUT are always required;
+// FIRST_OUT and SECOND_IN follow their configured toggles.
+export const isPunchRequired = (punchKey, shift) => {
+  if (punchKey === 'FIRST_IN' || punchKey === 'FINAL_OUT') return true;
+  if (punchKey === 'FIRST_OUT') return shift?.split_first_out_required !== false;
+  if (punchKey === 'SECOND_IN') return shift?.split_second_in_required !== false;
+  return false;
+};
+
+const getPunchValue = (record, punchKey) => {
+  if (!record) return '';
+  if (punchKey === 'FIRST_IN') return getFirstIn(record);
+  if (punchKey === 'FIRST_OUT') return record.first_out_at || '';
+  if (punchKey === 'SECOND_IN') return record.second_in_at || '';
+  if (punchKey === 'FINAL_OUT') return getFinalOut(record);
+  return '';
+};
+
+// Next expected punch key respecting required toggles, or null when complete.
+export const determineSplitExpectedPunch = (record, shift) => {
+  for (const key of PUNCH_KEYS) {
+    if (!isPunchRequired(key, shift)) continue;
+    if (!getPunchValue(record, key)) return key;
+  }
+  return null;
+};
+
+// Per-punch status for display: 'done' | 'waiting' | 'missed' | 'not_required' | 'not_configured'.
+// A punch is 'waiting' until its window's latest bound has passed; only then (and
+// if still missing + required) is it 'missed'. Future punches therefore show
+// 'waiting' — never 'missed' — while the shift is still in progress.
+export const getSplitPunchStatuses = (record, shift, now = new Date()) => {
+  const result = {};
+  for (const key of PUNCH_KEYS) {
+    if (getPunchValue(record, key)) { result[key] = 'done'; continue; }
+    if (!isPunchRequired(key, shift)) { result[key] = 'not_required'; continue; }
+    const { earliest, latest } = resolvePunchWindow(key, shift, record?.attendance_date);
+    if (!earliest || !latest) { result[key] = 'not_configured'; continue; }
+    result[key] = now > latest ? 'missed' : 'waiting';
+  }
+  return result;
+};
+
+// IN/OUT direction and 1-4 sequence number for a punch key.
+export const punchDirection = (punchKey) =>
+  (punchKey === 'FIRST_IN' || punchKey === 'SECOND_IN') ? 'IN' : 'OUT';
+
+export const punchSequence = (punchKey) =>
+  ({ FIRST_IN: 1, FIRST_OUT: 2, SECOND_IN: 3, FINAL_OUT: 4 })[punchKey] || 0;
+
+// Split-shift worked duration = (first_out - first_in) + (final_out - second_in).
+// The split break (first_out → second_in) is not counted as worked time.
+// Falls back to single-session first_in → final_out when split punches are absent.
+export const calculateSplitDuration = (record) => calculateDurationFromRecord(record);
