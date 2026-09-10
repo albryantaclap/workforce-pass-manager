@@ -99,9 +99,26 @@
         "Rest Day",
         "Holiday",
         "Missing Check-out",
-        "Incomplete"
+        "Incomplete",
+        "Not Checked In",
+        "First In Completed",
+        "First Out Completed",
+        "Second In Completed",
+        "Manual Override"
       ],
-      "description": "Calculated daily attendance status based on shift, working day, punches, and rules"
+      "description": "Effective attendance status. Equals manual_status_override when set, otherwise the system-calculated status."
+    },
+    "calculated_status": {
+      "type": "string",
+      "description": "System-calculated attendance status derived from punches and shift rules (audit trail; never overwritten by a manual override)."
+    },
+    "manual_status_override": {
+      "type": "string",
+      "description": "Manual status override set by an admin. When non-empty, the effective status (attendance_status) reflects this value while calculated_status preserves the system calculation."
+    },
+    "manual_status_reason": {
+      "type": "string",
+      "description": "Reason recorded when an admin sets a manual status override"
     },
     "is_late": {
       "type": "boolean",

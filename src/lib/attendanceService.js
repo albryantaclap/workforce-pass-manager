@@ -12,7 +12,7 @@ import {
   calculateDailyStatus, hasShiftExpired, resolveShift, resolveShiftBounds,
   getNextExpectedPunch, getMissingPunchLabel, isWorkingDay, isHoliday,
   isSplitEffective, determineSplitExpectedPunch, resolvePunchWindow,
-  punchDirection, punchSequence,
+  punchDirection, punchSequence, calculateAttendanceState,
 } from './attendanceEngine';
 
 // ── Settings ──
@@ -329,10 +329,16 @@ async function processSplitPunch({
       status: 'open', source, source_page: source,
       shift_id: shiftId, shift_name: shiftName,
     });
+    const initState = calculateAttendanceState(session, shift, settings, [], new Date());
+    await base44.entities.AttendanceRecord.update(session.id, {
+      attendance_status: initState.calculatedStatus,
+      calculated_status: initState.calculatedStatus,
+      is_late: initState.isLate, late_minutes: initState.lateMinutes,
+    });
     await logActivity('create', session.id, employeeName,
-      { attendance_date: attDate, first_in_at: tsIso, source, split_shift: true, punch_sequence: pSeq },
+      { attendance_date: attDate, first_in_at: tsIso, source, split_shift: true, punch_sequence: pSeq, attendance_status: initState.calculatedStatus },
       ['first_in_at'], email);
-    return { action: 'created', record: session, punchSequence: pSeq, punchKey: expectedKey };
+    return { action: 'created', record: { ...session, attendance_status: initState.calculatedStatus, calculated_status: initState.calculatedStatus }, punchSequence: pSeq, punchKey: expectedKey };
   }
 
   // Update existing session with the expected punch (order is enforced because
@@ -358,10 +364,20 @@ async function processSplitPunch({
     updates.overtime_minutes = calculateOvertime(updates.duration_minutes, settings);
   }
 
+  // Recalculate the centralized attendance state so the stored status stays in
+  // sync with the punch progression. A manual status override is preserved.
+  const state = calculateAttendanceState(merged, shift, settings, [], new Date());
+  updates.calculated_status = state.calculatedStatus;
+  if (!merged.manual_status_override) {
+    updates.attendance_status = state.calculatedStatus;
+    updates.is_late = state.isLate;
+    updates.late_minutes = state.lateMinutes;
+  }
+
   await base44.entities.AttendanceRecord.update(session.id, updates);
   await logActivity('update', session.id, employeeName,
     { ...updates, punch_key: expectedKey, punch_type: pType, punch_sequence: pSeq, split_shift: true },
-    Object.keys(updates).filter((k) => k !== 'duration_minutes' && k !== 'overtime_minutes'), email);
+    Object.keys(updates).filter((k) => k !== 'duration_minutes' && k !== 'overtime_minutes' && k !== 'calculated_status' && k !== 'attendance_status' && k !== 'is_late' && k !== 'late_minutes'), email);
 
   return { action: 'updated', record: { ...session, ...updates }, punchSequence: pSeq, punchKey: expectedKey };
 }
@@ -379,7 +395,8 @@ export async function saveManualEntry({
   personnelId, employeeName, company, attendanceDate,
   firstInAt, firstOutAt, secondInAt, finalOutAt,
   reason, remarks, workLocation, currentUser,
-  shiftId = '', shiftName = '',
+  shiftId = '', shiftName = '', shift = null,
+  manualStatusOverride = '', manualStatusReason = '',
 }) {
   if (!personnelId) throw new Error('Employee is required.');
   if (!attendanceDate) throw new Error('Attendance date is required.');
@@ -425,6 +442,25 @@ export async function saveManualEntry({
     shift_id: shiftId, shift_name: shiftName,
   };
 
+  // Centralized status recalculation (split-shift aware). The manual override
+  // is stored separately so the system-calculated status is never destroyed,
+  // and punches are never fabricated when an admin overrides the status.
+  const stateRecord = {
+    attendance_date: attendanceDate,
+    check_in_at: checkInIso, check_out_at: checkOutIso,
+    first_in_at: firstInIso, first_out_at: firstOutIso,
+    second_in_at: secondInIso, final_out_at: finalOutIso,
+    manual_status_override: manualStatusOverride || '',
+  };
+  const state = shift ? calculateAttendanceState(stateRecord, shift, settings, [], new Date()) : null;
+  const calculatedStatus = state?.calculatedStatus || (isCompleted ? 'Present' : (firstInIso ? 'Missing Check-out' : 'Absent'));
+  payload.calculated_status = calculatedStatus;
+  payload.attendance_status = manualStatusOverride || calculatedStatus;
+  payload.manual_status_override = manualStatusOverride || '';
+  payload.manual_status_reason = manualStatusOverride ? (manualStatusReason || reason || '').trim() : '';
+  payload.is_late = state?.isLate ?? false;
+  payload.late_minutes = state?.lateMinutes ?? 0;
+
   if (record) {
     // Update existing — log correction
     await base44.entities.AttendanceRecord.update(record.id, payload);
@@ -438,6 +474,15 @@ export async function saveManualEntry({
     await logActivity('update', record.id, employeeName,
       { ...payload, manual_correction: true, reason: reason.trim(), previous: { first_in_at: record.first_in_at, first_out_at: record.first_out_at, second_in_at: record.second_in_at, final_out_at: record.final_out_at } },
       ['first_in_at', 'first_out_at', 'second_in_at', 'final_out_at', 'manual_reason'], email);
+
+    // Audit any effective-status change (including manual overrides).
+    const oldStatus = record.attendance_status || '';
+    const newStatus = payload.attendance_status;
+    if (oldStatus !== newStatus) {
+      await logActivity('update', record.id, employeeName,
+        { status_change: true, old_status: oldStatus, new_status: newStatus, manual_override: !!manualStatusOverride, reason: (manualStatusReason || reason || '').trim() },
+        ['attendance_status'], email);
+    }
     return { action: 'updated', record: { ...record, ...payload } };
   }
 

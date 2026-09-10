@@ -14,7 +14,7 @@ import { useAuth } from '@/lib/AuthContext';
 import {
   formatTimeShort, formatDateShort, formatMinutes, getDurationColor,
   STATUS_COLORS, isWorkingDay, isHoliday, getFirstIn, getFinalOut,
-  resolveShift, isSplitEffective, getSplitPunchStatuses,
+  resolveShift, isSplitEffective, getSplitPunchStatuses, calculateAttendanceState,
 } from '@/lib/attendanceEngine';
 import { saveManualEntry, softDeleteAttendance } from '@/lib/attendanceService';
 
@@ -40,8 +40,14 @@ export default function TimeEntries({
     const workingDay = isWorkingDay(selectedDate, settings);
     return employees.map(emp => {
       const att = attendanceByPersonnel.get(emp.id) || null;
-      const status = att?.attendance_status || (att ? 'Present' : (holiday ? 'Holiday' : (workingDay ? 'Absent' : 'Rest Day')));
       const shift = resolveShift(emp, assignments, shifts, settings);
+      let status;
+      if (att) {
+        const state = calculateAttendanceState(att, shift, settings, holidays, new Date());
+        status = state.effectiveStatus;
+      } else {
+        status = holiday ? 'Holiday' : (workingDay ? 'Absent' : 'Rest Day');
+      }
       const splitEffective = isSplitEffective(shift, selectedDate);
       const splitStatuses = splitEffective ? getSplitPunchStatuses(att, shift, new Date()) : null;
       return { emp, att, status, splitEffective, splitStatuses };
