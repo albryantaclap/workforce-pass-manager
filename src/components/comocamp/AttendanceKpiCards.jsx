@@ -3,11 +3,10 @@ import { Users, LogIn, LogOut, DoorOpen, UserMinus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getAttendanceStatus, ATT_STATUS } from '@/lib/attendanceUtils';
 
-// COMO Camp attendance KPI strip. Uses the LATEST session (across all dates)
-// for Checked In / Checked Out / Currently Inside, and the selected-date
-// session set for "Not Checked In" (no session on the selected date).
-// This matches the Master List row display while keeping the daily
-// attendance tracking meaningful.
+// COMO Camp stay KPI strip. Uses the LATEST camp stay (across all dates) for
+// Inside Camp / Checked Out, and the selected-date stay set for "Not Checked
+// In" (no stay on the selected date). These are CAMP/ACCOMMODATION counts only
+// — they do NOT affect work attendance calculations.
 export default function AttendanceKpiCards({ data, latestByPersonnel, daySessionIds, onCard }) {
   const stats = useMemo(() => {
     let checkedIn = 0, checkedOut = 0;
@@ -28,7 +27,7 @@ export default function AttendanceKpiCards({ data, latestByPersonnel, daySession
 
   const cards = [
     { id: 'attTotal', label: 'Total Personnel', value: stats.total, icon: Users, cls: 'bg-slate-50 text-slate-700 border-slate-200' },
-    { id: 'attCheckedIn', label: 'Checked In', value: stats.checkedIn, icon: LogIn, cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+    { id: 'attCheckedIn', label: 'Inside Camp', value: stats.checkedIn, icon: LogIn, cls: 'bg-blue-50 text-blue-700 border-blue-200' },
     { id: 'attCheckedOut', label: 'Checked Out', value: stats.checkedOut, icon: LogOut, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
     { id: 'attInside', label: 'Currently Inside', value: stats.inside, icon: DoorOpen, cls: 'bg-amber-50 text-amber-700 border-amber-200' },
     { id: 'attNotCheckedIn', label: 'Not Checked In', value: stats.notCheckedIn, icon: UserMinus, cls: 'bg-red-50 text-red-700 border-red-200' },

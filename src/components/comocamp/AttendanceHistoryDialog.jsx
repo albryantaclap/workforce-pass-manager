@@ -10,8 +10,8 @@ import { formatTime, formatDateOnly, formatDuration } from '@/lib/attendanceUtil
 
 export default function AttendanceHistoryDialog({ open, emp, canCorrect, onCorrect, onClose }) {
   const { data: records = [], isLoading } = useQuery({
-    queryKey: ['attendance-history', emp?.id],
-    queryFn: () => base44.entities.AttendanceRecord.filter({ personnel_id: emp.id }, '-attendance_date', 100000),
+    queryKey: ['camp-stays-history', emp?.id],
+    queryFn: () => base44.entities.ComoCampStay.filter({ personnel_id: emp.id, is_deleted: { $ne: true } }, '-stay_date', 100000),
     enabled: open && !!emp,
   });
 
@@ -21,17 +21,17 @@ export default function AttendanceHistoryDialog({ open, emp, canCorrect, onCorre
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Attendance History — {emp.name}</DialogTitle>
-          <DialogDescription>{isLoading ? 'Loading…' : `${records.length} session(s) on record. Historical records are never overwritten.`}</DialogDescription>
+          <DialogTitle>Camp Stay History — {emp.name}</DialogTitle>
+          <DialogDescription>{isLoading ? 'Loading…' : `${records.length} camp stay(s) on record. Historical records are never overwritten.`}</DialogDescription>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-auto table-scroll-y">
           <Table className="table-list-view">
             <TableHeader className="sticky top-0">
               <TableRow className="bg-muted/50">
                 <TableHead className="bg-muted/50">Date</TableHead>
-                <TableHead className="bg-muted/50">Check-in</TableHead>
-                <TableHead className="bg-muted/50">Check-out</TableHead>
-                <TableHead className="bg-muted/50">Duration</TableHead>
+                <TableHead className="bg-muted/50">Camp Check-in</TableHead>
+                <TableHead className="bg-muted/50">Camp Check-out</TableHead>
+                <TableHead className="bg-muted/50">Stay Duration</TableHead>
                 <TableHead className="bg-muted/50">Work Location</TableHead>
                 <TableHead className="bg-muted/50">Checked-in By</TableHead>
                 <TableHead className="bg-muted/50">Checked-out By</TableHead>
@@ -44,11 +44,11 @@ export default function AttendanceHistoryDialog({ open, emp, canCorrect, onCorre
                   <TableRow key={i}>{Array(canCorrect ? 8 : 7).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                 ))
               ) : records.length === 0 ? (
-                <TableRow><TableCell colSpan={canCorrect ? 8 : 7} className="text-center py-8 text-muted-foreground">No attendance records yet.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canCorrect ? 8 : 7} className="text-center py-8 text-muted-foreground">No camp stay records yet.</TableCell></TableRow>
               ) : (
                 records.map(r => (
                   <TableRow key={r.id}>
-                    <TableCell>{formatDateOnly(r.attendance_date)}</TableCell>
+                    <TableCell>{formatDateOnly(r.stay_date || r.check_in_at)}</TableCell>
                     <TableCell className="font-mono">{formatTime(r.check_in_at)}</TableCell>
                     <TableCell className="font-mono">{formatTime(r.check_out_at)}</TableCell>
                     <TableCell>{r.check_out_at ? formatDuration(r.duration_minutes) : '—'}</TableCell>

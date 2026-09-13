@@ -46,11 +46,11 @@ export default function CheckOutDialog({ open, emp, record, onConfirm, onClose }
   const duration = outAt && checkInDate ? calcDuration(record.check_in_at, outAt.toISOString()) : 0;
 
   const handleConfirm = () => {
-    if (!dateStr || !timeStr) { setError('Check-out Date and Time are required.'); return; }
+    if (!dateStr || !timeStr) { setError('Camp Check-out Date and Time are required.'); return; }
     const at = buildDateTime(dateStr, timeStr);
     if (!at) { setError('Invalid date or time.'); return; }
     if (checkInDate && at <= checkInDate) {
-      setError('Check-out date and time must be later than the Check-in date and time.');
+      setError('Camp Check-out date and time must be later than the Camp Check-in date and time.');
       return;
     }
     onConfirm(record, at);
@@ -60,33 +60,33 @@ export default function CheckOutDialog({ open, emp, record, onConfirm, onClose }
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Check out {emp.name}?</DialogTitle>
-          <DialogDescription>This will close the open check-in session. Adjust the check-out date and time if needed — overnight sessions are supported.</DialogDescription>
+          <DialogTitle>Camp Check-out {emp.name}?</DialogTitle>
+          <DialogDescription>This will close the current camp stay. Adjust the check-out date and time if needed — overnight stays are supported. This does NOT affect work attendance.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm py-2">
           <Row label="Employee" value={emp.name} />
           <Row label="Company" value={emp.company || '—'} />
           <Row label="Work Location" value={emp.current_location || '—'} />
           <div className="border-t pt-2 space-y-2">
-            <Row label="Check-in Date" value={checkInDate ? formatDateOnly(record.check_in_at) : '—'} />
-            <Row label="Check-in Time" value={checkInDate ? formatTime(record.check_in_at) : '—'} />
+            <Row label="Camp Check-in Date" value={checkInDate ? formatDateOnly(record.check_in_at) : '—'} />
+            <Row label="Camp Check-in Time" value={checkInDate ? formatTime(record.check_in_at) : '—'} />
           </div>
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div className="space-y-1">
-              <Label className="text-xs">Check-out Date <span className="text-destructive">*</span></Label>
+              <Label className="text-xs">Camp Check-out Date <span className="text-destructive">*</span></Label>
               <Input type="date" value={dateStr} onChange={(e) => { setDateStr(e.target.value); setError(''); }} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Check-out Time <span className="text-destructive">*</span></Label>
+              <Label className="text-xs">Camp Check-out Time <span className="text-destructive">*</span></Label>
               <Input type="time" value={timeStr} onChange={(e) => { setTimeStr(e.target.value); setError(''); }} />
             </div>
           </div>
-          <Row label="Duration" value={formatDuration(duration)} />
+          <Row label="Camp Stay Duration" value={formatDuration(duration)} />
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleConfirm}>Confirm Check-out</Button>
+          <Button onClick={handleConfirm}>Confirm Camp Check-out</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

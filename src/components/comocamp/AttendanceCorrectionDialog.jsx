@@ -45,8 +45,8 @@ export default function AttendanceCorrectionDialog({ open, record, emp, onConfir
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Attendance — {emp?.name}</DialogTitle>
-          <DialogDescription>Admin correction. Every change is recorded in the audit log.</DialogDescription>
+          <DialogTitle>Edit Camp Stay — {emp?.name}</DialogTitle>
+          <DialogDescription>Admin correction. Every change is recorded in the audit log. This does NOT affect work attendance.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div>
@@ -54,8 +54,8 @@ export default function AttendanceCorrectionDialog({ open, record, emp, onConfir
             <Select value={field} onValueChange={handleFieldChange}>
               <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="check_in_at">Check-in Time</SelectItem>
-                <SelectItem value="check_out_at">Check-out Time</SelectItem>
+                <SelectItem value="check_in_at">Camp Check-in Time</SelectItem>
+                <SelectItem value="check_out_at">Camp Check-out Time</SelectItem>
               </SelectContent>
             </Select>
           </div>

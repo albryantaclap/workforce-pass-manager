@@ -137,7 +137,7 @@ export default function ComoCampEditDialog({
         <DialogHeader>
           <DialogTitle>Edit COMO Camp — {emp.name}</DialogTitle>
           <DialogDescription>
-            Compact edit for COMO Camp fields. Location & Contact update the shared personnel record; Check-in / Check-out update the linked attendance record. Changes sync across all modules.
+            Compact edit for COMO Camp fields. Location & Contact update the shared personnel record; Camp Check-in / Camp Check-out update the linked camp stay record. This does NOT affect work attendance.
           </DialogDescription>
         </DialogHeader>
 
@@ -195,42 +195,42 @@ export default function ComoCampEditDialog({
             </div>
           </div>
 
-          {/* Attendance (linked via personnel_id) */}
+          {/* Camp Stay (linked via personnel_id) */}
           <div className="border-t pt-3 space-y-3">
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               <div className="space-y-1">
-                <Label className="text-xs">Check-in Date {!hasRecord && <span className="text-destructive">*</span>}</Label>
+                <Label className="text-xs">Camp Check-in Date {!hasRecord && <span className="text-destructive">*</span>}</Label>
                 <Input type="date" value={checkInDate} disabled={!checkInEditable}
                   onChange={(e) => { setCheckInDate(e.target.value); setError(''); }} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Check-in Time {!hasRecord && <span className="text-destructive">*</span>}</Label>
+                <Label className="text-xs">Camp Check-in Time {!hasRecord && <span className="text-destructive">*</span>}</Label>
                 <Input type="time" value={checkInTime} disabled={!checkInEditable}
                   onChange={(e) => { setCheckInTime(e.target.value); setError(''); }} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Check-out Date</Label>
+                <Label className="text-xs">Camp Check-out Date</Label>
                 <Input type="date" value={checkOutDate} disabled={!checkOutEditable}
                   onChange={(e) => { setCheckOutDate(e.target.value); setError(''); }} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Check-out Time</Label>
+                <Label className="text-xs">Camp Check-out Time</Label>
                 <Input type="time" value={checkOutTime} disabled={!checkOutEditable}
                   onChange={(e) => { setCheckOutTime(e.target.value); setError(''); }} />
               </div>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-xs text-muted-foreground">Duration</span>
+              <span className="text-xs text-muted-foreground">Camp Stay Duration</span>
               <span className="text-sm font-medium">{formatDuration(duration)}</span>
             </div>
             {!checkOutAt && (
-              <p className="text-[10px] text-muted-foreground">Leave Check-out blank to keep the session as Checked In / Currently Inside.</p>
+              <p className="text-[10px] text-muted-foreground">Leave Camp Check-out blank to keep the stay as Inside Camp.</p>
             )}
             {needsReason && (
               <div className="space-y-1">
                 <Label className="text-xs">Correction Reason <span className="text-destructive">*</span></Label>
                 <Textarea value={reason} onChange={(e) => { setReason(e.target.value); setError(''); }}
-                  placeholder="Reason for correcting existing attendance" rows={2} />
+                  placeholder="Reason for correcting existing camp stay" rows={2} />
               </div>
             )}
           </div>

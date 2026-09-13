@@ -23,7 +23,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, MEDICAL_RESULTS, FTW_RESULTS, TRAINING_STATUSES, formatDate, computePassStatus } from '@/utils/constants';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
-import { useLatestAttendance } from '@/hooks/useLatestAttendance';
+import { useLatestCampStays } from '@/hooks/useLatestCampStays';
 import { formatTime, formatDateOnly, formatDuration, getAttendanceStatus, formatDateTimeCompact, ATT_STATUS } from '@/lib/attendanceUtils';
 
 import MultiSelect from '../components/common/MultiSelect';
@@ -136,8 +136,10 @@ export default function MasterList() {
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000),
   });
 
-  // Latest attendance session per personnel — single query, shared with COMO Camp.
-  const { latestByPersonnel: latestAttByPersonnel } = useLatestAttendance();
+  // Latest camp stay per personnel — camp/accommodation movement (ComoCampStay).
+  // This is separate from work attendance (AttendanceRecord). The Master List
+  // shows Camp Check-in / Camp Check-out from this source.
+  const { latestByPersonnel: latestAttByPersonnel } = useLatestCampStays();
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Employee.update(id, { ...data, _last_updated_by: currentUser?.email || '' }),
@@ -381,11 +383,11 @@ export default function MasterList() {
       Designation_Org_Chart: e.designation_org_chart, Department: e.department,
       Company: e.company, Company_Type: e.company_type, Nationality: e.nationality,
       Religion: e.religion, Location: e.current_location,
-      Check_in_Date: ci ? ci.toLocaleDateString('en-CA') : '',
-      Check_in_Time: ci ? ci.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '',
-      Check_out_Date: co ? co.toLocaleDateString('en-CA') : '',
-      Check_out_Time: co ? co.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '',
-      Attendance_Duration: att?.check_out_at ? formatDuration(att.duration_minutes) : '',
+      Camp_Check_in_Date: ci ? ci.toLocaleDateString('en-CA') : '',
+      Camp_Check_in_Time: ci ? ci.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '',
+      Camp_Check_out_Date: co ? co.toLocaleDateString('en-CA') : '',
+      Camp_Check_out_Time: co ? co.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '',
+      Camp_Stay_Duration: att?.check_out_at ? formatDuration(att.duration_minutes) : '',
       DIR_INDIR: e.dir_indir,
       Contact: e.contact_details, Sponsor: e.sponsor, Remarks: e.remarks,
       QID_No: e.qid_no, QID_Expiry: formatDate(e.qid_expiry), Passport_No: e.pp_no, PP_Expiry: formatDate(e.pp_expiry),
@@ -476,10 +478,10 @@ export default function MasterList() {
              </SelectContent>
            </Select>
            <Select value={attendanceFilter} onValueChange={setAttendanceFilter}>
-             <SelectTrigger className="dropdown-status"><SelectValue placeholder="Attendance" /></SelectTrigger>
+             <SelectTrigger className="dropdown-status"><SelectValue placeholder="Camp Status" /></SelectTrigger>
              <SelectContent>
-               <SelectItem value="all">All Attendance</SelectItem>
-               <SelectItem value={ATT_STATUS.CHECKED_IN}>Checked In</SelectItem>
+               <SelectItem value="all">All Camp Status</SelectItem>
+               <SelectItem value={ATT_STATUS.CHECKED_IN}>Inside Camp</SelectItem>
                <SelectItem value={ATT_STATUS.CHECKED_OUT}>Checked Out</SelectItem>
                <SelectItem value={ATT_STATUS.NOT_CHECKED_IN}>Not Checked In</SelectItem>
              </SelectContent>
@@ -600,8 +602,8 @@ export default function MasterList() {
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Nationality</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Religion</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Location</TableHead>
-                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Check-in</TableHead>
-                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Check-out</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Camp Check-in</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Camp Check-out</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">DIR/INDIR</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Contact</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Sponsor</TableHead>

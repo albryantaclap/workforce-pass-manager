@@ -1,0 +1,85 @@
+{
+  "name": "ComoCampStay",
+  "type": "object",
+  "properties": {
+    "personnel_id": {
+      "type": "string",
+      "description": "Linked Employee record ID (Master List identity)"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Employee full name (denormalized for display only)"
+    },
+    "company": {
+      "type": "string",
+      "description": "Employee company (denormalized for display only)"
+    },
+    "stay_date": {
+      "type": "string",
+      "format": "date",
+      "description": "The camp check-in date (YYYY-MM-DD). Derived from check_in_at for day-based filtering."
+    },
+    "check_in_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Camp check-in timestamp (ISO) \u2014 when the employee entered the camp/accommodation."
+    },
+    "check_out_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Camp check-out timestamp (ISO) \u2014 when the employee left the camp. Empty string while still inside camp."
+    },
+    "duration_minutes": {
+      "type": "number",
+      "default": 0,
+      "description": "Camp stay duration in minutes (check_out_at - check_in_at)"
+    },
+    "work_location": {
+      "type": "string",
+      "description": "Work location at the time of camp check-in (preserved historically)"
+    },
+    "camp_location": {
+      "type": "string",
+      "description": "Camp/accommodation location name"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "completed"
+      ],
+      "default": "open",
+      "description": "Camp stay status: open (inside camp, not yet checked out) or completed (checked out)"
+    },
+    "checked_in_by": {
+      "type": "string",
+      "description": "Email of the authenticated user who performed the camp check-in"
+    },
+    "checked_in_by_name": {
+      "type": "string",
+      "description": "Display name of the user who performed the camp check-in"
+    },
+    "checked_out_by": {
+      "type": "string",
+      "description": "Email of the authenticated user who performed the camp check-out"
+    },
+    "checked_out_by_name": {
+      "type": "string",
+      "description": "Display name of the user who performed the camp check-out"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Additional remarks"
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete flag \u2014 deleted camp stays are hidden from views but retained for history"
+    }
+  },
+  "required": [
+    "personnel_id",
+    "check_in_at",
+    "status"
+  ]
+}

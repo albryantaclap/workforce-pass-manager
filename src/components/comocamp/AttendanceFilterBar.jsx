@@ -4,8 +4,8 @@ import { Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const STATUS_OPTIONS = [
-  { id: 'all', label: 'All Attendance' },
-  { id: 'checked_in', label: 'Checked In' },
+  { id: 'all', label: 'All Camp Status' },
+  { id: 'checked_in', label: 'Inside Camp' },
   { id: 'checked_out', label: 'Checked Out' },
   { id: 'not_checked_in', label: 'Not Checked In' },
 ];
@@ -22,7 +22,7 @@ export default function AttendanceFilterBar({ attendanceDate, setAttendanceDate,
           className="pl-7 h-8 w-[160px] text-xs"
         />
       </div>
-      <span className="text-[11px] font-medium text-muted-foreground">Attendance:</span>
+      <span className="text-[11px] font-medium text-muted-foreground">Camp Status:</span>
       <div className="flex items-center gap-1 p-1 bg-muted/40 rounded-lg">
         {STATUS_OPTIONS.map(o => (
           <button

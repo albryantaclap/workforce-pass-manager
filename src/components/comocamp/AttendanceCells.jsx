@@ -17,10 +17,10 @@ function DateTimeDisplay({ iso }) {
   );
 }
 
-// Check-in column cell. With multiple sessions:
-//  - If an open session exists → show its check-in date/time (currently inside).
-//  - Else if editable today → show a Check In / Check In Again button (creates a new session).
-//  - Else if a completed session exists → show its check-in date/time.
+// Camp Check-in column cell. With multiple camp stays:
+//  - If an open stay exists → show its check-in date/time (currently inside camp).
+//  - Else if editable today → show a Camp Check In / Check In Again button (creates a new stay).
+//  - Else if a completed stay exists → show its check-in date/time.
 export function CheckInCell({ emp, openRecord, latestRecord, sessionCount, canEdit, isToday, isComoCamp, onCheckIn, onHistory }) {
   if (openRecord) {
     return (
@@ -31,7 +31,7 @@ export function CheckInCell({ emp, openRecord, latestRecord, sessionCount, canEd
             type="button"
             onClick={() => onHistory(emp)}
             className="text-[9px] font-semibold px-1 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
-            title={`${sessionCount} session(s) — click to view history`}
+            title={`${sessionCount} camp stay(s) — click to view history`}
           >
             {sessionCount}×
           </button>
@@ -42,7 +42,7 @@ export function CheckInCell({ emp, openRecord, latestRecord, sessionCount, canEd
   if (canEdit && isToday && isComoCamp) {
     return (
       <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] gap-1" onClick={() => onCheckIn(emp)}>
-        <LogIn className="w-3 h-3" /> {latestRecord ? 'Check In Again' : 'Check In'}
+        <LogIn className="w-3 h-3" /> {latestRecord ? 'Check In Again' : 'Camp Check In'}
       </Button>
     );
   }
@@ -52,15 +52,15 @@ export function CheckInCell({ emp, openRecord, latestRecord, sessionCount, canEd
   return <span className="text-xs text-muted-foreground">—</span>;
 }
 
-// Check-out column cell.
-//  - If an open session exists → show Check Out button (editable today) or dash.
-//  - Else if a completed session exists → show its check-out date/time.
+// Camp Check-out column cell.
+//  - If an open stay exists → show Camp Check Out button (editable today) or dash.
+//  - Else if a completed stay exists → show its check-out date/time.
 export function CheckOutCell({ emp, openRecord, latestRecord, canEdit, isToday, isComoCamp, onCheckOut }) {
   if (openRecord) {
     if (canEdit && isToday && isComoCamp) {
       return (
         <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] gap-1" onClick={() => onCheckOut(emp, openRecord)}>
-          <LogOut className="w-3 h-3" /> Check Out
+          <LogOut className="w-3 h-3" /> Camp Check Out
         </Button>
       );
     }

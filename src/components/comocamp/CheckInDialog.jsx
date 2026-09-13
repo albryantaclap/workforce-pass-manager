@@ -42,7 +42,7 @@ export default function CheckInDialog({ open, emp, onConfirm, onClose }) {
   if (!emp) return null;
 
   const handleConfirm = () => {
-    if (!dateStr || !timeStr) { setError('Check-in Date and Time are required.'); return; }
+    if (!dateStr || !timeStr) { setError('Camp Check-in Date and Time are required.'); return; }
     const at = buildDateTime(dateStr, timeStr);
     if (!at) { setError('Invalid date or time.'); return; }
     onConfirm(emp, at);
@@ -52,8 +52,8 @@ export default function CheckInDialog({ open, emp, onConfirm, onClose }) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Check in {emp.name}?</DialogTitle>
-          <DialogDescription>Record a new check-in session. Adjust the date and time if needed — defaults to now.</DialogDescription>
+          <DialogTitle>Camp Check-in {emp.name}?</DialogTitle>
+          <DialogDescription>Record a new camp stay. Adjust the date and time if needed — defaults to now. This does NOT affect work attendance.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm py-2">
           <Row label="Employee" value={emp.name} />
@@ -61,11 +61,11 @@ export default function CheckInDialog({ open, emp, onConfirm, onClose }) {
           <Row label="Work Location" value={emp.current_location || '—'} />
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div className="space-y-1">
-              <Label className="text-xs">Check-in Date <span className="text-destructive">*</span></Label>
+              <Label className="text-xs">Camp Check-in Date <span className="text-destructive">*</span></Label>
               <Input type="date" value={dateStr} onChange={(e) => { setDateStr(e.target.value); setError(''); }} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Check-in Time <span className="text-destructive">*</span></Label>
+              <Label className="text-xs">Camp Check-in Time <span className="text-destructive">*</span></Label>
               <Input type="time" value={timeStr} onChange={(e) => { setTimeStr(e.target.value); setError(''); }} />
             </div>
           </div>
@@ -73,7 +73,7 @@ export default function CheckInDialog({ open, emp, onConfirm, onClose }) {
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleConfirm}>Confirm Check-in</Button>
+          <Button onClick={handleConfirm}>Confirm Camp Check-in</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
