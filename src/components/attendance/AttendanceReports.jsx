@@ -8,7 +8,8 @@ import AttendanceFilterBar from './AttendanceFilterBar';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import TimesheetExportDialog from './TimesheetExportDialog';
 import PdfByEmployeeDialog from './PdfByEmployeeDialog';
-import { FileSpreadsheet, FileText } from 'lucide-react';
+import { FileSpreadsheet, FileText, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
+import { exportWeeklyPdf } from '@/lib/weeklyPdf';
 import {
   isWorkingDay, isHoliday, calculateDurationFromRecord,
   formatMinutes, formatTimeShort, formatDateShort, STATUS_COLORS,
@@ -18,6 +19,7 @@ import {
 const REPORT_TYPES = [
   { key: 'daily', label: 'Daily Attendance' },
   { key: 'monthly', label: 'Monthly Attendance' },
+  { key: 'weekly', label: 'Weekly Attendance' },
   { key: 'late', label: 'Late Report' },
   { key: 'absent', label: 'Absent Report' },
   { key: 'missing', label: 'Missing Check-out Report' },
@@ -25,6 +27,24 @@ const REPORT_TYPES = [
   { key: 'timesheet', label: 'Timesheet' },
   { key: 'pdf_by_employee', label: 'PDF by Employee' },
 ];
+
+// Monday of the week containing the given YYYY-MM-DD (or today if omitted).
+const mondayOf = (ds) => {
+  const d = ds ? new Date(ds + 'T00:00:00') : new Date();
+  const daysSinceMon = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - daysSinceMon);
+  return d.toLocaleDateString('en-CA');
+};
+const shiftDays = (ds, delta) => {
+  const d = new Date(ds + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  return d.toLocaleDateString('en-CA');
+};
+const fmtPeriodLabel = (from, to) => {
+  const f = new Date(from + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const t = new Date(to + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return `${f} – ${t}`;
+};
 
 export default function AttendanceReports({
   employees, settings, shifts, assignments, holidays, filters, setFilters,
@@ -34,6 +54,30 @@ export default function AttendanceReports({
   const [dateTo, setDateTo] = useState(() => new Date().toLocaleDateString('en-CA'));
   const [showTimesheet, setShowTimesheet] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
+  const [weeklyBusy, setWeeklyBusy] = useState(false);
+
+  const handleReportType = (key) => {
+    setReportType(key);
+    if (key === 'weekly') {
+      const mon = mondayOf();
+      setDateFrom(mon);
+      setDateTo(shiftDays(mon, 6));
+    }
+  };
+
+  const goPrevWeek = () => { setDateFrom(d => shiftDays(d, -7)); setDateTo(d => shiftDays(d, -7)); };
+  const goNextWeek = () => { setDateFrom(d => shiftDays(d, 7)); setDateTo(d => shiftDays(d, 7)); };
+  const goThisWeek = () => { const mon = mondayOf(); setDateFrom(mon); setDateTo(shiftDays(mon, 6)); };
+
+  const handleExportWeeklyPdf = async () => {
+    setWeeklyBusy(true);
+    try {
+      // Ensure records cover the week
+      exportWeeklyPdf(reportRows, dateFrom, dateTo, filters);
+    } finally {
+      setWeeklyBusy(false);
+    }
+  };
 
   const { data: allRecords = [], isLoading } = useQuery({
     queryKey: ['attendance', 'report', dateFrom, dateTo],
@@ -97,12 +141,30 @@ export default function AttendanceReports({
           <span className="text-xs font-semibold text-muted-foreground uppercase">Report Type</span>
           {REPORT_TYPES.map(rt => (
             <Button key={rt.key} size="sm" variant={reportType === rt.key ? 'default' : 'outline'}
-              onClick={() => setReportType(rt.key)} className="h-7 text-xs">
+              onClick={() => handleReportType(rt.key)} className="h-7 text-xs">
               {rt.label}
             </Button>
           ))}
         </div>
-        {reportType === 'timesheet' ? (
+        {reportType === 'weekly' ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-muted-foreground uppercase">Week</span>
+            <div className="inline-flex items-center rounded-full border border-border bg-white">
+              <button onClick={goPrevWeek} className="px-2 py-1 text-muted-foreground hover:bg-muted rounded-l-full" title="Previous week"><ChevronLeft className="w-4 h-4" /></button>
+              <span className="px-2 text-xs font-medium text-foreground whitespace-nowrap">{fmtPeriodLabel(dateFrom, dateTo)}</span>
+              <button onClick={goNextWeek} className="px-2 py-1 text-muted-foreground hover:bg-muted rounded-r-full" title="Next week"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+            <Button size="sm" variant="ghost" onClick={goThisWeek} className="h-7 text-xs">This Week</Button>
+            <span className="text-xs font-semibold text-muted-foreground uppercase ml-2">From</span>
+            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36" />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36" />
+            <button onClick={handleExportWeeklyPdf} disabled={weeklyBusy}
+              className="inline-flex items-center gap-2 rounded-full border border-indigo-300 bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 ml-auto">
+              <CalendarRange className="w-4 h-4" /> Export Weekly PDF
+            </button>
+          </div>
+        ) : reportType === 'timesheet' ? (
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">Monthly matrix timesheet — one row per employee, two columns per day (punch + Total H), with summary.</p>
             <button onClick={() => setShowTimesheet(true)}
