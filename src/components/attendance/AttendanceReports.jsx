@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AttendanceFilterBar from './AttendanceFilterBar';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
+import TimesheetExportDialog from './TimesheetExportDialog';
+import PdfByEmployeeDialog from './PdfByEmployeeDialog';
+import { FileSpreadsheet, FileText } from 'lucide-react';
 import {
   isWorkingDay, isHoliday, calculateDurationFromRecord,
   formatMinutes, formatTimeShort, formatDateShort, STATUS_COLORS,
@@ -19,6 +22,8 @@ const REPORT_TYPES = [
   { key: 'absent', label: 'Absent Report' },
   { key: 'missing', label: 'Missing Check-out Report' },
   { key: 'overtime', label: 'Overtime Report' },
+  { key: 'timesheet', label: 'Timesheet' },
+  { key: 'pdf_by_employee', label: 'PDF by Employee' },
 ];
 
 export default function AttendanceReports({
@@ -27,6 +32,8 @@ export default function AttendanceReports({
   const [reportType, setReportType] = useState('daily');
   const [dateFrom, setDateFrom] = useState(() => new Date().toLocaleDateString('en-CA'));
   const [dateTo, setDateTo] = useState(() => new Date().toLocaleDateString('en-CA'));
+  const [showTimesheet, setShowTimesheet] = useState(false);
+  const [showPdf, setShowPdf] = useState(false);
 
   const { data: allRecords = [], isLoading } = useQuery({
     queryKey: ['attendance', 'report', dateFrom, dateTo],
@@ -95,16 +102,45 @@ export default function AttendanceReports({
             </Button>
           ))}
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold text-muted-foreground uppercase">Date Range</span>
-          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36" />
-          <span className="text-xs text-muted-foreground">to</span>
-          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36" />
-          <Button size="sm" variant="outline" onClick={exportCSV} className="h-7 ml-auto">
-            Export CSV
-          </Button>
-        </div>
+        {reportType === 'timesheet' ? (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Monthly matrix timesheet — one row per employee, two columns per day (punch + Total H), with summary.</p>
+            <button onClick={() => setShowTimesheet(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100">
+              <FileSpreadsheet className="w-4 h-4" /> Timesheet
+            </button>
+          </div>
+        ) : reportType === 'pdf_by_employee' ? (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Individual employee attendance timesheet — one PDF page per employee.</p>
+            <button onClick={() => setShowPdf(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-rose-300 bg-rose-50 px-4 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-100">
+              <FileText className="w-4 h-4" /> PDF by Employee
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-muted-foreground uppercase">Date Range</span>
+            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36" />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36" />
+            <Button size="sm" variant="outline" onClick={exportCSV} className="h-7 ml-auto">
+              Export CSV
+            </Button>
+          </div>
+        )}
       </Card>
+
+      <TimesheetExportDialog
+        open={showTimesheet} onOpenChange={setShowTimesheet}
+        employees={employees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
+        baseFilters={filters}
+      />
+      <PdfByEmployeeDialog
+        open={showPdf} onOpenChange={setShowPdf}
+        employees={employees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
+        baseFilters={filters}
+      />
 
       {/* Report table */}
       <Card className="overflow-hidden">
