@@ -318,7 +318,12 @@ const resolvePunchDateTime = (timeStr, shift, attendanceDate, forceSameDay = fal
   const [ph, pm] = timeStr.split(':').map(Number);
   let dayOffset = 0;
   if (!forceSameDay) {
-    const [sh, sm] = (shift?.start_time || '00:00').split(':').map(Number);
+    // The split sequence starts at split_first_in_start; any punch whose wall-clock
+    // time is earlier than that belongs to the next calendar day (cross-midnight).
+    // Keying off split_first_in_start (not shift.start_time) keeps the split
+    // windows fully self-contained — they never depend on normal-shift times.
+    const ref = shift?.split_first_in_start || shift?.start_time || '00:00';
+    const [sh, sm] = ref.split(':').map(Number);
     if (ph < sh || (ph === sh && pm < sm)) dayOffset = 1;
   }
   return qatarDateFromParts(y, m - 1, d + dayOffset, ph, pm);

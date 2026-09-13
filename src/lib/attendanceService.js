@@ -139,7 +139,9 @@ export async function recordPunch({
   const [shifts, assignments] = await Promise.all([getShifts(), getShiftAssignments()]);
   await autoCloseExpiredSessions(personnelId, settings, shifts, assignments, [], currentUser);
 
-  const attDate = timestamp.toLocaleDateString('en-CA');
+  // Attendance date is always the Qatar calendar date — never the browser's
+  // local date — so the punch window is built on the same day the shift runs.
+  const attDate = timestamp.toLocaleDateString('en-CA', { timeZone: 'Asia/Qatar' });
 
   // ── Split-shift path ──
   // When the employee's shift has split-shift rules enabled and effective for
@@ -305,6 +307,7 @@ async function processSplitPunch({
   // same resolvePunchWindow used for display — never calculated separately.
   const { earliest, latest } = resolvePunchWindow(expectedKey, shift, attDate);
   const _fmt = (d) => (d ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Qatar' }) : '—');
+  const _date = (d) => (d ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'Asia/Qatar' }) : '—');
   const decision = !earliest || !latest
     ? 'ACCEPT (no window configured)'
     : timestamp < earliest
@@ -312,33 +315,42 @@ async function processSplitPunch({
       : timestamp > latest
         ? 'REJECT (window closed)'
         : 'ACCEPT';
-  // Temporary diagnostic — shows the resolved shift + calculated window so the
-  // scanner can be verified against the configured Split Shift FIRST IN rules.
+  // Diagnostic — one log per punch showing the resolved shift, the configured
+  // split values, the calculated window, the current time, and the decision.
   console.debug('[processSplitPunch]', {
     employee: `${employeeName} (${personnelId})`,
     shiftId: shift?.id,
     shiftName: shift?.shift_name,
-    splitEnabled: shift?.split_shift_enabled,
     attendanceDate: attDate,
+    splitEnabled: shift?.split_shift_enabled,
     expectedPunch: expectedKey,
-    firstInStart: shift?.split_first_in_start,
-    enableBefore: shift?.split_first_in_enable_before_min,
-    cutoff: shift?.split_first_in_cutoff,
-    windowOpen: _fmt(earliest),
-    windowClose: _fmt(latest),
+    previousPunches: {
+      first_in_at: session?.first_in_at || session?.check_in_at || '',
+      first_out_at: session?.first_out_at || '',
+      second_in_at: session?.second_in_at || '',
+      final_out_at: session?.final_out_at || session?.check_out_at || '',
+    },
+    configured: {
+      first_in: { start: shift?.split_first_in_start, enableBefore: shift?.split_first_in_enable_before_min, cutoff: shift?.split_first_in_cutoff },
+      first_out: { target: shift?.split_first_out_target, enableBefore: shift?.split_first_out_enable_before_min, window: shift?.split_first_out_window_min },
+      second_in: { target: shift?.split_second_in_target, enableBefore: shift?.split_second_in_enable_before_min, window: shift?.split_second_in_window_min },
+      final_out: { earliest: shift?.split_final_out_earliest, enableBefore: shift?.split_final_out_enable_before_min, latest: shift?.split_final_out_latest },
+    },
+    calculatedWindow: { open: _fmt(earliest), close: _fmt(latest), date: _date(earliest) },
     currentTime: _fmt(timestamp),
     decision,
   });
   if (earliest && latest) {
     const label = expectedKey.replace(/_/g, ' ');
-    const _date = (d) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'Asia/Qatar' });
     if (timestamp < earliest) {
       throw new Error(
-        `Punch window not yet open for ${label}. Opens at ${_fmt(earliest)} on ${_date(earliest)} (until ${_fmt(latest)}). Current time: ${_fmt(timestamp)}.`
+        `${label} punch window is not yet open. Allowed time: ${_fmt(earliest)} – ${_fmt(latest)} on ${_date(earliest)}. Current time: ${_fmt(timestamp)}.`
       );
     }
     if (timestamp > latest) {
-      throw new Error(`Punch window has closed for ${label} (was ${_fmt(earliest)}–${_fmt(latest)} on ${_date(earliest)}). Current time: ${_fmt(timestamp)}.`);
+      throw new Error(
+        `${label} punch window has expired. Allowed time: ${_fmt(earliest)} – ${_fmt(latest)} on ${_date(earliest)}. Current time: ${_fmt(timestamp)}.`
+      );
     }
   }
 
