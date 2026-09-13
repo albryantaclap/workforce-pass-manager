@@ -8,8 +8,8 @@ import AttendanceFilterBar from './AttendanceFilterBar';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import TimesheetExportDialog from './TimesheetExportDialog';
 import PdfByEmployeeDialog from './PdfByEmployeeDialog';
+import WeeklyPdfDialog from './WeeklyPdfDialog';
 import { FileSpreadsheet, FileText, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
-import { exportWeeklyPdf } from '@/lib/weeklyPdf';
 import {
   isWorkingDay, isHoliday, calculateDurationFromRecord,
   formatMinutes, formatTimeShort, formatDateShort, STATUS_COLORS,
@@ -54,7 +54,7 @@ export default function AttendanceReports({
   const [dateTo, setDateTo] = useState(() => new Date().toLocaleDateString('en-CA'));
   const [showTimesheet, setShowTimesheet] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
-  const [weeklyBusy, setWeeklyBusy] = useState(false);
+  const [showWeekly, setShowWeekly] = useState(false);
 
   const handleReportType = (key) => {
     setReportType(key);
@@ -68,16 +68,6 @@ export default function AttendanceReports({
   const goPrevWeek = () => { setDateFrom(d => shiftDays(d, -7)); setDateTo(d => shiftDays(d, -7)); };
   const goNextWeek = () => { setDateFrom(d => shiftDays(d, 7)); setDateTo(d => shiftDays(d, 7)); };
   const goThisWeek = () => { const mon = mondayOf(); setDateFrom(mon); setDateTo(shiftDays(mon, 6)); };
-
-  const handleExportWeeklyPdf = async () => {
-    setWeeklyBusy(true);
-    try {
-      // Ensure records cover the week
-      exportWeeklyPdf(reportRows, dateFrom, dateTo, filters);
-    } finally {
-      setWeeklyBusy(false);
-    }
-  };
 
   const { data: allRecords = [], isLoading } = useQuery({
     queryKey: ['attendance', 'report', dateFrom, dateTo],
@@ -159,8 +149,9 @@ export default function AttendanceReports({
             <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36" />
             <span className="text-xs text-muted-foreground">to</span>
             <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36" />
-            <button onClick={handleExportWeeklyPdf} disabled={weeklyBusy}
-              className="inline-flex items-center gap-2 rounded-full border border-indigo-300 bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 ml-auto">
+            <button onClick={() => setShowWeekly(true)}
+              className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium text-white ml-auto"
+              style={{ background: '#5c53f5', borderColor: '#5c53f5' }}>
               <CalendarRange className="w-4 h-4" /> Export Weekly PDF
             </button>
           </div>
@@ -200,6 +191,11 @@ export default function AttendanceReports({
       />
       <PdfByEmployeeDialog
         open={showPdf} onOpenChange={setShowPdf}
+        employees={employees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
+        baseFilters={filters}
+      />
+      <WeeklyPdfDialog
+        open={showWeekly} onOpenChange={setShowWeekly}
         employees={employees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
         baseFilters={filters}
       />
