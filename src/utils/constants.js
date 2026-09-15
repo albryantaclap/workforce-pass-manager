@@ -37,6 +37,15 @@ export const PID_STATUSES = [
   { value: 'NO PID PASS', label: 'NO PID PASS' },
 ];
 
+// QID Status options — computed dynamically from qid_expiry using a 45-day
+// monitoring window (matches the workforce system's expiry monitoring window).
+export const QID_STATUSES = [
+  { value: 'VALID QID', label: 'Valid' },
+  { value: 'SOON TO EXPIRE', label: 'Soon to Expire' },
+  { value: 'EXPIRED QID', label: 'Expired' },
+  { value: 'NO QID EXPIRY', label: 'No QID Expiry' },
+];
+
 export const DEPARTMENTS = ['ELECTRICAL', 'MECHANICAL', 'CIVIL', 'SERVICES'];
 export const FTW_RESULTS = ['ACCEPTED', 'REJECTED', 'WAITING TR APPROVAL', 'RE-ASSESS'];
 export const MEDICAL_RESULTS = [
@@ -154,6 +163,21 @@ export function computePassStatus(dateStr, type, storedStatus) {
   if (days < 0) return type === 'rlic' ? 'EXPIRED RLIC PASS' : 'EXPIRED PID PASS';
   if (days <= 30) return 'SOON TO EXPIRE';
   return type === 'rlic' ? 'VALID RLIC PASS' : 'VALID PID PASS';
+}
+
+// Compute QID status dynamically from qid_expiry using a 45-day window.
+//   qid_expiry empty/null       → 'NO QID EXPIRY'
+//   qid_expiry < today          → 'EXPIRED QID'
+//   qid_expiry ≤ today + 45 days → 'SOON TO EXPIRE'
+//   qid_expiry > today + 45 days → 'VALID QID'
+// The calculation is date-based and recalculates automatically as time passes.
+export function computeQidStatus(dateStr) {
+  if (!dateStr) return 'NO QID EXPIRY';
+  const days = daysUntil(dateStr);
+  if (days === null) return 'NO QID EXPIRY';
+  if (days < 0) return 'EXPIRED QID';
+  if (days <= 45) return 'SOON TO EXPIRE';
+  return 'VALID QID';
 }
 
 export function exportToCSV(data, filename) {

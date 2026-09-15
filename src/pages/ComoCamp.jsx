@@ -22,6 +22,7 @@ import StatusBadge from '../components/common/StatusBadge';
 import ExportButton from '../components/common/ExportButton';
 import PrintReportButton from '../components/common/PrintReportButton';
 import PidDaysLeftBadge from '../components/comocamp/PidDaysLeftBadge';
+import QidExpiryBadge from '../components/comocamp/QidExpiryBadge';
 import ComoCampDashboard from '../components/comocamp/dashboard/ComoCampDashboard';
 import { exportDashboardExcel, printDashboardPdf } from '../components/comocamp/dashboard/exportComoCampDashboard';
 import ReportConfigModal from '@/components/dashboard/ReportConfigModal';
@@ -40,7 +41,7 @@ import { CheckInCell, CheckOutCell } from '../components/comocamp/AttendanceCell
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import LocationGridDropdown from '../components/comocamp/LocationGridDropdown';
-import { computePassStatus, formatDate, normalizeDate } from '@/utils/constants';
+import { computePassStatus, computeQidStatus, formatDate, normalizeDate, QID_STATUSES } from '@/utils/constants';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
@@ -92,6 +93,7 @@ function loadFilters() {
       rlicStatusFilter: arr(s.rlicStatusFilter),
       trainingStatusFilter: arr(s.trainingStatusFilter),
       pidStatusFilter: arr(s.pidStatusFilter),
+      qidStatusFilter: arr(s.qidStatusFilter),
       medicalResultFilter: arr(s.medicalResultFilter),
       locationFilter: arr(s.locationFilter),
       dirIndirFilter: s.dirIndirFilter || '',
@@ -130,6 +132,7 @@ export default function ComoCamp() {
   const [rlicStatusFilter, setRlicStatusFilter] = useState(saved.rlicStatusFilter || []);
   const [trainingStatusFilter, setTrainingStatusFilter] = useState(saved.trainingStatusFilter || []);
   const [pidStatusFilter, setPidStatusFilter] = useState(saved.pidStatusFilter || []);
+  const [qidStatusFilter, setQidStatusFilter] = useState(saved.qidStatusFilter || []);
   const [medicalResultFilter, setMedicalResultFilter] = useState(saved.medicalResultFilter || []);
   const [locationFilter, setLocationFilter] = useState(saved.locationFilter || []);
   const [dirIndirFilter, setDirIndirFilter] = useState(saved.dirIndirFilter || '');
@@ -559,6 +562,8 @@ export default function ComoCamp() {
       const matchesRlic = rlicStatusFilter.length === 0 || rlicStatusFilter.includes(effectiveRlic);
       const effectivePid = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
       const matchesPid = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
+      const effectiveQid = computeQidStatus(emp.qid_expiry);
+      const matchesQid = qidStatusFilter.length === 0 || qidStatusFilter.includes(effectiveQid);
       const matchesTraining = trainingStatusFilter.length === 0 || trainingStatusFilter.includes(emp.training_status);
       const matchesMedical = medicalResultFilter.length === 0 || medicalResultFilter.includes(emp.ftw_result);
       const matchesWorkLocQuick = !workLocationQuick || (emp.current_location || '').trim().toUpperCase() === workLocationQuick;
@@ -591,14 +596,14 @@ export default function ComoCamp() {
       const matchPidTo = !pidIssueTo || pidDate <= pidIssueTo;
 
       return matchesSearch && matchesCompany && matchesDepartment && matchesPosition && matchesManager &&
-        matchesLocation && matchesDirIndir && matchesRlic && matchesPid && matchesTraining && matchesMedical &&
+        matchesLocation && matchesDirIndir && matchesRlic && matchesPid && matchesQid && matchesTraining && matchesMedical &&
         matchesWorkLocQuick &&
         matchTrainSchedFrom && matchTrainSchedTo && matchTrFrom && matchTrTo &&
         matchGpIssueFrom && matchGpIssueTo && matchGpReceivedFrom && matchGpReceivedTo && matchPidFrom && matchPidTo &&
         matchesAtt;
     });
   }, [baseDataset, search, companyFilter, departmentFilter, positionFilter, selectedManagerIds, managers,
-    locationFilter, dirIndirFilter, rlicStatusFilter, pidStatusFilter, trainingStatusFilter, medicalResultFilter,
+    locationFilter, dirIndirFilter, rlicStatusFilter, pidStatusFilter, qidStatusFilter, trainingStatusFilter, medicalResultFilter,
     trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
     gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, workLocationQuick, isComo, attendanceStatus, latestByPersonnel, daySessionIds]);
 
@@ -624,23 +629,24 @@ export default function ComoCamp() {
   // the shared Report Configuration / preview engine can render Check-in /
   // Check-out / Duration / Attendance Status columns (COMO Camp tab only).
   const reportDataset = useMemo(() => {
-    if (!isComo) return sorted;
     return sorted.map(e => {
+      const base = { ...e, qid_status: computeQidStatus(e.qid_expiry) };
+      if (!isComo) return base;
       const rec = latestByPersonnel.get(e.id);
-      if (!rec) return e;
-      return { ...e, check_in_at: rec.check_in_at, check_out_at: rec.check_out_at, duration_minutes: rec.duration_minutes, attendance_status: getAttendanceStatus(rec) };
+      if (!rec) return base;
+      return { ...base, check_in_at: rec.check_in_at, check_out_at: rec.check_out_at, duration_minutes: rec.duration_minutes, attendance_status: getAttendanceStatus(rec) };
     });
   }, [sorted, latestByPersonnel, isComo]);
 
   useEffect(() => {
     saveFilters({
       activeTab, search, companyFilter, departmentFilter, positionFilter, rlicStatusFilter,
-      trainingStatusFilter, pidStatusFilter, medicalResultFilter, locationFilter, dirIndirFilter,
+      trainingStatusFilter, pidStatusFilter, qidStatusFilter, medicalResultFilter, locationFilter, dirIndirFilter,
       trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
       gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page,
     });
   }, [activeTab, search, companyFilter, departmentFilter, positionFilter, rlicStatusFilter,
-    trainingStatusFilter, pidStatusFilter, medicalResultFilter, locationFilter, dirIndirFilter,
+    trainingStatusFilter, pidStatusFilter, qidStatusFilter, medicalResultFilter, locationFilter, dirIndirFilter,
     trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
     gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page]);
 
@@ -649,7 +655,7 @@ export default function ComoCamp() {
     if (isInitialMount.current) { isInitialMount.current = false; return; }
     setPage(0);
   }, [companyFilter, departmentFilter, positionFilter, rlicStatusFilter, trainingStatusFilter,
-    pidStatusFilter, medicalResultFilter, locationFilter, dirIndirFilter,
+    pidStatusFilter, qidStatusFilter, medicalResultFilter, locationFilter, dirIndirFilter,
     trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
     gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
@@ -756,7 +762,7 @@ export default function ComoCamp() {
 
   const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 ||
     departmentFilter.length > 0 || positionFilter.length > 0 || rlicStatusFilter.length > 0 ||
-    trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || medicalResultFilter.length > 0 ||
+    trainingStatusFilter.length > 0 || pidStatusFilter.length > 0 || qidStatusFilter.length > 0 || medicalResultFilter.length > 0 ||
     (activeTab === 'all' && locationFilter.length > 0) || !!dirIndirFilter ||
     !!trainingScheduledFrom || !!trainingScheduledTo || !!trApprovedFrom || !!trApprovedTo ||
     !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo ||
@@ -765,7 +771,7 @@ export default function ComoCamp() {
   const clearFilters = () => {
     setSelectedManagerIds([]); setSearchInput(''); setSearch('');
     setCompanyFilter([]); setDepartmentFilter([]); setPositionFilter([]);
-    setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]); setMedicalResultFilter([]);
+    setRlicStatusFilter([]); setTrainingStatusFilter([]); setPidStatusFilter([]); setQidStatusFilter([]); setMedicalResultFilter([]);
     setLocationFilter([]); setDirIndirFilter('');
     setTrainingScheduledFrom(''); setTrainingScheduledTo('');
     setTrApprovedFrom(''); setTrApprovedTo('');
@@ -839,6 +845,8 @@ export default function ComoCamp() {
       Name: e.name || '—',
       Company: e.company || '—',
       'QID No': e.qid_no || '—',
+      'QID Expiry': formatDate(e.qid_expiry),
+      'QID Status': computeQidStatus(e.qid_expiry),
       'PID No': e.pid || '—',
       Medical: e.ftw_result || 'New',
       'Gate Pass': gpStatus,
@@ -876,6 +884,8 @@ export default function ComoCamp() {
       Name: e.name || '—',
       Company: e.company || '—',
       'QID No': e.qid_no || '—',
+      'QID Expiry': formatDate(e.qid_expiry),
+      'QID Status': computeQidStatus(e.qid_expiry),
       'PID No': e.pid || '—',
       Medical: e.ftw_result || 'New',
       'Gate Pass': gpStatus,
@@ -895,6 +905,8 @@ export default function ComoCamp() {
     { key: 'Name', label: 'Name' },
     { key: 'Company', label: 'Company' },
     { key: 'QID No', label: 'QID No.' },
+    { key: 'QID Expiry', label: 'QID Expiry' },
+    { key: 'QID Status', label: 'QID Status' },
     { key: 'PID No', label: 'PID No.' },
     { key: 'Medical', label: 'Medical' },
     { key: 'Gate Pass', label: 'Gate Pass' },
@@ -923,6 +935,7 @@ export default function ComoCamp() {
     if (rlicStatusFilter.length) chips.push(`Gate Pass: ${rlicStatusFilter.join(', ')}`);
     if (trainingStatusFilter.length) chips.push(`Training: ${trainingStatusFilter.join(', ')}`);
     if (pidStatusFilter.length) chips.push(`PID Status: ${pidStatusFilter.join(', ')}`);
+    if (qidStatusFilter.length) chips.push(`QID Status: ${qidStatusFilter.map(s => QID_STATUSES.find(o => o.value === s)?.label || s).join(', ')}`);
     if (trainingScheduledFrom || trainingScheduledTo) chips.push(`Train Scheduled: ${trainingScheduledFrom || '…'} → ${trainingScheduledTo || '…'}`);
     if (trApprovedFrom || trApprovedTo) chips.push(`TR Approved: ${trApprovedFrom || '…'} → ${trApprovedTo || '…'}`);
     if (gpIssueFrom || gpIssueTo) chips.push(`GP Submitted: ${gpIssueFrom || '…'} → ${gpIssueTo || '…'}`);
@@ -931,7 +944,7 @@ export default function ComoCamp() {
     if (search) chips.push(`Search: "${search}"`);
     return chips;
   }, [isComo, locationFilter, companyFilter, departmentFilter, positionFilter, selectedManagerIds,
-    dirIndirFilter, medicalResultFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter,
+    dirIndirFilter, medicalResultFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, qidStatusFilter,
     trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo,
     gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, search]);
 
@@ -952,6 +965,8 @@ export default function ComoCamp() {
     { id: 'training_date_scheduled', label: 'Training Date Scheduled' },
     { id: 'training_date_start', label: 'Training Date Started' },
     { id: 'pid_issue_date', label: 'PID Issue Date' },
+    { id: 'qid_expiry', label: 'QID Expiry' },
+    { id: 'qid_status', label: 'QID Status' },
     { id: 'pid_days_left', label: 'PID Days Left' },
     { id: 'check_in_at', label: 'Camp Check-in' },
     { id: 'check_out_at', label: 'Camp Check-out' },
@@ -1132,6 +1147,7 @@ export default function ComoCamp() {
         rlicStatusFilter={rlicStatusFilter} setRlicStatusFilter={setRlicStatusFilter} rlicOptions={allRlicOptions}
         trainingStatusFilter={trainingStatusFilter} setTrainingStatusFilter={setTrainingStatusFilter} trainingOptions={allTrainingOptions}
         pidStatusFilter={pidStatusFilter} setPidStatusFilter={setPidStatusFilter} pidOptions={allPidOptions}
+        qidStatusFilter={qidStatusFilter} setQidStatusFilter={setQidStatusFilter} qidOptions={QID_STATUSES}
         medicalResultFilter={medicalResultFilter} setMedicalResultFilter={setMedicalResultFilter} medicalOptions={allMedicalResultOptions}
         trainingScheduledFrom={trainingScheduledFrom} setTrainingScheduledFrom={setTrainingScheduledFrom}
         trainingScheduledTo={trainingScheduledTo} setTrainingScheduledTo={setTrainingScheduledTo}
@@ -1200,6 +1216,7 @@ export default function ComoCamp() {
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Name</TableHead>
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Company</TableHead>
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">QID No.</TableHead>
+                  <TableHead className="text-xs bg-muted/50 whitespace-nowrap">QID Expiry</TableHead>
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">PID No.</TableHead>
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Medical</TableHead>
                   <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Gate Pass</TableHead>
@@ -1217,11 +1234,11 @@ export default function ComoCamp() {
               <TableBody>
                 {isLoading ? (
                   Array(8).fill(0).map((_, i) => (
-                    <TableRow key={i}>{Array(15).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                    <TableRow key={i}>{Array(16).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                   ))
                 ) : sorted.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={editMode ? 16 : 15} className="text-center py-12 text-muted-foreground">{emptyMessage}</TableCell>
+                    <TableCell colSpan={editMode ? 17 : 16} className="text-center py-12 text-muted-foreground">{emptyMessage}</TableCell>
                   </TableRow>
                 ) : (
                   pagedRows.map((emp) => (
@@ -1236,6 +1253,7 @@ export default function ComoCamp() {
                       <TableCell className="text-xs font-medium whitespace-nowrap uppercase">{emp.name || '—'}</TableCell>
                       <TableCell className="text-xs whitespace-nowrap uppercase">{emp.company || '—'}</TableCell>
                       <TableCell className="text-xs font-mono whitespace-nowrap uppercase">{emp.qid_no || '—'}</TableCell>
+                      <TableCell className="whitespace-nowrap"><QidExpiryBadge dateStr={emp.qid_expiry} /></TableCell>
                       <TableCell className="text-xs font-mono whitespace-nowrap uppercase">{emp.pid || '—'}</TableCell>
                       <TableCell className="whitespace-nowrap"><Pill value={emp.ftw_result} map={MED_PILLS} /></TableCell>
                       <TableCell className="whitespace-nowrap"><StatusBadge dateStr={emp.gate_pass_expiry} type="rlic" storedStatus={emp.rlic_status} short /></TableCell>

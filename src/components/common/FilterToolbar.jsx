@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   X, SlidersHorizontal, Building2, LayoutGrid, Briefcase, UserCog,
   MapPin, ArrowLeftRight, CheckCircle2, BookOpen, CreditCard,
-  HeartPulse, CalendarDays, ChevronDown, Check
+  HeartPulse, CalendarDays, ChevronDown, Check, ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +18,7 @@ export default function FilterToolbar({
   rlicStatusFilter = [], setRlicStatusFilter, rlicOptions = [],
   trainingStatusFilter = [], setTrainingStatusFilter, trainingOptions = [],
   pidStatusFilter = [], setPidStatusFilter, pidOptions = [],
+  qidStatusFilter = [], setQidStatusFilter, qidOptions = [],
   medicalResultFilter = [], setMedicalResultFilter, medicalOptions = [],
 
   trainingScheduledFrom = '', setTrainingScheduledFrom,
@@ -50,6 +51,7 @@ export default function FilterToolbar({
     if (setRlicStatusFilter) rlicStatusFilter.forEach(v => chips.push({ label: 'Gate Pass', value: v, onRemove: () => setRlicStatusFilter(rlicStatusFilter.filter(x => x !== v)) }));
     if (setTrainingStatusFilter) trainingStatusFilter.forEach(v => chips.push({ label: 'Training', value: v, onRemove: () => setTrainingStatusFilter(trainingStatusFilter.filter(x => x !== v)) }));
     if (setPidStatusFilter) pidStatusFilter.forEach(v => chips.push({ label: 'PID', value: v, onRemove: () => setPidStatusFilter(pidStatusFilter.filter(x => x !== v)) }));
+    if (setQidStatusFilter) qidStatusFilter.forEach(v => chips.push({ label: 'QID', value: v, onRemove: () => setQidStatusFilter(qidStatusFilter.filter(x => x !== v)) }));
     if (setMedicalResultFilter) medicalResultFilter.forEach(v => chips.push({ label: 'Medical', value: v, onRemove: () => setMedicalResultFilter(medicalResultFilter.filter(x => x !== v)) }));
     if (trainingScheduledFrom) chips.push({ label: 'Train Sched ≥', value: trainingScheduledFrom, onRemove: () => setTrainingScheduledFrom?.('') });
     if (trainingScheduledTo) chips.push({ label: 'Train Sched ≤', value: trainingScheduledTo, onRemove: () => setTrainingScheduledTo?.('') });
@@ -62,14 +64,14 @@ export default function FilterToolbar({
     if (pidIssueFrom) chips.push({ label: 'PID Issue ≥', value: pidIssueFrom, onRemove: () => setPidIssueFrom?.('') });
     if (pidIssueTo) chips.push({ label: 'PID Issue ≤', value: pidIssueTo, onRemove: () => setPidIssueTo?.('') });
     return chips;
-  }, [companyFilter, departmentFilter, positionFilter, selectedManagerIds, locationFilter, dirIndirFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+  }, [companyFilter, departmentFilter, positionFilter, selectedManagerIds, locationFilter, dirIndirFilter, rlicStatusFilter, trainingStatusFilter, pidStatusFilter, qidStatusFilter, medicalResultFilter, trainingScheduledFrom, trainingScheduledTo, trApprovedFrom, trApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
 
   const hasFilter = activeChips.length > 0;
 
   const clearAll = onClearAll || (() => {
     setCompanyFilter?.([]); setDepartmentFilter?.([]); setPositionFilter?.([]);
     managerChange([]); setLocationFilter?.([]); setDirIndirFilter?.('');
-    setRlicStatusFilter?.([]); setTrainingStatusFilter?.([]); setPidStatusFilter?.([]); setMedicalResultFilter?.([]);
+    setRlicStatusFilter?.([]); setTrainingStatusFilter?.([]); setPidStatusFilter?.([]); setQidStatusFilter?.([]); setMedicalResultFilter?.([]);
     setTrainingScheduledFrom?.(''); setTrainingScheduledTo?.('');
     setTrApprovedFrom?.(''); setTrApprovedTo?.('');
     setGpIssueFrom?.(''); setGpIssueTo?.('');
@@ -116,6 +118,7 @@ export default function FilterToolbar({
           rlicOptions.length > 0 && setRlicStatusFilter,
           trainingOptions.length > 0 && setTrainingStatusFilter,
           pidOptions.length > 0 && setPidStatusFilter,
+          qidOptions.length > 0 && setQidStatusFilter,
           medicalOptions.length > 0 && setMedicalResultFilter,
         ].filter(Boolean).length}, 1fr)` }}>
           {companyOptions.length > 0 && setCompanyFilter && (
@@ -152,6 +155,9 @@ export default function FilterToolbar({
           )}
           {pidOptions.length > 0 && setPidStatusFilter && (
             <PillMultiSelect icon={<CreditCard className="w-3 h-3 text-violet-500" />} label="Project ID" options={pidOptions} value={pidStatusFilter} onChange={setPidStatusFilter} color="violet" fullWidth />
+          )}
+          {qidOptions.length > 0 && setQidStatusFilter && (
+            <PillMultiSelect icon={<ShieldCheck className="w-3 h-3 text-cyan-500" />} label="QID Status" options={qidOptions} value={qidStatusFilter} onChange={setQidStatusFilter} color="cyan" fullWidth />
           )}
           {medicalOptions.length > 0 && setMedicalResultFilter && (
             <PillMultiSelect icon={<HeartPulse className="w-3 h-3 text-blue-500" />} label="Medical" options={medicalOptions} value={medicalResultFilter} onChange={setMedicalResultFilter} color="blue" fullWidth />
@@ -212,6 +218,7 @@ const colorVariants = {
   emerald: { active: 'bg-emerald-50 border-emerald-300 text-emerald-700', check: 'bg-emerald-600 border-emerald-600' },
   orange:  { active: 'bg-orange-50 border-orange-300 text-orange-700', check: 'bg-orange-600 border-orange-600' },
   teal:    { active: 'bg-teal-50 border-teal-300 text-teal-700',       check: 'bg-teal-600 border-teal-600' },
+  cyan:    { active: 'bg-cyan-50 border-cyan-300 text-cyan-700',        check: 'bg-cyan-600 border-cyan-600' },
   amber:   { active: 'bg-amber-50 border-amber-300 text-amber-700',    check: 'bg-amber-600 border-amber-600' },
   rose:    { active: 'bg-rose-50 border-rose-300 text-rose-700',       check: 'bg-rose-600 border-rose-600' },
   slate:   { active: 'bg-slate-100 border-slate-300 text-slate-700',   check: 'bg-slate-600 border-slate-600' },
