@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import { Menu, X } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useRbac } from '@/lib/useRbac';
+import AccessDenied from '@/components/AccessDenied';
 
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const location = useLocation();
+  const { canAccessRoute, isOwner, isBuilder } = useRbac();
+
+  // Route-level permission enforcement — not just hidden menus.
+  // Direct URL entry to a protected page shows Access Denied if unauthorized.
+  const hasAccess = isOwner || isBuilder || canAccessRoute(location.pathname, location.search);
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,7 +44,7 @@ export default function AppLayout() {
         </div>
 
         <main className="p-4 md:p-6 lg:p-8">
-          <Outlet />
+          {hasAccess ? <Outlet /> : <AccessDenied />}
         </main>
       </div>
     </div>

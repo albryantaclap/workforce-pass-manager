@@ -29,6 +29,7 @@ import DatabaseBackup from './pages/DatabaseBackup';
 import Chat from './pages/Chat';
 import TransmittalForm from './pages/TransmittalForm';
 import Forms from './pages/Forms';
+import UserManagement from './pages/UserManagement';
 
 
 const AuthenticatedApp = () => {
@@ -89,6 +90,7 @@ const AuthenticatedApp = () => {
         <Route path="/chat" element={<Chat />} />
         <Route path="/transmittal" element={<TransmittalForm />} />
         <Route path="/forms" element={<Forms />} />
+        <Route path="/user-management" element={<UserManagement />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
