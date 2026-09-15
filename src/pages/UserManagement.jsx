@@ -24,6 +24,7 @@ import { useToast } from '@/components/ui/use-toast';
 import UserFormModal from '@/components/usermanagement/UserFormModal';
 import PermissionsModal from '@/components/usermanagement/PermissionsModal';
 import AccessScopeModal from '@/components/usermanagement/AccessScopeModal';
+import AccessRequestsTab from '@/components/usermanagement/AccessRequestsTab';
 
 const STATUS_STYLES = {
   active: 'bg-emerald-100 text-emerald-700',
@@ -196,6 +197,7 @@ export default function UserManagement() {
       <Tabs defaultValue="users">
         <TabsList>
           <TabsTrigger value="users">Users ({filteredUsers.length})</TabsTrigger>
+          <TabsTrigger value="requests">Access Requests</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
         </TabsList>
 
@@ -327,6 +329,17 @@ export default function UserManagement() {
               </TableBody>
             </Table>
           </div>
+        </TabsContent>
+
+        {/* Access Requests Tab */}
+        <TabsContent value="requests">
+          <AccessRequestsTab
+            users={users}
+            employees={employees}
+            currentUser={currentUser}
+            locations={locations}
+            onRefresh={refreshAll}
+          />
         </TabsContent>
 
         {/* Audit Log Tab */}

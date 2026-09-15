@@ -94,13 +94,39 @@ export const AuthProvider = ({ children }) => {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
 
-      // Check approval status for non-builder users
+      // ── Access Control: Authentication ≠ Authorization ──
+      // A user being able to register/login does NOT mean they are authorized
+      // to access the Workforce Management System. Access is granted only
+      // after explicit admin approval.
       const isBuilder = currentUser?.collaborator_role === 'editor' || currentUser?.collaborator_role === 'owner';
       if (!isBuilder) {
         const approvalStatus = currentUser?.approval_status;
-        // If approval_status is missing (old users), treat as approved
+        // Explicit non-approved status (pending/rejected) → deny access
         if (approvalStatus && approvalStatus !== 'approved') {
           setAuthError({ type: 'approval_required', status: approvalStatus });
+          setIsLoadingAuth(false);
+          return;
+        }
+        // Missing approval_status: legacy users (created before the access-
+        // request workflow go-live) are treated as approved to preserve
+        // existing access. New signups on/after the go-live date with no
+        // approval_status are treated as pending — they must be approved by
+        // an admin before accessing the system.
+        if (!approvalStatus) {
+          const goLive = '2026-09-15';
+          const created = currentUser?.created_date
+            ? new Date(currentUser.created_date).toISOString().split('T')[0]
+            : '';
+          if (created && created >= goLive) {
+            setAuthError({ type: 'approval_required', status: 'pending' });
+            setIsLoadingAuth(false);
+            return;
+          }
+        }
+        // Account status check — inactive/locked accounts have no access
+        const accountStatus = currentUser?.account_status;
+        if (accountStatus === 'inactive' || accountStatus === 'locked') {
+          setAuthError({ type: 'approval_required', status: accountStatus });
           setIsLoadingAuth(false);
           return;
         }

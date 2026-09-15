@@ -7,6 +7,8 @@ import {
   FileBarChart, ScanLine, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useRbac } from '@/lib/useRbac';
 import { getRoutePermissionKey } from '@/lib/permissionCatalog';
@@ -93,6 +95,19 @@ export default function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { canView, isOwner, isBuilder, isSuperAdminOnly } = useRbac();
+
+  // Pending access-request count — shown as a badge on User Management.
+  // Only fetched for admins/builders who can list users.
+  const canListUsers = isOwner || isBuilder || user?.role === 'admin';
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ['pending-approvals-count'],
+    queryFn: async () => {
+      const all = await base44.entities.User.list('-created_date', 10000);
+      return all.filter(u => !u.approval_status || u.approval_status === 'pending').length;
+    },
+    enabled: canListUsers,
+    staleTime: 30000,
+  });
 
   // Whether a single nav item is the active route (honoring ?tab= for attendance).
   const isActiveItem = (item) => {
@@ -217,6 +232,7 @@ export default function Sidebar() {
                   <div className="pl-4 pt-1 space-y-0.5">
                     {visibleItems.map((item) => {
                       const isActive = isActiveItem(item);
+                      const showBadge = item.path === '/user-management' && pendingCount > 0;
                       return (
                         <Link
                           key={item.path}
@@ -229,7 +245,12 @@ export default function Sidebar() {
                           )}
                         >
                           <item.icon className={cn('w-3.5 h-3.5 shrink-0', isActive ? 'opacity-100' : 'opacity-70')} />
-                          <span className="truncate">{item.label}</span>
+                          <span className="truncate flex-1">{item.label}</span>
+                          {showBadge && (
+                            <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                              {pendingCount}
+                            </span>
+                          )}
                         </Link>
                       );
                     })}

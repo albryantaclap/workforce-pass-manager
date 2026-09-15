@@ -186,6 +186,60 @@ export async function updateUserRbac(userId, updates, adminUser, oldValues = {})
   }
 }
 
+/**
+ * Approve a user's access request — sets approval_status to "approved",
+ * account_status to "active", assigns the selected RBAC role, saves the
+ * access scope and permissions, and logs the approval to the audit trail.
+ * Only callable by admins (platform enforces user update permissions).
+ */
+export async function approveUserAccess(userId, user, { rbacRole, scopeData, permissionKeys }, adminUser) {
+  const newPlatformRole = rbacRole === 'Admin' ? 'admin' : 'user';
+  const userUpdates = {
+    approval_status: 'approved',
+    account_status: 'active',
+    rbac_role: rbacRole,
+  };
+  if (user.role !== newPlatformRole) {
+    userUpdates.role = newPlatformRole;
+  }
+  await base44.entities.User.update(userId, userUpdates);
+
+  if (scopeData) {
+    await saveUserScope(userId, user.email, scopeData, adminUser);
+  }
+  await saveUserPermissions(userId, user.email, permissionKeys, adminUser);
+
+  await logAudit({
+    adminUser,
+    affectedUserId: userId,
+    affectedUserEmail: user.email,
+    actionType: 'user_activate',
+    fieldChanged: 'approval_status',
+    oldValue: 'pending',
+    newValue: 'approved',
+    description: `Access request approved for ${user.email}. Role: ${rbacRole}. Account activated.`,
+  });
+}
+
+/**
+ * Reject a user's access request — sets approval_status to "rejected"
+ * and logs the rejection with the provided reason.
+ */
+export async function rejectUserAccess(userId, user, reason, adminUser) {
+  await base44.entities.User.update(userId, { approval_status: 'rejected' });
+
+  await logAudit({
+    adminUser,
+    affectedUserId: userId,
+    affectedUserEmail: user.email,
+    actionType: 'user_deactivate',
+    fieldChanged: 'approval_status',
+    oldValue: 'pending',
+    newValue: 'rejected',
+    description: `Access request rejected for ${user.email}.${reason ? ` Reason: ${reason}` : ''}`,
+  });
+}
+
 /** Write an audit log entry. */
 export async function logAudit({ adminUser, affectedUserId, affectedUserEmail, actionType, fieldChanged, oldValue, newValue, description }) {
   try {
