@@ -1,0 +1,40 @@
+{
+  "name": "UserPermission",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Linked User record ID"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User email (denormalized for display)"
+    },
+    "permission_key": {
+      "type": "string",
+      "description": "Full permission key in format group.resource.action (e.g. workforce.master_list.view)"
+    },
+    "module": {
+      "type": "string",
+      "description": "Module group key (workforce, attendance, system)"
+    },
+    "resource": {
+      "type": "string",
+      "description": "Resource key within the module (e.g. master_list, medical)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action key (view, add, edit, delete, export, import, manage, etc.)"
+    },
+    "allowed": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this permission is granted (true) or explicitly denied (false)"
+    }
+  },
+  "required": [
+    "user_id",
+    "permission_key",
+    "allowed"
+  ]
+}

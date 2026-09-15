@@ -8,12 +8,18 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
-import { usePermissions } from '@/lib/usePermissions';
+import { useRbac } from '@/lib/useRbac';
+import { getRoutePermissionKey } from '@/lib/permissionCatalog';
 
 const ROLE_LABELS = {
   owner: 'Super Administrator',
   admin: 'Admin',
   user: 'View Only',
+  Admin: 'Admin',
+  Manager: 'Manager',
+  Supervisor: 'Supervisor',
+  User: 'User',
+  Custom: 'Custom',
 };
 
 // Standalone items rendered at the top (no group).
@@ -67,6 +73,7 @@ const navGroups = [
       { label: 'Forms', path: '/forms', icon: FileText },
       { label: 'DB Backup', path: '/database-backup', icon: HardDrive },
       { label: 'Admin Panel', path: '/admin', icon: Shield },
+      { label: 'User Management', path: '/user-management', icon: Users },
     ],
   },
 ];
@@ -85,7 +92,7 @@ function parsePath(path) {
 export default function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { isOwner, canEdit, isSuperAdminOnly } = usePermissions();
+  const { canView, isOwner, isBuilder, isSuperAdminOnly } = useRbac();
 
   // Whether a single nav item is the active route (honoring ?tab= for attendance).
   const isActiveItem = (item) => {
@@ -116,16 +123,19 @@ export default function Sidebar() {
     prevActive.current = activeGroupKey;
   }, [activeGroupKey]);
 
-  // Existing per-item permission filter (unchanged behavior).
+  // RBAC-based per-item permission filter.
   const canShowItem = (item) => {
+    // Super admin only: only DB Backup and Admin Panel (legacy behavior)
     if (isSuperAdminOnly) {
       return item.path === '/database-backup' || item.path === '/admin';
     }
-    if (item.path === '/admin') return isOwner;
-    if (item.path === '/database-backup') return isOwner;
-    if (item.path === '/chat') return true;
-    if (item.path === '/employees/new') return canEdit;
-    return true;
+    // Builder/owner: show everything
+    if (isOwner || isBuilder) return true;
+    // RBAC: check permission for this route
+    const [base, query] = item.path.split('?');
+    const resourceKey = getRoutePermissionKey(base, query ? `?${query}` : '');
+    if (!resourceKey) return true; // unmapped routes = visible
+    return canView(resourceKey);
   };
 
   const toggleGroup = (key) => {
@@ -242,7 +252,7 @@ export default function Sidebar() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-sidebar-foreground/80 truncate">{user.full_name || user.email}</p>
-              <p className="text-[10px] text-sidebar-foreground/40">{ROLE_LABELS[user.role] || user.role}</p>
+              <p className="text-[10px] text-sidebar-foreground/40">{ROLE_LABELS[user.rbac_role] || ROLE_LABELS[user.role] || user.rbac_role || user.role}</p>
             </div>
             <button
               onClick={() => logout()}

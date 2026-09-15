@@ -1,0 +1,56 @@
+{
+  "name": "PermissionAuditLog",
+  "type": "object",
+  "properties": {
+    "performed_by": {
+      "type": "string",
+      "description": "Email of the admin who performed the action"
+    },
+    "performed_by_name": {
+      "type": "string",
+      "description": "Display name of the admin who performed the action"
+    },
+    "affected_user_id": {
+      "type": "string",
+      "description": "ID of the user affected by the change"
+    },
+    "affected_user_email": {
+      "type": "string",
+      "description": "Email of the user affected by the change"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "role_change",
+        "permission_change",
+        "scope_change",
+        "status_change",
+        "user_create",
+        "user_deactivate",
+        "user_activate",
+        "password_reset"
+      ],
+      "description": "Type of security-sensitive action performed"
+    },
+    "field_changed": {
+      "type": "string",
+      "description": "Specific field that was changed"
+    },
+    "old_value": {
+      "type": "string",
+      "description": "Value before the change (JSON string for complex values)"
+    },
+    "new_value": {
+      "type": "string",
+      "description": "Value after the change (JSON string for complex values)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the change"
+    }
+  },
+  "required": [
+    "performed_by",
+    "action_type"
+  ]
+}

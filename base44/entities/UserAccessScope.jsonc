@@ -1,0 +1,68 @@
+{
+  "name": "UserAccessScope",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Linked User record ID"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User email (denormalized for display)"
+    },
+    "scope_mode": {
+      "type": "string",
+      "enum": [
+        "all",
+        "assigned_team",
+        "by_company",
+        "by_department",
+        "by_location",
+        "custom"
+      ],
+      "default": "all",
+      "description": "Access scope mode: all personnel, assigned team only, or filtered by company/department/location"
+    },
+    "companies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Company filter \u2014 user can only access personnel in these companies"
+    },
+    "departments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Department filter \u2014 user can only access personnel in these departments"
+    },
+    "locations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Location filter \u2014 user can only access personnel at these locations"
+    },
+    "assigned_team_only": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, user can only access personnel whose assigned_manager_id links to this user's personnel_id"
+    },
+    "personnel_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Custom list of specific personnel IDs the user can access"
+    }
+  },
+  "required": [
+    "user_id",
+    "scope_mode"
+  ]
+}

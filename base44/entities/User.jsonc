@@ -19,6 +19,32 @@
       ],
       "default": "pending",
       "description": "User account approval status"
+    },
+    "personnel_id": {
+      "type": "string",
+      "description": "Linked Employee record ID (central personnel link). When set, employee info (name, company, department, position) is sourced from the Master List."
+    },
+    "rbac_role": {
+      "type": "string",
+      "enum": [
+        "Admin",
+        "Manager",
+        "Supervisor",
+        "User",
+        "Custom"
+      ],
+      "default": "User",
+      "description": "RBAC role for granular module/action permissions. Admin = full access; Manager/Supervisor/User = configurable per module."
+    },
+    "account_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "locked"
+      ],
+      "default": "active",
+      "description": "User account status. Inactive/locked users immediately lose system access. Separate from personnel employment status."
     }
   },
   "name": "User"

@@ -1,0 +1,32 @@
+{
+  "name": "UserRole",
+  "type": "object",
+  "properties": {
+    "role_name": {
+      "type": "string",
+      "description": "Role name (e.g. Admin, Manager, Supervisor, User, Custom)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Role description"
+    },
+    "is_system": {
+      "type": "boolean",
+      "default": false,
+      "description": "True for built-in system roles (Admin, Manager, Supervisor, User) \u2014 cannot be deleted"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this role is active and available for assignment"
+    },
+    "display_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Display order in dropdowns (lower = first)"
+    }
+  },
+  "required": [
+    "role_name"
+  ]
+}
