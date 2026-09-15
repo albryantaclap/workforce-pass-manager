@@ -2,12 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
-import { useRbac } from '@/lib/useRbac';
 import {
   fetchAllUsers, fetchAllPermissions, fetchAllScopes, fetchAuditLogs,
-  updateUserRbac, logAudit,
+  updateUserRbac, checkLockoutProtection,
+  getPermissionsForUser, getScopeForUser,
 } from '@/lib/rbacService';
-import { getPermissionsForUser, getScopeForUser } from '@/lib/rbacService';
 import {
   Users, Shield, Globe, UserPlus, Search, Pencil, KeyRound, Power, History,
 } from 'lucide-react';
@@ -44,7 +43,6 @@ function scopeSummary(scope) {
 
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
-  const { can } = useRbac();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -144,7 +142,7 @@ export default function UserManagement() {
       const userPerms = allPermissions.filter(p => p.user_id === u.id && p.allowed);
       const hasUserMgmt = userPerms.some(p => p.permission_key === 'system.user_management.manage');
       if (hasUserMgmt || u.role === 'owner' || u.collaborator_role === 'owner') {
-        const safe = await import('@/lib/rbacService').then(m => m.checkLockoutProtection(u.id));
+        const safe = await checkLockoutProtection(u.id);
         if (!safe) {
           toast({
             title: 'Cannot deactivate',
