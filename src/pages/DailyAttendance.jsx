@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, LayoutDashboard, Users, ScanLine, Timer, FileBarChart, Settings } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAttendanceData } from '@/hooks/useAttendanceData';
@@ -11,12 +11,12 @@ import AttendanceReports from '@/components/attendance/AttendanceReports';
 import AttendanceClock from '@/components/attendance/AttendanceClock';
 
 const TABS = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'summary', label: 'Employee Summary' },
-  { key: 'scan', label: 'Attendance Clock' },
-  { key: 'entries', label: 'Time Entries' },
-  { key: 'reports', label: 'Attendance Reports' },
-  { key: 'settings', label: 'Attendance Settings' },
+  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, gradient: 'from-blue-400 to-blue-600' },
+  { key: 'summary', label: 'Employee Summary', icon: Users, gradient: 'from-violet-400 to-purple-600' },
+  { key: 'scan', label: 'Attendance Clock', icon: ScanLine, gradient: 'from-amber-400 to-orange-500' },
+  { key: 'entries', label: 'Time Entries', icon: Timer, gradient: 'from-teal-400 to-cyan-600' },
+  { key: 'reports', label: 'Attendance Reports', icon: FileBarChart, gradient: 'from-emerald-400 to-green-600' },
+  { key: 'settings', label: 'Attendance Settings', icon: Settings, gradient: 'from-slate-400 to-slate-600' },
 ];
 
 export default function DailyAttendance() {
@@ -85,21 +85,36 @@ export default function DailyAttendance() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border overflow-x-auto">
-        {TABS.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
-              activeTab === tab.key
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-1">
+        {TABS.map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                'flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl transition-all duration-200 min-w-[80px] sm:min-w-[96px] shrink-0',
+                isActive
+                  ? 'bg-emerald-50 ring-2 ring-emerald-600 shadow-sm'
+                  : 'hover:bg-muted/50 ring-1 ring-border'
+              )}
+            >
+              <div className={cn(
+                'w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-sm',
+                tab.gradient
+              )}>
+                <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </div>
+              <span className={cn(
+                'text-[11px] sm:text-xs font-medium text-center leading-tight whitespace-nowrap',
+                isActive ? 'text-emerald-700' : 'text-muted-foreground'
+              )}>
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab content */}
