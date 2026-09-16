@@ -96,7 +96,7 @@ export default function DailyAttendance() {
               className={cn(
                 'flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl transition-all duration-200 min-w-[80px] sm:min-w-[96px] shrink-0',
                 isActive
-                  ? 'bg-emerald-50 ring-2 ring-emerald-600 shadow-sm'
+                  ? 'bg-[#FFD801] shadow-sm'
                   : 'hover:bg-muted/50 ring-1 ring-border'
               )}
             >
@@ -108,7 +108,7 @@ export default function DailyAttendance() {
               </div>
               <span className={cn(
                 'text-[11px] sm:text-xs font-medium text-center leading-tight whitespace-nowrap',
-                isActive ? 'text-emerald-700' : 'text-muted-foreground'
+                isActive ? 'text-slate-900' : 'text-muted-foreground'
               )}>
                 {tab.label}
               </span>
