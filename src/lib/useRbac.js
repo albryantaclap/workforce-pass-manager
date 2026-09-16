@@ -15,7 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { usePermissions } from '@/lib/usePermissions';
-import { getRoutePermissionKey } from '@/lib/permissionCatalog';
+import { getRoutePermissionKey, PERMISSION_CATALOG } from '@/lib/permissionCatalog';
 
 const SUPER_ADMIN_EMAILS = ['albryantaclap@gmail.com'];
 
@@ -100,11 +100,25 @@ export function useRbac() {
   /** Check if user can manage a resource (has 'manage' action). */
   const canManage = (resourceKey) => can(`${resourceKey}.manage`);
 
+  /** Find the first route the current user has permission to view. */
+  const firstPermittedRoute = () => {
+    if (isOwner || isBuilder) return '/';
+    for (const mod of PERMISSION_CATALOG) {
+      for (const res of mod.resources) {
+        if (canView(`${mod.key}.${res.key}`)) {
+          return res.path;
+        }
+      }
+    }
+    return null;
+  };
+
   return {
     can,
     canView,
     canAccessRoute,
     canManage,
+    firstPermittedRoute,
     hasRBAC,
     scope,
     isOwner,

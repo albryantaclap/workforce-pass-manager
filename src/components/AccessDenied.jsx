@@ -3,7 +3,7 @@ import { ShieldX, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
-export default function AccessDenied({ message }) {
+export default function AccessDenied({ message, homeRoute }) {
   const navigate = useNavigate();
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-center">
@@ -16,8 +16,8 @@ export default function AccessDenied({ message }) {
           {message || 'You do not have permission to access this page. Please contact your administrator if you believe this is an error.'}
         </p>
       </div>
-      <Button variant="outline" onClick={() => navigate('/')}>
-        <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+      <Button variant="outline" onClick={() => navigate(homeRoute || '/')}>
+        <ArrowLeft className="w-4 h-4" /> Back to Home
       </Button>
     </div>
   );

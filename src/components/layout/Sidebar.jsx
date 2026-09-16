@@ -39,7 +39,7 @@ const navGroups = [
     defaultPath: '/master-list',
     items: [
       { label: 'Master List', path: '/master-list', icon: List },
-      { label: 'Add Personnel', path: '/employees/new', icon: Plus },
+      { label: 'Add Personnel', path: '/employees/new', icon: Plus, requiredPermission: 'workforce.master_list.add' },
       { label: 'Medical', path: '/medical', icon: Stethoscope },
       { label: 'Gate Pass (RLIC)', path: '/gatepass', icon: ShieldCheck },
       { label: 'Project ID', path: '/project-id', icon: BadgeCheck },
@@ -94,7 +94,7 @@ function parsePath(path) {
 export default function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { canView, isOwner, isBuilder, isSuperAdminOnly } = useRbac();
+  const { can, canView, isOwner, isBuilder, isSuperAdminOnly } = useRbac();
 
   // Pending access-request count — shown as a badge on User Management.
   // Only fetched for admins/builders who can list users.
@@ -146,7 +146,9 @@ export default function Sidebar() {
     }
     // Builder/owner: show everything
     if (isOwner || isBuilder) return true;
-    // RBAC: check permission for this route
+    // Item-specific permission (e.g. Add Personnel requires the 'add' action)
+    if (item.requiredPermission) return can(item.requiredPermission);
+    // RBAC: check view permission for this route
     const [base, query] = item.path.split('?');
     const resourceKey = getRoutePermissionKey(base, query ? `?${query}` : '');
     if (!resourceKey) return true; // unmapped routes = visible
@@ -172,8 +174,8 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {/* Standalone Dashboard */}
-        {standaloneItems.map((item) => {
+        {/* Standalone Dashboard — hidden when workforce.dashboard.view is not granted */}
+        {standaloneItems.filter(canShowItem).map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,11 +9,18 @@ import AccessDenied from '@/components/AccessDenied';
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { canAccessRoute, isOwner, isBuilder } = useRbac();
+  const { canAccessRoute, isOwner, isBuilder, firstPermittedRoute } = useRbac();
 
   // Route-level permission enforcement — not just hidden menus.
   // Direct URL entry to a protected page shows Access Denied if unauthorized.
   const hasAccess = isOwner || isBuilder || canAccessRoute(location.pathname, location.search);
+  const homeRoute = firstPermittedRoute();
+
+  // If the user lands on "/" (the default landing page) without Dashboard
+  // permission, redirect them to the first page they are authorized to view.
+  if (!hasAccess && location.pathname === '/' && homeRoute && homeRoute !== '/') {
+    return <Navigate to={homeRoute} replace />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,7 +51,7 @@ export default function AppLayout() {
         </div>
 
         <main className="p-4 md:p-6 lg:p-8">
-          {hasAccess ? <Outlet /> : <AccessDenied />}
+          {hasAccess ? <Outlet /> : <AccessDenied homeRoute={homeRoute} />}
         </main>
       </div>
     </div>
