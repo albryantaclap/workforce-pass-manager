@@ -28,7 +28,8 @@ const A4_STYLES = `
 .pwr-a4-page .sig-label { font-weight: bold; font-size: 9pt; }
 .pwr-a4-page .sig-line { border-bottom: 1px solid #000; margin-top: 14mm; height: 1px; }
 .pwr-a4-page .pwr-hr { margin-top: 12mm; padding: 0 5mm; }
-.pwr-a4-page .pwr-hr .sig-note { font-size: 8.5pt; margin-top: 4mm; }
+.pwr-a4-page .pwr-hr .sig-line { border-bottom: 1px solid #000; margin-top: 14mm; height: 1px; }
+.pwr-a4-page .pwr-hr .sig-note { font-size: 8.5pt; margin-top: 6mm; }
 `;
 
 // ── Print-only styles (used in the separate print window — global selectors OK) ──
@@ -114,6 +115,7 @@ const buildPageHtml = (emp, rows, year, month) => {
     </div>
     <div class="pwr-hr">
       <div class="sig-label">HR DEPARTMENT SIGNATURE</div>
+      <div class="sig-line"></div>
       <div class="sig-note">The completed timesheets must be submitted to Site HR no later than the 23rd of each month.</div>
     </div>
   </div>`;

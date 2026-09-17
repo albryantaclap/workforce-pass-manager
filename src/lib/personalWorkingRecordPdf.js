@@ -182,9 +182,15 @@ const drawEmployeePage = (doc, emp, rows, year, month) => {
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); setText(doc, BLACK);
   doc.text('SUPERVISOR NAME & SIGNATURE', margin, y);
   doc.text('MANAGER NAME & SIGNATURE', margin + contentW, y, { align: 'right' });
-  y += 14;
+  // Signature lines below the supervisor / manager labels
+  setDraw(doc, BLACK); doc.setLineWidth(0.3);
+  doc.line(margin, y + 14, margin + contentW * 0.42, y + 14);
+  doc.line(margin + contentW * 0.58, y + 14, margin + contentW, y + 14);
+  y += 22;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); setText(doc, BLACK);
   doc.text('HR DEPARTMENT SIGNATURE', margin, y);
-  y += 6;
+  doc.line(margin, y + 14, margin + contentW * 0.5, y + 14);
+  y += 22;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); setText(doc, BLACK);
   doc.text('The completed timesheets must be submitted to Site HR no later than the 23rd of each month.', margin, y);
 };
