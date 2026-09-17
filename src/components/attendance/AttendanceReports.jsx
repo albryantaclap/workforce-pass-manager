@@ -9,7 +9,8 @@ import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import TimesheetExportDialog from './TimesheetExportDialog';
 import PdfByEmployeeDialog from './PdfByEmployeeDialog';
 import WeeklyPdfDialog from './WeeklyPdfDialog';
-import { FileSpreadsheet, FileText, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
+import PersonalWorkingRecordDialog from './PersonalWorkingRecordDialog';
+import { FileSpreadsheet, FileText, CalendarRange, ClipboardList, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   isWorkingDay, isHoliday, calculateDurationFromRecord,
   formatMinutes, formatTimeShort, formatDateShort, STATUS_COLORS,
@@ -26,6 +27,7 @@ const REPORT_TYPES = [
   { key: 'overtime', label: 'Overtime Report' },
   { key: 'timesheet', label: 'Timesheet' },
   { key: 'pdf_by_employee', label: 'PDF by Employee' },
+  { key: 'pwr', label: 'Personal Working Record' },
 ];
 
 // Monday of the week containing the given YYYY-MM-DD (or today if omitted).
@@ -55,6 +57,7 @@ export default function AttendanceReports({
   const [showTimesheet, setShowTimesheet] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
   const [showWeekly, setShowWeekly] = useState(false);
+  const [showPwr, setShowPwr] = useState(false);
 
   const handleReportType = (key) => {
     setReportType(key);
@@ -171,6 +174,14 @@ export default function AttendanceReports({
               <FileText className="w-4 h-4" /> PDF by Employee
             </button>
           </div>
+        ) : reportType === 'pwr' ? (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Personal Working Record — A4 portrait form per employee, with split-shift punches and signature lines.</p>
+            <button onClick={() => setShowPwr(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-indigo-300 bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100">
+              <ClipboardList className="w-4 h-4" /> Personal Working Record
+            </button>
+          </div>
         ) : (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-muted-foreground uppercase">Date Range</span>
@@ -198,6 +209,10 @@ export default function AttendanceReports({
         open={showWeekly} onOpenChange={setShowWeekly}
         employees={employees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
         baseFilters={filters}
+      />
+      <PersonalWorkingRecordDialog
+        open={showPwr} onOpenChange={setShowPwr}
+        employees={employees} records={allRecords}
       />
 
       {/* Report table */}
