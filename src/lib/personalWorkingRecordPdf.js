@@ -152,10 +152,10 @@ const drawEmployeePage = (doc, emp, rows, year, month) => {
 
   // ── Attendance table ──
   y += 2;
-  // Column widths (mm) — sum = 190
-  const colW = [20, 24, 24, 24, 24, 74]; // DATE, Time In, Time Out, Time In, Time Out, Employee Signature
+  // Column widths (mm) — sum = 190. Employee Signature gets the widest column.
+  const colW = [18, 22, 22, 22, 22, 84]; // DATE, Time In, Time Out, Time In, Time Out, Employee Signature
   const headers = ['DATE', 'Time In', 'Time Out', 'Time In', 'Time Out', 'Employee Signature'];
-  const rowH = 7;
+  const rowH = 5; // 31 rows × 5mm = 155mm — fits within A4 height with header + footer
 
   // Header row (blue)
   let cx = margin;
@@ -178,19 +178,19 @@ const drawEmployeePage = (doc, emp, rows, year, month) => {
   });
 
   // ── Footer: signatures + note ──
-  y += 10;
+  y += 6;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); setText(doc, BLACK);
   doc.text('SUPERVISOR NAME & SIGNATURE', margin, y);
   doc.text('MANAGER NAME & SIGNATURE', margin + contentW, y, { align: 'right' });
   // Signature lines below the supervisor / manager labels
   setDraw(doc, BLACK); doc.setLineWidth(0.3);
-  doc.line(margin, y + 14, margin + contentW * 0.42, y + 14);
-  doc.line(margin + contentW * 0.58, y + 14, margin + contentW, y + 14);
-  y += 22;
+  doc.line(margin, y + 10, margin + contentW * 0.42, y + 10);
+  doc.line(margin + contentW * 0.58, y + 10, margin + contentW, y + 10);
+  y += 16;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); setText(doc, BLACK);
   doc.text('HR DEPARTMENT SIGNATURE', margin, y);
-  doc.line(margin, y + 14, margin + contentW * 0.5, y + 14);
-  y += 22;
+  doc.line(margin, y + 10, margin + contentW * 0.5, y + 10);
+  y += 16;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); setText(doc, BLACK);
   doc.text('The completed timesheets must be submitted to Site HR no later than the 23rd of each month.', margin, y);
 };

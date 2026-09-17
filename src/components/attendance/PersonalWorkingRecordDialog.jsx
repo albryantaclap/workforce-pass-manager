@@ -23,23 +23,25 @@ const A4_STYLES = `
 .pwr-a4-page .pwr-header th { background: #cfe2f3; text-align: center; font-weight: bold; font-size: 9pt; padding: 5px; }
 .pwr-a4-page .c-date { text-align: center; }
 .pwr-a4-page .c-sig { min-height: 18px; }
-.pwr-a4-page .pwr-signatures { display: flex; justify-content: space-between; margin-top: 18mm; padding: 0 5mm; }
+.pwr-a4-page .pwr-signatures { display: flex; justify-content: space-between; margin-top: 8mm; padding: 0; }
 .pwr-a4-page .sig-left, .pwr-a4-page .sig-right { width: 42%; }
 .pwr-a4-page .sig-label { font-weight: bold; font-size: 9pt; }
-.pwr-a4-page .sig-line { border-bottom: 1px solid #000; margin-top: 14mm; height: 1px; }
-.pwr-a4-page .pwr-hr { margin-top: 12mm; padding: 0 5mm; }
-.pwr-a4-page .pwr-hr .sig-line { border-bottom: 1px solid #000; margin-top: 14mm; height: 1px; }
-.pwr-a4-page .pwr-hr .sig-note { font-size: 8.5pt; margin-top: 6mm; }
+.pwr-a4-page .sig-line { border-bottom: 1px solid #000; margin-top: 10mm; height: 1px; }
+.pwr-a4-page .pwr-hr { margin-top: 8mm; padding: 0; }
+.pwr-a4-page .pwr-hr .sig-line { border-bottom: 1px solid #000; margin-top: 10mm; height: 1px; }
+.pwr-a4-page .pwr-hr .sig-note { font-size: 8.5pt; margin-top: 4mm; }
 `;
 
 // ── Print-only styles (used in the separate print window — global selectors OK) ──
 const PRINT_STYLES = `
   @page { size: A4 portrait; margin: 10mm; }
   * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; padding: 0; }
+  html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #000; }
   ${A4_STYLES}
-  .pwr-a4-page { width: 190mm; min-height: auto; padding: 0; page-break-after: always; }
+  .pwr-a4-page { width: 190mm; min-height: auto; margin: 0 auto; padding: 0; page-break-after: always; }
   .pwr-a4-page:last-child { page-break-after: auto; }
+  .pwr-a4-page .pwr-table { width: 190mm; table-layout: fixed; border-collapse: collapse; }
 `;
 
 // Build the printable HTML for one employee page (used for Preview + Print A4).
