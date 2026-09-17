@@ -95,13 +95,13 @@ const PRINT_STYLES = `
   .pwr-page:last-child { page-break-after: auto; }
   .pwr-table { width: 100%; border-collapse: collapse; border: 1px solid #000; }
   .pwr-table td, .pwr-table th { border: 1px solid #000; padding: 3px 5px; font-size: 9pt; vertical-align: middle; }
-  .pwr-title { background: #E2EFDA; text-align: center; font-weight: bold; font-size: 9.5pt; padding: 5px; }
-  .pwr-subtitle { background: #D9E1F2; text-align: center; font-weight: bold; font-size: 13pt; padding: 8px; }
-  .pwr-supplier { background: #FCE4D6; text-align: center; font-weight: bold; font-size: 10pt; vertical-align: top; padding-top: 6px; }
-  .pwr-table .lbl { background: #D9E1F2; font-weight: bold; font-size: 8.5pt; white-space: nowrap; }
+  .pwr-title { background: #d9ead3; text-align: center; font-weight: bold; font-size: 9.5pt; padding: 5px; }
+  .pwr-subtitle { background: #cfe2f3; text-align: center; font-weight: bold; font-size: 13pt; padding: 8px; }
+  .pwr-supplier { background: #f4cccc; text-align: center; font-weight: bold; font-size: 10pt; vertical-align: top; padding-top: 6px; }
+  .pwr-table .lbl { background: #cfe2f3; font-weight: bold; font-size: 8.5pt; white-space: nowrap; }
   .pwr-table .val { font-size: 9pt; }
   .pwr-table .val.center { text-align: center; font-weight: bold; }
-  .pwr-header th { background: #D9E1F2; text-align: center; font-weight: bold; font-size: 9pt; padding: 5px; }
+  .pwr-header th { background: #cfe2f3; text-align: center; font-weight: bold; font-size: 9pt; padding: 5px; }
   .pwr-table .c-date { text-align: center; }
   .pwr-table .c-sig { min-height: 18px; }
   .pwr-signatures { display: flex; justify-content: space-between; margin-top: 18mm; padding: 0 5mm; }
@@ -183,8 +183,8 @@ export default function PersonalWorkingRecordDialog({ open, onOpenChange, employ
 
         <div className="space-y-4">
           {/* Employee select */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Employee</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-700">Employee</label>
             <input
               list="pwr-emp-list"
               value={selectedEmp ? selectedEmp.name : search}
@@ -194,67 +194,69 @@ export default function PersonalWorkingRecordDialog({ open, onOpenChange, employ
                 setEmployeeId(match ? match.id : '');
               }}
               placeholder="— Search or select an employee —"
-              className="w-full h-9 rounded-md border border-input bg-white px-2 text-sm"
+              className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
             />
             <datalist id="pwr-emp-list">
               {filteredEmployees.slice(0, 500).map((e) => <option key={e.id} value={e.name} />)}
             </datalist>
-            <p className="text-[11px] text-muted-foreground">Leave empty to generate one A4 page per filtered employee.</p>
+            <p className="text-[11px] text-slate-500">Leave empty to generate one A4 page per filtered employee.</p>
           </div>
 
           {/* Company + Month + Year */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Company</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700">Company</label>
               <div className="relative">
                 <select value={company} onChange={(e) => setCompany(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-gray-50 pl-2.5 pr-8 text-sm appearance-none cursor-pointer">
+                  className="w-full h-9 rounded-md border border-slate-300 bg-slate-50 pl-2.5 pr-8 text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400">
                   <option value="">All Companies</option>
                   {companies.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
               </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Month *</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700">Month <span className="text-red-500">*</span></label>
               <div className="relative">
                 <select value={MONTHS[month]} onChange={(e) => setMonth(MONTHS.indexOf(e.target.value))}
-                  className="w-full h-9 rounded-md border border-input bg-gray-50 pl-2.5 pr-8 text-sm appearance-none cursor-pointer">
+                  className="w-full h-9 rounded-md border border-slate-300 bg-slate-50 pl-2.5 pr-8 text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400">
                   {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
-                <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
               </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Year *</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700">Year <span className="text-red-500">*</span></label>
               <div className="relative">
                 <select value={String(year)} onChange={(e) => setYear(Number(e.target.value))}
-                  className="w-full h-9 rounded-md border border-input bg-gray-50 pl-2.5 pr-8 text-sm appearance-none cursor-pointer">
+                  className="w-full h-9 rounded-md border border-slate-300 bg-slate-50 pl-2.5 pr-8 text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400">
                   {Array.from({ length: 8 }, (_, i) => String(now.getFullYear() - 3 + i)).map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
-                <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
               </div>
             </div>
           </div>
 
           {/* Status bar */}
-          <div className="rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-600">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600">
             {targets.length === 0
               ? 'No employees match the selected filters.'
               : selectedEmp
-                ? <>Generating <span className="font-bold text-gray-900">{selectedEmp.name}</span>'s record for <span className="font-bold text-gray-900">{MONTHS[month]} {year}</span>.</>
-                : <>Generating records for <span className="font-bold text-gray-900">{targets.length}</span> employees for <span className="font-bold text-gray-900">{MONTHS[month]} {year}</span> (one A4 page each).</>}
+                ? <>Generating <span className="font-bold text-slate-900">{selectedEmp.name}</span>'s record for <span className="font-bold text-slate-900">{MONTHS[month]} {year}</span>.</>
+                : <>Generating records for <span className="font-bold text-slate-900">{targets.length}</span> employees for <span className="font-bold text-slate-900">{MONTHS[month]} {year}</span> (one A4 page each).</>}
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowPreview(s => !s)} disabled={targets.length === 0} className="gap-2">
-              <Eye className="w-4 h-4" /> {showPreview ? 'Hide Preview' : 'Preview'}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handlePrint} disabled={targets.length === 0} className="gap-2">
-              <Printer className="w-4 h-4" /> Print A4
-            </Button>
-            <Button size="sm" onClick={handleExportPdf} disabled={busy || targets.length === 0} className="gap-2 text-white ml-auto" style={{ background: INDIGO }}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowPreview(s => !s)} disabled={targets.length === 0} className="gap-2">
+                <Eye className="w-4 h-4" /> {showPreview ? 'Hide Preview' : 'Preview'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handlePrint} disabled={targets.length === 0} className="gap-2">
+                <Printer className="w-4 h-4" /> Print A4
+              </Button>
+            </div>
+            <Button size="sm" onClick={handleExportPdf} disabled={busy || targets.length === 0} className="gap-2 text-white" style={{ background: INDIGO }}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
               Export PDF
             </Button>
@@ -262,7 +264,7 @@ export default function PersonalWorkingRecordDialog({ open, onOpenChange, employ
 
           {/* Inline preview */}
           {showPreview && (
-            <div ref={previewRef} className="border border-border rounded-lg bg-gray-100 p-4 max-h-[420px] overflow-auto">
+            <div ref={previewRef} className="border border-slate-200 rounded-lg bg-slate-100 p-4 max-h-[420px] overflow-auto">
               {builtPages.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground py-8">No employees to preview.</p>
               ) : (

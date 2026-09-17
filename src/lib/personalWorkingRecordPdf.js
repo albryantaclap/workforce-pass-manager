@@ -15,9 +15,9 @@ import { getFirstIn, getFinalOut, formatTimeShort } from './attendanceEngine';
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 // Template palette (matches the reference document)
-const GREEN = [226, 239, 218];   // #E2EFDA — project title row
-const BLUE = [217, 225, 242];    // #D9E1F2 — Personal Working Record / labels / table header
-const PEACH = [252, 228, 214];   // #FCE4D6 — Supplier's box
+const GREEN = [217, 234, 211];   // #d9ead3 — project title row
+const BLUE = [207, 226, 243];    // #cfe2f3 — Personal Working Record / labels / table header
+const PEACH = [244, 204, 204];   // #f4cccc — Supplier's box
 const BLACK = [0, 0, 0];
 const BORDER = [0, 0, 0];
 
