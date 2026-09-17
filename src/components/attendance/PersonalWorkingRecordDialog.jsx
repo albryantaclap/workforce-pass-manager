@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ClipboardList, Loader2, ChevronDown, Eye, Printer, FileText } from 'lucide-react';
@@ -8,6 +8,38 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const MONTHS_UP = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
 
 const INDIGO = '#4338ca';
+
+// ── Scoped A4 page styles (no global selectors — safe to render in the DOM) ──
+const A4_STYLES = `
+.pwr-a4-page { width: 210mm; min-height: 297mm; background: #fff; padding: 10mm; box-sizing: border-box; }
+.pwr-a4-page .pwr-table { width: 100%; border-collapse: collapse; border: 1px solid #000; table-layout: fixed; }
+.pwr-a4-page .pwr-table td, .pwr-a4-page .pwr-table th { border: 1px solid #000; padding: 3px 5px; font-size: 9pt; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word; }
+.pwr-a4-page .pwr-title { background: #d9ead3; text-align: center; font-weight: bold; font-size: 9.5pt; padding: 5px; }
+.pwr-a4-page .pwr-subtitle { background: #cfe2f3; text-align: center; font-weight: bold; font-size: 13pt; padding: 8px; }
+.pwr-a4-page .pwr-supplier { background: #f4cccc; text-align: center; font-weight: bold; font-size: 10pt; vertical-align: top; padding-top: 6px; }
+.pwr-a4-page .lbl { background: #cfe2f3; font-weight: bold; font-size: 8.5pt; white-space: nowrap; }
+.pwr-a4-page .val { font-size: 9pt; word-wrap: break-word; overflow-wrap: break-word; }
+.pwr-a4-page .val.center { text-align: center; font-weight: bold; }
+.pwr-a4-page .pwr-header th { background: #cfe2f3; text-align: center; font-weight: bold; font-size: 9pt; padding: 5px; }
+.pwr-a4-page .c-date { text-align: center; }
+.pwr-a4-page .c-sig { min-height: 18px; }
+.pwr-a4-page .pwr-signatures { display: flex; justify-content: space-between; margin-top: 18mm; padding: 0 5mm; }
+.pwr-a4-page .sig-left, .pwr-a4-page .sig-right { width: 42%; }
+.pwr-a4-page .sig-label { font-weight: bold; font-size: 9pt; }
+.pwr-a4-page .sig-line { border-bottom: 1px solid #000; margin-top: 14mm; height: 1px; }
+.pwr-a4-page .pwr-hr { margin-top: 12mm; padding: 0 5mm; }
+.pwr-a4-page .pwr-hr .sig-note { font-size: 8.5pt; margin-top: 4mm; }
+`;
+
+// ── Print-only styles (used in the separate print window — global selectors OK) ──
+const PRINT_STYLES = `
+  @page { size: A4 portrait; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; padding: 0; }
+  ${A4_STYLES}
+  .pwr-a4-page { width: 190mm; min-height: auto; padding: 0; page-break-after: always; }
+  .pwr-a4-page:last-child { page-break-after: auto; }
+`;
 
 // Build the printable HTML for one employee page (used for Preview + Print A4).
 const buildPageHtml = (emp, rows, year, month) => {
@@ -22,7 +54,7 @@ const buildPageHtml = (emp, rows, year, month) => {
     </tr>`).join('');
 
   return `
-  <div class="pwr-page">
+  <div class="pwr-a4-page">
     <table class="pwr-table">
       <colgroup>
         <col style="width:11%"><col style="width:13%"><col style="width:13%">
@@ -87,31 +119,24 @@ const buildPageHtml = (emp, rows, year, month) => {
   </div>`;
 };
 
-const PRINT_STYLES = `
-  @page { size: A4 portrait; margin: 10mm; }
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; padding: 0; }
-  .pwr-page { width: 190mm; margin: 0 auto; page-break-after: always; }
-  .pwr-page:last-child { page-break-after: auto; }
-  .pwr-table { width: 100%; border-collapse: collapse; border: 1px solid #000; }
-  .pwr-table td, .pwr-table th { border: 1px solid #000; padding: 3px 5px; font-size: 9pt; vertical-align: middle; }
-  .pwr-title { background: #d9ead3; text-align: center; font-weight: bold; font-size: 9.5pt; padding: 5px; }
-  .pwr-subtitle { background: #cfe2f3; text-align: center; font-weight: bold; font-size: 13pt; padding: 8px; }
-  .pwr-supplier { background: #f4cccc; text-align: center; font-weight: bold; font-size: 10pt; vertical-align: top; padding-top: 6px; }
-  .pwr-table .lbl { background: #cfe2f3; font-weight: bold; font-size: 8.5pt; white-space: nowrap; }
-  .pwr-table .val { font-size: 9pt; }
-  .pwr-table .val.center { text-align: center; font-weight: bold; }
-  .pwr-header th { background: #cfe2f3; text-align: center; font-weight: bold; font-size: 9pt; padding: 5px; }
-  .pwr-table .c-date { text-align: center; }
-  .pwr-table .c-sig { min-height: 18px; }
-  .pwr-signatures { display: flex; justify-content: space-between; margin-top: 18mm; padding: 0 5mm; }
-  .sig-left, .sig-right { width: 42%; }
-  .sig-label { font-weight: bold; font-size: 9pt; }
-  .sig-line { border-bottom: 1px solid #000; margin-top: 14mm; height: 1px; }
-  .pwr-hr { margin-top: 12mm; padding: 0 5mm; }
-  .pwr-hr .sig-label { font-weight: bold; font-size: 9pt; }
-  .pwr-hr .sig-note { font-size: 8.5pt; margin-top: 4mm; }
-`;
+// Responsive scale: compute how much to shrink the 210mm A4 page to fit the preview width.
+const usePreviewScale = (containerRef, showPreview) => {
+  const [scale, setScale] = useState(0.6);
+  useEffect(() => {
+    if (!showPreview || !containerRef.current) return;
+    const compute = () => {
+      const w = containerRef.current?.clientWidth || 600;
+      // 210mm in px ≈ 793.7px (at 96dpi). Leave 32px padding.
+      const s = Math.min(0.85, Math.max(0.3, (w - 32) / 793.7));
+      setScale(s);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, [showPreview]);
+  return scale;
+};
 
 export default function PersonalWorkingRecordDialog({ open, onOpenChange, employees, records }) {
   const now = new Date();
@@ -141,8 +166,9 @@ export default function PersonalWorkingRecordDialog({ open, onOpenChange, employ
   }, [employees, company, search]);
 
   const selectedEmp = filteredEmployees.find((e) => e.id === employeeId) || null;
-
   const targets = selectedEmp ? [selectedEmp] : filteredEmployees;
+
+  const scale = usePreviewScale(previewRef, showPreview);
 
   const builtPages = useMemo(() => {
     if (!showPreview) return [];
@@ -175,13 +201,17 @@ export default function PersonalWorkingRecordDialog({ open, onOpenChange, employ
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader className="flex-row items-center gap-2 space-y-0">
+      <DialogContent className="max-w-[1100px] w-[min(1100px,calc(100vw-40px))] max-h-[calc(100vh-40px)] overflow-hidden flex flex-col gap-0 p-0">
+        <style>{A4_STYLES}</style>
+
+        {/* Header */}
+        <DialogHeader className="flex-row items-center gap-2 space-y-0 px-6 pt-5 pb-3 border-b border-slate-200 shrink-0">
           <ClipboardList className="w-5 h-5" style={{ color: INDIGO }} />
           <DialogTitle>Personal Working Record</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 space-y-4">
           {/* Employee select */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-700">Employee</label>
@@ -247,36 +277,38 @@ export default function PersonalWorkingRecordDialog({ open, onOpenChange, employ
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowPreview(s => !s)} disabled={targets.length === 0} className="gap-2">
-                <Eye className="w-4 h-4" /> {showPreview ? 'Hide Preview' : 'Preview'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handlePrint} disabled={targets.length === 0} className="gap-2">
-                <Printer className="w-4 h-4" /> Print A4
-              </Button>
-            </div>
-            <Button size="sm" onClick={handleExportPdf} disabled={busy || targets.length === 0} className="gap-2 text-white" style={{ background: INDIGO }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setShowPreview(s => !s)} disabled={targets.length === 0} className="gap-2">
+              <Eye className="w-4 h-4" /> {showPreview ? 'Hide Preview' : 'Preview'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePrint} disabled={targets.length === 0} className="gap-2">
+              <Printer className="w-4 h-4" /> Print A4
+            </Button>
+            <Button size="sm" onClick={handleExportPdf} disabled={busy || targets.length === 0} className="gap-2 text-white ml-auto" style={{ background: INDIGO }}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
               Export PDF
             </Button>
           </div>
 
-          {/* Inline preview */}
+          {/* Inline preview — A4 page centered, proportionally scaled */}
           {showPreview && (
-            <div ref={previewRef} className="border border-slate-200 rounded-lg bg-slate-100 p-4 max-h-[420px] overflow-auto">
+            <div ref={previewRef} className="w-full rounded-lg border border-slate-200 bg-slate-100 p-4 max-h-[460px] overflow-auto flex flex-col items-center gap-4">
               {builtPages.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground py-8">No employees to preview.</p>
               ) : (
                 builtPages.map((p, i) => (
-                  <div key={i} dangerouslySetInnerHTML={{ __html: `<style>${PRINT_STYLES} .pwr-page{transform:scale(0.62);transform-origin:top center;margin-bottom:-160px;}</style>${buildPageHtml(p.emp, p.rows, year, month)}` }} />
+                  <div key={i} className="shrink-0 shadow-lg bg-white" style={{ width: `calc(210mm * ${scale})`, height: `calc(297mm * ${scale})`, overflow: 'hidden' }}>
+                    <div style={{ width: '210mm', transform: `scale(${scale})`, transformOrigin: 'top left' }}
+                      dangerouslySetInnerHTML={{ __html: buildPageHtml(p.emp, p.rows, year, month) }} />
+                  </div>
                 ))
               )}
             </div>
           )}
         </div>
 
-        <DialogFooter>
+        {/* Footer */}
+        <DialogFooter className="px-6 py-3 border-t border-slate-200 shrink-0">
           <Button variant="outline" onClick={() => { onOpenChange(false); setShowPreview(false); }} disabled={busy}>Close</Button>
         </DialogFooter>
       </DialogContent>
