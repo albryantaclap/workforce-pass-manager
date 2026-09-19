@@ -145,9 +145,9 @@ export default function EmployeeIssuance() {
             <TableHeader>
               <TableRow className="bg-slate-50">
                 <TableHead className="w-10 text-center">Photo</TableHead>
+                <TableHead>Employee Name</TableHead>
                 <TableHead className="w-28">QID No.</TableHead>
                 <TableHead className="w-24">PID No.</TableHead>
-                <TableHead>Employee Name</TableHead>
                 <TableHead className="w-28">Company</TableHead>
                 <TableHead className="w-24">Department</TableHead>
                 <TableHead className="w-32">Designation</TableHead>
@@ -164,9 +164,9 @@ export default function EmployeeIssuance() {
                     <TableCell className="p-2 text-center">
                       <PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size={8} />
                     </TableCell>
+                    <TableCell className="font-medium">{emp.name}</TableCell>
                     <TableCell className="font-mono">{emp.qid_no || '—'}</TableCell>
                     <TableCell className="font-mono">{emp.pid || '—'}</TableCell>
-                    <TableCell className="font-medium">{emp.name}</TableCell>
                     <TableCell>{emp.company || '—'}</TableCell>
                     <TableCell>{emp.department || '—'}</TableCell>
                     <TableCell>{emp.position_application || emp.designation_org_chart || '—'}</TableCell>
