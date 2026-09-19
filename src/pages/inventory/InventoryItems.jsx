@@ -13,6 +13,8 @@ import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
 import InventoryItemFormModal from '@/components/inventory/InventoryItemFormModal';
 import InventoryImportDialog from '@/components/inventory/InventoryImportDialog';
+import Pagination from '@/components/inventory/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function InventoryItems() {
   const { items, transactions, getLookupOptions, isLoading } = useInventoryData();
@@ -45,6 +47,13 @@ export default function InventoryItems() {
     }
     return result.sort((a, b) => (a.item_sn || '').localeCompare(b.item_sn || ''));
   }, [items, search, showArchived]);
+
+  // Pagination
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, showArchived]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageData = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
+  const isFiltered = !!(search || showArchived);
 
   const handleArchive = async (item) => {
     if (!confirm(`Archive item "${item.item_sn} — ${item.item_name}"? It will be hidden from active lists but retained for history.`)) return;
@@ -130,7 +139,7 @@ export default function InventoryItems() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(item => {
+              {pageData.map(item => {
                 const available = getAvailable(item.id);
                 const status = getStatus(item);
                 return (
@@ -183,6 +192,15 @@ export default function InventoryItems() {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRecords={filtered.length}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage}
+          isFiltered={isFiltered}
+        />
       </Card>
 
       <InventoryItemFormModal

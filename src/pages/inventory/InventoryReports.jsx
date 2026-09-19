@@ -12,6 +12,8 @@ import {
   exportAvailableStockExcel, exportTransactionHistoryExcel,
 } from '@/lib/inventoryExcelExport';
 import { useRbac } from '@/lib/useRbac';
+import Pagination from '@/components/inventory/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 const REPORT_TYPES = [
   { key: 'summary', label: 'Inventory Summary' },
@@ -111,6 +113,13 @@ export default function InventoryReports() {
       }
     }
   }, [reportType, filteredTxns, items, transactions, categoryFilter, supplierFilter, storeFilter]);
+
+  // Pagination — display only; exports use the full reportData, not pageData
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [reportType, fromDate, toDate, itemFilter, categoryFilter, supplierFilter, storeFilter, siteFilter, typeFilter]);
+  const totalPages = Math.max(1, Math.ceil(reportData.length / rowsPerPage));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageData = reportData.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
+  const isFiltered = !!(fromDate || toDate || itemFilter || categoryFilter || supplierFilter || storeFilter || siteFilter || typeFilter);
 
   const handleExport = () => {
     switch (reportType) {
@@ -280,7 +289,7 @@ export default function InventoryReports() {
               </TableHeader>
               <TableBody>
                 {reportType === 'summary' || reportType === 'available' || reportType === 'low_stock' ? (
-                  reportData.map(r => (
+                  pageData.map(r => (
                     <TableRow key={r.id}>
                       <TableCell className="font-mono">{r.item_sn}</TableCell>
                       <TableCell>{r.item_name}</TableCell>
@@ -298,7 +307,7 @@ export default function InventoryReports() {
                     </TableRow>
                   ))
                 ) : (
-                  reportData.map(t => (
+                  pageData.map(t => (
                     <TableRow key={t.id}>
                       <TableCell>{t.transaction_date}</TableCell>
                       <TableCell>
@@ -324,6 +333,15 @@ export default function InventoryReports() {
               </TableBody>
             </Table>
           </div>
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            totalRecords={reportData.length}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={setRowsPerPage}
+            isFiltered={isFiltered}
+          />
         </CardContent>
       </Card>
     </div>

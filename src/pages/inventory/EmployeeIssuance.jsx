@@ -4,14 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, ChevronLeft, ChevronRight, PackageX } from 'lucide-react';
+import { Search, Eye, PackageX } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { fetchAllEmployees, buildIssuanceStatsMap } from '@/lib/inventoryEmployees';
 import { useRbac } from '@/lib/useRbac';
 import { useQuery } from '@tanstack/react-query';
 import EmployeeIssuanceDetailsDialog from '@/components/inventory/EmployeeIssuanceDetailsDialog';
-
-const PAGE_SIZE = 50;
+import Pagination from '@/components/inventory/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function EmployeeIssuance() {
   const { transactions, isLoading: txnsLoading } = useInventoryData();
@@ -19,7 +19,7 @@ export default function EmployeeIssuance() {
   const [companyFilter, setCompanyFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [desigFilter, setDesigFilter] = useState('');
-  const [page, setPage] = useState(0);
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, companyFilter, deptFilter, desigFilter]);
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { can } = useRbac();
@@ -79,15 +79,15 @@ export default function EmployeeIssuance() {
   }, [employees, search, companyFilter, deptFilter, desigFilter]);
 
   // Pagination
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const pageData = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageData = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
+  const isFiltered = !!(search || companyFilter || deptFilter || desigFilter);
 
   const handleView = (emp) => {
     setSelectedEmp(emp);
     setDialogOpen(true);
   };
-
-  const handleFilterChange = () => setPage(0);
 
   return (
     <div className="p-6 space-y-4">
@@ -102,26 +102,26 @@ export default function EmployeeIssuance() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={search}
-            onChange={e => { setSearch(e.target.value); handleFilterChange(); }}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Search by Name, PID, QID, or Company..."
             className="pl-9"
           />
         </div>
-        <Select value={companyFilter} onValueChange={v => { setCompanyFilter(v === 'all' ? '' : v); handleFilterChange(); }}>
+        <Select value={companyFilter} onValueChange={v => setCompanyFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Companies" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Companies</SelectItem>
             {companies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={deptFilter} onValueChange={v => { setDeptFilter(v === 'all' ? '' : v); handleFilterChange(); }}>
+        <Select value={deptFilter} onValueChange={v => setDeptFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Departments" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Departments</SelectItem>
             {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={desigFilter} onValueChange={v => { setDesigFilter(v === 'all' ? '' : v); handleFilterChange(); }}>
+        <Select value={desigFilter} onValueChange={v => setDesigFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Designations" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Designations</SelectItem>
@@ -211,32 +211,15 @@ export default function EmployeeIssuance() {
           </Table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between p-3 border-t">
-            <p className="text-xs text-muted-foreground">
-              Page {page + 1} of {totalPages} • Showing {pageData.length} of {filtered.length}
-            </p>
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setPage(p => Math.max(0, p - 1))}
-                disabled={page === 0}
-              >
-                <ChevronLeft className="w-4 h-4" /> Prev
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-              >
-                Next <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRecords={filtered.length}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage}
+          isFiltered={isFiltered}
+        />
       </Card>
 
       <EmployeeIssuanceDetailsDialog

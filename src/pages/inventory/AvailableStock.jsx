@@ -9,6 +9,8 @@ import { useInventoryData } from '@/hooks/useInventoryData';
 import { calculateAvailableStock, calculateStockIn, calculateStockOut, getStockStatus } from '@/lib/inventoryService';
 import { exportAvailableStockExcel } from '@/lib/inventoryExcelExport';
 import { useRbac } from '@/lib/useRbac';
+import Pagination from '@/components/inventory/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function AvailableStock() {
   const { items, transactions, getLookupOptions, isLoading } = useInventoryData();
@@ -53,6 +55,13 @@ export default function AvailableStock() {
 
     return result.sort((a, b) => (a.item_sn || '').localeCompare(b.item_sn || ''));
   }, [items, transactions, search, categoryFilter, statusFilter, fromDate, toDate]);
+
+  // Pagination
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, categoryFilter, statusFilter, fromDate, toDate]);
+  const totalPages = Math.max(1, Math.ceil(rows.length / rowsPerPage));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageData = rows.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
+  const isFiltered = !!(search || categoryFilter || statusFilter || fromDate || toDate);
 
   return (
     <div className="p-6 space-y-4">
@@ -110,7 +119,7 @@ export default function AvailableStock() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map(r => (
+              {pageData.map(r => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono font-semibold">{r.item_sn}</TableCell>
                   <TableCell className="font-medium">{r.item_name}</TableCell>
@@ -140,6 +149,15 @@ export default function AvailableStock() {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRecords={rows.length}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage}
+          isFiltered={isFiltered}
+        />
       </Card>
     </div>
   );

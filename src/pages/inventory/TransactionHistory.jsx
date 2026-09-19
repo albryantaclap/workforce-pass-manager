@@ -12,6 +12,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
 import { useQueryClient } from '@tanstack/react-query';
+import Pagination from '@/components/inventory/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function TransactionHistory() {
   const { items, transactions, isLoading } = useInventoryData();
@@ -44,6 +46,13 @@ export default function TransactionHistory() {
     if (toDate) result = result.filter(t => t.transaction_date <= toDate);
     return result.sort((a, b) => (b.created_date || '').localeCompare(a.created_date || ''));
   }, [transactions, search, typeFilter, fromDate, toDate]);
+
+  // Pagination
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, typeFilter, fromDate, toDate]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageData = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
+  const isFiltered = !!(search || typeFilter || fromDate || toDate);
 
   const handleDelete = async (t) => {
     const reason = prompt(`Reason for removing this ${t.transaction_type.replace(/_/g, ' ')} transaction?`);
@@ -111,7 +120,7 @@ export default function TransactionHistory() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(t => (
+              {pageData.map(t => (
                 <TableRow key={t.id}>
                   <TableCell>{t.transaction_date}</TableCell>
                   <TableCell>
@@ -154,6 +163,15 @@ export default function TransactionHistory() {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRecords={filtered.length}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage}
+          isFiltered={isFiltered}
+        />
       </Card>
     </div>
   );

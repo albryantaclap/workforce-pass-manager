@@ -10,6 +10,8 @@ import { exportStockInExcel } from '@/lib/inventoryExcelExport';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
 import StockInFormModal from '@/components/inventory/StockInFormModal';
+import Pagination from '@/components/inventory/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function StockIn() {
   const { items, transactions, getLookupOptions, isLoading } = useInventoryData();
@@ -38,6 +40,13 @@ export default function StockIn() {
     if (toDate) result = result.filter(t => t.transaction_date <= toDate);
     return result.sort((a, b) => (b.transaction_date || '').localeCompare(a.transaction_date || ''));
   }, [transactions, search, fromDate, toDate]);
+
+  // Pagination
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, fromDate, toDate]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageData = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
+  const isFiltered = !!(search || fromDate || toDate);
 
   return (
     <div className="p-6 space-y-4">
@@ -89,7 +98,7 @@ export default function StockIn() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(t => (
+              {pageData.map(t => (
                 <TableRow key={t.id}>
                   <TableCell>{t.transaction_date}</TableCell>
                   <TableCell className="font-mono font-semibold">{t.item_sn}</TableCell>
@@ -114,6 +123,15 @@ export default function StockIn() {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRecords={filtered.length}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage}
+          isFiltered={isFiltered}
+        />
       </Card>
 
       <StockInFormModal

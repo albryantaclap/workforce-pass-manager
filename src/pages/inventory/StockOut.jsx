@@ -11,6 +11,8 @@ import { fetchAllEmployees } from '@/lib/inventoryEmployees';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
 import StockOutFormModal from '@/components/inventory/StockOutFormModal';
+import Pagination from '@/components/inventory/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function StockOut() {
   const { items, transactions, getLookupOptions, isLoading } = useInventoryData();
@@ -62,6 +64,13 @@ export default function StockOut() {
     return result.sort((a, b) => (b.transaction_date || '').localeCompare(a.transaction_date || ''));
   }, [transactions, search, fromDate, toDate, employeeMap]);
 
+  // Pagination
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, fromDate, toDate]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageData = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
+  const isFiltered = !!(search || fromDate || toDate);
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -112,7 +121,7 @@ export default function StockOut() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(t => {
+              {pageData.map(t => {
                 const emp = t.employee_id ? employeeMap.get(t.employee_id) : null;
                 const liveName = emp?.name || t.employee_name || '';
                 const livePid = emp?.pid || t.pid || '';
@@ -151,6 +160,15 @@ export default function StockOut() {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRecords={filtered.length}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage}
+          isFiltered={isFiltered}
+        />
       </Card>
 
       <StockOutFormModal
