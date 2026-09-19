@@ -10,6 +10,7 @@ import { fetchAllEmployees, buildIssuanceStatsMap } from '@/lib/inventoryEmploye
 import { useRbac } from '@/lib/useRbac';
 import { useQuery } from '@tanstack/react-query';
 import EmployeeIssuanceDetailsDialog from '@/components/inventory/EmployeeIssuanceDetailsDialog';
+import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 
@@ -143,6 +144,8 @@ export default function EmployeeIssuance() {
           <Table className="table-list-view">
             <TableHeader>
               <TableRow className="bg-slate-50">
+                <TableHead className="w-10 text-center">Photo</TableHead>
+                <TableHead className="w-28">QID No.</TableHead>
                 <TableHead className="w-24">PID No.</TableHead>
                 <TableHead>Employee Name</TableHead>
                 <TableHead className="w-28">Company</TableHead>
@@ -158,6 +161,10 @@ export default function EmployeeIssuance() {
                 const stats = issuanceStats.get(emp.id) || { itemCount: 0, totalQty: 0 };
                 return (
                   <TableRow key={emp.id}>
+                    <TableCell className="p-2 text-center">
+                      <PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size={8} />
+                    </TableCell>
+                    <TableCell className="font-mono">{emp.qid_no || '—'}</TableCell>
                     <TableCell className="font-mono">{emp.pid || '—'}</TableCell>
                     <TableCell className="font-medium">{emp.name}</TableCell>
                     <TableCell>{emp.company || '—'}</TableCell>
@@ -192,7 +199,7 @@ export default function EmployeeIssuance() {
               })}
               {pageData.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                     {empsLoading || txnsLoading ? (
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-5 h-5 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
