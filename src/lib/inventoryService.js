@@ -276,42 +276,66 @@ export async function deleteLookup(id, deletedBy) {
 
 /**
  * Calculate all dashboard KPIs from items + transactions.
+ * Single-pass aggregation over the transaction ledger for performance.
  */
 export function calculateDashboardStats(items, transactions) {
   const activeItems = items.filter(i => !i.is_archived);
-  const itemIds = new Set(activeItems.map(i => i.id));
+  const archivedCount = items.filter(i => i.is_archived).length;
+  const validTxns = transactions.filter(t => !t.is_deleted);
+
+  // ── Single-pass per-item aggregate map ──
+  const itemAggs = {}; // itemId -> { stockIn, stockOut, available, txnCount }
+  for (const t of validTxns) {
+    const id = t.item_id;
+    if (!itemAggs[id]) itemAggs[id] = { stockIn: 0, stockOut: 0, available: 0, txnCount: 0 };
+    itemAggs[id].txnCount++;
+    if (t.transaction_type === 'STOCK_IN') {
+      itemAggs[id].stockIn += t.quantity_abs || 0;
+      itemAggs[id].available += t.quantity || 0;
+    } else if (t.transaction_type === 'STOCK_OUT') {
+      itemAggs[id].stockOut += t.quantity_abs || 0;
+      itemAggs[id].available += t.quantity || 0;
+    }
+  }
 
   let totalAvailable = 0;
   let totalStockIn = 0;
   let totalStockOut = 0;
   let lowStockCount = 0;
   let outOfStockCount = 0;
+  let deadStockCount = 0;
   const employeesWithIssuance = new Set();
 
   for (const item of activeItems) {
-    const available = calculateAvailableStock(transactions, item.id);
-    const stockIn = calculateStockIn(transactions, item.id);
-    const stockOut = calculateStockOut(transactions, item.id);
-    totalAvailable += available;
-    totalStockIn += stockIn;
-    totalStockOut += stockOut;
+    const agg = itemAggs[item.id] || { stockIn: 0, stockOut: 0, available: 0, txnCount: 0 };
+    totalAvailable += agg.available;
+    totalStockIn += agg.stockIn;
+    totalStockOut += agg.stockOut;
 
-    const status = getStockStatus(available, item.min_stock_level);
+    const status = getStockStatus(agg.available, item.min_stock_level);
     if (status === 'Low Stock') lowStockCount++;
     if (status === 'Out of Stock') outOfStockCount++;
+    if (agg.txnCount === 0) deadStockCount++;
   }
 
+  // Transaction counts
+  const totalTransactions = validTxns.length;
+  const stockInTxnCount = validTxns.filter(t => t.transaction_type === 'STOCK_IN').length;
+  const stockOutTxnCount = validTxns.filter(t => t.transaction_type === 'STOCK_OUT').length;
+
   // Employees with issued items
-  for (const t of transactions) {
+  for (const t of validTxns) {
     if (t.transaction_type === 'STOCK_OUT' && t.employee_id) {
       employeesWithIssuance.add(t.employee_id);
     }
   }
 
-  // Stock by store
+  // Issuance rate (% of received stock that has been issued)
+  const issuanceRate = totalStockIn > 0 ? Math.round((totalStockOut / totalStockIn) * 100) : 0;
+
+  // ── Stock by store ──
   const stockByStore = {};
-  for (const t of transactions) {
-    if (t.is_deleted) continue;
+  for (const t of validTxns) {
     const store = t.store || 'Unspecified';
     if (!stockByStore[store]) stockByStore[store] = { store, stockIn: 0, stockOut: 0, available: 0 };
     if (t.transaction_type === 'STOCK_IN') stockByStore[store].stockIn += t.quantity_abs || 0;
@@ -319,28 +343,97 @@ export function calculateDashboardStats(items, transactions) {
     stockByStore[store].available += t.quantity || 0;
   }
 
-  // Low stock alerts
+  // ── Stock by category ──
+  const stockByCategory = {};
+  for (const item of activeItems) {
+    const cat = item.category || 'Uncategorized';
+    if (!stockByCategory[cat]) stockByCategory[cat] = { category: cat, itemCount: 0, available: 0 };
+    stockByCategory[cat].itemCount++;
+    stockByCategory[cat].available += (itemAggs[item.id]?.available || 0);
+  }
+
+  // ── Stock by site (stock-out issuance) ──
+  const stockBySite = {};
+  for (const t of validTxns) {
+    if (t.transaction_type !== 'STOCK_OUT') continue;
+    const site = t.site || 'Unspecified';
+    if (!stockBySite[site]) stockBySite[site] = { site, stockOut: 0, txnCount: 0 };
+    stockBySite[site].stockOut += t.quantity_abs || 0;
+    stockBySite[site].txnCount++;
+  }
+
+  // ── Top issued items ──
+  const issuedMap = {};
+  for (const t of validTxns) {
+    if (t.transaction_type !== 'STOCK_OUT') continue;
+    if (!issuedMap[t.item_id]) {
+      issuedMap[t.item_id] = { item_sn: t.item_sn, item_name: t.item_name, unit: t.unit, qty: 0 };
+    }
+    issuedMap[t.item_id].qty += t.quantity_abs || 0;
+  }
+  const topIssuedItems = Object.values(issuedMap).sort((a, b) => b.qty - a.qty).slice(0, 8);
+
+  // ── Top suppliers (by stock-in volume) ──
+  const supplierMap = {};
+  for (const t of validTxns) {
+    if (t.transaction_type !== 'STOCK_IN') continue;
+    const sup = t.supplier || 'Unspecified';
+    if (!supplierMap[sup]) supplierMap[sup] = { supplier: sup, stockIn: 0, txnCount: 0 };
+    supplierMap[sup].stockIn += t.quantity_abs || 0;
+    supplierMap[sup].txnCount++;
+  }
+  const topSuppliers = Object.values(supplierMap).sort((a, b) => b.stockIn - a.stockIn).slice(0, 8);
+
+  // ── Monthly movement (last 6 months) ──
+  const monthlyMovement = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleDateString('en', { month: 'short' });
+    let inQty = 0, outQty = 0;
+    for (const t of validTxns) {
+      if (!t.transaction_date || !t.transaction_date.startsWith(ym)) continue;
+      if (t.transaction_type === 'STOCK_IN') inQty += t.quantity_abs || 0;
+      if (t.transaction_type === 'STOCK_OUT') outQty += t.quantity_abs || 0;
+    }
+    monthlyMovement.push({ month: label, stockIn: inQty, stockOut: outQty });
+  }
+
+  // ── Low stock alerts ──
   const lowStockAlerts = activeItems
     .map(i => ({
       item_sn: i.item_sn,
       item_name: i.item_name,
       unit: i.unit,
-      available: calculateAvailableStock(transactions, i.id),
+      available: itemAggs[i.id]?.available || 0,
       min_level: i.min_stock_level || 0,
-      status: getStockStatus(calculateAvailableStock(transactions, i.id), i.min_stock_level),
+      status: getStockStatus(itemAggs[i.id]?.available || 0, i.min_stock_level),
     }))
     .filter(a => a.status !== 'Available')
     .sort((a, b) => a.available - b.available);
 
   return {
     totalItems: activeItems.length,
+    archivedCount,
     totalAvailable,
     totalStockIn,
     totalStockOut,
+    totalTransactions,
+    stockInTxnCount,
+    stockOutTxnCount,
     lowStockCount,
     outOfStockCount,
+    deadStockCount,
     employeesWithIssuance: employeesWithIssuance.size,
-    stockByStore: Object.values(stockByStore),
+    issuanceRate,
+    avgQtyPerItem: activeItems.length > 0 ? Math.round(totalAvailable / activeItems.length) : 0,
+    stockByStore: Object.values(stockByStore).sort((a, b) => b.available - a.available),
+    stockByCategory: Object.values(stockByCategory).sort((a, b) => b.available - a.available),
+    stockBySite: Object.values(stockBySite).sort((a, b) => b.stockOut - a.stockOut),
+    topIssuedItems,
+    topSuppliers,
+    monthlyMovement,
     lowStockAlerts,
   };
 }
