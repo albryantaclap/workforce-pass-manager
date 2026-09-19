@@ -96,6 +96,55 @@ export const PERMISSION_CATALOG = [
     ],
   },
   {
+    group: 'Inventory Management',
+    key: 'inventory',
+    resources: [
+      { key: 'dashboard', label: 'Inventory Dashboard', path: '/inventory', actions: [
+        { key: 'view', label: 'View' },
+      ]},
+      { key: 'items', label: 'Inventory Items', path: '/inventory/items', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'add', label: 'Add' },
+        { key: 'edit', label: 'Edit' },
+        { key: 'import', label: 'Import' },
+        { key: 'export', label: 'Export' },
+      ]},
+      { key: 'stock_in', label: 'Stock In', path: '/inventory/stock-in', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'add', label: 'Add' },
+        { key: 'edit', label: 'Edit' },
+        { key: 'export', label: 'Export' },
+      ]},
+      { key: 'stock_out', label: 'Stock Out', path: '/inventory/stock-out', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'issue', label: 'Issue' },
+        { key: 'edit', label: 'Edit' },
+        { key: 'export', label: 'Export' },
+      ]},
+      { key: 'available_stock', label: 'Available Stock', path: '/inventory/available', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'export', label: 'Export' },
+      ]},
+      { key: 'employee_issuance', label: 'Employee Issuance', path: '/inventory/employee-issuance', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'export', label: 'Export' },
+      ]},
+      { key: 'transaction_history', label: 'Transaction History', path: '/inventory/transactions', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'export', label: 'Export' },
+      ]},
+      { key: 'reports', label: 'Inventory Reports', path: '/inventory/reports', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'export', label: 'Export' },
+        { key: 'print', label: 'Print' },
+      ]},
+      { key: 'settings', label: 'Inventory Settings', path: '/inventory/settings', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'edit', label: 'Edit' },
+      ]},
+    ],
+  },
+  {
     group: 'System',
     key: 'system',
     resources: [
@@ -155,6 +204,16 @@ export const ROLE_PRESETS = {
       'attendance.clock.view', 'attendance.clock.use',
       'attendance.entries.view', 'attendance.entries.edit', 'attendance.entries.export',
       'attendance.reports.view', 'attendance.reports.export', 'attendance.reports.print',
+      // Inventory — full access except settings
+      'inventory.dashboard.view',
+      'inventory.items.view', 'inventory.items.add', 'inventory.items.edit', 'inventory.items.import', 'inventory.items.export',
+      'inventory.stock_in.view', 'inventory.stock_in.add', 'inventory.stock_in.edit', 'inventory.stock_in.export',
+      'inventory.stock_out.view', 'inventory.stock_out.issue', 'inventory.stock_out.edit', 'inventory.stock_out.export',
+      'inventory.available_stock.view', 'inventory.available_stock.export',
+      'inventory.employee_issuance.view', 'inventory.employee_issuance.export',
+      'inventory.transaction_history.view', 'inventory.transaction_history.export',
+      'inventory.reports.view', 'inventory.reports.export', 'inventory.reports.print',
+      'inventory.settings.view',
       // System — chat + forms only
       'system.chat.view', 'system.chat.send',
       'system.forms.view', 'system.forms.create',
@@ -173,6 +232,15 @@ export const ROLE_PRESETS = {
       'attendance.clock.view', 'attendance.clock.use',
       'attendance.entries.view', 'attendance.entries.edit',
       'attendance.reports.view',
+      // Inventory — view + issue
+      'inventory.dashboard.view',
+      'inventory.items.view', 'inventory.items.export',
+      'inventory.stock_in.view', 'inventory.stock_in.export',
+      'inventory.stock_out.view', 'inventory.stock_out.issue', 'inventory.stock_out.export',
+      'inventory.available_stock.view', 'inventory.available_stock.export',
+      'inventory.employee_issuance.view', 'inventory.employee_issuance.export',
+      'inventory.transaction_history.view', 'inventory.transaction_history.export',
+      'inventory.reports.view',
       'system.chat.view', 'system.chat.send',
     ],
   },
@@ -257,6 +325,16 @@ export function getRoutePermissionKey(pathname, search = '') {
     '/database-backup': 'system.db_backup',
     '/admin': 'system.admin_panel',
     '/user-management': 'system.user_management',
+    // Inventory Management routes
+    '/inventory': 'inventory.dashboard',
+    '/inventory/items': 'inventory.items',
+    '/inventory/stock-in': 'inventory.stock_in',
+    '/inventory/stock-out': 'inventory.stock_out',
+    '/inventory/available': 'inventory.available_stock',
+    '/inventory/employee-issuance': 'inventory.employee_issuance',
+    '/inventory/transactions': 'inventory.transaction_history',
+    '/inventory/reports': 'inventory.reports',
+    '/inventory/settings': 'inventory.settings',
   };
   return staticMap[pathname] || null;
 }

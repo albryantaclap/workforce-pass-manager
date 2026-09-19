@@ -1,0 +1,45 @@
+{
+  "name": "InventoryItem",
+  "type": "object",
+  "properties": {
+    "item_sn": {
+      "type": "string",
+      "description": "Unique item serial number (e.g. GSOQ-001)"
+    },
+    "item_name": {
+      "type": "string",
+      "description": "Item name / description"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unit of measure (UOM) \u2014 e.g. NOS, MTR, SET"
+    },
+    "category": {
+      "type": "string",
+      "description": "Item category (sourced from InventoryLookup)"
+    },
+    "min_stock_level": {
+      "type": "number",
+      "default": 0,
+      "description": "Minimum stock level \u2014 at or below this = Low Stock alert"
+    },
+    "is_archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "Archived items are hidden from active lists but retained for history. Items with transactions cannot be deleted, only archived."
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Additional remarks"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of user who last updated this item"
+    }
+  },
+  "required": [
+    "item_sn",
+    "item_name",
+    "unit"
+  ]
+}

@@ -30,6 +30,15 @@ import Chat from './pages/Chat';
 import TransmittalForm from './pages/TransmittalForm';
 import Forms from './pages/Forms';
 import UserManagement from './pages/UserManagement';
+import InventoryDashboard from './pages/inventory/InventoryDashboard';
+import InventoryItems from './pages/inventory/InventoryItems';
+import StockIn from './pages/inventory/StockIn';
+import StockOut from './pages/inventory/StockOut';
+import AvailableStock from './pages/inventory/AvailableStock';
+import EmployeeIssuance from './pages/inventory/EmployeeIssuance';
+import TransactionHistory from './pages/inventory/TransactionHistory';
+import InventoryReports from './pages/inventory/InventoryReports';
+import InventorySettings from './pages/inventory/InventorySettings';
 
 
 const AuthenticatedApp = () => {
@@ -91,6 +100,15 @@ const AuthenticatedApp = () => {
         <Route path="/transmittal" element={<TransmittalForm />} />
         <Route path="/forms" element={<Forms />} />
         <Route path="/user-management" element={<UserManagement />} />
+        <Route path="/inventory" element={<InventoryDashboard />} />
+        <Route path="/inventory/items" element={<InventoryItems />} />
+        <Route path="/inventory/stock-in" element={<StockIn />} />
+        <Route path="/inventory/stock-out" element={<StockOut />} />
+        <Route path="/inventory/available" element={<AvailableStock />} />
+        <Route path="/inventory/employee-issuance" element={<EmployeeIssuance />} />
+        <Route path="/inventory/transactions" element={<TransactionHistory />} />
+        <Route path="/inventory/reports" element={<InventoryReports />} />
+        <Route path="/inventory/settings" element={<InventorySettings />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

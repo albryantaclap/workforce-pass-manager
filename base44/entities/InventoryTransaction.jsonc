@@ -1,0 +1,149 @@
+{
+  "name": "InventoryTransaction",
+  "type": "object",
+  "properties": {
+    "transaction_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the transaction (YYYY-MM-DD)"
+    },
+    "transaction_type": {
+      "type": "string",
+      "enum": [
+        "STOCK_IN",
+        "STOCK_OUT",
+        "ADJUSTMENT"
+      ],
+      "description": "Transaction type: STOCK_IN (received), STOCK_OUT (issued), ADJUSTMENT (correction)"
+    },
+    "item_id": {
+      "type": "string",
+      "description": "Linked InventoryItem record ID"
+    },
+    "item_sn": {
+      "type": "string",
+      "description": "Item S.N. (denormalized for display and filtering)"
+    },
+    "item_name": {
+      "type": "string",
+      "description": "Item name (denormalized for display)"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unit/UOM (denormalized for display)"
+    },
+    "quantity": {
+      "type": "number",
+      "description": "Signed quantity: positive for STOCK_IN, negative for STOCK_OUT. Current stock = SUM(quantity) for an item."
+    },
+    "quantity_abs": {
+      "type": "number",
+      "description": "Absolute quantity value (always positive, for display)"
+    },
+    "dn_no": {
+      "type": "string",
+      "description": "D/N No. (Stock In delivery note number)"
+    },
+    "mrf_no": {
+      "type": "string",
+      "description": "MRF No. (Stock In material requisition)"
+    },
+    "lpo": {
+      "type": "string",
+      "description": "LPO (Stock In local purchase order)"
+    },
+    "supplier": {
+      "type": "string",
+      "description": "Supplier name (Stock In)"
+    },
+    "store": {
+      "type": "string",
+      "description": "Store location (Stock In / Stock Out)"
+    },
+    "iv_no": {
+      "type": "string",
+      "description": "I/V No. (Stock Out issue voucher number)"
+    },
+    "site": {
+      "type": "string",
+      "description": "Site location (Stock Out)"
+    },
+    "pid": {
+      "type": "string",
+      "description": "Employee PID number (Stock Out \u2014 references Master List)"
+    },
+    "employee_id": {
+      "type": "string",
+      "description": "Linked Employee record ID from Master List (Stock Out)"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Employee name (denormalized from Master List)"
+    },
+    "company": {
+      "type": "string",
+      "description": "Employee company (denormalized from Master List)"
+    },
+    "department": {
+      "type": "string",
+      "description": "Employee department (denormalized from Master List)"
+    },
+    "designation": {
+      "type": "string",
+      "description": "Employee designation (denormalized from Master List)"
+    },
+    "previous_balance": {
+      "type": "number",
+      "default": 0,
+      "description": "Item balance before this transaction (audit trail)"
+    },
+    "new_balance": {
+      "type": "number",
+      "default": 0,
+      "description": "Item balance after this transaction (audit trail)"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email of the user who created this transaction"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Display name of the user who created this transaction"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Additional remarks"
+    },
+    "import_batch_id": {
+      "type": "string",
+      "description": "Batch ID for transactions imported from Excel (traceability)"
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete flag \u2014 deleted transactions are excluded from balance calculations but retained for audit"
+    },
+    "deleted_by": {
+      "type": "string",
+      "description": "Email of user who soft-deleted this transaction"
+    },
+    "deletion_reason": {
+      "type": "string",
+      "description": "Reason for soft-deleting this transaction"
+    },
+    "correction_of": {
+      "type": "string",
+      "description": "ID of the original transaction this correction/adjustment replaces (audit trail)"
+    },
+    "correction_reason": {
+      "type": "string",
+      "description": "Reason for the correction/adjustment"
+    }
+  },
+  "required": [
+    "transaction_date",
+    "transaction_type",
+    "item_id",
+    "quantity"
+  ]
+}

@@ -4,7 +4,8 @@ import {
   LayoutDashboard, List, Stethoscope, ShieldCheck, BadgeCheck, GraduationCap,
   HardHat, Plus, Shield, LogOut, UserX, TrendingUp, Trash2, Activity, HardDrive,
   MessageCircle, FileText, Tent, Clock, Briefcase, Settings, Users, Timer,
-  FileBarChart, ScanLine, ChevronRight,
+  FileBarChart, ScanLine, ChevronRight, Package, ArrowDownCircle, ArrowUpCircle,
+  Boxes, UserCheck, History, FileBarChart2, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -61,6 +62,23 @@ const navGroups = [
       { label: 'Time Entries', path: '/daily-attendance?tab=entries', icon: Timer },
       { label: 'Attendance Reports', path: '/daily-attendance?tab=reports', icon: FileBarChart },
       { label: 'Attendance Settings', path: '/daily-attendance?tab=settings', icon: Settings },
+    ],
+  },
+  {
+    key: 'inventory',
+    label: 'Inventory Management',
+    icon: Package,
+    defaultPath: '/inventory',
+    items: [
+      { label: 'Dashboard', path: '/inventory', icon: LayoutDashboard },
+      { label: 'Inventory Items', path: '/inventory/items', icon: Boxes },
+      { label: 'Stock In', path: '/inventory/stock-in', icon: ArrowDownCircle },
+      { label: 'Stock Out', path: '/inventory/stock-out', icon: ArrowUpCircle },
+      { label: 'Available Stock', path: '/inventory/available', icon: Package },
+      { label: 'Employee Issuance', path: '/inventory/employee-issuance', icon: UserCheck },
+      { label: 'Transaction History', path: '/inventory/transactions', icon: History },
+      { label: 'Reports', path: '/inventory/reports', icon: FileBarChart2 },
+      { label: 'Inventory Settings', path: '/inventory/settings', icon: SlidersHorizontal },
     ],
   },
   {
