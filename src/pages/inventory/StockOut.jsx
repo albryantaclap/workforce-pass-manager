@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Download } from 'lucide-react';
+import { Plus, Search, Download, AlertTriangle } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { exportStockOutExcel } from '@/lib/inventoryExcelExport';
+import { fetchAllEmployees } from '@/lib/inventoryEmployees';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
 import StockOutFormModal from '@/components/inventory/StockOutFormModal';
@@ -21,24 +22,45 @@ export default function StockOut() {
   const user = useCurrentUser();
   const { can } = useRbac();
 
-  const refresh = () => queryClient.invalidateQueries(['inventory-transactions']);
+  // Load all employees from Workforce Master List for live join
+  const { data: employees = [] } = useQuery({
+    queryKey: ['workforce-employees-all'],
+    queryFn: fetchAllEmployees,
+    staleTime: 30000,
+  });
+
+  // Build employee_id → employee map for live info display
+  const employeeMap = useMemo(() => new Map(employees.map(e => [e.id, e])), [employees]);
+
+  const refresh = () => {
+    queryClient.invalidateQueries(['inventory-transactions']);
+    queryClient.invalidateQueries(['workforce-employees-all']);
+  };
 
   const filtered = useMemo(() => {
     let result = transactions.filter(t => t.transaction_type === 'STOCK_OUT');
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(t =>
-        (t.item_sn || '').toLowerCase().includes(q) ||
-        (t.item_name || '').toLowerCase().includes(q) ||
-        (t.employee_name || '').toLowerCase().includes(q) ||
-        (t.pid || '').toLowerCase().includes(q) ||
-        (t.iv_no || '').toLowerCase().includes(q)
-      );
+      result = result.filter(t => {
+        // Search using live employee info when available
+        const emp = t.employee_id ? employeeMap.get(t.employee_id) : null;
+        const liveName = emp?.name || t.employee_name || '';
+        const livePid = emp?.pid || t.pid || '';
+        const liveCompany = emp?.company || t.company || '';
+        return (
+          (t.item_sn || '').toLowerCase().includes(q) ||
+          (t.item_name || '').toLowerCase().includes(q) ||
+          liveName.toLowerCase().includes(q) ||
+          livePid.toLowerCase().includes(q) ||
+          liveCompany.toLowerCase().includes(q) ||
+          (t.iv_no || '').toLowerCase().includes(q)
+        );
+      });
     }
     if (fromDate) result = result.filter(t => t.transaction_date >= fromDate);
     if (toDate) result = result.filter(t => t.transaction_date <= toDate);
     return result.sort((a, b) => (b.transaction_date || '').localeCompare(a.transaction_date || ''));
-  }, [transactions, search, fromDate, toDate]);
+  }, [transactions, search, fromDate, toDate, employeeMap]);
 
   return (
     <div className="p-6 space-y-4">
@@ -90,21 +112,35 @@ export default function StockOut() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(t => (
-                <TableRow key={t.id}>
-                  <TableCell>{t.transaction_date}</TableCell>
-                  <TableCell className="font-mono font-semibold">{t.item_sn}</TableCell>
-                  <TableCell className="font-medium">{t.item_name}</TableCell>
-                  <TableCell>{t.unit}</TableCell>
-                  <TableCell>{t.iv_no || '—'}</TableCell>
-                  <TableCell>{t.site || '—'}</TableCell>
-                  <TableCell className="font-mono">{t.pid || '—'}</TableCell>
-                  <TableCell>{t.employee_name || '—'}</TableCell>
-                  <TableCell>{t.company || '—'}</TableCell>
-                  <TableCell className="text-right font-bold text-orange-600">-{t.quantity_abs}</TableCell>
-                  <TableCell>{t.remarks || '—'}</TableCell>
-                </TableRow>
-              ))}
+              {filtered.map(t => {
+                const emp = t.employee_id ? employeeMap.get(t.employee_id) : null;
+                const liveName = emp?.name || t.employee_name || '';
+                const livePid = emp?.pid || t.pid || '';
+                const liveCompany = emp?.company || t.company || '';
+                const unmatched = !t.employee_id && t.pid;
+                return (
+                  <TableRow key={t.id} className={unmatched ? 'bg-amber-50' : ''}>
+                    <TableCell>{t.transaction_date}</TableCell>
+                    <TableCell className="font-mono font-semibold">{t.item_sn}</TableCell>
+                    <TableCell className="font-medium">{t.item_name}</TableCell>
+                    <TableCell>{t.unit}</TableCell>
+                    <TableCell>{t.iv_no || '—'}</TableCell>
+                    <TableCell>{t.site || '—'}</TableCell>
+                    <TableCell className="font-mono">{livePid || '—'}</TableCell>
+                    <TableCell>
+                      {liveName || '—'}
+                      {unmatched && (
+                        <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] text-amber-600 font-semibold">
+                          <AlertTriangle className="w-3 h-3" /> Match Required
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>{liveCompany || '—'}</TableCell>
+                    <TableCell className="text-right font-bold text-orange-600">-{t.quantity_abs}</TableCell>
+                    <TableCell>{t.remarks || '—'}</TableCell>
+                  </TableRow>
+                );
+              })}
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">

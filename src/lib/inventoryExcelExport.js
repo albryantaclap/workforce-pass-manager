@@ -180,6 +180,51 @@ export function exportTransactionHistoryExcel(transactions) {
   wb.xlsx.writeBuffer().then(buf => download(buf, 'Transaction_History.xlsx'));
 }
 
+export function exportEmployeeIssuanceExcel(employee, transactions) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Employee Issuance');
+  const headers = ['Date', 'I/V No.', 'Item S.N.', 'Item Name', 'Unit', 'Site', 'Qty', 'Remarks'];
+  writeTitle(ws, `EMPLOYEE ISSUANCE — ${employee.name || ''}`, headers.length);
+  writeHeaders(ws, headers);
+
+  // Employee info block
+  ws.mergeCells(2, 1, 2, headers.length);
+  const infoCell = ws.getCell(2, 1);
+  const infoText = [
+    `PID: ${employee.pid || ''}`,
+    `QID: ${employee.qid_no || ''}`,
+    `Company: ${employee.company || ''}`,
+    `Department: ${employee.department || ''}`,
+    `Designation: ${employee.position_application || employee.designation_org_chart || ''}`,
+  ].join('  |  ');
+  applyCell(infoCell, infoText, CLR.colHdr, font(false, 9), align('left', false));
+  ws.getRow(2).height = 18;
+
+  const rows = transactions.map(t => [
+    t.transaction_date, t.iv_no || '', t.item_sn || '', t.item_name || '',
+    t.unit || '', t.site || '', t.quantity_abs || 0, t.remarks || '',
+  ]);
+  rows.forEach((row, ri) => {
+    row.forEach((v, ci) => {
+      const c = ws.getCell(ri + 4, ci + 1);
+      applyCell(c, v, CLR.outBg, font(false, 9), align(ci === 3 ? 'left' : 'center'));
+    });
+  });
+
+  // Totals row
+  const totalRow = rows.length + 4;
+  const totalQty = transactions.reduce((s, t) => s + (t.quantity_abs || 0), 0);
+  const distinctItems = new Set(transactions.map(t => t.item_id).filter(Boolean)).size;
+  ws.mergeCells(totalRow, 1, totalRow, 6);
+  applyCell(ws.getCell(totalRow, 1), 'TOTALS', CLR.totalBg, font(true, 9, CLR.totalFg), align('center'));
+  applyCell(ws.getCell(totalRow, 7), totalQty, CLR.totalBg, font(true, 9, CLR.totalFg), align('center'));
+  applyCell(ws.getCell(totalRow, 8), `${distinctItems} items`, CLR.totalBg, font(true, 9, CLR.totalFg), align('center'));
+
+  autoWidth(ws, headers, rows);
+  const safeName = (employee.name || 'employee').replace(/[^a-zA-Z0-9]/g, '_');
+  wb.xlsx.writeBuffer().then(buf => download(buf, `Employee_Issuance_${safeName}.xlsx`));
+}
+
 function download(buf, filename) {
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);

@@ -71,14 +71,14 @@ export default function StockOutFormModal({ open, onClose, onSaved, items, sites
   const handleEmployeeSelect = (emp) => {
     setForm(f => ({
       ...f,
-      pid: String(emp.staff_no || emp.pid || ''),
+      pid: String(emp.pid || ''),
       employee_id: emp.id,
       employee_name: emp.name,
       company: emp.company || '',
       department: emp.department || '',
       designation: emp.position_application || emp.designation_org_chart || '',
     }));
-    setEmpSearch(emp.name);
+    setEmpSearch(`${emp.name} — PID: ${emp.pid || ''}`);
     setEmpDropdownOpen(false);
   };
 
@@ -197,7 +197,7 @@ export default function StockOutFormModal({ open, onClose, onSaved, items, sites
                   >
                     <span className="truncate flex-1">{emp.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {emp.staff_no || emp.pid || emp.qid_no || ''}
+                      PID: {emp.pid || ''} {emp.company ? `• ${emp.company}` : ''}
                     </span>
                   </button>
                 ))}
