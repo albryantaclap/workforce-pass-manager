@@ -26,6 +26,39 @@ export async function fetchItemById(id) {
   return ITEM.get(id);
 }
 
+/**
+ * Search inventory items by Item S.N. or Item Name (debounced from UI).
+ * Returns a limited result set to avoid loading the full database.
+ */
+export async function searchItems(query, limit = 50) {
+  const all = await ITEM.list('-created_date', 100000);
+  let result = all.filter(i => !i.is_archived);
+  if (query && query.trim()) {
+    const q = query.toLowerCase();
+    result = result.filter(i =>
+      (i.item_sn || '').toLowerCase().includes(q) ||
+      (i.item_name || '').toLowerCase().includes(q)
+    );
+  }
+  return result.slice(0, limit);
+}
+
+/**
+ * Find items with names similar to the given name (for duplicate warning).
+ */
+export async function findSimilarItems(itemName, excludeId) {
+  if (!itemName || !itemName.trim()) return [];
+  const q = itemName.toLowerCase().trim();
+  const all = await ITEM.list('-created_date', 100000);
+  return all
+    .filter(i => !i.is_archived && i.id !== excludeId && (
+      (i.item_name || '').toLowerCase().trim() === q ||
+      (i.item_name || '').toLowerCase().includes(q) ||
+      q.includes((i.item_name || '').toLowerCase())
+    ))
+    .slice(0, 10);
+}
+
 export async function createItem(data) {
   return ITEM.create(data);
 }
