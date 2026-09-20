@@ -3,10 +3,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Pencil, Archive, ArchiveRestore, Upload, Download, Eye } from 'lucide-react';
+import { Plus, Search, Pencil, Archive, ArchiveRestore, Upload, Download } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
-import { archiveItem, unarchiveItem, fetchTransactions, calculateAvailableStock, getStockStatus } from '@/lib/inventoryService';
+import { archiveItem, unarchiveItem, calculateAvailableStock, getStockStatus } from '@/lib/inventoryService';
 import { exportItemsExcel } from '@/lib/inventoryExcelExport';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
@@ -15,6 +16,8 @@ import InventoryItemFormModal from '@/components/inventory/InventoryItemFormModa
 import InventoryImportDialog from '@/components/inventory/InventoryImportDialog';
 import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
+import MultiSelect from '@/components/common/MultiSelect';
+import { InventoryFilterPanel, FilterField, FilterNumberRange, FilterDateRange } from '@/components/inventory/InventoryFilterPanel';
 
 export default function InventoryItems() {
   const { items, transactions, getLookupOptions, isLoading } = useInventoryData();
@@ -23,11 +26,35 @@ export default function InventoryItems() {
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [viewItem, setViewItem] = useState(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const user = useCurrentUser();
   const { can } = useRbac();
+
+  // Filter state
+  const [categoryFilter, setCategoryFilter] = useState([]);
+  const [unitFilter, setUnitFilter] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [hasTxnFilter, setHasTxnFilter] = useState('');
+  const [minStockMin, setMinStockMin] = useState('');
+  const [minStockMax, setMinStockMax] = useState('');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
+  const [updatedFrom, setUpdatedFrom] = useState('');
+  const [updatedTo, setUpdatedTo] = useState('');
+
+  const categories = getLookupOptions('item_category');
+  const units = getLookupOptions('unit');
+
+  // Precompute which items have transactions
+  const itemTxnMap = useMemo(() => {
+    const map = {};
+    for (const t of transactions) {
+      if (t.is_deleted) continue;
+      map[t.item_id] = (map[t.item_id] || 0) + 1;
+    }
+    return map;
+  }, [transactions]);
 
   const refresh = () => {
     queryClient.invalidateQueries(['inventory-items']);
@@ -37,23 +64,97 @@ export default function InventoryItems() {
   const filtered = useMemo(() => {
     let result = items;
     if (!showArchived) result = result.filter(i => !i.is_archived);
+
+    // General search across S.N., Name, Category, Unit
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(i =>
         (i.item_sn || '').toLowerCase().includes(q) ||
         (i.item_name || '').toLowerCase().includes(q) ||
-        (i.category || '').toLowerCase().includes(q)
+        (i.category || '').toLowerCase().includes(q) ||
+        (i.unit || '').toLowerCase().includes(q)
       );
     }
-    return result.sort((a, b) => (a.item_sn || '').localeCompare(b.item_sn || ''));
-  }, [items, search, showArchived]);
 
-  // Pagination
-  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, showArchived]);
+    // Category multi-select
+    if (categoryFilter.length > 0) {
+      result = result.filter(i => categoryFilter.includes(i.category));
+    }
+
+    // Unit multi-select
+    if (unitFilter.length > 0) {
+      result = result.filter(i => unitFilter.includes(i.unit));
+    }
+
+    // Stock status
+    if (statusFilter) {
+      result = result.filter(i => {
+        const available = calculateAvailableStock(transactions, i.id);
+        const status = getStockStatus(available, i.min_stock_level);
+        if (statusFilter === 'In Stock') return status === 'Available';
+        return status === statusFilter;
+      });
+    }
+
+    // Has transactions
+    if (hasTxnFilter) {
+      result = result.filter(i => {
+        const hasTxn = (itemTxnMap[i.id] || 0) > 0;
+        return hasTxnFilter === 'yes' ? hasTxn : !hasTxn;
+      });
+    }
+
+    // Min stock level range
+    if (minStockMin !== '' || minStockMax !== '') {
+      result = result.filter(i => {
+        const min = i.min_stock_level || 0;
+        if (minStockMin !== '' && min < Number(minStockMin)) return false;
+        if (minStockMax !== '' && min > Number(minStockMax)) return false;
+        return true;
+      });
+    }
+
+    // Created date range
+    if (createdFrom) result = result.filter(i => (i.created_date || '') >= createdFrom);
+    if (createdTo) result = result.filter(i => (i.created_date || '') <= createdTo);
+
+    // Updated date range
+    if (updatedFrom) result = result.filter(i => (i.updated_date || '') >= updatedFrom);
+    if (updatedTo) result = result.filter(i => (i.updated_date || '') <= updatedTo);
+
+    return result.sort((a, b) => (a.item_sn || '').localeCompare(b.item_sn || ''));
+  }, [items, transactions, search, showArchived, categoryFilter, unitFilter, statusFilter, hasTxnFilter, minStockMin, minStockMax, createdFrom, createdTo, updatedFrom, updatedTo, itemTxnMap]);
+
+  const allFilterDeps = [search, showArchived, categoryFilter, unitFilter, statusFilter, hasTxnFilter, minStockMin, minStockMax, createdFrom, createdTo, updatedFrom, updatedTo];
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, allFilterDeps);
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const currentPage = Math.min(page, totalPages - 1);
   const pageData = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
-  const isFiltered = !!(search || showArchived);
+
+  const activeFilterCount = [
+    categoryFilter.length > 0,
+    unitFilter.length > 0,
+    statusFilter !== '',
+    hasTxnFilter !== '',
+    minStockMin !== '' || minStockMax !== '',
+    createdFrom !== '' || createdTo !== '',
+    updatedFrom !== '' || updatedTo !== '',
+  ].filter(Boolean).length;
+
+  const isFiltered = !!(search || showArchived || activeFilterCount > 0);
+
+  const clearFilters = () => {
+    setCategoryFilter([]);
+    setUnitFilter([]);
+    setStatusFilter('');
+    setHasTxnFilter('');
+    setMinStockMin('');
+    setMinStockMax('');
+    setCreatedFrom('');
+    setCreatedTo('');
+    setUpdatedFrom('');
+    setUpdatedTo('');
+  };
 
   const handleArchive = async (item) => {
     if (!confirm(`Archive item "${item.item_sn} — ${item.item_name}"? It will be hidden from active lists but retained for history.`)) return;
@@ -111,7 +212,7 @@ export default function InventoryItems() {
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search by S.N., name, or category..."
+            placeholder="Search by S.N., name, category, or unit..."
             className="pl-9"
           />
         </div>
@@ -122,6 +223,52 @@ export default function InventoryItems() {
           {showArchived ? 'Showing Archived' : 'Show Archived'}
         </Button>
       </div>
+
+      <InventoryFilterPanel
+        activeCount={activeFilterCount}
+        onClear={clearFilters}
+        totalFiltered={filtered.length}
+        totalAll={items.filter(i => !i.is_archived).length}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <FilterField label="Category">
+            <MultiSelect options={categories.map(c => ({ value: c.value, label: c.label }))} value={categoryFilter} onChange={setCategoryFilter} placeholder="All Categories" />
+          </FilterField>
+          <FilterField label="Unit / UOM">
+            <MultiSelect options={units.map(u => ({ value: u.value, label: u.label }))} value={unitFilter} onChange={setUnitFilter} placeholder="All Units" />
+          </FilterField>
+          <FilterField label="Stock Status">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={null}>All Status</SelectItem>
+                <SelectItem value="In Stock">In Stock</SelectItem>
+                <SelectItem value="Low Stock">Low Stock</SelectItem>
+                <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Has Transactions">
+            <Select value={hasTxnFilter} onValueChange={setHasTxnFilter}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={null}>All</SelectItem>
+                <SelectItem value="yes">Yes — Has Transactions</SelectItem>
+                <SelectItem value="no">No — No Transactions</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Min Stock Level">
+            <FilterNumberRange min={minStockMin} max={minStockMax} onMin={setMinStockMin} onMax={setMinStockMax} />
+          </FilterField>
+          <FilterField label="Created Date">
+            <FilterDateRange from={createdFrom} to={createdTo} onFrom={setCreatedFrom} onTo={setCreatedTo} />
+          </FilterField>
+          <FilterField label="Last Updated">
+            <FilterDateRange from={updatedFrom} to={updatedTo} onFrom={setUpdatedFrom} onTo={setUpdatedTo} />
+          </FilterField>
+        </div>
+      </InventoryFilterPanel>
 
       <Card className="border-slate-200">
         <div className="table-scroll-x">

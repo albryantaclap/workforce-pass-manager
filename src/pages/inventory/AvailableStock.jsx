@@ -11,30 +11,54 @@ import { exportAvailableStockExcel } from '@/lib/inventoryExcelExport';
 import { useRbac } from '@/lib/useRbac';
 import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
+import MultiSelect from '@/components/common/MultiSelect';
+import { InventoryFilterPanel, FilterField, FilterNumberRange } from '@/components/inventory/InventoryFilterPanel';
 
 export default function AvailableStock() {
   const { items, transactions, getLookupOptions, isLoading } = useInventoryData();
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
   const { can } = useRbac();
 
+  // Filter state
+  const [categoryFilter, setCategoryFilter] = useState([]);
+  const [unitFilter, setUnitFilter] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [availMin, setAvailMin] = useState('');
+  const [availMax, setAvailMax] = useState('');
+  const [minLevelMin, setMinLevelMin] = useState('');
+  const [minLevelMax, setMinLevelMax] = useState('');
+  const [hasStockInFilter, setHasStockInFilter] = useState('');
+  const [hasStockOutFilter, setHasStockOutFilter] = useState('');
+
   const categories = getLookupOptions('item_category');
+  const units = getLookupOptions('unit');
+
+  // Precompute which items have stock in / stock out
+  const hasStockInMap = useMemo(() => {
+    const map = {};
+    for (const t of transactions) {
+      if (t.is_deleted) continue;
+      if (t.transaction_type === 'STOCK_IN') map[t.item_id] = true;
+    }
+    return map;
+  }, [transactions]);
+
+  const hasStockOutMap = useMemo(() => {
+    const map = {};
+    for (const t of transactions) {
+      if (t.is_deleted) continue;
+      if (t.transaction_type === 'STOCK_OUT') map[t.item_id] = true;
+    }
+    return map;
+  }, [transactions]);
 
   const rows = useMemo(() => {
     let result = items.filter(i => !i.is_archived);
 
-    // Date-filtered transactions for stock in/out calculations
-    let filteredTxns = transactions;
-    if (fromDate) filteredTxns = filteredTxns.filter(t => t.transaction_date >= fromDate);
-    if (toDate) filteredTxns = filteredTxns.filter(t => t.transaction_date <= toDate);
-
     result = result.map(item => {
-      const stockIn = calculateStockIn(filteredTxns, item.id);
-      const stockOut = calculateStockOut(filteredTxns, item.id);
-      const available = calculateAvailableStock(transactions, item.id); // Always use all txns for current available
+      const stockIn = calculateStockIn(transactions, item.id);
+      const stockOut = calculateStockOut(transactions, item.id);
+      const available = calculateAvailableStock(transactions, item.id);
       const status = getStockStatus(available, item.min_stock_level);
       return {
         ...item,
@@ -43,6 +67,7 @@ export default function AvailableStock() {
       };
     });
 
+    // General search
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(r =>
@@ -50,18 +75,87 @@ export default function AvailableStock() {
         (r.item_name || '').toLowerCase().includes(q)
       );
     }
-    if (categoryFilter) result = result.filter(r => r.category === categoryFilter);
-    if (statusFilter) result = result.filter(r => r.status === statusFilter);
+
+    // Category
+    if (categoryFilter.length > 0) {
+      result = result.filter(r => categoryFilter.includes(r.category));
+    }
+
+    // Unit
+    if (unitFilter.length > 0) {
+      result = result.filter(r => unitFilter.includes(r.unit));
+    }
+
+    // Stock status
+    if (statusFilter) {
+      result = result.filter(r => r.status === statusFilter);
+    }
+
+    // Available quantity range
+    if (availMin !== '' || availMax !== '') {
+      result = result.filter(r => {
+        if (availMin !== '' && r.available < Number(availMin)) return false;
+        if (availMax !== '' && r.available > Number(availMax)) return false;
+        return true;
+      });
+    }
+
+    // Min stock level range
+    if (minLevelMin !== '' || minLevelMax !== '') {
+      result = result.filter(r => {
+        const min = r.min_stock_level || 0;
+        if (minLevelMin !== '' && min < Number(minLevelMin)) return false;
+        if (minLevelMax !== '' && min > Number(minLevelMax)) return false;
+        return true;
+      });
+    }
+
+    // Has stock in
+    if (hasStockInFilter) {
+      result = result.filter(r => {
+        const has = hasStockInMap[r.id];
+        return hasStockInFilter === 'yes' ? has : !has;
+      });
+    }
+
+    // Has stock out
+    if (hasStockOutFilter) {
+      result = result.filter(r => {
+        const has = hasStockOutMap[r.id];
+        return hasStockOutFilter === 'yes' ? has : !has;
+      });
+    }
 
     return result.sort((a, b) => (a.item_sn || '').localeCompare(b.item_sn || ''));
-  }, [items, transactions, search, categoryFilter, statusFilter, fromDate, toDate]);
+  }, [items, transactions, search, categoryFilter, unitFilter, statusFilter, availMin, availMax, minLevelMin, minLevelMax, hasStockInFilter, hasStockOutFilter, hasStockInMap, hasStockOutMap]);
 
-  // Pagination
-  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, categoryFilter, statusFilter, fromDate, toDate]);
+  const allFilterDeps = [search, categoryFilter, unitFilter, statusFilter, availMin, availMax, minLevelMin, minLevelMax, hasStockInFilter, hasStockOutFilter];
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, allFilterDeps);
   const totalPages = Math.max(1, Math.ceil(rows.length / rowsPerPage));
   const currentPage = Math.min(page, totalPages - 1);
   const pageData = rows.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
-  const isFiltered = !!(search || categoryFilter || statusFilter || fromDate || toDate);
+
+  const activeFilterCount = [
+    categoryFilter.length > 0,
+    unitFilter.length > 0,
+    statusFilter !== '',
+    availMin !== '' || availMax !== '',
+    minLevelMin !== '' || minLevelMax !== '',
+    hasStockInFilter !== '',
+    hasStockOutFilter !== '',
+  ].filter(Boolean).length;
+
+  const isFiltered = !!(search || activeFilterCount > 0);
+
+  const clearFilters = () => {
+    setCategoryFilter([]);
+    setUnitFilter([]);
+    setStatusFilter('');
+    setAvailMin(''); setAvailMax('');
+    setMinLevelMin(''); setMinLevelMax('');
+    setHasStockInFilter('');
+    setHasStockOutFilter('');
+  };
 
   return (
     <div className="p-6 space-y-4">
@@ -77,31 +171,63 @@ export default function AvailableStock() {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="pl-9" />
-        </div>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="All Categories" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={null}>All Categories</SelectItem>
-            {categories.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="All Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={null}>All Status</SelectItem>
-            <SelectItem value="Available">Available</SelectItem>
-            <SelectItem value="Low Stock">Low Stock</SelectItem>
-            <SelectItem value="Out of Stock">Out of Stock</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-auto" />
-        <span className="text-xs text-muted-foreground">to</span>
-        <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-auto" />
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by S.N. or name..." className="pl-9" />
       </div>
+
+      <InventoryFilterPanel
+        activeCount={activeFilterCount}
+        onClear={clearFilters}
+        totalFiltered={rows.length}
+        totalAll={items.filter(i => !i.is_archived).length}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <FilterField label="Category">
+            <MultiSelect options={categories.map(c => ({ value: c.value, label: c.label }))} value={categoryFilter} onChange={setCategoryFilter} placeholder="All Categories" />
+          </FilterField>
+          <FilterField label="Unit / UOM">
+            <MultiSelect options={units.map(u => ({ value: u.value, label: u.label }))} value={unitFilter} onChange={setUnitFilter} placeholder="All Units" />
+          </FilterField>
+          <FilterField label="Stock Status">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={null}>All Status</SelectItem>
+                <SelectItem value="Available">In Stock</SelectItem>
+                <SelectItem value="Low Stock">Low Stock</SelectItem>
+                <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Available Quantity">
+            <FilterNumberRange min={availMin} max={availMax} onMin={setAvailMin} onMax={setAvailMax} />
+          </FilterField>
+          <FilterField label="Min Stock Level">
+            <FilterNumberRange min={minLevelMin} max={minLevelMax} onMin={setMinLevelMin} onMax={setMinLevelMax} />
+          </FilterField>
+          <FilterField label="Has Stock In">
+            <Select value={hasStockInFilter} onValueChange={setHasStockInFilter}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={null}>All</SelectItem>
+                <SelectItem value="yes">Yes — Has Stock In</SelectItem>
+                <SelectItem value="no">No — No Stock In</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Has Stock Out">
+            <Select value={hasStockOutFilter} onValueChange={setHasStockOutFilter}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={null}>All</SelectItem>
+                <SelectItem value="yes">Yes — Has Stock Out</SelectItem>
+                <SelectItem value="no">No — No Stock Out</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+        </div>
+      </InventoryFilterPanel>
 
       <Card className="border-slate-200">
         <div className="table-scroll-x">
