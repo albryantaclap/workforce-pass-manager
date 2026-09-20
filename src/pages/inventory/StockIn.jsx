@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
 import { useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -185,6 +186,7 @@ export default function StockIn() {
 
   return (
     <div className="p-6 space-y-4">
+      <InventorySubmenuNav />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Stock In</h1>

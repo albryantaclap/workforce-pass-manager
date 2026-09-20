@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,6 +55,7 @@ export default function InventorySettings() {
 
   return (
     <div className="p-6 space-y-4">
+      <InventorySubmenuNav />
       <div>
         <h1 className="text-2xl font-bold">Inventory Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage lookup values used in dropdowns across the Inventory module</p>

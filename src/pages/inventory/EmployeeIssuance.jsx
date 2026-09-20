@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -92,6 +93,7 @@ export default function EmployeeIssuance() {
 
   return (
     <div className="p-6 space-y-4">
+      <InventorySubmenuNav />
       <div>
         <h1 className="text-2xl font-bold">Employee Issuance</h1>
         <p className="text-sm text-muted-foreground mt-1">View all inventory/materials issued to individual personnel</p>

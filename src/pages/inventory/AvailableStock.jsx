@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -159,6 +160,7 @@ export default function AvailableStock() {
 
   return (
     <div className="p-6 space-y-4">
+      <InventorySubmenuNav />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Available Stock</h1>
