@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { useManagerFilter } from '@/hooks/useManagerFilter';
-import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, Printer } from 'lucide-react';
+import { Stethoscope, ShieldCheck, GraduationCap, BadgeCheck, Users, Printer, LayoutDashboard, Clock, Building2 } from 'lucide-react';
 import FilterToolbar from '@/components/common/FilterToolbar';
+import SubmenuNav from '@/components/common/SubmenuNav';
 import RecentUpdates from '@/components/dashboard/RecentUpdates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,17 @@ import ReportConfigModal from '@/components/dashboard/ReportConfigModal';
 import ExpiryMonitoringCards from '@/components/dashboard/ExpiryMonitoringCards';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
+
+const WORKFORCE_SUBMENU = [
+  { label: 'Dashboard', icon: LayoutDashboard, path: '/', exact: true, gradient: 'from-blue-400 to-blue-600' },
+  { label: 'Master List', icon: Users, path: '/master-list', gradient: 'from-violet-400 to-purple-600' },
+  { label: 'Medical', icon: Stethoscope, path: '/medical', gradient: 'from-rose-400 to-pink-600' },
+  { label: 'Gate Pass', icon: ShieldCheck, path: '/gatepass', gradient: 'from-emerald-400 to-green-600' },
+  { label: 'Project ID', icon: BadgeCheck, path: '/project-id', gradient: 'from-indigo-400 to-indigo-600' },
+  { label: 'Training', icon: GraduationCap, path: '/training', gradient: 'from-orange-400 to-orange-500' },
+  { label: 'COMO Camp', icon: Building2, path: '/como-camp', gradient: 'from-teal-400 to-cyan-600' },
+  { label: 'Daily Attendance', icon: Clock, path: '/daily-attendance', gradient: 'from-amber-400 to-yellow-500' },
+];
 
 export default function Dashboard() {
   const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
@@ -514,6 +526,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Submenu Navigation */}
+      <SubmenuNav items={WORKFORCE_SUBMENU} />
 
       {/* Filters Panel */}
       <FilterToolbar

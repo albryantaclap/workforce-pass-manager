@@ -4,12 +4,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Package, ArrowDownCircle, ArrowUpCircle, AlertTriangle, PackageX,
   Users, Boxes, Activity, Archive, TrendingUp, MapPin, Tag, Truck,
+  LayoutDashboard, FileBarChart,
 } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { calculateDashboardStats as calcStats } from '@/lib/inventoryService';
 import InventoryMovementChart from '@/components/inventory/InventoryMovementChart';
+import SubmenuNav from '@/components/common/SubmenuNav';
 
 const fmt = (n) => (n || 0).toLocaleString();
+
+const INVENTORY_SUBMENU = [
+  { label: 'Dashboard', icon: LayoutDashboard, path: '/inventory', exact: true, gradient: 'from-blue-400 to-blue-600' },
+  { label: 'Items', icon: Package, path: '/inventory/items', gradient: 'from-indigo-400 to-indigo-600' },
+  { label: 'Stock In', icon: ArrowDownCircle, path: '/inventory/stock-in', gradient: 'from-green-400 to-green-600' },
+  { label: 'Stock Out', icon: ArrowUpCircle, path: '/inventory/stock-out', gradient: 'from-orange-400 to-orange-500' },
+  { label: 'Available Stock', icon: Boxes, path: '/inventory/available', gradient: 'from-emerald-400 to-teal-600' },
+  { label: 'Transactions', icon: Activity, path: '/inventory/transactions', gradient: 'from-cyan-400 to-blue-600' },
+  { label: 'Reports', icon: FileBarChart, path: '/inventory/reports', gradient: 'from-purple-400 to-purple-600' },
+  { label: 'Employee Issuance', icon: Users, path: '/inventory/employee-issuance', gradient: 'from-violet-400 to-purple-600' },
+];
 
 export default function InventoryDashboard() {
   const { items, transactions, isLoading } = useInventoryData();
@@ -41,10 +54,18 @@ export default function InventoryDashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Inventory Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Live inventory overview calculated from transaction ledger</p>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+          <Package className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Inventory Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Live inventory overview calculated from transaction ledger</p>
+        </div>
       </div>
+
+      {/* Submenu Navigation */}
+      <SubmenuNav items={INVENTORY_SUBMENU} />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
