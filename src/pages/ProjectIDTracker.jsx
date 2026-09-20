@@ -24,6 +24,7 @@ import TrackerFilters from '../components/common/TrackerFilters';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useManagerFilter } from '@/hooks/useManagerFilter';
+import WorkforceSubmenuNav from '@/components/common/WorkforceSubmenuNav';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
 
@@ -272,6 +273,7 @@ export default function ProjectIDTracker() {
 
   return (
     <div className="space-y-5">
+      <WorkforceSubmenuNav />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center">

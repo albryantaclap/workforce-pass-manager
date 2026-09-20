@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { useManagerFilter } from '@/hooks/useManagerFilter';
+import WorkforceSubmenuNav from '@/components/common/WorkforceSubmenuNav';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -1031,6 +1032,7 @@ export default function ComoCamp() {
 
   return (
     <div className="space-y-5">
+      <WorkforceSubmenuNav />
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div>

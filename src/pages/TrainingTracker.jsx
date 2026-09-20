@@ -23,6 +23,7 @@ import ExportButton from '../components/common/ExportButton';
 import TrackerFilters from '../components/common/TrackerFilters';
 import { useToast } from '@/components/ui/use-toast';
 import { useManagerFilter } from '@/hooks/useManagerFilter';
+import WorkforceSubmenuNav from '@/components/common/WorkforceSubmenuNav';
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#eab308', '#ef4444', '#6b7280', '#94a3b8'];
 
@@ -182,6 +183,7 @@ export default function TrainingTracker() {
 
   return (
     <div className="space-y-5">
+      <WorkforceSubmenuNav />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center">
