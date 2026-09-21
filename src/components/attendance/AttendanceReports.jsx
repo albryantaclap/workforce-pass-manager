@@ -59,12 +59,24 @@ export default function AttendanceReports({
   const [showWeekly, setShowWeekly] = useState(false);
   const [showPwr, setShowPwr] = useState(false);
 
+  const monthStart = (ds) => {
+    const d = ds ? new Date(ds + 'T00:00:00') : new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString('en-CA');
+  };
+  const monthEnd = (ds) => {
+    const d = ds ? new Date(ds + 'T00:00:00') : new Date();
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toLocaleDateString('en-CA');
+  };
+
   const handleReportType = (key) => {
     setReportType(key);
     if (key === 'weekly') {
       const mon = mondayOf();
       setDateFrom(mon);
       setDateTo(shiftDays(mon, 6));
+    } else if (key === 'monthly') {
+      setDateFrom(monthStart());
+      setDateTo(monthEnd());
     }
   };
 
