@@ -6,14 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import SearchableSelect from '@/components/common/SearchableSelect';
-import { createStockIn } from '@/lib/inventoryService';
+import { createStockIn, uploadInventoryFile } from '@/lib/inventoryService';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function StockInFormModal({ open, onClose, onSaved, items, stores, suppliers, user }) {
   const [form, setForm] = useState({
     transaction_date: new Date().toISOString().slice(0, 10),
     item_id: '', item_sn: '', item_name: '', unit: '',
-    dn_no: '', mrf_no: '', lpo: '', supplier: '', store: '', quantity: '', remarks: '',
+    dn_no: '', mrf_no: '', lpo: '', supplier: '', store: '', quantity: '', remarks: '', dn_file_url: '',
   });
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -23,7 +23,7 @@ export default function StockInFormModal({ open, onClose, onSaved, items, stores
       setForm({
         transaction_date: new Date().toISOString().slice(0, 10),
         item_id: '', item_sn: '', item_name: '', unit: '',
-        dn_no: '', mrf_no: '', lpo: '', supplier: '', store: '', quantity: '', remarks: '',
+        dn_no: '', mrf_no: '', lpo: '', supplier: '', store: '', quantity: '', remarks: '', dn_file_url: '',
       });
     }
   }, [open]);
@@ -35,6 +35,22 @@ export default function StockInFormModal({ open, onClose, onSaved, items, stores
         ...f, item_id: item.id, item_sn: item.item_sn,
         item_name: item.item_name, unit: item.unit,
       }));
+    }
+  };
+
+  const [uploading, setUploading] = useState(false);
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const file_url = await uploadInventoryFile(file);
+      setForm(f => ({ ...f, dn_file_url: file_url }));
+      toast({ title: 'DN scan uploaded' });
+    } catch {
+      toast({ title: 'Upload failed', variant: 'destructive' });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -51,6 +67,7 @@ export default function StockInFormModal({ open, onClose, onSaved, items, stores
         quantity: Number(form.quantity),
         dn_no: form.dn_no, mrf_no: form.mrf_no, lpo: form.lpo,
         supplier: form.supplier, store: form.store, remarks: form.remarks,
+        dn_file_url: form.dn_file_url,
       }, user);
       toast({ title: 'Stock In recorded successfully' });
       onSaved?.();
@@ -140,6 +157,15 @@ export default function StockInFormModal({ open, onClose, onSaved, items, stores
           <div>
             <Label>Remarks</Label>
             <Textarea value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} rows={2} />
+          </div>
+          <div>
+            <Label>DN Scan Upload (optional)</Label>
+            <div className="flex items-center gap-2">
+              <input type="file" accept="image/*,application/pdf" onChange={handleFileUpload}
+                className="text-xs file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs" />
+              {uploading && <span className="text-xs text-muted-foreground">Uploading...</span>}
+              {form.dn_file_url && <span className="text-xs text-green-600">✓ Uploaded</span>}
+            </div>
           </div>
         </div>
         <DialogFooter>

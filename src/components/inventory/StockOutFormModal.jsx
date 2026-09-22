@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import SearchableSelect from '@/components/common/SearchableSelect';
-import { createStockOut, fetchTransactions, calculateAvailableStock, searchEmployees } from '@/lib/inventoryService';
+import { createStockOut, fetchTransactions, calculateAvailableStock, searchEmployees, uploadInventoryFile } from '@/lib/inventoryService';
 import { useToast } from '@/components/ui/use-toast';
 import { useQuery } from '@tanstack/react-query';
 
@@ -16,7 +16,7 @@ export default function StockOutFormModal({ open, onClose, onSaved, items, sites
     item_id: '', item_sn: '', item_name: '', unit: '', available: 0,
     iv_no: '', site: '', store: '', pid: '',
     employee_id: '', employee_name: '', company: '', department: '', designation: '',
-    quantity: '', remarks: '',
+    quantity: '', remarks: '', voucher_file_url: '',
   });
   const [empSearch, setEmpSearch] = useState('');
   const [empDropdownOpen, setEmpDropdownOpen] = useState(false);
@@ -44,7 +44,7 @@ export default function StockOutFormModal({ open, onClose, onSaved, items, sites
         item_id: '', item_sn: '', item_name: '', unit: '', available: 0,
         iv_no: '', site: '', store: '', pid: '',
         employee_id: '', employee_name: '', company: '', department: '', designation: '',
-        quantity: '', remarks: '',
+        quantity: '', remarks: '', voucher_file_url: '',
       });
       setEmpSearch('');
       setEmpDropdownOpen(false);
@@ -82,6 +82,22 @@ export default function StockOutFormModal({ open, onClose, onSaved, items, sites
     setEmpDropdownOpen(false);
   };
 
+  const [uploading, setUploading] = useState(false);
+  const handleVoucherUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const file_url = await uploadInventoryFile(file);
+      setForm(f => ({ ...f, voucher_file_url: file_url }));
+      toast({ title: 'Store voucher uploaded' });
+    } catch {
+      toast({ title: 'Upload failed', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!form.item_id || !form.quantity || Number(form.quantity) <= 0) {
       toast({ title: 'Item and quantity are required', variant: 'destructive' });
@@ -105,6 +121,7 @@ export default function StockOutFormModal({ open, onClose, onSaved, items, sites
         employee_name: form.employee_name, company: form.company,
         department: form.department, designation: form.designation,
         remarks: form.remarks,
+        voucher_file_url: form.voucher_file_url,
       }, user);
       toast({ title: 'Stock Out recorded successfully' });
       onSaved?.();
@@ -222,6 +239,15 @@ export default function StockOutFormModal({ open, onClose, onSaved, items, sites
           <div>
             <Label>Remarks</Label>
             <Textarea value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} rows={2} />
+          </div>
+          <div>
+            <Label>Store Voucher Upload (optional)</Label>
+            <div className="flex items-center gap-2">
+              <input type="file" accept="image/*,application/pdf" onChange={handleVoucherUpload}
+                className="text-xs file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs" />
+              {uploading && <span className="text-xs text-muted-foreground">Uploading...</span>}
+              {form.voucher_file_url && <span className="text-xs text-green-600">✓ Uploaded</span>}
+            </div>
           </div>
         </div>
         <DialogFooter>

@@ -182,6 +182,7 @@ export async function createStockIn(data, user) {
     new_balance: newBalance,
     created_by: user?.email || '',
     created_by_name: user?.full_name || user?.email || '',
+    dn_file_url: data.dn_file_url || '',
     remarks: data.remarks || '',
   });
 }
@@ -225,6 +226,100 @@ export async function createStockOut(data, user) {
     department: data.department || '',
     designation: data.designation || '',
     previous_balance: available,
+    new_balance: newBalance,
+    created_by: user?.email || '',
+    created_by_name: user?.full_name || user?.email || '',
+    voucher_file_url: data.voucher_file_url || '',
+    remarks: data.remarks || '',
+  });
+}
+
+/**
+ * Generate an Internal Delivery Note number (IDN-YYYYMMDD-XXXX).
+ */
+export function generateInternalDnNo() {
+  const d = new Date();
+  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  return `IDN-${ymd}-${rand}`;
+}
+
+/**
+ * Upload a file (DN scan, store voucher, etc.) to public storage.
+ */
+export async function uploadInventoryFile(file) {
+  const { file_url } = await base44.integrations.Core.UploadPublicFile({ file });
+  return file_url;
+}
+
+/**
+ * Create a Stock Transfer transaction (store to store).
+ * Net quantity is 0 — total available stock is unchanged; only store distribution shifts.
+ */
+export async function createStockTransfer(data, user) {
+  const item = await fetchItemById(data.item_id);
+  if (!item) throw new Error('Item not found');
+
+  const allTxns = await fetchTransactions({ item_id: data.item_id });
+  const available = calculateAvailableStock(allTxns, data.item_id);
+
+  if (data.quantity > available) {
+    throw new Error(`Insufficient stock. Available: ${available} ${item.unit || ''}`.trim());
+  }
+
+  return TXN.create({
+    transaction_date: data.transaction_date,
+    transaction_type: 'TRANSFER',
+    item_id: data.item_id,
+    item_sn: item.item_sn,
+    item_name: item.item_name,
+    unit: item.unit,
+    quantity: 0,
+    quantity_abs: data.quantity,
+    transfer_from_store: data.from_store || '',
+    transfer_to_store: data.to_store || '',
+    store: data.to_store || '',
+    internal_dn_no: data.internal_dn_no || '',
+    dn_file_url: data.dn_file_url || '',
+    previous_balance: available,
+    new_balance: available,
+    created_by: user?.email || '',
+    created_by_name: user?.full_name || user?.email || '',
+    remarks: data.remarks || '',
+  });
+}
+
+/**
+ * Create a Return transaction (items returned by employee).
+ * Quantity is positive — adds stock back to available.
+ */
+export async function createReturn(data, user) {
+  const item = await fetchItemById(data.item_id);
+  if (!item) throw new Error('Item not found');
+
+  const allTxns = await fetchTransactions({ item_id: data.item_id });
+  const prevBalance = calculateAvailableStock(allTxns, data.item_id);
+  const newBalance = prevBalance + data.quantity;
+
+  return TXN.create({
+    transaction_date: data.transaction_date,
+    transaction_type: 'RETURN',
+    item_id: data.item_id,
+    item_sn: item.item_sn,
+    item_name: item.item_name,
+    unit: item.unit,
+    quantity: data.quantity,
+    quantity_abs: data.quantity,
+    store: data.store || '',
+    return_of: data.original_txn_id || '',
+    return_reason: data.return_reason || '',
+    pid: data.pid || '',
+    employee_id: data.employee_id || '',
+    employee_name: data.employee_name || '',
+    company: data.company || '',
+    department: data.department || '',
+    designation: data.designation || '',
+    previous_balance: prevBalance,
     new_balance: newBalance,
     created_by: user?.email || '',
     created_by_name: user?.full_name || user?.email || '',
@@ -295,6 +390,8 @@ export function calculateDashboardStats(items, transactions) {
     } else if (t.transaction_type === 'STOCK_OUT') {
       itemAggs[id].stockOut += t.quantity_abs || 0;
       itemAggs[id].available += t.quantity || 0;
+    } else if (t.transaction_type === 'RETURN') {
+      itemAggs[id].available += t.quantity || 0;
     }
   }
 
@@ -336,9 +433,18 @@ export function calculateDashboardStats(items, transactions) {
   // ── Stock by store ──
   const stockByStore = {};
   for (const t of validTxns) {
+    if (t.transaction_type === 'TRANSFER') {
+      const fromStore = t.transfer_from_store || 'Unspecified';
+      const toStore = t.transfer_to_store || 'Unspecified';
+      if (!stockByStore[fromStore]) stockByStore[fromStore] = { store: fromStore, stockIn: 0, stockOut: 0, available: 0 };
+      if (!stockByStore[toStore]) stockByStore[toStore] = { store: toStore, stockIn: 0, stockOut: 0, available: 0 };
+      stockByStore[fromStore].available -= t.quantity_abs || 0;
+      stockByStore[toStore].available += t.quantity_abs || 0;
+      continue;
+    }
     const store = t.store || 'Unspecified';
     if (!stockByStore[store]) stockByStore[store] = { store, stockIn: 0, stockOut: 0, available: 0 };
-    if (t.transaction_type === 'STOCK_IN') stockByStore[store].stockIn += t.quantity_abs || 0;
+    if (t.transaction_type === 'STOCK_IN' || t.transaction_type === 'RETURN') stockByStore[store].stockIn += t.quantity_abs || 0;
     if (t.transaction_type === 'STOCK_OUT') stockByStore[store].stockOut += t.quantity_abs || 0;
     stockByStore[store].available += t.quantity || 0;
   }
@@ -413,6 +519,25 @@ export function calculateDashboardStats(items, transactions) {
     .filter(a => a.status !== 'Available')
     .sort((a, b) => a.available - b.available);
 
+  // ── TPC & Calibration expiry alerts (within 45 days) ──
+  const nowDate = new Date();
+  const expiryAlerts = activeItems
+    .filter(i => i.is_equipment)
+    .map(i => {
+      const tpcExpiry = i.tpc_expiry ? new Date(i.tpc_expiry + 'T00:00:00') : null;
+      const calExpiry = i.calibration_expiry ? new Date(i.calibration_expiry + 'T00:00:00') : null;
+      const tpcDaysLeft = tpcExpiry ? Math.ceil((tpcExpiry - nowDate) / 86400000) : null;
+      const calDaysLeft = calExpiry ? Math.ceil((calExpiry - nowDate) / 86400000) : null;
+      return {
+        item_sn: i.item_sn, item_name: i.item_name,
+        equipment_serial_no: i.equipment_serial_no || '',
+        tpc_expiry: i.tpc_expiry || '', tpc_days_left: tpcDaysLeft,
+        calibration_expiry: i.calibration_expiry || '', cal_days_left: calDaysLeft,
+      };
+    })
+    .filter(a => (a.tpc_days_left !== null && a.tpc_days_left <= 45) || (a.cal_days_left !== null && a.cal_days_left <= 45))
+    .sort((a, b) => Math.min(a.tpc_days_left ?? 9999, a.cal_days_left ?? 9999) - Math.min(b.tpc_days_left ?? 9999, b.cal_days_left ?? 9999));
+
   return {
     totalItems: activeItems.length,
     archivedCount,
@@ -435,6 +560,7 @@ export function calculateDashboardStats(items, transactions) {
     topSuppliers,
     monthlyMovement,
     lowStockAlerts,
+    expiryAlerts,
   };
 }
 

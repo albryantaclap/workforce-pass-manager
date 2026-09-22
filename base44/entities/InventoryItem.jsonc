@@ -23,6 +23,33 @@
       "default": 0,
       "description": "Minimum stock level \u2014 at or below this = Low Stock alert"
     },
+    "bin_location": {
+      "type": "string",
+      "description": "Bin location for physical storage (e.g. BIN-A1)"
+    },
+    "rack_location": {
+      "type": "string",
+      "description": "Rack location for physical storage (e.g. RACK-03)"
+    },
+    "is_equipment": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this item is equipment/tool requiring TPC and calibration expiry tracking"
+    },
+    "equipment_serial_no": {
+      "type": "string",
+      "description": "Individual equipment serial number (for equipment/tools with individual serial numbers)"
+    },
+    "tpc_expiry": {
+      "type": "string",
+      "format": "date",
+      "description": "TPC (Third Party Certification) expiry date (equipment/tools only)"
+    },
+    "calibration_expiry": {
+      "type": "string",
+      "format": "date",
+      "description": "Calibration certificate expiry date (equipment/tools only)"
+    },
     "is_archived": {
       "type": "boolean",
       "default": false,

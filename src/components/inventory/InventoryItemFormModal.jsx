@@ -34,10 +34,16 @@ export default function InventoryItemFormModal({ open, onClose, onSaved, item, u
         category: item.category || '',
         min_stock_level: item.min_stock_level || 0,
         remarks: item.remarks || '',
+        bin_location: item.bin_location || '',
+        rack_location: item.rack_location || '',
+        is_equipment: item.is_equipment || false,
+        equipment_serial_no: item.equipment_serial_no || '',
+        tpc_expiry: item.tpc_expiry || '',
+        calibration_expiry: item.calibration_expiry || '',
       });
     } else {
       setSelectedExisting(null);
-      setForm({ item_sn: '', item_name: '', unit: '', category: '', min_stock_level: 0, remarks: '' });
+      setForm({ item_sn: '', item_name: '', unit: '', category: '', min_stock_level: 0, remarks: '', bin_location: '', rack_location: '', is_equipment: false, equipment_serial_no: '', tpc_expiry: '', calibration_expiry: '' });
     }
     setError('');
     setSimilarItems([]);
@@ -52,6 +58,12 @@ export default function InventoryItemFormModal({ open, onClose, onSaved, item, u
       category: existingItem.category || '',
       min_stock_level: existingItem.min_stock_level || 0,
       remarks: existingItem.remarks || '',
+      bin_location: existingItem.bin_location || '',
+      rack_location: existingItem.rack_location || '',
+      is_equipment: existingItem.is_equipment || false,
+      equipment_serial_no: existingItem.equipment_serial_no || '',
+      tpc_expiry: existingItem.tpc_expiry || '',
+      calibration_expiry: existingItem.calibration_expiry || '',
     });
     setError('');
     setSimilarItems([]);
@@ -59,7 +71,7 @@ export default function InventoryItemFormModal({ open, onClose, onSaved, item, u
 
   const handleCreateNew = () => {
     setSelectedExisting(null);
-    setForm({ item_sn: '', item_name: '', unit: '', category: '', min_stock_level: 0, remarks: '' });
+    setForm({ item_sn: '', item_name: '', unit: '', category: '', min_stock_level: 0, remarks: '', bin_location: '', rack_location: '', is_equipment: false, equipment_serial_no: '', tpc_expiry: '', calibration_expiry: '' });
     setError('');
     setSimilarItems([]);
   };
@@ -78,6 +90,12 @@ export default function InventoryItemFormModal({ open, onClose, onSaved, item, u
       const payload = {
         ...form,
         min_stock_level: Number(form.min_stock_level) || 0,
+        bin_location: form.bin_location || '',
+        rack_location: form.rack_location || '',
+        is_equipment: form.is_equipment || false,
+        equipment_serial_no: form.equipment_serial_no || '',
+        tpc_expiry: form.tpc_expiry || '',
+        calibration_expiry: form.calibration_expiry || '',
         updated_by: user?.email || '',
       };
 
@@ -122,6 +140,12 @@ export default function InventoryItemFormModal({ open, onClose, onSaved, item, u
       const payload = {
         ...form,
         min_stock_level: Number(form.min_stock_level) || 0,
+        bin_location: form.bin_location || '',
+        rack_location: form.rack_location || '',
+        is_equipment: form.is_equipment || false,
+        equipment_serial_no: form.equipment_serial_no || '',
+        tpc_expiry: form.tpc_expiry || '',
+        calibration_expiry: form.calibration_expiry || '',
         updated_by: user?.email || '',
       };
       await createItem(payload);
@@ -201,6 +225,52 @@ export default function InventoryItemFormModal({ open, onClose, onSaved, item, u
             <Label>Remarks</Label>
             <Textarea value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })}
               rows={2} />
+          </div>
+
+          {/* Bin & Rack Location */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Bin Location</Label>
+              <Input value={form.bin_location} onChange={e => setForm({ ...form, bin_location: e.target.value })}
+                placeholder="e.g. BIN-A1" />
+            </div>
+            <div>
+              <Label>Rack Location</Label>
+              <Input value={form.rack_location} onChange={e => setForm({ ...form, rack_location: e.target.value })}
+                placeholder="e.g. RACK-03" />
+            </div>
+          </div>
+
+          {/* Equipment Tracking (TPC & Calibration) */}
+          <div className="space-y-3 border-t border-slate-200 pt-3">
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="is_equipment" checked={form.is_equipment}
+                onChange={e => setForm({ ...form, is_equipment: e.target.checked })}
+                className="rounded border-slate-300" />
+              <Label htmlFor="is_equipment" className="cursor-pointer text-sm">
+                Equipment / Tool (requires TPC & Calibration tracking)
+              </Label>
+            </div>
+            {form.is_equipment && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Equipment Serial No.</Label>
+                  <Input value={form.equipment_serial_no}
+                    onChange={e => setForm({ ...form, equipment_serial_no: e.target.value })} />
+                </div>
+                <div></div>
+                <div>
+                  <Label>TPC Expiry</Label>
+                  <Input type="date" value={form.tpc_expiry}
+                    onChange={e => setForm({ ...form, tpc_expiry: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Calibration Expiry</Label>
+                  <Input type="date" value={form.calibration_expiry}
+                    onChange={e => setForm({ ...form, calibration_expiry: e.target.value })} />
+                </div>
+              </div>
+            )}
           </div>
 
           {error && (

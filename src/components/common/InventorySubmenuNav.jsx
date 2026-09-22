@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Package, ArrowDownCircle, ArrowUpCircle, Boxes, Activity,
-  FileBarChart, Users, LayoutDashboard, Settings,
+  FileBarChart, Users, LayoutDashboard, Settings, ArrowLeftRight, Undo2,
 } from 'lucide-react';
 import SubmenuNav from '@/components/common/SubmenuNav';
 
@@ -14,6 +14,8 @@ const INVENTORY_SUBMENU = [
   { label: 'Transactions', icon: Activity, path: '/inventory/transactions', gradient: 'from-cyan-400 to-blue-600' },
   { label: 'Reports', icon: FileBarChart, path: '/inventory/reports', gradient: 'from-purple-400 to-purple-600' },
   { label: 'Employee Issuance', icon: Users, path: '/inventory/employee-issuance', gradient: 'from-violet-400 to-purple-600' },
+  { label: 'Stock Transfer', icon: ArrowLeftRight, path: '/inventory/stock-transfer', gradient: 'from-sky-400 to-blue-600' },
+  { label: 'Return Items', icon: Undo2, path: '/inventory/returns', gradient: 'from-rose-400 to-red-600' },
   { label: 'Inventory Settings', icon: Settings, path: '/inventory/settings', gradient: 'from-slate-400 to-slate-600' },
 ];
 

@@ -39,6 +39,8 @@ import EmployeeIssuance from './pages/inventory/EmployeeIssuance';
 import TransactionHistory from './pages/inventory/TransactionHistory';
 import InventoryReports from './pages/inventory/InventoryReports';
 import InventorySettings from './pages/inventory/InventorySettings';
+import StockTransfer from './pages/inventory/StockTransfer';
+import ReturnItems from './pages/inventory/ReturnItems';
 
 
 const AuthenticatedApp = () => {
@@ -109,6 +111,8 @@ const AuthenticatedApp = () => {
         <Route path="/inventory/transactions" element={<TransactionHistory />} />
         <Route path="/inventory/reports" element={<InventoryReports />} />
         <Route path="/inventory/settings" element={<InventorySettings />} />
+        <Route path="/inventory/stock-transfer" element={<StockTransfer />} />
+        <Route path="/inventory/returns" element={<ReturnItems />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

@@ -12,9 +12,11 @@
       "enum": [
         "STOCK_IN",
         "STOCK_OUT",
-        "ADJUSTMENT"
+        "ADJUSTMENT",
+        "TRANSFER",
+        "RETURN"
       ],
-      "description": "Transaction type: STOCK_IN (received), STOCK_OUT (issued), ADJUSTMENT (correction)"
+      "description": "Transaction type: STOCK_IN (received), STOCK_OUT (issued), ADJUSTMENT (correction), TRANSFER (store-to-store), RETURN (items returned by employee)"
     },
     "item_id": {
       "type": "string",
@@ -34,7 +36,7 @@
     },
     "quantity": {
       "type": "number",
-      "description": "Signed quantity: positive for STOCK_IN, negative for STOCK_OUT. Current stock = SUM(quantity) for an item."
+      "description": "Signed quantity: positive for STOCK_IN/RETURN, negative for STOCK_OUT, 0 for TRANSFER. Current stock = SUM(quantity) for an item."
     },
     "quantity_abs": {
       "type": "number",
@@ -58,7 +60,7 @@
     },
     "store": {
       "type": "string",
-      "description": "Store location (Stock In / Stock Out)"
+      "description": "Store location (Stock In / Stock Out / Return)"
     },
     "iv_no": {
       "type": "string",
@@ -70,11 +72,11 @@
     },
     "pid": {
       "type": "string",
-      "description": "Employee PID number (Stock Out \u2014 references Master List)"
+      "description": "Employee PID number (Stock Out / Return \u2014 references Master List)"
     },
     "employee_id": {
       "type": "string",
-      "description": "Linked Employee record ID from Master List (Stock Out)"
+      "description": "Linked Employee record ID from Master List (Stock Out / Return)"
     },
     "employee_name": {
       "type": "string",
@@ -91,6 +93,34 @@
     "designation": {
       "type": "string",
       "description": "Employee designation (denormalized from Master List)"
+    },
+    "transfer_from_store": {
+      "type": "string",
+      "description": "Source store for a TRANSFER transaction (store-to-store transfer)"
+    },
+    "transfer_to_store": {
+      "type": "string",
+      "description": "Destination store for a TRANSFER transaction (store-to-store transfer)"
+    },
+    "internal_dn_no": {
+      "type": "string",
+      "description": "Internal Delivery Note number (auto-generated for TRANSFER transactions, e.g. IDN-YYYYMMDD-XXXX)"
+    },
+    "dn_file_url": {
+      "type": "string",
+      "description": "Uploaded scanned Delivery Note file URL (Stock In / Transfer)"
+    },
+    "voucher_file_url": {
+      "type": "string",
+      "description": "Uploaded scanned store voucher file URL (Stock Out)"
+    },
+    "return_of": {
+      "type": "string",
+      "description": "ID of the original STOCK_OUT transaction this return reverses (RETURN transactions)"
+    },
+    "return_reason": {
+      "type": "string",
+      "description": "Reason for the return (RETURN transactions)"
     },
     "previous_balance": {
       "type": "number",

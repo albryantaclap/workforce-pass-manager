@@ -147,6 +147,48 @@ export default function InventoryDashboard() {
         </Card>
       </div>
 
+      {/* TPC & Calibration Expiry Alerts */}
+      {stats.expiryAlerts && stats.expiryAlerts.length > 0 && (
+        <Card className="border-slate-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+              TPC & Calibration Expiry Alerts (Within 45 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {stats.expiryAlerts.map((a) => (
+                <div key={a.item_sn} className="flex items-center justify-between p-2 rounded-lg border border-slate-100">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{a.item_sn} — {a.item_name}</p>
+                    <p className="text-xs text-muted-foreground">S/N: {a.equipment_serial_no || '—'}</p>
+                  </div>
+                  <div className="flex gap-4 text-xs ml-2">
+                    {a.tpc_days_left !== null && (
+                      <div className="text-right">
+                        <p className="text-muted-foreground">TPC</p>
+                        <p className={`font-bold ${a.tpc_days_left <= 0 ? 'text-red-600' : a.tpc_days_left <= 15 ? 'text-orange-600' : 'text-amber-600'}`}>
+                          {a.tpc_days_left <= 0 ? 'Expired' : `${a.tpc_days_left}d`}
+                        </p>
+                      </div>
+                    )}
+                    {a.cal_days_left !== null && (
+                      <div className="text-right">
+                        <p className="text-muted-foreground">Calibration</p>
+                        <p className={`font-bold ${a.cal_days_left <= 0 ? 'text-red-600' : a.cal_days_left <= 15 ? 'text-orange-600' : 'text-amber-600'}`}>
+                          {a.cal_days_left <= 0 ? 'Expired' : `${a.cal_days_left}d`}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Row: Top Issued Items | Stock by Category */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-slate-200">
