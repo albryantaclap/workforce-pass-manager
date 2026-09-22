@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, Users, UserCheck, Search, CheckSquare } from 'lucide-react';
+import { Plus, Trash2, Users, UserCheck, Search, CheckSquare, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -20,6 +20,8 @@ export default function ManagerAssignmentManager() {
   const [bulkBy, setBulkBy] = useState('company');
   const [bulkValue, setBulkValue] = useState('');
   const [bulking, setBulking] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // All active employees
   const { data: employees = [], isLoading } = useQuery({
@@ -132,6 +134,35 @@ export default function ManagerAssignmentManager() {
       toast.error(err?.message || 'Bulk assign failed.');
     } finally {
       setBulking(false);
+    }
+  };
+
+  const handleResetAll = async () => {
+    setResetting(true);
+    try {
+      const assigned = employees.filter(e => e.assigned_manager_id);
+      if (assigned.length === 0) {
+        toast.info('No assigned managers to reset.');
+        setShowResetConfirm(false);
+        return;
+      }
+      const payload = assigned.map(e => ({
+        id: e.id,
+        assigned_manager_id: null,
+        assigned_manager_name: null,
+      }));
+      const CHUNK = 500;
+      for (let i = 0; i < payload.length; i += CHUNK) {
+        await base44.entities.Employee.bulkUpdate(payload.slice(i, i + CHUNK));
+      }
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      toast.success(`Cleared assigned manager from ${assigned.length} employees`);
+      setShowResetConfirm(false);
+    } catch (err) {
+      toast.error(err?.message || 'Reset failed.');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -305,7 +336,21 @@ export default function ManagerAssignmentManager() {
         </TabsContent>
 
         {/* ── Tab 3: Manager Overview ── */}
-        <TabsContent value="managers" className="mt-4">
+        <TabsContent value="managers" className="mt-4 space-y-4">
+          <Card className="p-4 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p className="text-sm font-semibold">Reset All Assigned Managers</p>
+              <p className="text-xs text-muted-foreground">Clears the assigned manager from every employee. Manager flags (Is Manager) are not affected.</p>
+            </div>
+            <Button
+              variant="destructive"
+              onClick={() => setShowResetConfirm(true)}
+              disabled={resetting}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              {resetting ? 'Resetting...' : 'Reset All'}
+            </Button>
+          </Card>
           <Card className="overflow-hidden">
             <CardHeader className="pb-3"><CardTitle className="text-sm">Managers & Employee Count</CardTitle></CardHeader>
             <Table>
@@ -346,6 +391,31 @@ export default function ManagerAssignmentManager() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Reset confirmation dialog */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => !resetting && setShowResetConfirm(false)}>
+          <div className="bg-card rounded-lg shadow-xl max-w-sm w-full mx-4 p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold">Reset All Assigned Managers?</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  This will clear the assigned manager from <strong>{employees.filter(e => e.assigned_manager_id).length}</strong> employees. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowResetConfirm(false)} disabled={resetting}>Cancel</Button>
+              <Button variant="destructive" onClick={handleResetAll} disabled={resetting}>
+                {resetting ? 'Resetting...' : 'Yes, Reset All'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
