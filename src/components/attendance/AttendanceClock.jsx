@@ -58,7 +58,7 @@ export default function AttendanceClock({ employees = [], onRecorded }) {
       );
       const punchType = hasOpen ? "OUT" : "IN";
 
-      await recordPunch({
+      const result = await recordPunch({
         personnelId: emp.id,
         employeeName: emp.name,
         company: emp.company || "",
@@ -70,7 +70,13 @@ export default function AttendanceClock({ employees = [], onRecorded }) {
         currentUser: user,
       });
 
-      setSuccessType(hasOpen ? "out" : "in");
+      // For split shifts, recordPunch returns punchKey (FIRST_IN/SECOND_IN = IN,
+      // FIRST_OUT/FINAL_OUT = OUT). For normal shifts, fall back to punchType.
+      const punchKey = result?.punchKey;
+      const isIn = punchKey
+        ? (punchKey === 'FIRST_IN' || punchKey === 'SECOND_IN')
+        : (punchType === 'IN');
+      setSuccessType(isIn ? 'in' : 'out');
       setSuccessEmployee(emp);
       setStep(STEP.SUCCESS);
       if (onRecorded) onRecorded();

@@ -11,7 +11,7 @@ import {
   calculateDurationFromRecord, calculateOvertime, calculateLate,
   calculateDailyStatus, hasShiftExpired, resolveShift, resolveShiftBounds,
   getNextExpectedPunch, getMissingPunchLabel, isWorkingDay, isHoliday,
-  isSplitEffective, determineSplitExpectedPunch, resolvePunchWindow,
+  isSplitEffective, isSplitShiftEnabled, determineSplitExpectedPunch, resolvePunchWindow,
   punchDirection, punchSequence, calculateAttendanceState,
 } from './attendanceEngine';
 
@@ -143,13 +143,31 @@ export async function recordPunch({
   // local date — so the punch window is built on the same day the shift runs.
   const attDate = timestamp.toLocaleDateString('en-CA', { timeZone: 'Asia/Qatar' });
 
-  // ── Split-shift path ──
-  // When the employee's shift has split-shift rules enabled and effective for
-  // this date, route through the split-shift punch processor. Normal shifts
-  // keep their existing behavior unchanged.
   let emp = { id: personnelId, company };
   try { emp = (await base44.entities.Employee.get(personnelId)) || emp; } catch {}
   const shift = resolveShift(emp, assignments, shifts, settings);
+
+  // ── Cross-midnight split-shift: resolve the shift-start date ──
+  // For cross-midnight split-shifts, the attendance date is the shift-start
+  // date, which may be the previous calendar day when the punch occurs after
+  // midnight. If there is an open session from the previous date whose shift
+  // has not yet expired, continue that session instead of starting a new one.
+  let effectiveAttDate = attDate;
+  if (shift && shift.cross_midnight && isSplitShiftEnabled(shift)) {
+    const prevDate = new Date(timestamp);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateStr = prevDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Qatar' });
+    if (isSplitEffective(shift, prevDateStr) && !hasShiftExpired(shift, prevDateStr, settings?.auto_close_buffer_minutes ?? 120)) {
+      const prevSessions = await base44.entities.AttendanceRecord.filter(
+        { personnel_id: personnelId, attendance_date: prevDateStr, is_deleted: { $ne: true } },
+        undefined, 100
+      );
+      if (prevSessions.some(r => r.status === 'open')) {
+        effectiveAttDate = prevDateStr;
+      }
+    }
+  }
+
   console.debug('[recordPunch] resolved shift', {
     personnelId,
     employee: emp?.name || employeeName,
@@ -159,12 +177,18 @@ export async function recordPunch({
     shiftId: shift?.id,
     shiftName: shift?.shift_name,
     splitEnabled: shift?.split_shift_enabled,
-    splitEffective: shift ? isSplitEffective(shift, attDate) : false,
+    splitEffective: shift ? isSplitEffective(shift, effectiveAttDate) : false,
     attDate,
+    effectiveAttDate,
   });
-  if (shift && isSplitEffective(shift, attDate)) {
+
+  // ── Split-shift path ──
+  // When the employee's shift has split-shift rules enabled and effective for
+  // the resolved attendance date, route through the split-shift punch processor.
+  // Normal shifts keep their existing behavior unchanged.
+  if (shift && isSplitEffective(shift, effectiveAttDate)) {
     return processSplitPunch({
-      personnelId, employeeName, company, shift, attDate, timestamp,
+      personnelId, employeeName, company, shift, attDate: effectiveAttDate, timestamp,
       source, location, workLocation, currentUser, settings,
       shiftId: shift.id, shiftName: shift.shift_name,
     });
