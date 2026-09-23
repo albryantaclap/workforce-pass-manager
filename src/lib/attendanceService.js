@@ -78,6 +78,12 @@ export async function autoCloseExpiredSessions(personnelId, settings, shifts, as
   if (!personnelId || !settings?.auto_close_open_sessions) return [];
   const buffer = settings.auto_close_buffer_minutes ?? 120;
 
+  // Fetch the full employee record for correct shift resolution (by department,
+  // branch, etc.). Without this, cross-midnight shifts assigned by department or
+  // branch would fall back to the default shift and be incorrectly auto-closed.
+  let emp = { id: personnelId };
+  try { emp = (await base44.entities.Employee.get(personnelId)) || emp; } catch {}
+
   // Find all open sessions for this employee
   const openRecords = await base44.entities.AttendanceRecord.filter(
     { personnel_id: personnelId, status: 'open', is_deleted: { $ne: true } },
@@ -86,9 +92,8 @@ export async function autoCloseExpiredSessions(personnelId, settings, shifts, as
 
   const closed = [];
   for (const rec of openRecords) {
-    // Resolve the shift for this record's date
-    const dummyEmp = { id: personnelId, company: rec.company };
-    const shift = resolveShift(dummyEmp, assignments, shifts, settings);
+    // Resolve the shift using the full employee record
+    const shift = resolveShift(emp, assignments, shifts, settings);
     const effectiveShift = shift || {
       start_time: settings.default_shift_start,
       end_time: settings.default_shift_end,
@@ -154,16 +159,41 @@ export async function recordPunch({
   // has not yet expired, continue that session instead of starting a new one.
   let effectiveAttDate = attDate;
   if (shift && shift.cross_midnight && isSplitShiftEnabled(shift)) {
-    const prevDate = new Date(timestamp);
-    prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateStr = prevDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Qatar' });
-    if (isSplitEffective(shift, prevDateStr) && !hasShiftExpired(shift, prevDateStr, settings?.auto_close_buffer_minutes ?? 120)) {
-      const prevSessions = await base44.entities.AttendanceRecord.filter(
-        { personnel_id: personnelId, attendance_date: prevDateStr, is_deleted: { $ne: true } },
-        undefined, 100
+    // Search for any open session for this employee whose cross-midnight shift
+    // hasn't expired yet. The session may have been started on a previous
+    // calendar day (e.g., 23 Sep for a punch at 01:00 on 24 Sep). Continue that
+    // session instead of starting a new one on the current calendar date.
+    const allOpen = await base44.entities.AttendanceRecord.filter(
+      { personnel_id: personnelId, status: 'open', is_deleted: { $ne: true } },
+      '-attendance_date', 50
+    );
+    const continuing = allOpen.find(r => {
+      if (r.attendance_date === attDate) return false; // today's session handled normally
+      if (!isSplitEffective(shift, r.attendance_date)) return false;
+      if (hasShiftExpired(shift, r.attendance_date, settings?.auto_close_buffer_minutes ?? 120)) return false;
+      return true;
+    });
+    if (continuing) {
+      effectiveAttDate = continuing.attendance_date;
+    } else {
+      // No open session found — check for a session that was incorrectly
+      // auto-closed (Missing Check-out) even though the cross-midnight shift
+      // hasn't actually expired yet. Re-open it so the punch can continue.
+      const recent = await base44.entities.AttendanceRecord.filter(
+        { personnel_id: personnelId, status: 'completed', is_deleted: { $ne: true } },
+        '-attendance_date', 50
       );
-      if (prevSessions.some(r => r.status === 'open')) {
-        effectiveAttDate = prevDateStr;
+      const wronglyClosed = recent.find(r => {
+        if (r.attendance_date === attDate) return false;
+        if (!isSplitEffective(shift, r.attendance_date)) return false;
+        if (hasShiftExpired(shift, r.attendance_date, settings?.auto_close_buffer_minutes ?? 120)) return false;
+        if (r.attendance_status !== 'Missing Check-out') return false;
+        // Only re-open if the split sequence is incomplete (has first_in but no final_out)
+        return (r.first_in_at || r.check_in_at) && !(r.final_out_at || r.check_out_at);
+      });
+      if (wronglyClosed) {
+        await base44.entities.AttendanceRecord.update(wronglyClosed.id, { status: 'open' });
+        effectiveAttDate = wronglyClosed.attendance_date;
       }
     }
   }

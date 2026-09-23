@@ -76,7 +76,7 @@ function getMissingPunchLabel(record: any) {
   return "";
 }
 
-function resolveShiftForRecord(record: any, assignments: any[], shifts: any[], settings: any) {
+function resolveShiftForRecord(record: any, assignments: any[], shifts: any[], settings: any, emp?: any) {
   const shiftMap = new Map(shifts.filter((s: any) => s.is_active !== false).map((s: any) => [s.id, s]));
   const tryResolve = (a: any) => shiftMap.get(a.shift_id);
 
@@ -86,15 +86,23 @@ function resolveShiftForRecord(record: any, assignments: any[], shifts: any[], s
   );
   if (empAssign) { const s = tryResolve(empAssign); if (s) return s; }
 
-  // Branch
-  if (record.work_location) {
+  // Branch — prefer employee's current_location, fall back to record's work_location
+  const branchLocation = emp?.current_location || record.work_location;
+  if (branchLocation) {
     const branchAssign = assignments.find((a: any) =>
-      a.is_active !== false && a.assignment_type === "branch" && a.branch_location === record.work_location
+      a.is_active !== false && a.assignment_type === "branch" && a.branch_location === branchLocation
     );
     if (branchAssign) { const s = tryResolve(branchAssign); if (s) return s; }
   }
 
-  // Department — we don't have department on the record, skip
+  // Department — from the employee record (not available on the attendance record)
+  if (emp?.department) {
+    const deptAssign = assignments.find((a: any) =>
+      a.is_active !== false && a.assignment_type === "department" && a.department === emp.department
+    );
+    if (deptAssign) { const s = tryResolve(deptAssign); if (s) return s; }
+  }
+
   // Company
   if (record.company) {
     const coAssign = assignments.find((a: any) =>
@@ -148,9 +156,22 @@ Deno.serve(async (req) => {
     let closedCount = 0;
     const closedDetails: any[] = [];
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+    const empCache = new Map<string, any>();
+    const getEmp = async (id: string) => {
+      if (empCache.has(id)) return empCache.get(id);
+      try {
+        const emp = await base44.entities.Employee.get(id);
+        empCache.set(id, emp);
+        return emp;
+      } catch {
+        empCache.set(id, null);
+        return null;
+      }
+    };
 
     for (const rec of openRecords) {
-      const shift = resolveShiftForRecord(rec, assignments, shifts, settings);
+      const emp = await getEmp(rec.personnel_id);
+      const shift = resolveShiftForRecord(rec, assignments, shifts, settings, emp);
       if (!hasShiftExpired(shift, rec.attendance_date, buffer)) continue;
 
       const missingLabel = getMissingPunchLabel(rec);
