@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
-import { usePermissions } from '@/lib/usePermissions';
+import { useRbac } from '@/lib/useRbac';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Edit2, X, Clock, Calendar, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
@@ -24,7 +24,8 @@ const SETTINGS_TABS = [
 
 export default function AttendanceSettings({ settings, shifts, assignments, holidays, employees }) {
   const [activeTab, setActiveTab] = useState('working-days');
-  const { canEdit } = usePermissions();
+  const { can } = useRbac();
+  const canEdit = can('attendance.settings.manage');
 
   return (
     <div className="space-y-4">

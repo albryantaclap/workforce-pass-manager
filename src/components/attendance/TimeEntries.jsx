@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, Eye, X } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, Eye, X, Download } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import AttendanceKpiCards from './AttendanceKpiCards';
 import AttendanceFilterBar from './AttendanceFilterBar';
 import ManualEntryDialog from './ManualEntryDialog';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
-import { usePermissions } from '@/lib/usePermissions';
+import { useRbac } from '@/lib/useRbac';
 import { useAuth } from '@/lib/AuthContext';
 import {
   formatTimeShort, formatDateShort, formatMinutes, getDurationColor,
@@ -26,7 +26,10 @@ export default function TimeEntries({
 }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { canEdit } = usePermissions();
+  const { can } = useRbac();
+  const canEditEntry = can('attendance.entries.edit');
+  const canDeleteEntry = can('attendance.entries.delete');
+  const canExportEntry = can('attendance.entries.export');
   const [showAbsent, setShowAbsent] = useState(true);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
@@ -94,6 +97,25 @@ export default function TimeEntries({
     }
   };
 
+  // Export the current page's attendance data to CSV.
+  const exportCSV = () => {
+    const headers = ['Employee', 'Designation', 'QID', 'PID', 'Company', 'Dept', 'Branch', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status'];
+    const csvRows = rows.map(({ emp, att, status }) => [
+      emp.name || '', emp.position_application || '', emp.qid_no || '', emp.pid || '',
+      emp.company || '', emp.department || '', emp.current_location || '',
+      selectedDate,
+      att?.first_in_at || att?.check_in_at || '', att?.first_out_at || '',
+      att?.second_in_at || '', att?.final_out_at || att?.check_out_at || '',
+      att?.duration_minutes || 0, att?.overtime_minutes || 0, status,
+    ]);
+    const csv = [headers, ...csvRows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `time-entries-${selectedDate}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
   // Render a single punch cell. Done punches show the time; for split-shift
   // employees, not-yet-done punches show "Waiting" until their window passes,
   // then "Missed" — never "Missed" while the shift is still in progress.
@@ -146,7 +168,12 @@ export default function TimeEntries({
                 className="rounded" />
               Show Absent Employees
             </label>
-            {canEdit && (
+            {canExportEntry && (
+              <Button size="sm" variant="outline" onClick={exportCSV} className="h-8">
+                <Download className="w-3.5 h-3.5" /> Export
+              </Button>
+            )}
+            {canEditEntry && (
               <Button size="sm" onClick={() => { setEditRecord(null); setManualOpen(true); }} className="h-8">
                 <Plus className="w-3.5 h-3.5" /> Manual Entry
               </Button>
@@ -189,7 +216,7 @@ export default function TimeEntries({
                 <th className="px-3 py-2 font-semibold">DURATION</th>
                 <th className="px-3 py-2 font-semibold">O.T.</th>
                 <th className="px-3 py-2 font-semibold">STATUS</th>
-                {canEdit && <th className="px-3 py-2 font-semibold text-right">ACTIONS</th>}
+                {(canEditEntry || canDeleteEntry) && <th className="px-3 py-2 font-semibold text-right">ACTIONS</th>}
               </tr>
             </thead>
             <tbody>
@@ -227,19 +254,23 @@ export default function TimeEntries({
                         {status}
                       </span>
                     </td>
-                    {canEdit && (
+                    {(canEditEntry || canDeleteEntry) && (
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-end gap-1">
                           {att && (
                             <>
-                              <button onClick={() => { setEditRecord(att); setManualOpen(true); }}
-                                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit">
-                                <Edit2 className="w-3 h-3" />
-                              </button>
-                              <button onClick={() => setDeleteConfirm({ id: att.id, reason: '' })}
-                                className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600" title="Delete">
-                                <Trash2 className="w-3 h-3" />
-                              </button>
+                              {canEditEntry && (
+                                <button onClick={() => { setEditRecord(att); setManualOpen(true); }}
+                                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit">
+                                  <Edit2 className="w-3 h-3" />
+                                </button>
+                              )}
+                              {canDeleteEntry && (
+                                <button onClick={() => setDeleteConfirm({ id: att.id, reason: '' })}
+                                  className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600" title="Delete">
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
@@ -250,7 +281,7 @@ export default function TimeEntries({
               })}
               {paginatedRows.length === 0 && (
                 <tr>
-                  <td colSpan={canEdit ? 16 : 15} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={(canEditEntry || canDeleteEntry) ? 16 : 15} className="px-3 py-8 text-center text-muted-foreground">
                     No attendance records for the selected date and filters.
                   </td>
                 </tr>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { useRbac } from '@/lib/useRbac';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,9 @@ export default function AttendanceReports({
   employees, settings, shifts, assignments, holidays, filters, setFilters,
 }) {
   const [reportType, setReportType] = useState('daily');
+  const { can } = useRbac();
+  const canExport = can('attendance.reports.export');
+  const canPrint = can('attendance.reports.print');
   const [dateFrom, setDateFrom] = useState(() => new Date().toLocaleDateString('en-CA'));
   const [dateTo, setDateTo] = useState(() => new Date().toLocaleDateString('en-CA'));
   const [showTimesheet, setShowTimesheet] = useState(false);
@@ -203,35 +207,43 @@ export default function AttendanceReports({
             <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36" />
             <span className="text-xs text-muted-foreground">to</span>
             <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36" />
-            <button onClick={() => setShowWeekly(true)}
-              className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium text-white ml-auto"
-              style={{ background: '#5c53f5', borderColor: '#5c53f5' }}>
-              <CalendarRange className="w-4 h-4" /> Export Weekly PDF
-            </button>
+            {canPrint && (
+              <button onClick={() => setShowWeekly(true)}
+                className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium text-white ml-auto"
+                style={{ background: '#5c53f5', borderColor: '#5c53f5' }}>
+                <CalendarRange className="w-4 h-4" /> Export Weekly PDF
+              </button>
+            )}
           </div>
         ) : reportType === 'timesheet' ? (
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">Monthly matrix timesheet — one row per employee, two columns per day (punch + Total H), with summary.</p>
-            <button onClick={() => setShowTimesheet(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100">
-              <FileSpreadsheet className="w-4 h-4" /> Timesheet
-            </button>
+            {canExport && (
+              <button onClick={() => setShowTimesheet(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100">
+                <FileSpreadsheet className="w-4 h-4" /> Timesheet
+              </button>
+            )}
           </div>
         ) : reportType === 'pdf_by_employee' ? (
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">Individual employee attendance timesheet — one PDF page per employee.</p>
-            <button onClick={() => setShowPdf(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-rose-300 bg-rose-50 px-4 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-100">
-              <FileText className="w-4 h-4" /> PDF by Employee
-            </button>
+            {canPrint && (
+              <button onClick={() => setShowPdf(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-rose-300 bg-rose-50 px-4 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-100">
+                <FileText className="w-4 h-4" /> PDF by Employee
+              </button>
+            )}
           </div>
         ) : reportType === 'pwr' ? (
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">Personal Working Record — A4 portrait form per employee, with split-shift punches and signature lines.</p>
-            <button onClick={() => setShowPwr(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-indigo-300 bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100">
-              <ClipboardList className="w-4 h-4" /> Personal Working Record
-            </button>
+            {canPrint && (
+              <button onClick={() => setShowPwr(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-indigo-300 bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100">
+                <ClipboardList className="w-4 h-4" /> Personal Working Record
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex items-center gap-2 flex-wrap">
@@ -239,10 +251,12 @@ export default function AttendanceReports({
             <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36" />
             <span className="text-xs text-muted-foreground">to</span>
             <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36" />
-            <Button size="sm" variant="outline" onClick={exportCSV} disabled={exporting} className="h-7 ml-auto">
-              <Download className="w-3.5 h-3.5" />
-              {exporting ? 'Exporting...' : 'Export CSV'}
-            </Button>
+            {canExport && (
+              <Button size="sm" variant="outline" onClick={exportCSV} disabled={exporting} className="h-7 ml-auto">
+                <Download className="w-3.5 h-3.5" />
+                {exporting ? 'Exporting...' : 'Export CSV'}
+              </Button>
+            )}
           </div>
         )}
       </Card>

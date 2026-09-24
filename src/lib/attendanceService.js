@@ -508,114 +508,44 @@ export async function saveManualEntry({
   if (!attendanceDate) throw new Error('Attendance date is required.');
   if (!reason?.trim()) throw new Error('A reason is required for manual entry.');
 
-  const email = currentUser?.email || '';
-  const name = currentUser?.full_name || '';
-
-  // Find existing record for this date
-  const existing = await base44.entities.AttendanceRecord.filter(
-    { personnel_id: personnelId, attendance_date: attendanceDate, is_deleted: { $ne: true } },
-    undefined, 100
-  );
-  const record = existing[0] || null;
-
+  // Delegate to the backend function which checks attendance.entries.edit
+  // permission before performing the operation (server-side authorization).
   const toIso = (dt) => dt ? dt.toISOString() : '';
-  const firstInIso = toIso(firstInAt);
-  const firstOutIso = toIso(firstOutAt);
-  const secondInIso = toIso(secondInAt);
-  const finalOutIso = toIso(finalOutAt);
-
-  // Sync backward-compat fields
-  const checkInIso = firstInIso;
-  const checkOutIso = finalOutIso || firstOutIso;
-
-  const isCompleted = !!finalOutIso || (!!firstOutIso && !secondInIso);
-  const tempRec = { first_in_at: firstInIso, first_out_at: firstOutIso, second_in_at: secondInIso, final_out_at: finalOutIso };
-  const duration = calculateDurationFromRecord(tempRec);
-  const settings = await getSettings();
-  const overtime = calculateOvertime(duration, settings);
-
-  const payload = {
-    personnel_id: personnelId, employee_name: employeeName, company,
-    attendance_date: attendanceDate,
-    check_in_at: checkInIso, check_out_at: checkOutIso,
-    first_in_at: firstInIso, first_out_at: firstOutIso,
-    second_in_at: secondInIso, final_out_at: finalOutIso,
-    duration_minutes: duration, overtime_minutes: overtime,
-    work_location: workLocation || '',
-    status: isCompleted ? 'completed' : 'open',
-    source: 'Manual', source_page: 'Daily Attendance',
-    is_manual: true, manual_reason: reason.trim(), remarks: remarks || '',
-    shift_id: shiftId, shift_name: shiftName,
-  };
-
-  // Centralized status recalculation (split-shift aware). The manual override
-  // is stored separately so the system-calculated status is never destroyed,
-  // and punches are never fabricated when an admin overrides the status.
-  const stateRecord = {
-    attendance_date: attendanceDate,
-    check_in_at: checkInIso, check_out_at: checkOutIso,
-    first_in_at: firstInIso, first_out_at: firstOutIso,
-    second_in_at: secondInIso, final_out_at: finalOutIso,
-    manual_status_override: manualStatusOverride || '',
-  };
-  const state = shift ? calculateAttendanceState(stateRecord, shift, settings, [], new Date()) : null;
-  const calculatedStatus = state?.calculatedStatus || (isCompleted ? 'Present' : (firstInIso ? 'Missing Check-out' : 'Absent'));
-  payload.calculated_status = calculatedStatus;
-  payload.attendance_status = manualStatusOverride || calculatedStatus;
-  payload.manual_status_override = manualStatusOverride || '';
-  payload.manual_status_reason = manualStatusOverride ? (manualStatusReason || reason || '').trim() : '';
-  payload.is_late = state?.isLate ?? false;
-  payload.late_minutes = state?.lateMinutes ?? 0;
-
-  if (record) {
-    // Update existing — log correction
-    await base44.entities.AttendanceRecord.update(record.id, payload);
-    await base44.entities.AttendanceCorrection.create({
-      attendance_id: record.id, personnel_id: personnelId, employee_name: employeeName,
-      field_changed: 'manual_entry',
-      original_value: JSON.stringify({ first_in_at: record.first_in_at, first_out_at: record.first_out_at, second_in_at: record.second_in_at, final_out_at: record.final_out_at }),
-      new_value: JSON.stringify({ first_in_at: firstInIso, first_out_at: firstOutIso, second_in_at: secondInIso, final_out_at: finalOutIso }),
-      reason: reason.trim(), changed_by: email, changed_by_name: name,
+  try {
+    const res = await base44.functions.invoke('attendanceManualEntry', {
+      personnelId, employeeName, company, attendanceDate,
+      firstInIso: toIso(firstInAt),
+      firstOutIso: toIso(firstOutAt),
+      secondInIso: toIso(secondInAt),
+      finalOutIso: toIso(finalOutAt),
+      reason: reason.trim(),
+      remarks: remarks || '',
+      workLocation: workLocation || '',
+      shiftId, shiftName,
+      manualStatusOverride: manualStatusOverride || '',
+      manualStatusReason: (manualStatusReason || reason || '').trim(),
     });
-    await logActivity('update', record.id, employeeName,
-      { ...payload, manual_correction: true, reason: reason.trim(), previous: { first_in_at: record.first_in_at, first_out_at: record.first_out_at, second_in_at: record.second_in_at, final_out_at: record.final_out_at } },
-      ['first_in_at', 'first_out_at', 'second_in_at', 'final_out_at', 'manual_reason'], email);
-
-    // Audit any effective-status change (including manual overrides).
-    const oldStatus = record.attendance_status || '';
-    const newStatus = payload.attendance_status;
-    if (oldStatus !== newStatus) {
-      await logActivity('update', record.id, employeeName,
-        { status_change: true, old_status: oldStatus, new_status: newStatus, manual_override: !!manualStatusOverride, reason: (manualStatusReason || reason || '').trim() },
-        ['attendance_status'], email);
-    }
-    return { action: 'updated', record: { ...record, ...payload } };
+    return res.data;
+  } catch (error) {
+    const msg = error?.response?.data?.error || error?.message || 'Manual entry failed';
+    throw new Error(msg);
   }
-
-  const newRec = await base44.entities.AttendanceRecord.create({
-    ...payload,
-    checked_in_by: email, checked_in_by_name: name,
-    checked_out_by: isCompleted ? email : '', checked_out_by_name: isCompleted ? name : '',
-  });
-  await logActivity('create', newRec.id, employeeName,
-    { ...payload, manual_entry: true },
-    ['first_in_at', 'first_out_at', 'second_in_at', 'final_out_at', 'manual_reason'], email);
-  return { action: 'created', record: newRec };
 }
 
 // ── Soft delete ──
 export async function softDeleteAttendance(recordId, reason, currentUser) {
   if (!reason?.trim()) throw new Error('A deletion reason is required.');
-  const rec = await base44.entities.AttendanceRecord.get(recordId);
-  await base44.entities.AttendanceRecord.update(recordId, {
-    is_deleted: true,
-    deleted_at: new Date().toISOString(),
-    deleted_by: currentUser?.email || '',
-    deletion_reason: reason.trim(),
-  });
-  await logActivity('delete', recordId, rec.employee_name,
-    { reason: reason.trim(), deleted_by: currentUser?.email }, ['is_deleted'], currentUser?.email);
-  return { action: 'deleted', recordId };
+  // Delegate to the backend function which checks attendance.entries.delete
+  // permission before performing the operation (server-side authorization).
+  try {
+    const res = await base44.functions.invoke('attendanceDelete', {
+      recordId, reason: reason.trim(),
+    });
+    return res.data;
+  } catch (error) {
+    const msg = error?.response?.data?.error || error?.message || 'Delete failed';
+    throw new Error(msg);
+  }
 }
 
 // ── Restore soft-deleted record ──

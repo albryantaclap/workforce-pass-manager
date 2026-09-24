@@ -13,6 +13,7 @@ import IdCardScanner from "@/components/attendance/IdCardScanner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
 import { useCurrentUser } from "@/lib/useCurrentUser";
+import { useRbac } from "@/lib/useRbac";
 import { recordPunch } from "@/lib/attendanceService";
 
 const STEP = {
@@ -36,6 +37,8 @@ export default function AttendanceClock({ employees = [], onRecorded }) {
   const [scannerKey, setScannerKey] = useState(0);
 
   const user = useCurrentUser();
+  const { can } = useRbac();
+  const canPunch = can('attendance.clock.use');
   const { toast } = useToast();
   const processingLockRef = useRef(false);
 
@@ -141,13 +144,19 @@ export default function AttendanceClock({ employees = [], onRecorded }) {
                   attendance.
                 </p>
               </div>
-              <Button
-                onClick={handleStart}
-                size="lg"
-                className="gap-2 w-full max-w-xs text-base h-12"
-              >
-                <CreditCard className="w-5 h-5" /> Start Scanning
-              </Button>
+              {canPunch ? (
+                <Button
+                  onClick={handleStart}
+                  size="lg"
+                  className="gap-2 w-full max-w-xs text-base h-12"
+                >
+                  <CreditCard className="w-5 h-5" /> Start Scanning
+                </Button>
+              ) : (
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  You do not have permission to scan or punch. Contact an administrator.
+                </p>
+              )}
             </motion.div>
           )}
 

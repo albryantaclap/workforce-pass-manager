@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Clock, LayoutDashboard, Users, ScanLine, Timer, FileBarChart, Settings } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useRbac } from '@/lib/useRbac';
 import { useAttendanceData } from '@/hooks/useAttendanceData';
 import AttendanceDashboard from '@/components/attendance/AttendanceDashboard';
 import TimeEntries from '@/components/attendance/TimeEntries';
@@ -11,18 +12,20 @@ import AttendanceReports from '@/components/attendance/AttendanceReports';
 import AttendanceClock from '@/components/attendance/AttendanceClock';
 
 const TABS = [
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, gradient: 'from-blue-400 to-blue-600' },
-  { key: 'summary', label: 'Employee Summary', icon: Users, gradient: 'from-violet-400 to-purple-600' },
-  { key: 'scan', label: 'Attendance Clock', icon: ScanLine, gradient: 'from-amber-400 to-orange-500' },
-  { key: 'entries', label: 'Time Entries', icon: Timer, gradient: 'from-teal-400 to-cyan-600' },
-  { key: 'reports', label: 'Attendance Reports', icon: FileBarChart, gradient: 'from-emerald-400 to-green-600' },
-  { key: 'settings', label: 'Attendance Settings', icon: Settings, gradient: 'from-slate-400 to-slate-600' },
+  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, gradient: 'from-blue-400 to-blue-600', perm: 'attendance.dashboard' },
+  { key: 'summary', label: 'Employee Summary', icon: Users, gradient: 'from-violet-400 to-purple-600', perm: 'attendance.summary' },
+  { key: 'scan', label: 'Attendance Clock', icon: ScanLine, gradient: 'from-amber-400 to-orange-500', perm: 'attendance.clock' },
+  { key: 'entries', label: 'Time Entries', icon: Timer, gradient: 'from-teal-400 to-cyan-600', perm: 'attendance.entries' },
+  { key: 'reports', label: 'Attendance Reports', icon: FileBarChart, gradient: 'from-emerald-400 to-green-600', perm: 'attendance.reports' },
+  { key: 'settings', label: 'Attendance Settings', icon: Settings, gradient: 'from-slate-400 to-slate-600', perm: 'attendance.settings' },
 ];
 
 export default function DailyAttendance() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const validTabs = TABS.map(t => t.key);
-  const activeTab = validTabs.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'dashboard';
+  const { canView } = useRbac();
+  const visibleTabs = TABS.filter(tab => canView(tab.perm));
+  const validTabs = visibleTabs.map(t => t.key);
+  const activeTab = validTabs.includes(searchParams.get('tab')) ? searchParams.get('tab') : (validTabs[0] || 'dashboard');
   const setActiveTab = (key) => setSearchParams({ tab: key }, { replace: true });
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('en-CA'));
 
@@ -109,7 +112,7 @@ export default function DailyAttendance() {
 
       {/* Tabs */}
       <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-1">
-        {TABS.map(tab => {
+        {visibleTabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
           return (
