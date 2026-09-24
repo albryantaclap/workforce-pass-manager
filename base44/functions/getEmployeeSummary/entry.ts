@@ -4,6 +4,8 @@ import {
   isWorkingDay,
   isHoliday,
   filterEmployees,
+  resolveShift,
+  calculateAttendanceStatus,
 } from "../../shared/attendanceCalc.ts";
 
 // Server-side aggregation and pagination for the Daily Attendance → Employee Summary tab.
@@ -27,13 +29,16 @@ export default async function (req: Request): Promise<Response> {
       pageSize = 20,
     } = body;
 
-    // 1. Fetch settings and holidays
-    const [settingsRows, holidays] = await Promise.all([
+    // 1. Fetch settings, holidays, shifts, and assignments
+    const [settingsRows, holidays, shifts, assignments] = await Promise.all([
       base44.entities.AttendanceSetting.filter({ setting_key: "global" }, undefined, 10),
       base44.entities.AttendanceHoliday.filter({ is_active: true }, undefined, 1000),
+      base44.entities.AttendanceShift.list("-created_date", 1000),
+      base44.entities.AttendanceShiftAssignment.list("-created_date", 5000),
     ]);
     const settings = settingsRows[0] || {};
     const otStartMinutes = (settings.overtime_start_hours ?? 8) * 60;
+    const now = new Date();
 
     // 2. Fetch all active employees
     const employees = await base44.entities.Employee.filter(
@@ -93,6 +98,7 @@ export default async function (req: Request): Promise<Response> {
     // 7. Build summary rows with aggregation (same logic as the frontend)
     const summaryRows = filteredEmps.map((emp) => {
       const records = attByPersonnel.get(emp.id) || [];
+      const shift = resolveShift(emp, assignments, shifts, settings);
       let present = 0,
         late = 0,
         leave = 0,
@@ -101,7 +107,7 @@ export default async function (req: Request): Promise<Response> {
       const statusCounts: Record<string, number> = {};
 
       for (const r of records) {
-        const s = r.attendance_status || "Present";
+        const s = calculateAttendanceStatus(r, shift, settings, holidays, now);
         statusCounts[s] = (statusCounts[s] || 0) + 1;
         if (s === "Present" || s === "Late" || s === "Half Day" || s === "Missing Check-out") present++;
         if (s === "Late") late++;

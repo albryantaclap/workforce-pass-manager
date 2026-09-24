@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
-import { filterEmployees, isWorkingDay, isHoliday } from "../../shared/attendanceCalc.ts";
+import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus } from "../../shared/attendanceCalc.ts";
 
 // Server-side aggregation for the Daily Attendance → Dashboard tab.
 // Returns KPIs, currently clocked-in list, check-ins by hour, and department
@@ -14,14 +14,17 @@ export default async function (req: Request): Promise<Response> {
     const body = await req.json();
     const { date = "", filters = {} } = body;
 
-    // 1. Fetch settings and holidays
-    const [settingsRows, holidays] = await Promise.all([
+    // 1. Fetch settings, holidays, shifts, and assignments
+    const [settingsRows, holidays, shifts, assignments] = await Promise.all([
       base44.entities.AttendanceSetting.filter({ setting_key: "global" }, undefined, 10),
       base44.entities.AttendanceHoliday.filter({ is_active: true }, undefined, 1000),
+      base44.entities.AttendanceShift.list("-created_date", 1000),
+      base44.entities.AttendanceShiftAssignment.list("-created_date", 5000),
     ]);
     const settings = settingsRows[0] || {};
     const holiday = isHoliday(date, holidays);
     const workingDay = isWorkingDay(date, settings);
+    const now = new Date();
 
     // 2. Fetch all active employees and apply personnel filters
     const employees = await base44.entities.Employee.filter(
@@ -59,7 +62,13 @@ export default async function (req: Request): Promise<Response> {
 
     for (const emp of filteredEmps) {
       const att = attByPersonnel.get(emp.id);
-      const status = att?.attendance_status || (att ? "Present" : (holiday ? "Holiday" : (workingDay ? "Absent" : "Rest Day")));
+      let status: string;
+      if (att) {
+        const shift = resolveShift(emp, assignments, shifts, settings);
+        status = calculateAttendanceStatus(att, shift, settings, holidays, now);
+      } else {
+        status = holiday ? "Holiday" : (workingDay ? "Absent" : "Rest Day");
+      }
 
       if (status === "Present") present++;
       else if (status === "Late") { present++; late++; }

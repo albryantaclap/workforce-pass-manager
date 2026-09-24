@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
-import { filterEmployees } from "../../shared/attendanceCalc.ts";
+import { filterEmployees, resolveShift, calculateAttendanceStatus } from "../../shared/attendanceCalc.ts";
 
 // Server-side filtering and pagination for the Daily Attendance → Attendance Reports tab.
 //
@@ -22,12 +22,20 @@ export default async function (req: Request): Promise<Response> {
       exportAll = false,
     } = body;
 
-    // 1. Fetch all active employees
-    const employees = await base44.entities.Employee.filter(
-      { personnel_status: "Active", is_active: { $ne: false } },
-      "name",
-      100000
-    );
+    // 1. Fetch all active employees, settings, holidays, shifts, and assignments
+    const [employees, settingsRows, holidays, shifts, assignments] = await Promise.all([
+      base44.entities.Employee.filter(
+        { personnel_status: "Active", is_active: { $ne: false } },
+        "name",
+        100000
+      ),
+      base44.entities.AttendanceSetting.filter({ setting_key: "global" }, undefined, 10),
+      base44.entities.AttendanceHoliday.filter({ is_active: true }, undefined, 1000),
+      base44.entities.AttendanceShift.list("-created_date", 1000),
+      base44.entities.AttendanceShiftAssignment.list("-created_date", 5000),
+    ]);
+    const settings = settingsRows[0] || {};
+    const now = new Date();
 
     // 2. Apply personnel filters (search, company, department, etc.)
     const filteredEmps = filterEmployees(employees, filters);
@@ -58,25 +66,27 @@ export default async function (req: Request): Promise<Response> {
       }
     }
 
-    // 4. Build report rows with employee join and apply report type + status filters
+    // 4. Build report rows with employee join, calculated status, and apply filters
     let reportRows = allRecords
-      .map((r) => ({
-        record: r,
-        emp: empMap.get(r.personnel_id) || { name: r.employee_name, company: r.company },
-      }))
-      .filter(({ record }) => {
-        // Report type filter
-        if (reportType === "late") return record.attendance_status === "Late" || record.is_late;
-        if (reportType === "absent") return record.attendance_status === "Absent";
+      .map((r) => {
+        const emp = empMap.get(r.personnel_id) || { name: r.employee_name, company: r.company };
+        const shift = resolveShift(emp, assignments, shifts, settings);
+        const calcStatus = calculateAttendanceStatus(r, shift, settings, holidays, now);
+        return { record: r, emp, calcStatus };
+      })
+      .filter(({ record, calcStatus }) => {
+        // Report type filter (uses calculated status)
+        if (reportType === "late") return calcStatus === "Late" || record.is_late;
+        if (reportType === "absent") return calcStatus === "Absent";
         if (reportType === "missing")
-          return record.attendance_status === "Missing Check-out" || record.attendance_status === "Incomplete";
+          return calcStatus === "Missing Check-out" || calcStatus === "Incomplete";
         if (reportType === "overtime") return (record.overtime_minutes || 0) > 0;
         return true;
       })
-      .filter(({ record }) => {
-        // Status filter (matches the record's attendance_status)
+      .filter(({ calcStatus }) => {
+        // Status filter (uses calculated status)
         if (!status) return true;
-        return record.attendance_status === status;
+        return calcStatus === status;
       });
 
     // 5. Sort by date descending, then by name

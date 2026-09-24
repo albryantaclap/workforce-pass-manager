@@ -258,6 +258,14 @@ export async function recordPunch({
   if (!session) {
     // Create new session
     if (punchType !== 'IN') throw new Error('Cannot clock out — no open session for this date.');
+    // Calculate the initial attendance status using the centralized resolver
+    // so the stored status matches the live display from the first punch.
+    const tempRecord = {
+      attendance_date: attDate,
+      first_in_at: tsIso, check_in_at: tsIso,
+      first_out_at: '', second_in_at: '', final_out_at: '', check_out_at: '',
+    };
+    const initState = calculateAttendanceState(tempRecord, shift, settings, [], new Date());
     session = await base44.entities.AttendanceRecord.create({
       personnel_id: personnelId, employee_name: employeeName, company,
       attendance_date: attDate,
@@ -268,9 +276,12 @@ export async function recordPunch({
       checked_in_by: email, checked_in_by_name: name,
       status: 'open', source, source_page: source,
       shift_id: shiftId, shift_name: shiftName,
+      attendance_status: initState.calculatedStatus,
+      calculated_status: initState.calculatedStatus,
+      is_late: initState.isLate, late_minutes: initState.lateMinutes,
     });
     await logActivity('create', session.id, employeeName,
-      { attendance_date: attDate, first_in_at: tsIso, source, punch_sequence: 1 },
+      { attendance_date: attDate, first_in_at: tsIso, source, punch_sequence: 1, attendance_status: initState.calculatedStatus },
       ['first_in_at'], email);
     return { action: 'created', record: session, punchSequence: 1 };
   }
@@ -321,10 +332,21 @@ export async function recordPunch({
     updates.overtime_minutes = calculateOvertime(updates.duration_minutes, settings);
   }
 
+  // Recalculate the centralized attendance state so the stored status stays in
+  // sync with the punch progression (same as the split-shift path). A manual
+  // status override is preserved.
+  const state = calculateAttendanceState(merged, shift, settings, [], new Date());
+  updates.calculated_status = state.calculatedStatus;
+  if (!merged.manual_status_override) {
+    updates.attendance_status = state.calculatedStatus;
+    updates.is_late = state.isLate;
+    updates.late_minutes = state.lateMinutes;
+  }
+
   await base44.entities.AttendanceRecord.update(session.id, updates);
   await logActivity('update', session.id, employeeName,
     { ...updates, punch_type: punchType, punch_sequence: punchSeq },
-    Object.keys(updates).filter(k => k !== 'duration_minutes' && k !== 'overtime_minutes'), email);
+    Object.keys(updates).filter(k => k !== 'duration_minutes' && k !== 'overtime_minutes' && k !== 'calculated_status' && k !== 'attendance_status' && k !== 'is_late' && k !== 'late_minutes'), email);
 
   return { action: 'updated', record: { ...session, ...updates }, punchSequence: punchSeq };
 }

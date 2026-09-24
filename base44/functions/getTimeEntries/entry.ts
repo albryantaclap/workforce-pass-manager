@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
-import { filterEmployees, isWorkingDay, isHoliday } from "../../shared/attendanceCalc.ts";
+import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus } from "../../shared/attendanceCalc.ts";
 
 // Server-side filtering, pagination, and KPI aggregation for the
 // Daily Attendance → Time Entries tab.
@@ -23,14 +23,17 @@ export default async function (req: Request): Promise<Response> {
       pageSize = 50,
     } = body;
 
-    // 1. Fetch settings and holidays
-    const [settingsRows, holidays] = await Promise.all([
+    // 1. Fetch settings, holidays, shifts, and assignments
+    const [settingsRows, holidays, shifts, assignments] = await Promise.all([
       base44.entities.AttendanceSetting.filter({ setting_key: "global" }, undefined, 10),
       base44.entities.AttendanceHoliday.filter({ is_active: true }, undefined, 1000),
+      base44.entities.AttendanceShift.list("-created_date", 1000),
+      base44.entities.AttendanceShiftAssignment.list("-created_date", 5000),
     ]);
     const settings = settingsRows[0] || {};
     const holiday = isHoliday(date, holidays);
     const workingDay = isWorkingDay(date, settings);
+    const now = new Date();
 
     // 2. Fetch all active employees and apply personnel filters
     const employees = await base44.entities.Employee.filter(
@@ -58,14 +61,15 @@ export default async function (req: Request): Promise<Response> {
       }
     }
 
-    // 4. Build rows with simple status for filtering
-    //    Uses the stored attendance_status field (same as the existing
-    //    frontend filter in DailyAttendance.jsx filteredEmployees).
+    // 4. Build rows with calculated status for filtering
+    //    Uses the centralized calculateAttendanceStatus (same as frontend display)
+    //    so KPIs and filtering match the Status column exactly.
     let rows = filteredEmps.map((emp: any) => {
       const att = attByPersonnel.get(emp.id) || null;
       let simpleStatus: string;
       if (att) {
-        simpleStatus = att.attendance_status || "Present";
+        const shift = resolveShift(emp, assignments, shifts, settings);
+        simpleStatus = calculateAttendanceStatus(att, shift, settings, holidays, now);
       } else {
         simpleStatus = holiday ? "Holiday" : (workingDay ? "Absent" : "Rest Day");
       }

@@ -222,7 +222,12 @@ export const calculateDailyStatus = (record, shift, settings, holidays = []) => 
   const finalOut = getFinalOut(record);
 
   if (!finalOut) {
-    // Session is still open or was auto-closed without final out
+    // If the shift is still ongoing, the session is in-progress — not missing.
+    // Only classify as Missing Check-out after the shift end + buffer has passed.
+    if (shift && !hasShiftExpired(shift, dateStr, settings?.auto_close_buffer_minutes ?? 120)) {
+      return 'First In Completed';
+    }
+    // Shift has ended + buffer passed without a checkout → genuinely missing.
     return 'Missing Check-out';
   }
 

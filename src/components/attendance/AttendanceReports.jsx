@@ -168,11 +168,11 @@ export default function AttendanceReports({
       });
       const allRows = res.data?.rows || [];
       const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Source'];
-      const rows = allRows.map(({ record: r, emp }) => [
+      const rows = allRows.map(({ record: r, emp, calcStatus }) => [
         emp?.name || r.employee_name, emp?.company || r.company, emp?.department || '',
         r.attendance_date, formatTimeShort(getFirstIn(r)), formatTimeShort(r.first_out_at),
         formatTimeShort(r.second_in_at), formatTimeShort(getFinalOut(r)),
-        r.duration_minutes || 0, r.overtime_minutes || 0, r.attendance_status || '', r.source || '',
+        r.duration_minutes || 0, r.overtime_minutes || 0, calcStatus || r.attendance_status || '', r.source || '',
       ]);
       const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
@@ -317,8 +317,9 @@ export default function AttendanceReports({
                 <tr><td colSpan={12} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
               ) : reportRows.length === 0 ? (
                 <tr><td colSpan={12} className="text-center py-8 text-muted-foreground">No records for the selected report and filters.</td></tr>
-              ) : reportRows.map(({ record: r, emp }) => {
-                const colors = STATUS_COLORS[r.attendance_status] || STATUS_COLORS['Absent'];
+              ) : reportRows.map(({ record: r, emp, calcStatus }) => {
+                const status = calcStatus || r.attendance_status || '—';
+                const colors = STATUS_COLORS[status] || STATUS_COLORS['Absent'];
                 return (
                   <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30">
                     <td className="px-3 py-2">
@@ -338,7 +339,7 @@ export default function AttendanceReports({
                     <td className="px-3 py-2 text-muted-foreground">{formatMinutes(r.overtime_minutes)}</td>
                     <td className="px-3 py-2">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${colors.bg} ${colors.text} ${colors.border}`}>
-                        {r.attendance_status || '—'}
+                        {status}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{r.source || '—'}</td>
