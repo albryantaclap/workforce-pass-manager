@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AttendanceFilterBar from './AttendanceFilterBar';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
+import Pagination from '@/components/inventory/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import TimesheetExportDialog from './TimesheetExportDialog';
 import PdfByEmployeeDialog from './PdfByEmployeeDialog';
 import WeeklyPdfDialog from './WeeklyPdfDialog';
 import PersonalWorkingRecordDialog from './PersonalWorkingRecordDialog';
-import { FileSpreadsheet, FileText, CalendarRange, ClipboardList, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileSpreadsheet, FileText, CalendarRange, ClipboardList, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import {
-  isWorkingDay, isHoliday, calculateDurationFromRecord,
   formatMinutes, formatTimeShort, formatDateShort, STATUS_COLORS,
   getFirstIn, getFinalOut,
 } from '@/lib/attendanceEngine';
@@ -58,6 +59,7 @@ export default function AttendanceReports({
   const [showPdf, setShowPdf] = useState(false);
   const [showWeekly, setShowWeekly] = useState(false);
   const [showPwr, setShowPwr] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const monthStart = (ds) => {
     const d = ds ? new Date(ds + 'T00:00:00') : new Date();
@@ -84,56 +86,93 @@ export default function AttendanceReports({
   const goNextWeek = () => { setDateFrom(d => shiftDays(d, 7)); setDateTo(d => shiftDays(d, 7)); };
   const goThisWeek = () => { const mon = mondayOf(); setDateFrom(mon); setDateTo(shiftDays(mon, 6)); };
 
-  const { data: allRecords = [], isLoading } = useQuery({
-    queryKey: ['attendance', 'report', dateFrom, dateTo],
+  // Pagination — resets to page 1 when any filter, date, or report type changes
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(20, [
+    filters.search, filters.company, filters.department, filters.designation,
+    filters.manager, filters.branch, filters.dirIndir, filters.status,
+    dateFrom, dateTo, reportType,
+  ]);
+
+  // Server-side paginated report data for the table
+  const { data, isLoading } = useQuery({
+    queryKey: ['attendance-report', {
+      search: filters.search, company: filters.company, department: filters.department,
+      designation: filters.designation, manager: filters.manager, branch: filters.branch,
+      dirIndir: filters.dirIndir, status: filters.status,
+      dateFrom, dateTo, reportType, page, rowsPerPage,
+    }],
+    queryFn: () => base44.functions.invoke('getAttendanceReport', {
+      filters: {
+        search: filters.search || '',
+        company: filters.company || '',
+        department: filters.department || '',
+        designation: filters.designation || '',
+        manager: filters.manager || '',
+        branch: filters.branch || '',
+        dirIndir: filters.dirIndir || '',
+      },
+      dateFrom,
+      dateTo,
+      reportType,
+      status: filters.status || '',
+      page: page + 1, // backend is 1-based
+      pageSize: rowsPerPage,
+    }),
+    enabled: !!dateFrom && !!dateTo,
+  });
+
+  const result = data?.data || {};
+  const reportRows = result.rows || [];
+  const total = result.total || 0;
+  const totalPages = result.totalPages || 1;
+
+  // All attendance records — loaded lazily only when a PDF dialog is open
+  const pdfDialogOpen = showTimesheet || showPdf || showWeekly || showPwr;
+  const { data: allRecords = [] } = useQuery({
+    queryKey: ['attendance', 'report-all', dateFrom, dateTo],
     queryFn: () => base44.entities.AttendanceRecord.filter(
       { is_deleted: { $ne: true } }, '-attendance_date', 100000
     ),
+    enabled: pdfDialogOpen,
   });
 
-  const filteredRecords = useMemo(() => {
-    return allRecords.filter(r => {
-      if (dateFrom && r.attendance_date < dateFrom) return false;
-      if (dateTo && r.attendance_date > dateTo) return false;
-      return true;
-    });
-  }, [allRecords, dateFrom, dateTo]);
-
-  // Build report rows
-  const reportRows = useMemo(() => {
-    const empMap = new Map(employees.map(e => [e.id, e]));
-    return filteredRecords.map(r => {
-      const emp = empMap.get(r.personnel_id);
-      return { record: r, emp: emp || { name: r.employee_name, company: r.company } };
-    }).filter(({ emp }) => {
-      if (!emp) return true;
-      if (filters.company && emp.company !== filters.company) return false;
-      if (filters.department && emp.department !== filters.department) return false;
-      if (filters.branch && emp.current_location !== filters.branch) return false;
-      return true;
-    }).filter(({ record }) => {
-      if (reportType === 'late') return record.attendance_status === 'Late' || record.is_late;
-      if (reportType === 'absent') return record.attendance_status === 'Absent';
-      if (reportType === 'missing') return record.attendance_status === 'Missing Check-out' || record.attendance_status === 'Incomplete';
-      if (reportType === 'overtime') return (record.overtime_minutes || 0) > 0;
-      return true;
-    });
-  }, [filteredRecords, employees, reportType, filters]);
-
-  const exportCSV = () => {
-    const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Source'];
-    const rows = reportRows.map(({ record: r, emp }) => [
-      emp?.name || r.employee_name, emp?.company || r.company, emp?.department || '',
-      r.attendance_date, formatTimeShort(getFirstIn(r)), formatTimeShort(r.first_out_at),
-      formatTimeShort(r.second_in_at), formatTimeShort(getFinalOut(r)),
-      r.duration_minutes || 0, r.overtime_minutes || 0, r.attendance_status || '', r.source || '',
-    ]);
-    const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `attendance-${reportType}-${dateFrom}_to_${dateTo}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+  // CSV export — fetches ALL matching records from the backend (not just the current page)
+  const exportCSV = async () => {
+    setExporting(true);
+    try {
+      const res = await base44.functions.invoke('getAttendanceReport', {
+        filters: {
+          search: filters.search || '',
+          company: filters.company || '',
+          department: filters.department || '',
+          designation: filters.designation || '',
+          manager: filters.manager || '',
+          branch: filters.branch || '',
+          dirIndir: filters.dirIndir || '',
+        },
+        dateFrom,
+        dateTo,
+        reportType,
+        status: filters.status || '',
+        exportAll: true,
+      });
+      const allRows = res.data?.rows || [];
+      const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Source'];
+      const rows = allRows.map(({ record: r, emp }) => [
+        emp?.name || r.employee_name, emp?.company || r.company, emp?.department || '',
+        r.attendance_date, formatTimeShort(getFirstIn(r)), formatTimeShort(r.first_out_at),
+        formatTimeShort(r.second_in_at), formatTimeShort(getFinalOut(r)),
+        r.duration_minutes || 0, r.overtime_minutes || 0, r.attendance_status || '', r.source || '',
+      ]);
+      const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `attendance-${reportType}-${dateFrom}_to_${dateTo}.csv`;
+      a.click(); URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -200,8 +239,9 @@ export default function AttendanceReports({
             <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36" />
             <span className="text-xs text-muted-foreground">to</span>
             <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36" />
-            <Button size="sm" variant="outline" onClick={exportCSV} className="h-7 ml-auto">
-              Export CSV
+            <Button size="sm" variant="outline" onClick={exportCSV} disabled={exporting} className="h-7 ml-auto">
+              <Download className="w-3.5 h-3.5" />
+              {exporting ? 'Exporting...' : 'Export CSV'}
             </Button>
           </div>
         )}
@@ -231,7 +271,7 @@ export default function AttendanceReports({
       <Card className="overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border bg-muted/30">
           <span className="text-sm font-semibold text-foreground">
-            {REPORT_TYPES.find(r => r.key === reportType)?.label} · {reportRows.length} records
+            {REPORT_TYPES.find(r => r.key === reportType)?.label} · {total} records
           </span>
         </div>
         <div className="overflow-x-auto table-scroll-x">
@@ -288,6 +328,15 @@ export default function AttendanceReports({
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalRecords={total}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage}
+          isFiltered={Object.values(filters).some(v => v)}
+        />
       </Card>
     </div>
   );

@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 const STATUS_OPTIONS = [
-  'Present', 'Absent', 'Late', 'Half Day', 'On Leave', 'Rest Day', 'Holiday', 'Missing Check-out', 'Incomplete',
+  'Present', 'Absent', 'Late', 'Half Day', 'On Leave', 'Rest Day', 'Holiday',
+  'Missing Check-out', 'Incomplete', 'Not Checked In',
+  'First In Completed', 'First Out Completed', 'Second In Completed', 'Manual Override',
 ];
 
 // Shared filter bar used across Dashboard, Time Entries, Employee Summary, Reports.

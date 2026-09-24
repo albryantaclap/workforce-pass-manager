@@ -69,6 +69,29 @@ export default function DailyAttendance() {
     });
   }, [employees, filters, attendanceByPersonnel]);
 
+  // Employees filtered by all criteria EXCEPT status — used by Employee Summary
+  // and Attendance Reports so the status filter doesn't shrink the dropdown options.
+  // The status filter is applied server-side by the backend function instead.
+  // Manager filter uses assigned_manager_name to match the dropdown values.
+  const filteredEmployeesNoStatus = useMemo(() => {
+    if (!employees?.length) return [];
+    const f = filters;
+    return employees.filter(emp => {
+      if (f.search) {
+        const q = f.search.toLowerCase();
+        const hay = `${emp.name || ''} ${emp.qid_no || ''} ${emp.pid || ''} ${emp.position_application || ''} ${emp.company || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (f.company && emp.company !== f.company) return false;
+      if (f.department && emp.department !== f.department) return false;
+      if (f.designation && emp.position_application !== f.designation) return false;
+      if (f.manager && emp.assigned_manager_name !== f.manager) return false;
+      if (f.branch && emp.current_location !== f.branch) return false;
+      if (f.dirIndir && emp.dir_indir !== f.dirIndir) return false;
+      return true;
+    });
+  }, [employees, filters]);
+
   return (
     <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
       {/* Header */}
@@ -139,7 +162,7 @@ export default function DailyAttendance() {
           )}
           {activeTab === 'summary' && (
             <EmployeeSummary
-              employees={filteredEmployees}
+              employees={filteredEmployeesNoStatus}
               settings={settings}
               shifts={shifts}
               assignments={assignments}
@@ -168,7 +191,7 @@ export default function DailyAttendance() {
           )}
           {activeTab === 'reports' && (
             <AttendanceReports
-              employees={filteredEmployees}
+              employees={filteredEmployeesNoStatus}
               settings={settings}
               shifts={shifts}
               assignments={assignments}
