@@ -8,6 +8,7 @@ import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import { formatMinutes } from '@/lib/attendanceEngine';
+import { useDebounce } from '@/hooks/useDebounce';
 
 export default function EmployeeSummary({
   settings, shifts, assignments, holidays, filters, setFilters,
@@ -17,10 +18,11 @@ export default function EmployeeSummary({
     return d.toLocaleDateString('en-CA');
   });
   const [dateTo, setDateTo] = useState(() => new Date().toLocaleDateString('en-CA'));
+  const debouncedSearch = useDebounce(filters.search, 350);
 
   // Pagination — resets to page 1 whenever any filter or date changes
   const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(20, [
-    filters.search, filters.company, filters.department, filters.designation,
+    debouncedSearch, filters.company, filters.department, filters.designation,
     filters.manager, filters.branch, filters.dirIndir, filters.status,
     dateFrom, dateTo,
   ]);
@@ -30,14 +32,14 @@ export default function EmployeeSummary({
   // → status condition → pagination, returning only the rows for the current page.
   const { data, isLoading } = useQuery({
     queryKey: ['employee-summary', {
-      search: filters.search, company: filters.company, department: filters.department,
+      search: debouncedSearch, company: filters.company, department: filters.department,
       designation: filters.designation, manager: filters.manager, branch: filters.branch,
       dirIndir: filters.dirIndir, status: filters.status,
       dateFrom, dateTo, page, rowsPerPage,
     }],
     queryFn: () => base44.functions.invoke('getEmployeeSummary', {
       filters: {
-        search: filters.search || '',
+        search: debouncedSearch || '',
         company: filters.company || '',
         department: filters.department || '',
         designation: filters.designation || '',

@@ -19,6 +19,7 @@ import {
   formatMinutes, formatTimeShort, formatDateShort, STATUS_COLORS,
   getFirstIn, getFinalOut,
 } from '@/lib/attendanceEngine';
+import { useDebounce } from '@/hooks/useDebounce';
 
 const REPORT_TYPES = [
   { key: 'daily', label: 'Daily Attendance' },
@@ -65,6 +66,7 @@ export default function AttendanceReports({
   const [showWeekly, setShowWeekly] = useState(false);
   const [showPwr, setShowPwr] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const debouncedSearch = useDebounce(filters.search, 350);
 
   const monthStart = (ds) => {
     const d = ds ? new Date(ds + 'T00:00:00') : new Date();
@@ -93,7 +95,7 @@ export default function AttendanceReports({
 
   // Pagination — resets to page 1 when any filter, date, or report type changes
   const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(20, [
-    filters.search, filters.company, filters.department, filters.designation,
+    debouncedSearch, filters.company, filters.department, filters.designation,
     filters.manager, filters.branch, filters.dirIndir, filters.status,
     dateFrom, dateTo, reportType,
   ]);
@@ -101,14 +103,14 @@ export default function AttendanceReports({
   // Server-side paginated report data for the table
   const { data, isLoading } = useQuery({
     queryKey: ['attendance-report', {
-      search: filters.search, company: filters.company, department: filters.department,
+      search: debouncedSearch, company: filters.company, department: filters.department,
       designation: filters.designation, manager: filters.manager, branch: filters.branch,
       dirIndir: filters.dirIndir, status: filters.status,
       dateFrom, dateTo, reportType, page, rowsPerPage,
     }],
     queryFn: () => base44.functions.invoke('getAttendanceReport', {
       filters: {
-        search: filters.search || '',
+        search: debouncedSearch || '',
         company: filters.company || '',
         department: filters.department || '',
         designation: filters.designation || '',
