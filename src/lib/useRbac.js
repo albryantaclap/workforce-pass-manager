@@ -36,7 +36,7 @@ export function useRbac() {
       return all.filter(p => p.user_id === user.id);
     },
     enabled: !!user?.id,
-    staleTime: 30000,
+    staleTime: 0, // always refetch on mount/focus so permission changes take effect immediately
   });
 
   // Fetch current user's access scope
