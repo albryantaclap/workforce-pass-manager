@@ -32,8 +32,7 @@ export function useRbac() {
     queryKey: ['rbac-permissions', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const all = await base44.entities.UserPermission.list('-created_date', 10000);
-      return all.filter(p => p.user_id === user.id);
+      return await base44.entities.UserPermission.filter({ user_id: user.id }, undefined, 1000);
     },
     enabled: !!user?.id,
     staleTime: 0, // always refetch on mount/focus so permission changes take effect immediately
@@ -44,8 +43,8 @@ export function useRbac() {
     queryKey: ['rbac-scope', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const all = await base44.entities.UserAccessScope.list('-created_date', 100);
-      return all.find(s => s.user_id === user.id) || null;
+      const rows = await base44.entities.UserAccessScope.filter({ user_id: user.id }, undefined, 10);
+      return rows[0] || null;
     },
     enabled: !!user?.id,
     staleTime: 30000,

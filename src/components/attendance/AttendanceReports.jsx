@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { useRbac } from '@/lib/useRbac';
+import { useAttendanceEmployees } from '@/hooks/useAttendanceEmployees';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,7 +52,7 @@ const fmtPeriodLabel = (from, to) => {
 };
 
 export default function AttendanceReports({
-  employees, settings, shifts, assignments, holidays, filters, setFilters,
+  settings, shifts, assignments, holidays, filters, setFilters,
 }) {
   const [reportType, setReportType] = useState('daily');
   const { can } = useRbac();
@@ -139,6 +140,9 @@ export default function AttendanceReports({
     ),
     enabled: pdfDialogOpen,
   });
+  // Lazy-load all employees only when a PDF dialog is open (not on page load).
+  // Cached for 2 minutes so opening multiple PDFs doesn't re-fetch.
+  const { data: allEmployees = [] } = useAttendanceEmployees(pdfDialogOpen);
 
   // CSV export — fetches ALL matching records from the backend (not just the current page)
   const exportCSV = async () => {
@@ -181,7 +185,7 @@ export default function AttendanceReports({
 
   return (
     <div className="space-y-4">
-      <AttendanceFilterBar filters={filters} setFilters={setFilters} employees={employees} />
+      <AttendanceFilterBar filters={filters} setFilters={setFilters} />
 
       {/* Report type + date range */}
       <Card className="p-3 space-y-3">
@@ -263,22 +267,22 @@ export default function AttendanceReports({
 
       <TimesheetExportDialog
         open={showTimesheet} onOpenChange={setShowTimesheet}
-        employees={employees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
+        employees={allEmployees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
         baseFilters={filters}
       />
       <PdfByEmployeeDialog
         open={showPdf} onOpenChange={setShowPdf}
-        employees={employees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
+        employees={allEmployees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
         baseFilters={filters}
       />
       <WeeklyPdfDialog
         open={showWeekly} onOpenChange={setShowWeekly}
-        employees={employees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
+        employees={allEmployees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
         baseFilters={filters}
       />
       <PersonalWorkingRecordDialog
         open={showPwr} onOpenChange={setShowPwr}
-        employees={employees} records={allRecords}
+        employees={allEmployees} records={allRecords}
       />
 
       {/* Report table */}

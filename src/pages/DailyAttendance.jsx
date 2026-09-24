@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Clock, LayoutDashboard, Users, ScanLine, Timer, FileBarChart, Settings } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useRbac } from '@/lib/useRbac';
-import { useAttendanceData } from '@/hooks/useAttendanceData';
+import { useAttendanceReference } from '@/hooks/useAttendanceReference';
 import AttendanceDashboard from '@/components/attendance/AttendanceDashboard';
 import TimeEntries from '@/components/attendance/TimeEntries';
 import EmployeeSummary from '@/components/attendance/EmployeeSummary';
@@ -29,13 +29,12 @@ export default function DailyAttendance() {
   const setActiveTab = (key) => setSearchParams({ tab: key }, { replace: true });
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('en-CA'));
 
-  const {
-    employees, attendance, attendanceByPersonnel,
-    settings, shifts, assignments, holidays,
-    isLoading, refetchAtt,
-  } = useAttendanceData(selectedDate);
+  // Cached reference data (settings, shifts, assignments, holidays).
+  // Does NOT load employees or attendance — each tab fetches its own data
+  // independently, so opening one tab does not calculate other tabs' data.
+  const { settings, shifts, assignments, holidays } = useAttendanceReference();
 
-  // Shared filter state (lifted so Dashboard and Time Entries stay in sync)
+  // Shared filter state (lifted so all tabs stay in sync)
   const [filters, setFilters] = useState({
     search: '',
     company: '',
@@ -47,57 +46,9 @@ export default function DailyAttendance() {
     status: '',
   });
 
-  // Filtered employees (shared across tabs)
-  const filteredEmployees = useMemo(() => {
-    if (!employees?.length) return [];
-    const f = filters;
-    return employees.filter(emp => {
-      if (f.search) {
-        const q = f.search.toLowerCase();
-        const hay = `${emp.name || ''} ${emp.qid_no || ''} ${emp.pid || ''} ${emp.position_application || ''} ${emp.company || ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      if (f.company && emp.company !== f.company) return false;
-      if (f.department && emp.department !== f.department) return false;
-      if (f.designation && emp.position_application !== f.designation) return false;
-      if (f.manager && emp.assigned_manager_id !== f.manager) return false;
-      if (f.branch && emp.current_location !== f.branch) return false;
-      if (f.dirIndir && emp.dir_indir !== f.dirIndir) return false;
-      if (f.status) {
-        const att = attendanceByPersonnel.get(emp.id);
-        const status = att?.attendance_status || (att ? 'Present' : 'Absent');
-        if (status !== f.status) return false;
-      }
-      return true;
-    });
-  }, [employees, filters, attendanceByPersonnel]);
-
-  // Employees filtered by all criteria EXCEPT status — used by Employee Summary
-  // and Attendance Reports so the status filter doesn't shrink the dropdown options.
-  // The status filter is applied server-side by the backend function instead.
-  // Manager filter uses assigned_manager_name to match the dropdown values.
-  const filteredEmployeesNoStatus = useMemo(() => {
-    if (!employees?.length) return [];
-    const f = filters;
-    return employees.filter(emp => {
-      if (f.search) {
-        const q = f.search.toLowerCase();
-        const hay = `${emp.name || ''} ${emp.qid_no || ''} ${emp.pid || ''} ${emp.position_application || ''} ${emp.company || ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      if (f.company && emp.company !== f.company) return false;
-      if (f.department && emp.department !== f.department) return false;
-      if (f.designation && emp.position_application !== f.designation) return false;
-      if (f.manager && emp.assigned_manager_name !== f.manager) return false;
-      if (f.branch && emp.current_location !== f.branch) return false;
-      if (f.dirIndir && emp.dir_indir !== f.dirIndir) return false;
-      return true;
-    });
-  }, [employees, filters]);
-
   return (
     <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
-      {/* Header */}
+      {/* Header — always visible, never blocked by loading */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
@@ -110,7 +61,7 @@ export default function DailyAttendance() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — always visible, never blocked by loading */}
       <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-1">
         {visibleTabs.map(tab => {
           const Icon = tab.icon;
@@ -143,76 +94,62 @@ export default function DailyAttendance() {
         })}
       </div>
 
-      {/* Tab content */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-slate-200 border-t-emerald-600 rounded-full animate-spin"></div>
-        </div>
-      ) : (
-        <>
-          {activeTab === 'dashboard' && (
-            <AttendanceDashboard
-              employees={filteredEmployees}
-              attendanceByPersonnel={attendanceByPersonnel}
-              settings={settings}
-              shifts={shifts}
-              assignments={assignments}
-              holidays={holidays}
-              selectedDate={selectedDate}
-              filters={filters}
-              setFilters={setFilters}
-            />
-          )}
-          {activeTab === 'summary' && (
-            <EmployeeSummary
-              employees={filteredEmployeesNoStatus}
-              settings={settings}
-              shifts={shifts}
-              assignments={assignments}
-              holidays={holidays}
-              filters={filters}
-              setFilters={setFilters}
-            />
-          )}
-          {activeTab === 'scan' && (
-            <AttendanceClock employees={employees} onRecorded={refetchAtt} />
-          )}
-          {activeTab === 'entries' && (
-            <TimeEntries
-              employees={filteredEmployees}
-              attendanceByPersonnel={attendanceByPersonnel}
-              settings={settings}
-              shifts={shifts}
-              assignments={assignments}
-              holidays={holidays}
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              filters={filters}
-              setFilters={setFilters}
-              refetchAtt={refetchAtt}
-            />
-          )}
-          {activeTab === 'reports' && (
-            <AttendanceReports
-              employees={filteredEmployeesNoStatus}
-              settings={settings}
-              shifts={shifts}
-              assignments={assignments}
-              holidays={holidays}
-              filters={filters}
-              setFilters={setFilters}
-            />
-          )}
-          {activeTab === 'settings' && (
-            <AttendanceSettings
-              settings={settings}
-              shifts={shifts}
-              assignments={assignments}
-              holidays={holidays}
-              employees={employees}
-            />
-          )}
-        </>
+      {/* Tab content — each tab fetches only its own data.
+          No isLoading gate: the header and tabs are always visible.
+          Each component shows its own lightweight skeleton/error state. */}
+      {activeTab === 'dashboard' && (
+        <AttendanceDashboard
+          settings={settings}
+          shifts={shifts}
+          assignments={assignments}
+          holidays={holidays}
+          selectedDate={selectedDate}
+          filters={filters}
+          setFilters={setFilters}
+        />
+      )}
+      {activeTab === 'summary' && (
+        <EmployeeSummary
+          settings={settings}
+          shifts={shifts}
+          assignments={assignments}
+          holidays={holidays}
+          filters={filters}
+          setFilters={setFilters}
+        />
+      )}
+      {activeTab === 'scan' && (
+        <AttendanceClock />
+      )}
+      {activeTab === 'entries' && (
+        <TimeEntries
+          settings={settings}
+          shifts={shifts}
+          assignments={assignments}
+          holidays={holidays}
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          filters={filters}
+          setFilters={setFilters}
+        />
+      )}
+      {activeTab === 'reports' && (
+        <AttendanceReports
+          settings={settings}
+          shifts={shifts}
+          assignments={assignments}
+          holidays={holidays}
+          filters={filters}
+          setFilters={setFilters}
+        />
+      )}
+      {activeTab === 'settings' && (
+        <AttendanceSettings
+          settings={settings}
+          shifts={shifts}
+          assignments={assignments}
+          holidays={holidays}
+        />
       )}
     </div>
   );

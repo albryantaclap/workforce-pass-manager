@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Search, X, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useAttendanceFilterOptions } from '@/hooks/useAttendanceFilterOptions';
 
 const STATUS_OPTIONS = [
   'Present', 'Absent', 'Late', 'Half Day', 'On Leave', 'Rest Day', 'Holiday',
@@ -10,21 +11,17 @@ const STATUS_OPTIONS = [
 ];
 
 // Shared filter bar used across Dashboard, Time Entries, Employee Summary, Reports.
-export default function AttendanceFilterBar({ filters, setFilters, employees }) {
-  const options = useMemo(() => {
-    const unique = (field) => [...new Set(employees.map(e => e[field]).filter(Boolean))].sort();
-    return {
-      companies: unique('company'),
-      departments: unique('department'),
-      designations: unique('position_application'),
-      branches: unique('current_location'),
-      managers: [...new Set(employees.map(e => e.assigned_manager_name).filter(Boolean))].sort(),
-    };
-  }, [employees]);
+// Filter dropdown options are fetched once from the backend and cached for 5
+// minutes (useAttendanceFilterOptions), so this component does NOT require the
+// full employee list to be loaded.
+//
+// The search input updates immediately for responsive UI. The consuming
+// component debounces the value before sending a backend request.
+export default function AttendanceFilterBar({ filters, setFilters }) {
+  const { options } = useAttendanceFilterOptions();
 
   const update = (key, val) => setFilters(prev => ({ ...prev, [key]: val }));
   const clearAll = () => setFilters({ search: '', company: '', department: '', designation: '', manager: '', branch: '', dirIndir: '', status: '' });
-
   const hasActiveFilters = Object.values(filters).some(v => v);
 
   return (
@@ -41,7 +38,8 @@ export default function AttendanceFilterBar({ filters, setFilters, employees }) 
         )}
       </div>
 
-      {/* Live search */}
+      {/* Live search — updates immediately for responsive UI.
+          The consuming component debounces the value before querying. */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -52,7 +50,7 @@ export default function AttendanceFilterBar({ filters, setFilters, employees }) 
         />
       </div>
 
-      {/* Filter dropdowns */}
+      {/* Filter dropdowns — options from cached backend query */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
         <FilterSelect label="Company" value={filters.company} onChange={v => update('company', v)} options={options.companies} />
         <FilterSelect label="Department" value={filters.department} onChange={v => update('department', v)} options={options.departments} />

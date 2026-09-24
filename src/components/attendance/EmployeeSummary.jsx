@@ -10,7 +10,7 @@ import { usePagination } from '@/hooks/usePagination';
 import { formatMinutes } from '@/lib/attendanceEngine';
 
 export default function EmployeeSummary({
-  employees, settings, shifts, assignments, holidays, filters, setFilters,
+  settings, shifts, assignments, holidays, filters, setFilters,
 }) {
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date(); d.setDate(1);
@@ -61,7 +61,7 @@ export default function EmployeeSummary({
 
   return (
     <div className="space-y-4">
-      <AttendanceFilterBar filters={filters} setFilters={setFilters} employees={employees} />
+      <AttendanceFilterBar filters={filters} setFilters={setFilters} />
 
       {/* Date range */}
       <Card className="p-3 flex items-center gap-3 flex-wrap">

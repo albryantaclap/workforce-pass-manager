@@ -15,6 +15,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { useCurrentUser } from "@/lib/useCurrentUser";
 import { useRbac } from "@/lib/useRbac";
 import { recordPunch } from "@/lib/attendanceService";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAttendanceEmployees } from "@/hooks/useAttendanceEmployees";
 
 const STEP = {
   STANDBY: "standby",
@@ -28,7 +30,8 @@ const STEP = {
 // Integrates with the existing AttendanceRecord/AttendancePunch system via
 // recordPunch(). The punch direction (IN/OUT) is derived from today's session:
 // an open session → clock OUT, otherwise → clock IN.
-export default function AttendanceClock({ employees = [], onRecorded }) {
+export default function AttendanceClock({ onRecorded }) {
+  const qc = useQueryClient();
   const [step, setStep] = useState(STEP.STANDBY);
   const [matchedEmployee, setMatchedEmployee] = useState(null);
   const [failReason, setFailReason] = useState("");
@@ -41,6 +44,12 @@ export default function AttendanceClock({ employees = [], onRecorded }) {
   const canPunch = can('attendance.clock.use');
   const { toast } = useToast();
   const processingLockRef = useRef(false);
+
+  // Lazy-load all employees only when the scanner is active (not on page load).
+  // Cached for 2 minutes so rapid re-scans don't re-fetch.
+  const { data: employees = [] } = useAttendanceEmployees(
+    step === STEP.SCANNING || step === STEP.PROCESSING
+  );
 
   const handleEmployeeFound = async (emp) => {
     if (processingLockRef.current) return;
@@ -83,6 +92,10 @@ export default function AttendanceClock({ employees = [], onRecorded }) {
       setSuccessEmployee(emp);
       setStep(STEP.SUCCESS);
       if (onRecorded) onRecorded();
+      // Invalidate only the affected attendance queries (not the entire module)
+      qc.invalidateQueries({ queryKey: ['time-entries'] });
+      qc.invalidateQueries({ queryKey: ['attendance-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['employee-summary'] });
       setTimeout(() => resumeForNextEmployee(), 3500);
     } catch (err) {
       setFailReason(err.message || "Failed to record attendance.");

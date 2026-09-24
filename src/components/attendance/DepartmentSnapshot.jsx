@@ -1,30 +1,9 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Card } from '@/components/ui/card';
-import { isWorkingDay, isHoliday } from '@/lib/attendanceEngine';
-
-const PRESENT_STATUSES = ['Present', 'Late', 'Half Day', 'Missing Check-out', 'Incomplete'];
 
 // Grid of department cards showing present/total ratio with a progress bar.
-export default function DepartmentSnapshot({
-  employees, attendanceByPersonnel, settings, holidays, selectedDate,
-}) {
-  const departments = useMemo(() => {
-    const map = new Map();
-    const holiday = isHoliday(selectedDate, holidays);
-    const workingDay = isWorkingDay(selectedDate, settings);
-
-    for (const emp of employees) {
-      const dept = emp.department || 'Unassigned';
-      if (!map.has(dept)) map.set(dept, { dept, total: 0, present: 0 });
-      const entry = map.get(dept);
-      entry.total++;
-      const att = attendanceByPersonnel.get(emp.id);
-      const status = att?.attendance_status || (att ? 'Present' : (holiday ? 'Holiday' : (workingDay ? 'Absent' : 'Rest Day')));
-      if (PRESENT_STATUSES.includes(status)) entry.present++;
-    }
-    return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [employees, attendanceByPersonnel, settings, holidays, selectedDate]);
-
+// Data is computed server-side by getAttendanceDashboard and passed as props.
+export default function DepartmentSnapshot({ departments = [] }) {
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-3">

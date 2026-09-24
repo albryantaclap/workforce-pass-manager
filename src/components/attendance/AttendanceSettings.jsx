@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Edit2, X, Clock, Calendar, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
 import ShiftAssignEmployees from './ShiftAssignEmployees';
+import { useAttendanceEmployees } from '@/hooks/useAttendanceEmployees';
 
 const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -22,10 +23,13 @@ const SETTINGS_TABS = [
   { key: 'rules', label: 'Late & Overtime Rules', icon: SettingsIcon },
 ];
 
-export default function AttendanceSettings({ settings, shifts, assignments, holidays, employees }) {
+export default function AttendanceSettings({ settings, shifts, assignments, holidays }) {
   const [activeTab, setActiveTab] = useState('working-days');
   const { can } = useRbac();
   const canEdit = can('attendance.settings.manage');
+  // Lazy-load employees only when the Shifts tab is active (for shift assignment).
+  // Not loaded on initial page load or when other settings tabs are open.
+  const { data: employees = [] } = useAttendanceEmployees(activeTab === 'shifts');
 
   return (
     <div className="space-y-4">

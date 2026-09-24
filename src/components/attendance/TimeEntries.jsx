@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, Eye, X, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Edit2, Trash2, Download } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,21 +13,24 @@ import ManualEntryDialog from './ManualEntryDialog';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import { useRbac } from '@/lib/useRbac';
 import { useAuth } from '@/lib/AuthContext';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useAttendanceEmployees } from '@/hooks/useAttendanceEmployees';
 import {
   formatTimeShort, formatDateShort, formatMinutes, getDurationColor,
-  STATUS_COLORS, isWorkingDay, isHoliday, getFirstIn, getFinalOut,
-  resolveShift, isSplitEffective, getSplitPunchStatuses, calculateAttendanceState,
+  STATUS_COLORS, isSplitEffective, getSplitPunchStatuses, calculateAttendanceState,
+  getFirstIn, getFinalOut, resolveShift,
 } from '@/lib/attendanceEngine';
 import { saveManualEntry, softDeleteAttendance } from '@/lib/attendanceService';
 
 const PAGE_SIZES = [20, 50, 100, 200];
 
 export default function TimeEntries({
-  employees, attendanceByPersonnel, settings, shifts, assignments, holidays,
-  selectedDate, setSelectedDate, filters, setFilters, refetchAtt,
+  settings, shifts, assignments, holidays,
+  selectedDate, setSelectedDate, filters, setFilters,
 }) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const qc = useQueryClient();
   const { can } = useRbac();
   const canEditEntry = can('attendance.entries.edit');
   const canDeleteEntry = can('attendance.entries.delete');
@@ -37,35 +42,50 @@ export default function TimeEntries({
   const [editRecord, setEditRecord] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // Build table rows: employees with their attendance for the selected date
-  const rows = useMemo(() => {
-    const holiday = isHoliday(selectedDate, holidays);
-    const workingDay = isWorkingDay(selectedDate, settings);
-    return employees.map(emp => {
-      const att = attendanceByPersonnel.get(emp.id) || null;
-      const shift = resolveShift(emp, assignments, shifts, settings);
-      let status;
-      if (att) {
-        const state = calculateAttendanceState(att, shift, settings, holidays, new Date());
-        status = state.effectiveStatus;
-      } else {
-        status = holiday ? 'Holiday' : (workingDay ? 'Absent' : 'Rest Day');
-      }
-      const splitEffective = isSplitEffective(shift, selectedDate);
-      const splitStatuses = splitEffective ? getSplitPunchStatuses(att, shift, new Date()) : null;
-      return { emp, att, status, splitEffective, splitStatuses };
-    }).filter(row => {
-      if (!showAbsent && !row.att) return false;
-      return true;
-    });
-  }, [employees, attendanceByPersonnel, settings, holidays, selectedDate, showAbsent, assignments, shifts]);
+  // Debounce search to avoid a backend request on every keystroke
+  const debouncedSearch = useDebounce(filters.search, 350);
 
-  const paginatedRows = useMemo(() => {
-    const start = page * pageSize;
-    return rows.slice(start, start + pageSize);
-  }, [rows, page, pageSize]);
+  // Server-side paginated time entries from the backend function.
+  // Only the current page is fetched, plus KPIs for the entire filtered set.
+  // No artificial Absent rows are created in the browser — the backend
+  // calculates absent/present status at the query level.
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['time-entries', {
+      date: selectedDate,
+      search: debouncedSearch,
+      company: filters.company, department: filters.department,
+      designation: filters.designation, manager: filters.manager,
+      branch: filters.branch, dirIndir: filters.dirIndir,
+      status: filters.status, showAbsent,
+      page, pageSize,
+    }],
+    queryFn: () => base44.functions.invoke('getTimeEntries', {
+      date: selectedDate,
+      filters: {
+        search: debouncedSearch || '',
+        company: filters.company || '',
+        department: filters.department || '',
+        designation: filters.designation || '',
+        manager: filters.manager || '',
+        branch: filters.branch || '',
+        dirIndir: filters.dirIndir || '',
+      },
+      showAbsent,
+      status: filters.status || '',
+      page: page + 1, // backend is 1-based
+      pageSize,
+    }),
+    enabled: !!selectedDate,
+  });
 
-  const totalPages = Math.ceil(rows.length / pageSize);
+  const result = data?.data || {};
+  const rows = result.rows || [];
+  const total = result.total || 0;
+  const totalPages = result.totalPages || 1;
+  const kpis = result.kpis;
+
+  // Lazy-load all employees only when the Manual Entry dialog is open
+  const { data: allEmployees = [] } = useAttendanceEmployees(manualOpen);
 
   // Quick date filters
   const quickDate = (type) => {
@@ -75,7 +95,6 @@ export default function TimeEntries({
       const d = new Date(today); d.setDate(d.getDate() - 1);
       setSelectedDate(d.toLocaleDateString('en-CA'));
     } else if (type === 'week') {
-      // This week start
       const d = new Date(today);
       const day = d.getDay();
       d.setDate(d.getDate() - day);
@@ -91,7 +110,9 @@ export default function TimeEntries({
       await softDeleteAttendance(deleteConfirm.id, deleteConfirm.reason || 'Deleted from Time Entries', user);
       toast({ title: 'Attendance record deleted (soft delete).' });
       setDeleteConfirm(null);
-      refetchAtt?.();
+      // Invalidate only the affected attendance queries (not the entire module)
+      qc.invalidateQueries({ queryKey: ['time-entries'] });
+      qc.invalidateQueries({ queryKey: ['attendance-dashboard'] });
     } catch (e) {
       toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
     }
@@ -100,14 +121,24 @@ export default function TimeEntries({
   // Export the current page's attendance data to CSV.
   const exportCSV = () => {
     const headers = ['Employee', 'Designation', 'QID', 'PID', 'Company', 'Dept', 'Branch', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status'];
-    const csvRows = rows.map(({ emp, att, status }) => [
-      emp.name || '', emp.position_application || '', emp.qid_no || '', emp.pid || '',
-      emp.company || '', emp.department || '', emp.current_location || '',
-      selectedDate,
-      att?.first_in_at || att?.check_in_at || '', att?.first_out_at || '',
-      att?.second_in_at || '', att?.final_out_at || att?.check_out_at || '',
-      att?.duration_minutes || 0, att?.overtime_minutes || 0, status,
-    ]);
+    const csvRows = rows.map(({ emp, att }) => {
+      const shift = resolveShift(emp, assignments, shifts, settings);
+      let status;
+      if (att) {
+        const state = calculateAttendanceState(att, shift, settings, holidays, new Date());
+        status = state.effectiveStatus;
+      } else {
+        status = 'Absent';
+      }
+      return [
+        emp.name || '', emp.position_application || '', emp.qid_no || '', emp.pid || '',
+        emp.company || '', emp.department || '', emp.current_location || '',
+        selectedDate,
+        att?.first_in_at || att?.check_in_at || '', att?.first_out_at || '',
+        att?.second_in_at || '', att?.final_out_at || att?.check_out_at || '',
+        att?.duration_minutes || 0, att?.overtime_minutes || 0, status,
+      ];
+    });
     const csv = [headers, ...csvRows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -116,9 +147,7 @@ export default function TimeEntries({
     a.click(); URL.revokeObjectURL(url);
   };
 
-  // Render a single punch cell. Done punches show the time; for split-shift
-  // employees, not-yet-done punches show "Waiting" until their window passes,
-  // then "Missed" — never "Missed" while the shift is still in progress.
+  // Render a single punch cell.
   const renderPunch = (value, punchKey, splitOn, statuses) => {
     if (value) return <span className="text-muted-foreground">{formatTimeShort(value)}</span>;
     if (splitOn && statuses) {
@@ -132,14 +161,8 @@ export default function TimeEntries({
 
   return (
     <div className="space-y-4">
-      <AttendanceFilterBar filters={filters} setFilters={setFilters} employees={employees} />
-      <AttendanceKpiCards
-        employees={employees}
-        attendanceByPersonnel={attendanceByPersonnel}
-        settings={settings}
-        holidays={holidays}
-        selectedDate={selectedDate}
-      />
+      <AttendanceFilterBar filters={filters} setFilters={setFilters} />
+      <AttendanceKpiCards kpis={kpis} />
 
       {/* Quick date filters + actions */}
       <Card className="p-3">
@@ -186,7 +209,7 @@ export default function TimeEntries({
       <Card className="overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between bg-muted/30">
           <span className="text-sm font-semibold text-foreground">
-            Time Entries <span className="text-muted-foreground font-normal">· {rows.length} records</span>
+            Time Entries <span className="text-muted-foreground font-normal">· {total} records</span>
           </span>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>Rows per page</span>
@@ -220,7 +243,27 @@ export default function TimeEntries({
               </tr>
             </thead>
             <tbody>
-              {paginatedRows.map(({ emp, att, status, splitEffective, splitStatuses }) => {
+              {isLoading ? (
+                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 16 : 15} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 16 : 15} className="text-center py-8 text-red-600">
+                  Failed to load. <button onClick={() => qc.invalidateQueries({ queryKey: ['time-entries'] })} className="underline">Retry</button>
+                </td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 16 : 15} className="px-3 py-8 text-center text-muted-foreground">
+                  No attendance records for the selected date and filters.
+                </td></tr>
+              ) : rows.map(({ emp, att }) => {
+                const shift = resolveShift(emp, assignments, shifts, settings);
+                let status;
+                if (att) {
+                  const state = calculateAttendanceState(att, shift, settings, holidays, new Date());
+                  status = state.effectiveStatus;
+                } else {
+                  status = 'Absent';
+                }
+                const splitEffective = isSplitEffective(shift, selectedDate);
+                const splitStatuses = splitEffective ? getSplitPunchStatuses(att, shift, new Date()) : null;
                 const colors = STATUS_COLORS[status] || STATUS_COLORS['Absent'];
                 return (
                   <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/30">
@@ -279,13 +322,6 @@ export default function TimeEntries({
                   </tr>
                 );
               })}
-              {paginatedRows.length === 0 && (
-                <tr>
-                  <td colSpan={(canEditEntry || canDeleteEntry) ? 16 : 15} className="px-3 py-8 text-center text-muted-foreground">
-                    No attendance records for the selected date and filters.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -294,7 +330,7 @@ export default function TimeEntries({
         {totalPages > 1 && (
           <div className="px-4 py-2.5 border-t border-border flex items-center justify-between text-xs">
             <span className="text-muted-foreground">
-              Page {page + 1} of {totalPages} · {rows.length} total entries
+              Page {page + 1} of {totalPages} · {total} total entries
             </span>
             <div className="flex items-center gap-1">
               <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage(p => p - 1)} className="h-7">
@@ -316,18 +352,23 @@ export default function TimeEntries({
         <span className="text-blue-600">more than 10h</span>
       </div>
 
-      {/* Manual Entry Dialog */}
+      {/* Manual Entry Dialog — lazy-loads employees only when open */}
       {manualOpen && (
         <ManualEntryDialog
           open={manualOpen}
           onClose={() => { setManualOpen(false); setEditRecord(null); }}
-          employees={employees}
+          employees={allEmployees}
           settings={settings}
           shifts={shifts}
           assignments={assignments}
           selectedDate={selectedDate}
           editRecord={editRecord}
-          onSaved={() => { refetchAtt?.(); setManualOpen(false); setEditRecord(null); }}
+          onSaved={() => {
+            // Invalidate only the affected attendance queries
+            qc.invalidateQueries({ queryKey: ['time-entries'] });
+            qc.invalidateQueries({ queryKey: ['attendance-dashboard'] });
+            setManualOpen(false); setEditRecord(null);
+          }}
         />
       )}
 
