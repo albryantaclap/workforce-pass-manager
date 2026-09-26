@@ -24,6 +24,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import SharedStatusChangeModal from '@/components/common/StatusChangeModal';
+import { ACTIVE_ON_SITE, isActiveRosterStatus } from '@/lib/personnelStatus';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
@@ -279,7 +280,7 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                             <Button
                               size="sm"
                               className="text-[11px] h-6 px-1.5 gap-0.5 bg-green-600 hover:bg-green-700 text-white"
-                              onClick={() => openModal(emp, 'Active')}
+                              onClick={() => openModal(emp, ACTIVE_ON_SITE)}
                             >
                               <UserCheck className="w-3.5 h-3.5" /> Reactivate
                             </Button>
@@ -470,7 +471,7 @@ export default function InactivePersonnel() {
     mutationFn: ({ emp, newStatus, effectiveDate, lastWorkingDate, reason }) => {
       const updates = {
         personnel_status: newStatus,
-        is_active: newStatus === 'Active',
+        is_active: isActiveRosterStatus(newStatus),
         status_effective_date: effectiveDate,
         status_reason: reason || '',
         status_changed_by: currentUser?.email || 'unknown',
@@ -499,7 +500,7 @@ export default function InactivePersonnel() {
       queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
       queryClient.invalidateQueries({ queryKey: ['employees-active'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
-      const msg = newStatus === 'Active' ? `${emp.name} returned to active roster.` : `${emp.name} moved to ${newStatus}.`;
+      const msg = newStatus === ACTIVE_ON_SITE ? `${emp.name} returned to the active roster as Active on Site.` : `${emp.name} moved to ${newStatus}.`;
       toast({ title: `Status updated to ${newStatus}`, description: msg });
     },
     onError: () => toast({ title: 'Status change failed', variant: 'destructive' }),

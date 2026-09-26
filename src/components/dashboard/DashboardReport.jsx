@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { X, Printer } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { computePassStatus, formatDate } from '@/utils/constants';
+import { normalizeStatus } from '@/lib/personnelStatus';
 import { ALL_PERSONNEL_COLUMNS } from './ReportConfigModal';
 import { applyReportSorting, buildRankMap, DEFAULT_SORT_CONFIG } from './reportSorting';
 
@@ -87,7 +88,7 @@ function getCellValue(e, colId) {
     const s = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
     return s === 'VALID PID PASS' ? 'Valid' : s === 'EXPIRED PID PASS' ? 'Expired' : s === 'SOON TO EXPIRE' ? 'Soon' : s === 'NO PID PASS' ? 'No Pass' : s || '—';
   }
-  if (colId === 'is_active') return e.is_active === false ? 'Inactive' : 'Active';
+  if (colId === 'is_active') return normalizeStatus(e.personnel_status, e.is_active);
   if (colId === 'assigned_manager_name') return e.assigned_manager_name || '—';
   if (colId === 'work_location') return e.work_location || '—';
   if (colId === 'company_type') return e.company_type || '—';

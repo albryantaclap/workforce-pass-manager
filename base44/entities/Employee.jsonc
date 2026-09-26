@@ -20,22 +20,19 @@
     },
     "is_active": {
       "type": "boolean",
-      "description": "Whether the employee is active",
+      "description": "Derived roster flag kept in sync with personnel_status: true for 'Active on Site' and 'Onboarding' (they stay in the Master List), false for 'Inactive' and 'Demobilized' (they live on the Inactive / Demobilized page).",
       "default": true
     },
     "personnel_status": {
       "type": "string",
       "enum": [
-        "Active",
+        "Active on Site",
+        "Onboarding",
         "Inactive",
         "Demobilized"
       ],
-      "default": "Active",
-      "description": "Personnel status: Active, Inactive, or Demobilized"
-    },
-    "workforce_stage": {
-      "type": "string",
-      "description": "Workforce Stage \u2014 'Active on Site' (already working at the project site) or 'Onboarding' (still completing requirements before working at site). Empty/missing = Unassigned (not yet classified). Manually assigned; independent of personnel_status (Active/Inactive/Demobilized) and never derived from Medical, Gate Pass, Training, Project ID, Daily Attendance or COMO Camp status."
+      "default": "Active on Site",
+      "description": "THE single source of truth for personnel status. 'Active on Site' = mobilized and actively working on the project/site. 'Onboarding' = registered but still completing requirements (Medical, Gate Pass, Training, Project ID); never auto-promoted when those complete. 'Inactive' = not currently active/on site. 'Demobilized' = demobilized from the project. Completely independent of Daily Attendance status, and never derived from Medical, Gate Pass, Training, Project ID or COMO Camp data."
     },
     "status_effective_date": {
       "type": "string",

@@ -3,43 +3,61 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  ACTIVE_ON_SITE, ONBOARDING, INACTIVE, DEMOBILIZED,
+  PERSONNEL_STATUS_CONFIG, normalizeStatus,
+} from '@/lib/personnelStatus';
 
+const TITLES = {
+  [ACTIVE_ON_SITE]: 'Set Personnel as Active on Site',
+  [ONBOARDING]: 'Set Personnel as Onboarding',
+  [INACTIVE]: 'Set Personnel as Inactive',
+  [DEMOBILIZED]: 'Demobilize Personnel',
+};
+
+/**
+ * Confirmation dialog for every personnel status change.
+ * Inactive / Demobilized also capture the effective date, last working date and
+ * reason, since those are the statuses that carry removal details.
+ */
 export default function StatusChangeModal({ open, onClose, emp, newStatus, onConfirm }) {
   const today = new Date().toISOString().split('T')[0];
   const [effectiveDate, setEffectiveDate] = useState(today);
   const [lastWorkingDate, setLastWorkingDate] = useState('');
   const [reason, setReason] = useState('');
 
-  if (!emp) return null;
+  if (!emp || !newStatus) return null;
 
-  const isInactive = newStatus === 'Inactive';
-  const isDemobilized = newStatus === 'Demobilized';
-  const isActive = newStatus === 'Active';
-  const prevStatus = emp.personnel_status || 'Active';
+  const config = PERSONNEL_STATUS_CONFIG[newStatus] || PERSONNEL_STATUS_CONFIG[ACTIVE_ON_SITE];
+  const isDemobilized = newStatus === DEMOBILIZED;
+  const isInactive = newStatus === INACTIVE;
+  const needsDetails = isInactive || isDemobilized;
+  const prevStatus = normalizeStatus(emp.personnel_status, emp.is_active);
 
   const dateLabel = isDemobilized ? 'Demobilization Date' : 'Inactive Date / Status Effective Date';
-  const title = isDemobilized ? 'Demobilize Personnel' : isInactive ? 'Set Personnel as Inactive' : 'Reactivate Personnel';
 
-  const handleConfirm = () => {
-    onConfirm({ emp, newStatus, effectiveDate, lastWorkingDate, reason });
-    onClose();
+  const reset = () => {
     setEffectiveDate(today);
     setLastWorkingDate('');
     setReason('');
   };
 
+  const handleConfirm = () => {
+    onConfirm({ emp, newStatus, effectiveDate, lastWorkingDate, reason });
+    onClose();
+    reset();
+  };
+
   const handleClose = () => {
     onClose();
-    setEffectiveDate(today);
-    setLastWorkingDate('');
-    setReason('');
+    reset();
   };
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{TITLES[newStatus] || 'Change Personnel Status'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="rounded-lg bg-muted/40 p-3 space-y-1.5 text-sm">
@@ -53,13 +71,14 @@ export default function StatusChangeModal({ open, onClose, emp, newStatus, onCon
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">New Status:</span>
-              <span className={`font-bold ${isActive ? 'text-green-600' : isDemobilized ? 'text-orange-600' : 'text-red-600'}`}>
-                {newStatus}
-              </span>
+              <span className={`font-bold ${config.text}`}>{newStatus}</span>
             </div>
+            {config.description && (
+              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60">{config.description}</p>
+            )}
           </div>
 
-          {!isActive && (
+          {needsDetails && (
             <>
               <div className="space-y-1.5">
                 <Label className="text-xs">{dateLabel} *</Label>
@@ -80,8 +99,8 @@ export default function StatusChangeModal({ open, onClose, emp, newStatus, onCon
           <Button variant="outline" onClick={handleClose}>Cancel</Button>
           <Button
             onClick={handleConfirm}
-            disabled={!isActive && !effectiveDate}
-            className={isActive ? 'bg-green-600 hover:bg-green-700' : isDemobilized ? 'bg-orange-600 hover:bg-orange-700' : 'bg-red-600 hover:bg-red-700'}
+            disabled={needsDetails && !effectiveDate}
+            className={config.solid}
           >
             Confirm
           </Button>

@@ -13,7 +13,7 @@ export default function ShiftAssignEmployees({ employees, selectedIds, setSelect
   const filtered = useMemo(() => {
     if (!employees) return [];
     const active = employees.filter(
-      (e) => e.personnel_status === 'Active' && e.is_active !== false
+      (e) => e.personnel_status === 'Active on Site' && e.is_active !== false
     );
     if (!search) return active;
     const q = search.toLowerCase();

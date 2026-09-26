@@ -25,7 +25,7 @@ export default async function (req: Request): Promise<Response> {
     // 1. Fetch all active employees, settings, holidays, shifts, and assignments
     const [employees, settingsRows, holidays, shifts, assignments] = await Promise.all([
       base44.entities.Employee.filter(
-        { personnel_status: "Active", is_active: { $ne: false } },
+        { personnel_status: "Active on Site", is_active: { $ne: false } },
         "name",
         100000
       ),
