@@ -98,7 +98,8 @@ export default function WeeklyPdfDialog({ open, onOpenChange, employees, records
     if (rows.length === 0) return;
     setBusy(true);
     try {
-      exportWeeklyPdf(rows, range.from, range.to, { company, department, branch });
+      exportWeeklyPdf(rows, range.from, range.to, { company, department, branch },
+        { settings, shifts, assignments, holidays });
       onOpenChange(false);
     } finally {
       setBusy(false);

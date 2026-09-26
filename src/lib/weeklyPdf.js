@@ -5,7 +5,9 @@
 // Missing Check-out / Total Worked Hours).
 
 import { jsPDF } from 'jspdf';
-import { formatTimeShort, formatMinutes, getFirstIn, getFinalOut } from './attendanceEngine';
+import {
+  formatTimeShort, formatMinutes, getFirstIn, getFinalOut, resolveShift, calculateDailyStatus,
+} from './attendanceEngine';
 
 const BLUE = [227, 242, 253];   // #e3f2fd — pale blue header
 const ALT = [244, 249, 252];    // zebra tint
@@ -59,7 +61,17 @@ const COLS = [
   { key: 'source', label: 'SOURCE', w: 22 },
 ];
 
-const rowToCells = (r, emp) => ({
+// Status always comes from the centralized calculation — never the stored
+// field — so the PDF matches Time Entries / Attendance Reports exactly.
+const statusFor = (r, emp, config) =>
+  calculateDailyStatus(
+    r,
+    resolveShift(emp, config?.assignments || [], config?.shifts || [], config?.settings || null),
+    config?.settings || null,
+    config?.holidays || []
+  );
+
+const rowToCells = (r, emp, config) => ({
   employee: emp?.name || r.employee_name || '—',
   company: emp?.company || r.company || '—',
   dept: emp?.department || '—',
@@ -69,16 +81,16 @@ const rowToCells = (r, emp) => ({
   secondIn: formatTimeShort(r.second_in_at),
   finalOut: formatTimeShort(getFinalOut(r)),
   duration: formatMinutes(r.duration_minutes),
-  status: r.attendance_status || '—',
+  status: statusFor(r, emp, config) || '—',
   source: r.source || '—',
 });
 
-const buildSummary = (rows) => {
+const buildSummary = (rows, config) => {
   const employees = new Set();
   let present = 0, absent = 0, late = 0, missing = 0, totalMin = 0;
-  for (const { record: r } of rows) {
+  for (const { record: r, emp } of rows) {
     employees.add(r.personnel_id);
-    const s = r.attendance_status || '';
+    const s = statusFor(r, emp, config) || '';
     if (s === 'Absent') absent++;
     else if (s === 'Late') late++;
     else if (s === 'Missing Check-out' || s === 'Incomplete') missing++;
@@ -113,9 +125,9 @@ const filtersLabel = (f) => {
   return parts.join('   ·   ');
 };
 
-export function exportWeeklyPdf(rows, dateFrom, dateTo, filters) {
+export function exportWeeklyPdf(rows, dateFrom, dateTo, filters, config = {}) {
   const sorted = sortRows(rows);
-  const summary = buildSummary(sorted);
+  const summary = buildSummary(sorted, config);
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -163,7 +175,7 @@ export function exportWeeklyPdf(rows, dateFrom, dateTo, filters) {
       y += headerH;
     }
     const zebra = i % 2 === 1 ? ALT : null;
-    const vals = rowToCells(row.record, row.emp);
+    const vals = rowToCells(row.record, row.emp, config);
     let cx = margin;
     COLS.forEach((c) => {
       cell(doc, cx, y, c.w, rowH, vals[c.key], { fill: zebra, size: 7.5, align: c.align || 'left' });

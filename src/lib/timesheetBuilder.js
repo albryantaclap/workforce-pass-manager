@@ -55,7 +55,9 @@ const buildDayCell = (emp, dateStr, rec, shift, settings, holidays) => {
   const dayName = dayKey(dateStr);
   const holiday = isHoliday(dateStr, holidays);
   const working = isWorkingDay(dateStr, settings);
-  const status = rec?.attendance_status || calculateDailyStatus(rec || { attendance_date: dateStr }, shift, settings, holidays);
+  // Always recalculate live from the punches (never the stored field) so the
+  // export matches Time Entries / Attendance Reports exactly.
+  const status = calculateDailyStatus(rec || { attendance_date: dateStr }, shift, settings, holidays);
 
   if (status === 'On Leave') return { date: dateStr, dayName, punch: 'L', totalH: '-', status, durationMinutes: 0 };
 

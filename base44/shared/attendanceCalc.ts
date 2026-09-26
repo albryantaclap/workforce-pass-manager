@@ -117,64 +117,65 @@ export function resolveShift(emp: any, assignments: any[], shifts: any[], settin
   return null;
 }
 
-// Normal-shift daily status — mirrors the fixed calculateDailyStatus in attendanceEngine.js.
-// Returns "First In Completed" when clock-in exists but checkout is blank AND the
-// shift is still ongoing. Only returns "Missing Check-out" after the shift + buffer
-// has passed.
+// Centralized daily status — mirrors calculateDailyStatus in attendanceEngine.js.
+//
+// Punches always take precedence over the schedule: Holiday / Rest Day are only
+// reported when there is NO punch for the attendance date. While the shift is
+// still running the status follows the punch progression (First In → First Out
+// → Second In); once the whole shift/punch window has finished it is finalized
+// from the completed IN/OUT pairs and the actual worked duration.
 export function calculateDailyStatus(record: any, shift: any, settings: any, holidays: any[], now: Date = new Date()): string {
   const dateStr = record?.attendance_date;
-  const holiday = isHoliday(dateStr, holidays);
-  if (holiday) return "Holiday";
-  if (!isWorkingDay(dateStr, settings)) return "Rest Day";
-
   const firstIn = record?.first_in_at || record?.check_in_at || "";
-  if (!firstIn) return "Absent";
-
+  const firstOut = record?.first_out_at || "";
+  const secondIn = record?.second_in_at || "";
   const finalOut = record?.final_out_at || record?.check_out_at || "";
-  if (!finalOut) {
-    if (shift && !hasShiftExpired(shift, dateStr, settings?.auto_close_buffer_minutes ?? 120, now)) {
-      return "First In Completed";
-    }
-    return "Missing Check-out";
-  }
-
-  // Has first in and final out — check for late
-  if (shift) {
-    const bounds = resolveShiftBounds(shift, dateStr);
-    if (bounds) {
-      const grace = (shift.grace_minutes ?? 0) * 60000;
-      const checkIn = new Date(firstIn);
-      const lateMs = checkIn.getTime() - (bounds.start.getTime() + grace);
-      if (lateMs > 0) return "Late";
-    }
-  }
-
-  // Check half-day threshold
+  const isSplit = !!(shift && isSplitEffective(shift, dateStr));
+  const finished = shift ? hasShiftExpired(shift, dateStr, settings?.auto_close_buffer_minutes ?? 120, now) : true;
+  const halfDayMin = (settings?.half_day_threshold_hours ?? 4) * 60;
   const duration = calculateDurationFromRecord(record);
-  const halfDayThreshold = (settings?.half_day_threshold_hours ?? 4) * 60;
-  if (duration > 0 && duration < halfDayThreshold) return "Half Day";
 
-  return "Present";
+  // 1. No punch at all → the schedule decides.
+  if (!firstIn) {
+    if (isHoliday(dateStr, holidays)) return "Holiday";
+    if (!isWorkingDay(dateStr, settings)) return "Rest Day";
+    if (isSplit && !finished) return "Not Checked In";
+    return "Absent";
+  }
+
+  // 2. Shift still running → report the latest punch reached.
+  if (!finished && !finalOut) {
+    if (secondIn) return "Second In Completed";
+    if (firstOut) return "First Out Completed";
+    return "First In Completed";
+  }
+
+  // 3. Shift finished → finalize from the completed punches and worked duration.
+  const sequenceComplete = !!finalOut && (!firstOut || !!secondIn);
+  if (sequenceComplete) {
+    if (isSplit) return "Present";
+    if (shift) {
+      const bounds = resolveShiftBounds(shift, dateStr);
+      if (bounds) {
+        const grace = (shift.grace_minutes ?? 0) * 60000;
+        if (new Date(firstIn).getTime() - (bounds.start.getTime() + grace) > 0) return "Late";
+      }
+    }
+    return duration > 0 && duration < halfDayMin ? "Half Day" : "Present";
+  }
+  if (duration >= halfDayMin) return "Half Day";
+  return isSplit ? "Incomplete" : "Missing Check-out";
 }
 
-// Centralized attendance status resolver for backend functions.
-// Returns the effective status: manual override > split-shift stored status >
-// normal-shift calculated status. This ensures the backend KPIs and filtering
-// use the same status as the frontend display (calculateAttendanceState).
+// Centralized attendance status resolver for backend functions — the status is
+// always recalculated live so every page, filter, KPI and export shows exactly
+// the same value as the frontend display (calculateAttendanceState).
 export function calculateAttendanceStatus(
   record: any, shift: any, settings: any, holidays: any[], now: Date = new Date()
 ): string {
   if (!record) return "Absent";
   const manualOverride = record.manual_status_override || "";
   if (manualOverride) return manualOverride;
-
-  // For split shifts, the stored calculated_status is already correct (set by
-  // the split-shift punch processor which uses the live split progression logic).
-  if (shift && isSplitEffective(shift, record.attendance_date)) {
-    return record.calculated_status || record.attendance_status || "Present";
-  }
-
-  // For normal shifts, recalculate using the fixed logic.
   return calculateDailyStatus(record, shift, settings, holidays, now);
 }
 

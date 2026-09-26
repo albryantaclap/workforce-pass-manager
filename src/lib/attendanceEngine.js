@@ -125,10 +125,9 @@ export const resolveShiftBounds = (shift, attendanceDate) => {
 // ── Shift expiry (for day-reset logic) ──
 // Returns true if the shift end + buffer has passed — meaning the session
 // should be auto-closed and the employee released for the next shift.
-export const hasShiftExpired = (shift, attendanceDate, bufferMinutes = 0) => {
+export const hasShiftExpired = (shift, attendanceDate, bufferMinutes = 0, now = new Date()) => {
   const bounds = resolveShiftBounds(shift, attendanceDate);
   if (!bounds) return false;
-  const now = new Date();
   return now >= new Date(bounds.end.getTime() + (bufferMinutes || 0) * 60000);
 };
 
@@ -208,39 +207,56 @@ export const calculateLate = (record, shift) => {
   return { isLate: true, lateMinutes: Math.round(lateMs / 60000) };
 };
 
-// ── Daily status calculation ──
-// Determines the attendance_status based on punches, shift, settings, and holidays.
-export const calculateDailyStatus = (record, shift, settings, holidays = []) => {
+// ── Daily status calculation ──────────────────────────────────────────────
+// THE single source of truth for the attendance status shown in Time Entries,
+// Attendance Reports, Employee Summary and every export/PDF. The backend
+// functions run the identical logic from base44/shared/attendanceCalc.ts.
+//
+// Order matters:
+//  1. No punch for the attendance date → the schedule decides
+//     (Holiday / Rest Day / Absent), so Rest Day only ever appears when the
+//     employee did NOT punch. A punch can never be overridden by the schedule.
+//  2. Punches exist → the status follows the actual punch progression
+//     FIRST IN → FIRST OUT → SECOND IN → FINAL OUT.
+//  3. Once the whole shift/punch window has finished the status is finalized
+//     from the completed IN/OUT pairs and the actual worked duration, so an
+//     incomplete day is never left sitting on a progression label.
+export const calculateDailyStatus = (record, shift, settings, holidays = [], now = new Date()) => {
   const dateStr = record?.attendance_date;
-  const holiday = isHoliday(dateStr, holidays);
-  if (holiday) return 'Holiday';
-  if (!isWorkingDay(dateStr, settings)) return 'Rest Day';
-
   const firstIn = getFirstIn(record);
-  if (!firstIn) return 'Absent';
-
+  const firstOut = record?.first_out_at || '';
+  const secondIn = record?.second_in_at || '';
   const finalOut = getFinalOut(record);
+  const isSplit = !!(shift && isSplitEffective(shift, dateStr));
+  const finished = shift ? hasShiftExpired(shift, dateStr, settings?.auto_close_buffer_minutes ?? 120, now) : true;
+  const halfDayMin = (settings?.half_day_threshold_hours ?? 4) * 60;
+  const duration = calculateDurationFromRecord(record);
 
-  if (!finalOut) {
-    // If the shift is still ongoing, the session is in-progress — not missing.
-    // Only classify as Missing Check-out after the shift end + buffer has passed.
-    if (shift && !hasShiftExpired(shift, dateStr, settings?.auto_close_buffer_minutes ?? 120)) {
-      return 'First In Completed';
-    }
-    // Shift has ended + buffer passed without a checkout → genuinely missing.
-    return 'Missing Check-out';
+  // 1. No punch at all → the schedule decides.
+  if (!firstIn) {
+    if (isHoliday(dateStr, holidays)) return 'Holiday';
+    if (!isWorkingDay(dateStr, settings)) return 'Rest Day';
+    if (isSplit && !finished) return 'Not Checked In';
+    return 'Absent';
   }
 
-  // Has first in and final out — check for late
-  const { isLate } = calculateLate(record, shift);
-  if (isLate) return 'Late';
+  // 2. Shift still running → report the latest punch reached.
+  if (!finished && !finalOut) {
+    if (secondIn) return 'Second In Completed';
+    if (firstOut) return 'First Out Completed';
+    return 'First In Completed';
+  }
 
-  // Check half-day threshold
-  const duration = calculateDurationFromRecord(record);
-  const halfDayThreshold = (settings?.half_day_threshold_hours ?? 4) * 60;
-  if (duration > 0 && duration < halfDayThreshold) return 'Half Day';
-
-  return 'Present';
+  // 3. Shift finished → finalize from the completed punches and worked duration.
+  //    Only completed IN/OUT pairs count — an open IN is never extrapolated.
+  const sequenceComplete = !!finalOut && (!firstOut || !!secondIn);
+  if (sequenceComplete) {
+    if (isSplit) return 'Present';
+    if (calculateLate(record, shift).isLate) return 'Late';
+    return duration > 0 && duration < halfDayMin ? 'Half Day' : 'Present';
+  }
+  if (duration >= halfDayMin) return 'Half Day';
+  return isSplit ? 'Incomplete' : 'Missing Check-out';
 };
 
 // ── Status → color mapping (for UI) ──
@@ -433,92 +449,52 @@ export const calculateSplitDuration = (record) => calculateDurationFromRecord(re
 
 // ── Central attendance state engine ───────────────────────────────────────
 // One function used by every attendance view (Daily Attendance, Time Entries,
-// Employee Summary, Manual Entry, COMO Camp, reports, exports) so an employee
-// cannot show different statuses on different pages.
+// Attendance Reports, Employee Summary, Manual Entry, COMO Camp, exports and
+// PDFs) so an employee can never show different statuses on different pages.
+// The status itself comes from calculateDailyStatus above — the punch
+// progression is authoritative and a Rest Day or Holiday never overrides a
+// punch. The split-shift punch detail below is presentation only.
 //
-// For split shifts it returns the live progression:
-//   Not Checked In → First In Completed → First Out Completed →
-//   Second In Completed → Present, with Incomplete only after a required
-//   punch's window has fully passed (never "Missed" while the window is open),
-//   and Absent when no FIRST IN occurs by the shift close.
-// For normal shifts it falls back to the existing calculateDailyStatus logic.
-//
-// manual_status_override (stored on the record) takes precedence as the
+// manual_status_override (stored on the record) always takes precedence as the
 // effective status without destroying the system-calculated value.
 export const MANUAL_STATUS_OPTIONS = [
   'Not Checked In', 'First In Completed', 'First Out Completed', 'Second In Completed',
   'Present', 'Incomplete', 'Absent', 'On Leave', 'Manual Override',
 ];
 
-const PROGRESSION_LABEL = {
-  FIRST_IN: 'First In Completed',
-  FIRST_OUT: 'First Out Completed',
-  SECOND_IN: 'Second In Completed',
-};
-
 export const calculateAttendanceState = (record, shift, settings, holidays = [], now = new Date()) => {
   const dateStr = record?.attendance_date;
-  const firstIn = getFirstIn(record);
-  const finalOut = getFinalOut(record);
+  const calculatedStatus = calculateDailyStatus(record, shift, settings, holidays, now);
   const manualOverride = record?.manual_status_override || '';
+  const isSplit = !!(shift && isSplitEffective(shift, dateStr));
 
-  // ── Split-shift path ──
-  if (shift && isSplitEffective(shift, dateStr)) {
+  let completedPunches = [];
+  let missingPunches = [];
+  let expectedPunch = null;
+  let isComplete = false;
+  if (isSplit) {
     const statuses = getSplitPunchStatuses(record, shift, now);
     const requiredKeys = PUNCH_KEYS.filter((k) => isPunchRequired(k, shift));
-    const completed = requiredKeys.filter((k) => statuses[k] === 'done');
-    const missing = requiredKeys.filter((k) => statuses[k] === 'missed');
-
-    let calculatedStatus;
-    if (!firstIn) {
-      if (isHoliday(dateStr, holidays)) calculatedStatus = 'Holiday';
-      else if (!isWorkingDay(dateStr, settings)) calculatedStatus = 'Rest Day';
-      else if (hasShiftExpired(shift, dateStr, settings?.auto_close_buffer_minutes ?? 120)) calculatedStatus = 'Absent';
-      else calculatedStatus = 'Not Checked In';
-    } else if (missing.length > 0) {
-      calculatedStatus = 'Incomplete';
-    } else {
-      let lastDoneIdx = -1;
-      for (let i = 0; i < requiredKeys.length; i++) {
-        if (statuses[requiredKeys[i]] === 'done') lastDoneIdx = i;
-        else break;
-      }
-      if (lastDoneIdx === requiredKeys.length - 1) calculatedStatus = 'Present';
-      else if (lastDoneIdx < 0) calculatedStatus = 'Not Checked In';
-      else calculatedStatus = PROGRESSION_LABEL[requiredKeys[lastDoneIdx]] || 'Not Checked In';
-    }
-
-    const { isLate, lateMinutes } = calculateLate(record, shift);
-    const workedDuration = calculateDurationFromRecord(record);
-    const firstOut = record?.first_out_at || '';
-    const secondIn = record?.second_in_at || '';
-    const splitBreakDuration = firstOut && secondIn ? _calcDuration(firstOut, secondIn) : 0;
-    const isComplete = completed.length === requiredKeys.length && missing.length === 0;
-
-    return {
-      isSplit: true,
-      calculatedStatus,
-      effectiveStatus: manualOverride || calculatedStatus,
-      completedPunches: completed,
-      missingPunches: missing,
-      expectedPunch: determineSplitExpectedPunch(record, shift),
-      workedDuration, splitBreakDuration, isLate, lateMinutes, isComplete,
-    };
+    completedPunches = requiredKeys.filter((k) => statuses[k] === 'done');
+    missingPunches = requiredKeys.filter((k) => statuses[k] === 'missed');
+    isComplete = requiredKeys.every((k) => statuses[k] === 'done');
+    expectedPunch = determineSplitExpectedPunch(record, shift);
+  } else {
+    expectedPunch = getNextExpectedPunch(record);
+    isComplete = !!getFinalOut(record);
   }
 
-  // ── Normal-shift path (existing logic, unchanged) ──
-  const calculatedStatus = calculateDailyStatus(record, shift, settings, holidays);
   const { isLate, lateMinutes } = calculateLate(record, shift);
+  const firstOut = record?.first_out_at || '';
+  const secondIn = record?.second_in_at || '';
+
   return {
-    isSplit: false,
+    isSplit,
     calculatedStatus,
     effectiveStatus: manualOverride || calculatedStatus,
-    completedPunches: [],
-    missingPunches: [],
-    expectedPunch: getNextExpectedPunch(record),
+    completedPunches, missingPunches, expectedPunch, isComplete,
     workedDuration: calculateDurationFromRecord(record),
-    splitBreakDuration: 0,
+    splitBreakDuration: firstOut && secondIn ? _calcDuration(firstOut, secondIn) : 0,
     isLate, lateMinutes,
-    isComplete: !!finalOut,
   };
 };
