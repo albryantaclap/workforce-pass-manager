@@ -33,6 +33,7 @@ import { useLatestCampStays } from '@/hooks/useLatestCampStays';
 import { useCampStaysByDate } from '@/hooks/useCampStaysByDate';
 import CheckInDialog from '../components/comocamp/CheckInDialog';
 import CheckOutDialog from '../components/comocamp/CheckOutDialog';
+import { demobilizeAfterCampCheckout } from '@/lib/campDemobilization';
 import AttendanceHistoryDialog from '../components/comocamp/AttendanceHistoryDialog';
 import AttendanceCorrectionDialog from '../components/comocamp/AttendanceCorrectionDialog';
 import ComoCampEditDialog from '../components/comocamp/ComoCampEditDialog';
@@ -314,7 +315,7 @@ export default function ComoCamp() {
   });
 
   const checkOutMutation = useMutation({
-    mutationFn: async ({ record, at }) => {
+    mutationFn: async ({ emp, record, at }) => {
       const outIso = at.toISOString();
       const duration = calcDuration(record.check_in_at, outIso);
       const updated = await base44.entities.ComoCampStay.update(record.id, {
@@ -327,12 +328,23 @@ export default function ComoCamp() {
         record_snapshot: { check_out_at: outIso, duration_minutes: duration, work_location: record.work_location, action_type: 'Camp Check-out' },
         changed_fields: ['check_out_at'],
       });
-      return updated;
+      // Auto-demobilize the personnel (existing centralized record only) after a
+      // completed Camp Check-out. Preserves camp stay history and Location, and
+      // never touches Daily Attendance. No-op if already Demobilized.
+      const demob = await demobilizeAfterCampCheckout({ emp, checkOutAt: outIso, user: currentUser });
+      return { updated, demobilized: !!demob };
     },
-    onSuccess: (_, { record }) => {
+    onSuccess: (result, { emp }) => {
       queryClient.invalidateQueries({ queryKey: ['camp-stays'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
-      toast({ title: 'Camp Check-out', description: `${record.employee_name} camp stay completed.` });
+      toast({
+        title: 'Camp Check-out',
+        description: result?.demobilized
+          ? `${emp?.name || 'Personnel'} camp stay completed and moved to Demobilized.`
+          : `${emp?.name || 'Personnel'} camp stay completed.`,
+      });
     },
     onError: () => toast({ title: 'Camp Check-out failed', variant: 'destructive' }),
   });
@@ -1484,7 +1496,7 @@ export default function ComoCamp() {
         emp={checkOutDialog.emp}
         record={checkOutDialog.record}
         onClose={() => setCheckOutDialog({ open: false, emp: null, record: null })}
-        onConfirm={(record, at) => { setCheckOutDialog({ open: false, emp: null, record: null }); checkOutMutation.mutate({ record, at }); }}
+        onConfirm={(record, at) => { const emp = checkOutDialog.emp; setCheckOutDialog({ open: false, emp: null, record: null }); checkOutMutation.mutate({ emp, record, at }); }}
       />
       <AttendanceHistoryDialog
         open={historyDialog.open}

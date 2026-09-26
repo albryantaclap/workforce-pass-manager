@@ -17,6 +17,8 @@ import { formatDate, computePassStatus, normalizeDate, COMPANIES, RLIC_STATUSES,
 import MultiSelect from '../components/common/MultiSelect';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
 import SharepointDocIcon from '../components/common/SharepointDocIcon';
+import { useLatestCampStays } from '@/hooks/useLatestCampStays';
+import { formatDateTimeCompact } from '@/lib/attendanceUtils';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
@@ -63,6 +65,18 @@ function PidStatusBadge({ emp }) {
     'NO PID PASS': 'No Pass',
   };
   return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${styles[status] || 'bg-blue-50 text-blue-700 border-blue-200'}`}>{labels[status] || status}</span>;
+}
+
+// Camp Check-in / Check-out date + time (two lines, matching the COMO Camp format).
+function CampDateTime({ iso }) {
+  const dt = formatDateTimeCompact(iso);
+  if (!dt) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <div className="leading-tight">
+      <div className="text-xs font-mono whitespace-nowrap">{dt.date}</div>
+      <div className="text-[10px] text-muted-foreground whitespace-nowrap">{dt.time}</div>
+    </div>
+  );
 }
 
 const PAGE_SIZE = 50;
@@ -153,7 +167,7 @@ function FilterPanel({ filters, setters, uniqueCompanies, positions, rlicStatusO
 }
 
 // ── Personnel Table ───────────────────────────────────────────────────────────
-function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, onStatusChange, onDelete, onEdit }) {
+function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, onStatusChange, onDelete, onEdit, latestByPersonnel }) {
   const [modalState, setModalState] = useState({ open: false, emp: null, newStatus: null });
 
   const totalPages = Math.ceil(rows.length / PAGE_SIZE);
@@ -190,6 +204,13 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                  <TableHead className="text-[11px] bg-muted/50 w-20">Gate Pass</TableHead>
                  <TableHead className="text-[11px] bg-muted/50 w-20">Training</TableHead>
                  <TableHead className="text-[11px] bg-muted/50 w-20">PID Status</TableHead>
+                 {tabType === 'demobilized' && (
+                   <>
+                     <TableHead className="text-[11px] bg-muted/50 w-28">Location</TableHead>
+                     <TableHead className="text-[11px] bg-muted/50 w-28">Camp Check-in</TableHead>
+                     <TableHead className="text-[11px] bg-muted/50 w-28">Camp Check-out</TableHead>
+                   </>
+                 )}
                  <TableHead className="text-[11px] bg-muted/50 w-44">Reason / Remarks</TableHead>
                  <TableHead className="text-[11px] bg-muted/50 text-right w-[280px] min-w-[280px] whitespace-nowrap">Actions</TableHead>
                 </TableRow>
@@ -197,11 +218,11 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
               <TableBody>
                 {isLoading ? (
                   Array(5).fill(0).map((_, i) => (
-                   <TableRow key={i}>{Array(13).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                   <TableRow key={i}>{Array(tabType === 'demobilized' ? 16 : 13).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                   ))
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-14">
+                    <TableCell colSpan={tabType === 'demobilized' ? 16 : 13} className="text-center py-14">
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <UserCheck className="w-8 h-8 text-green-500" />
                         <p className="font-medium">{tabType === 'inactive' ? 'No inactive personnel' : 'No demobilized personnel'}</p>
@@ -211,6 +232,7 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                 ) : (
                   pagedRows.map(emp => {
                     const statusDate = tabType === 'inactive' ? emp.inactive_date || emp.status_effective_date : emp.demobilization_date;
+                    const stay = tabType === 'demobilized' ? latestByPersonnel?.get(emp.id) : null;
                     return (
                       <TableRow key={emp.id} className="hover:bg-muted/30">
                         <TableCell className="p-2"><PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size={8} /></TableCell>
@@ -228,6 +250,13 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                             : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell><PidStatusBadge emp={emp} /></TableCell>
+                        {tabType === 'demobilized' && (
+                          <>
+                            <TableCell className="text-xs uppercase whitespace-nowrap">{stay?.camp_location || stay?.work_location || emp.current_location || '—'}</TableCell>
+                            <TableCell className="whitespace-nowrap"><CampDateTime iso={stay?.check_in_at} /></TableCell>
+                            <TableCell className="whitespace-nowrap"><CampDateTime iso={stay?.check_out_at} /></TableCell>
+                          </>
+                        )}
                         <TableCell className="text-[11px] max-w-[160px] truncate" title={emp.status_reason || emp.status_remarks || ''}>
                           {emp.status_reason || emp.status_remarks || <span className="text-muted-foreground">—</span>}
                         </TableCell>
@@ -354,6 +383,10 @@ export default function InactivePersonnel() {
     queryKey: ['employees-inactive'],
     queryFn: () => base44.entities.Employee.filter({ is_active: false }, '-created_date', 100000),
   });
+
+  // Latest camp stay per personnel — powers the Demobilized table's
+  // Location / Camp Check-in / Camp Check-out columns.
+  const { latestByPersonnel } = useLatestCampStays();
 
   const uniqueCompanies = useMemo(() => {
     const vals = [...new Set(employees.map(e => e.company).filter(Boolean))].sort();
@@ -643,6 +676,7 @@ export default function InactivePersonnel() {
             rows={filteredDemobilized} isLoading={isLoading}
             page={demobPage} setPage={setDemobPage}
             totalCount={allDemobilized.length} tabType="demobilized"
+            latestByPersonnel={latestByPersonnel}
             onStatusChange={(args) => statusChangeMutation.mutate(args)}
             onDelete={(emp) => deleteMutation.mutate(emp)}
             onEdit={goToEdit}
