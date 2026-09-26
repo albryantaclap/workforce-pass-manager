@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, ShieldCheck, BadgeCheck, UserX, LogOut } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, ShieldCheck, BadgeCheck, UserX, LogOut, HardHat, UserPlus } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import { differenceInDays } from 'date-fns';
@@ -31,6 +31,10 @@ import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
 import BulkEditBar from '../components/common/BulkEditBar';
+import { Checkbox } from '@/components/ui/checkbox';
+import WorkforceStageCell from '@/components/masterlist/WorkforceStageCell';
+import WorkforceStageBulkBar from '@/components/masterlist/WorkforceStageBulkBar';
+import { WORKFORCE_STAGES, WORKFORCE_STAGE_FILTER_OPTIONS, getWorkforceStage } from '@/lib/workforceStage';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
@@ -57,6 +61,7 @@ function loadFilters() {
       gpStatusFilter: Array.isArray(saved.gpStatusFilter) ? saved.gpStatusFilter : [],
       medicalResultFilter: Array.isArray(saved.medicalResultFilter) ? saved.medicalResultFilter : [],
       attendanceFilter: saved.attendanceFilter || 'all',
+      workforceStageFilter: Array.isArray(saved.workforceStageFilter) ? saved.workforceStageFilter : [],
       page: typeof saved.page === 'number' ? saved.page : 0,
     };
   } catch { return {}; }
@@ -70,7 +75,9 @@ export default function MasterList() {
   const currentUser = useCurrentUser();
   const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
   const [editMode, setEditMode] = useState(false);
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'gp_soon' | 'gp_expired' | 'pid_soon' | 'pid_expired'
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'active_on_site' | 'onboarding' | 'gp_soon' | 'gp_expired' | 'pid_soon' | 'pid_expired'
+  // Rows ticked in Edit in Grid mode — used for bulk Workforce Stage assignment.
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const saved = useMemo(() => loadFilters(), []);
   const [searchInput, setSearchInput] = useState(saved.search || '');
   const [search, setSearch] = useState(saved.search || '');
@@ -98,6 +105,7 @@ export default function MasterList() {
   const [medicalResultFilter, setMedicalResultFilter] = useState(saved.medicalResultFilter || []);
   const [trainingStatusFilter, setTrainingStatusFilter] = useState(saved.trainingStatusFilter || 'all');
   const [attendanceFilter, setAttendanceFilter] = useState(saved.attendanceFilter || 'all');
+  const [workforceStageFilter, setWorkforceStageFilter] = useState(saved.workforceStageFilter || []);
   const [trainingScheduledFrom, setTrainingScheduledFrom] = useState(saved.trainingScheduledFrom || '');
   const [trainingScheduledTo, setTrainingScheduledTo] = useState(saved.trainingScheduledTo || '');
   const [medicalTrApprovedFrom, setMedicalTrApprovedFrom] = useState(saved.medicalTrApprovedFrom || '');
@@ -110,15 +118,15 @@ export default function MasterList() {
   const [pidIssueTo, setPidIssueTo] = useState(saved.pidIssueTo || '');
 
   useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page]);
+    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, workforceStageFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page });
+  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, workforceStageFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page]);
 
   // Reset page on filter changes (skip initial mount to allow sessionStorage restore)
   const isInitialMount = useRef(true);
   useEffect(() => {
     if (isInitialMount.current) { isInitialMount.current = false; return; }
     setPage(0);
-  }, [companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+  }, [companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, workforceStageFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -152,9 +160,10 @@ export default function MasterList() {
     updateMutation.mutate({ id, data: { [field]: value } });
   };
 
-  const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || trainingStatusFilter !== 'all' || attendanceFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo;
+  const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || trainingStatusFilter !== 'all' || attendanceFilter !== 'all' || workforceStageFilter.length > 0 || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo;
 
   const masterBulkFields = [
+    { key: 'workforce_stage', label: 'Workforce Stage', type: 'select', options: WORKFORCE_STAGES },
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: medicalResultOptions },
     { key: 'training_status', label: 'Training Status', type: 'select', options: trainingStatusOptions },
     { key: 'rlic_status', label: 'RLIC Status', type: 'select', options: rlicStatusOptions },
@@ -166,6 +175,28 @@ export default function MasterList() {
     queryClient.invalidateQueries({ queryKey: ['employees-active'] });
     toast({ title: `Updated ${filtered.length} records` });
   };
+
+  // Bulk-assign a Workforce Stage to the ticked rows (Edit in Grid mode).
+  const applyStageToSelected = async (stage) => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    const meta = {
+      _last_updated_by: currentUser?.email || '',
+      _last_updated_by_name: currentUser?.full_name || '',
+      _last_updated_by_role: currentUser?.role || '',
+      _last_updated_at: new Date().toISOString(),
+    };
+    await Promise.all(ids.map(id => base44.entities.Employee.update(id, { workforce_stage: stage, ...meta })));
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+    toast({ title: 'Workforce Stage updated', description: `${ids.length} personnel set to ${stage}.` });
+  };
+
+  const toggleRowSelected = (id) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   // Move to Inactive or Demobilized — opens the StatusChangeModal, then updates the record.
   // The entity automation (Track Employee Changes) writes the audit log field-level diff.
@@ -322,12 +353,13 @@ export default function MasterList() {
       const empPidIssue = emp.pid_issue_date ? emp.pid_issue_date.substring(0, 10) : '';
       const matchesPidIssueFrom = !pidIssueFrom || (empPidIssue && empPidIssue >= pidIssueFrom);
       const matchesPidIssueTo = !pidIssueTo || (empPidIssue && empPidIssue <= pidIssueTo);
+      const matchesWorkforceStage = workforceStageFilter.length === 0 || workforceStageFilter.includes(getWorkforceStage(emp));
       const attRec = latestAttByPersonnel.get(emp.id);
       const attSt = getAttendanceStatus(attRec);
       const matchesAttendance = attendanceFilter === 'all' || attSt === attendanceFilter;
-      return matchesSearch && matchesCompany && matchesManager && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesAttendance && matchesTrainingScheduledFrom && matchesTrainingScheduledTo && matchesMedicalTrApprovedFrom && matchesMedicalTrApprovedTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidIssueFrom && matchesPidIssueTo;
+      return matchesSearch && matchesCompany && matchesManager && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesAttendance && matchesWorkforceStage && matchesTrainingScheduledFrom && matchesTrainingScheduledTo && matchesMedicalTrApprovedFrom && matchesMedicalTrApprovedTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidIssueFrom && matchesPidIssueTo;
     });
-  },     [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerIds, managers, latestAttByPersonnel]);
+  },     [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, workforceStageFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerIds, managers, latestAttByPersonnel]);
 
   // ── Expiry tab lists (derived from filtered, matching Dashboard logic) ──
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
@@ -357,14 +389,20 @@ export default function MasterList() {
     return d < today;
   }).sort((a, b) => new Date(b.pid_expiry) - new Date(a.pid_expiry)), [filtered, today]);
 
+  // ── Workforce Stage tab lists (derived from filtered, so every existing filter still applies) ──
+  const activeOnSiteList = useMemo(() => filtered.filter(e => getWorkforceStage(e) === 'Active on Site'), [filtered]);
+  const onboardingList = useMemo(() => filtered.filter(e => getWorkforceStage(e) === 'Onboarding'), [filtered]);
+
   // Active data set based on selected tab
   const tabData = useMemo(() => {
+    if (activeTab === 'active_on_site') return activeOnSiteList;
+    if (activeTab === 'onboarding') return onboardingList;
     if (activeTab === 'gp_soon') return gpSoonList;
     if (activeTab === 'gp_expired') return gpExpiredList;
     if (activeTab === 'pid_soon') return pidSoonList;
     if (activeTab === 'pid_expired') return pidExpiredList;
     return filtered;
-  }, [activeTab, filtered, gpSoonList, gpExpiredList, pidSoonList, pidExpiredList]);
+  }, [activeTab, filtered, activeOnSiteList, onboardingList, gpSoonList, gpExpiredList, pidSoonList, pidExpiredList]);
 
   const totalPages = Math.ceil(tabData.length / PAGE_SIZE);
   // Auto-adjust page when it exceeds total pages (e.g. after delete on last page)
@@ -382,7 +420,7 @@ export default function MasterList() {
     return {
       SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
       Designation_Org_Chart: e.designation_org_chart, Department: e.department,
-      Company: e.company, Company_Type: e.company_type, Nationality: e.nationality,
+      Company: e.company, Company_Type: e.company_type, Workforce_Stage: getWorkforceStage(e), Nationality: e.nationality,
       Religion: e.religion, Location: e.current_location,
       Camp_Check_in_Date: ci ? ci.toLocaleDateString('en-CA') : '',
       Camp_Check_in_Time: ci ? ci.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '',
@@ -489,6 +527,13 @@ export default function MasterList() {
              </SelectContent>
            </Select>
            <MultiSelect
+             options={WORKFORCE_STAGE_FILTER_OPTIONS}
+             value={workforceStageFilter}
+             onChange={setWorkforceStageFilter}
+             placeholder="Workforce Stage"
+             className="dropdown-training"
+           />
+           <MultiSelect
              options={managers.map(m => ({ value: m.id, label: m.label }))}
              value={selectedManagerIds}
              onChange={setSelectedManagerIds}
@@ -542,12 +587,21 @@ export default function MasterList() {
          </div>
         {hasActiveFilters && (
           <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSelectedManagerIds([]); setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter([]); setTrainingStatusFilter('all'); setAttendanceFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
+            <Button variant="outline" size="sm" onClick={() => { setSelectedManagerIds([]); setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter([]); setTrainingStatusFilter('all'); setAttendanceFilter('all'); setWorkforceStageFilter([]); setSelectedIds(new Set()); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
               <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
             </Button>
           </div>
         )}
       </Card>
+
+      {editMode && selectedIds.size > 0 && (
+        <WorkforceStageBulkBar
+          count={selectedIds.size}
+          onApply={applyStageToSelected}
+          onClear={() => setSelectedIds(new Set())}
+          isLoading={updateMutation.isPending}
+        />
+      )}
 
       {editMode && hasActiveFilters && filtered.length > 0 && (
         <BulkEditBar fields={masterBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
@@ -558,6 +612,8 @@ export default function MasterList() {
         <div className="flex items-center">
           {[
             { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
+            { key: 'active_on_site', label: 'Active on Site', count: activeOnSiteList.length, icon: HardHat, color: 'text-emerald-600' },
+            { key: 'onboarding', label: 'Onboarding', count: onboardingList.length, icon: UserPlus, color: 'text-amber-600' },
             { key: 'gp_soon', label: 'Gate Pass Soon', count: gpSoonList.length, icon: ShieldCheck, color: 'text-amber-600' },
             { key: 'gp_expired', label: 'Gate Pass Expired', count: gpExpiredList.length, icon: ShieldCheck, color: 'text-red-600' },
             { key: 'pid_soon', label: 'PID Soon', count: pidSoonList.length, icon: BadgeCheck, color: 'text-amber-600' },
@@ -568,7 +624,7 @@ export default function MasterList() {
             return (
               <button
                 key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setPage(0); }}
+                onClick={() => { setActiveTab(tab.key); setPage(0); setSelectedIds(new Set()); }}
                 className={`flex items-center gap-2 px-6 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${
                   isActive
                     ? 'border-primary text-primary bg-primary/5'
@@ -593,9 +649,19 @@ export default function MasterList() {
           <Table className="table-list-view">
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="bg-muted/50">
+                {editMode && canEdit && (
+                  <TableHead className="text-xs bg-muted/50 w-8">
+                    <Checkbox
+                      checked={pagedRows.length > 0 && pagedRows.every(r => selectedIds.has(r.id))}
+                      onCheckedChange={(v) => setSelectedIds(v ? new Set(pagedRows.map(r => r.id)) : new Set())}
+                      aria-label="Select all rows on this page"
+                    />
+                  </TableHead>
+                )}
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap w-10">Photo</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap w-8">Docs</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Name</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Workforce Stage</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Position (Application)</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Designation (Org Chart)</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Department</TableHead>
@@ -649,18 +715,24 @@ export default function MasterList() {
             <TableBody>
               {isLoading ? (
                 Array(8).fill(0).map((_, i) => (
-                  <TableRow key={i}>{Array(45).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                  <TableRow key={i}>{Array(editMode && canEdit ? 47 : 46).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                 ))
-              ) : filtered.length === 0 ? (
+              ) : tabData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={45} className="text-center py-12 text-muted-foreground">No records found</TableCell>
+                  <TableCell colSpan={editMode && canEdit ? 47 : 46} className="text-center py-12 text-muted-foreground">No records found</TableCell>
                 </TableRow>
               ) : (
                 pagedRows.map((emp) => (
                   <TableRow key={emp.id} className="hover:bg-muted/30">
+                    {editMode && canEdit && (
+                      <TableCell className="p-2">
+                        <Checkbox checked={selectedIds.has(emp.id)} onCheckedChange={() => toggleRowSelected(emp.id)} aria-label={`Select ${emp.name}`} />
+                      </TableCell>
+                    )}
                     <TableCell className="p-2"><PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size={8} /></TableCell>
                     <TableCell className="p-1"><SharepointDocIcon emp={emp} canEdit={canEdit} onSave={(id, url) => updateMutation.mutate({ id, data: { sharepoint_url: url } })} /></TableCell>
                     <TableCell className="text-xs font-medium whitespace-nowrap uppercase"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="whitespace-nowrap"><WorkforceStageCell emp={emp} editMode={editMode} onSave={handleCellSave} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.position_application} field="position_application" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.designation_org_chart} field="designation_org_chart" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.department} field="department" empId={emp.id} type="select" options={departmentOptions} onSave={handleCellSave} editMode={editMode} /></TableCell>

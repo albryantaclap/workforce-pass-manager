@@ -13,6 +13,7 @@ import SharepointFormButton from '@/components/common/SharepointFormButton';
 import StatusChangeModal from '@/components/common/StatusChangeModal';
 import StatusDetailsSection from '@/components/employee/StatusDetailsSection';
 import SearchableSelect from '@/components/common/SearchableSelect';
+import { WORKFORCE_STAGES } from '@/lib/workforceStage';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, computePassStatus } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
@@ -37,6 +38,7 @@ const emptyForm = {
   is_manager: false,
   assigned_manager_id: '', assigned_manager_name: '',
   work_location: '', approval_date: '', approval_comments: '',
+  workforce_stage: '',
   personnel_status: 'Active',
   status_effective_date: '', last_working_date: '', status_reason: '', status_remarks: '',
   inactive_date: '', demobilization_date: '', demobilization_reason: '',
@@ -842,6 +844,15 @@ export default function EmployeeForm() {
               />
             </Field>
             <SelectInput field="current_location" label="Location / Mobilized" options={allLocations} {...tf} />
+            <Field label="Workforce Stage">
+              <SearchableSelect
+                value={form.workforce_stage || ''}
+                onChange={v => handleChange('workforce_stage', v)}
+                options={WORKFORCE_STAGES}
+                placeholder="Search / Select stage"
+                emptyMessage="No matching stage"
+              />
+            </Field>
             <SelectInput field="dir_indir" label="DIR / INDIR" options={['DIR', 'INDIR']} {...tf} />
             <Field label="Assigned Manager">
               <SearchableSelect
