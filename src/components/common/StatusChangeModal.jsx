@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   ACTIVE_ON_SITE, ONBOARDING, INACTIVE, DEMOBILIZED,
-  PERSONNEL_STATUS_CONFIG, normalizeStatus,
+  PERSONNEL_STATUS_CONFIG, normalizeStatus, personnelStatusLabel,
 } from '@/lib/personnelStatus';
 
 const TITLES = {
@@ -67,7 +67,7 @@ export default function StatusChangeModal({ open, onClose, emp, newStatus, onCon
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Current Status:</span>
-              <span className="font-medium">{prevStatus}</span>
+              <span className="font-medium">{personnelStatusLabel(prevStatus)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">New Status:</span>

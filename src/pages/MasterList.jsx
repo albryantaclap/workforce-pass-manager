@@ -30,7 +30,7 @@ import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
 import BulkEditBar from '../components/common/BulkEditBar';
-import { ACTIVE_ON_SITE, ONBOARDING, INACTIVE, DEMOBILIZED, isActiveRosterStatus, resolvePersonnelStatus } from '@/lib/personnelStatus';
+import { ACTIVE_ON_SITE, ONBOARDING, INACTIVE, DEMOBILIZED, isActiveRosterStatus, resolvePersonnelStatus, personnelStatusLabel } from '@/lib/personnelStatus';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
@@ -353,7 +353,7 @@ export default function MasterList() {
     return {
       SL: e.sl_no, Name: e.name, Position_Application: e.position_application,
       Designation_Org_Chart: e.designation_org_chart, Department: e.department,
-      Company: e.company, Company_Type: e.company_type, Personnel_Status: resolvePersonnelStatus(e), Nationality: e.nationality,
+      Company: e.company, Company_Type: e.company_type, Personnel_Status: personnelStatusLabel(resolvePersonnelStatus(e)), Nationality: e.nationality,
       Religion: e.religion, Location: e.current_location,
       Camp_Check_in_Date: ci ? ci.toLocaleDateString('en-CA') : '',
       Camp_Check_in_Time: ci ? ci.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '',

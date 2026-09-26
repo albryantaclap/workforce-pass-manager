@@ -18,7 +18,7 @@ export function useAttendanceEmployees(enabled = true) {
   return useQuery({
     queryKey: ['employees', 'active-attendance'],
     queryFn: () => base44.entities.Employee.filter(
-      { personnel_status: 'Active on Site', is_active: { $ne: false } },
+      { personnel_status: { $in: ['Active on Site', ''] }, is_active: { $ne: false } },
       'name', 100000
     ),
     enabled,

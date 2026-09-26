@@ -28,7 +28,7 @@ export default async function (req: Request): Promise<Response> {
 
     // 2. Fetch all active employees and apply personnel filters
     const employees = await base44.entities.Employee.filter(
-      { personnel_status: "Active on Site", is_active: { $ne: false } },
+      { personnel_status: { $in: ["Active on Site", ""] }, is_active: { $ne: false } },
       "name", 100000
     );
     const filteredEmps = filterEmployees(employees, filters);

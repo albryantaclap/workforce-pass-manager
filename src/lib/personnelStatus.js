@@ -8,7 +8,12 @@
  * pages — so a person can never be "Active on Site" on one page and
  * "Onboarding" on another.
  *
+ *   (unassigned)    → no status set yet. Newly added or imported personnel
+ *                     land here as 'Onboarding'; the app NEVER assigns
+ *                     'Active on Site' by itself.
  *   Active on Site  → mobilized, actively working on the project/site.
+ *                     Set by hand only — never by the app, an import or any
+ *                     automatic rule.
  *   Onboarding      → registered, still completing requirements (Medical,
  *                     Gate Pass, Training, Project ID, …). Never auto-promoted.
  *   Inactive        → not currently active / not on site.
@@ -19,6 +24,9 @@
  * Completed / etc. on any given day.
  */
 
+export const UNASSIGNED = '';
+export const UNASSIGNED_LABEL = 'Unassigned';
+
 export const ACTIVE_ON_SITE = 'Active on Site';
 export const ONBOARDING = 'Onboarding';
 export const INACTIVE = 'Inactive';
@@ -28,16 +36,27 @@ export const DEMOBILIZED = 'Demobilized';
 export const PERSONNEL_STATUSES = [ACTIVE_ON_SITE, ONBOARDING, INACTIVE, DEMOBILIZED];
 
 /**
- * Statuses that stay on the working roster. A record with one of these keeps
- * Employee.is_active = true and therefore stays in the Master List;
- * Inactive / Demobilized set is_active = false and live on their own page.
+ * Statuses that stay on the working roster. A record with one of these — or
+ * with no status assigned yet — keeps Employee.is_active = true and therefore
+ * stays in the Master List; Inactive / Demobilized set is_active = false and
+ * live on their own page.
  */
-export const ACTIVE_ROSTER_STATUSES = [ACTIVE_ON_SITE, ONBOARDING];
+export const ACTIVE_ROSTER_STATUSES = [UNASSIGNED, ACTIVE_ON_SITE, ONBOARDING];
 
-export const isActiveRosterStatus = (status) => ACTIVE_ROSTER_STATUSES.includes(status);
+export const isActiveRosterStatus = (status) =>
+  !status || status === ACTIVE_ON_SITE || status === ONBOARDING;
 
 /** Per-status presentation used by the status buttons, badge and modal. */
 export const PERSONNEL_STATUS_CONFIG = {
+  // No status assigned yet. Not offered as a choice — it is the absence of one.
+  [UNASSIGNED]: {
+    label: UNASSIGNED_LABEL,
+    description: 'No personnel status assigned yet.',
+    selected: 'bg-slate-600 text-white border-slate-600',
+    idle: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100',
+    text: 'text-slate-600',
+    solid: 'bg-slate-600 hover:bg-slate-700',
+  },
   [ACTIVE_ON_SITE]: {
     label: ACTIVE_ON_SITE,
     description: 'Mobilized and actively working on the project/site.',
@@ -73,17 +92,19 @@ export const PERSONNEL_STATUS_CONFIG = {
 };
 
 /**
- * Normalises a stored status to the current four-status vocabulary.
- * Legacy 'Active' and blank values map to 'Active on Site' while the record is
- * on the active roster, or to 'Inactive' when it is already flagged
- * is_active = false (so no existing record is ever misread).
+ * Normalises a stored status to the current vocabulary.
+ * A blank value — or a legacy 'Active' left over from the old model — reads as
+ * unassigned, or as 'Inactive' when the record is already flagged
+ * is_active = false. 'Active on Site' is never inferred: it only ever appears
+ * because a person set it.
  */
 export const normalizeStatus = (status, isActiveFlag) => {
-  if (!status || status === 'Active') {
-    return isActiveFlag === false ? INACTIVE : ACTIVE_ON_SITE;
-  }
-  return status;
+  if (status && status !== 'Active') return status;
+  return isActiveFlag === false ? INACTIVE : UNASSIGNED;
 };
 
-/** Resolves any record's personnel status — never returns a blank value. */
+/** Resolves any record's personnel status. Blank means unassigned. */
 export const resolvePersonnelStatus = (emp) => normalizeStatus(emp?.personnel_status, emp?.is_active);
+
+/** Display label for any resolved status — blank reads as "Unassigned". */
+export const personnelStatusLabel = (status) => PERSONNEL_STATUS_CONFIG[status]?.label || UNASSIGNED_LABEL;

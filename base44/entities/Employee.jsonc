@@ -20,19 +20,20 @@
     },
     "is_active": {
       "type": "boolean",
-      "description": "Derived roster flag kept in sync with personnel_status: true for 'Active on Site' and 'Onboarding' (they stay in the Master List), false for 'Inactive' and 'Demobilized' (they live on the Inactive / Demobilized page).",
+      "description": "Derived roster flag kept in sync with personnel_status: true for 'Active on Site', 'Onboarding' and unassigned (they stay in the Master List), false for 'Inactive' and 'Demobilized' (they live on the Inactive / Demobilized page).",
       "default": true
     },
     "personnel_status": {
       "type": "string",
       "enum": [
+        "",
         "Active on Site",
         "Onboarding",
         "Inactive",
         "Demobilized"
       ],
-      "default": "Active on Site",
-      "description": "THE single source of truth for personnel status. 'Active on Site' = mobilized and actively working on the project/site. 'Onboarding' = registered but still completing requirements (Medical, Gate Pass, Training, Project ID); never auto-promoted when those complete. 'Inactive' = not currently active/on site. 'Demobilized' = demobilized from the project. Completely independent of Daily Attendance status, and never derived from Medical, Gate Pass, Training, Project ID or COMO Camp data."
+      "default": "Onboarding",
+      "description": "THE single source of truth for personnel status. Empty string ('') = Unassigned, no status set yet. 'Active on Site' = mobilized and actively working on the project/site and is ONLY ever set by a person, never automatically by the app or its imports. 'Onboarding' = registered but still completing requirements (Medical, Gate Pass, Training, Project ID) and the default for newly added or imported personnel; never auto-promoted when those complete. 'Inactive' = not currently active/on site. 'Demobilized' = demobilized from the project. Completely independent of Daily Attendance status, and never derived from Medical, Gate Pass, Training, Project ID or COMO Camp data."
     },
     "status_effective_date": {
       "type": "string",
