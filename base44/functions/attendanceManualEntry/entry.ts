@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
 
     const email = user?.email || '';
     const name = user?.full_name || '';
+    // The authenticated ACCOUNT behind this action (the permanent reference).
+    const userId = user?.id || '';
 
     // ── Server-side punch-sequence validation (the sequence is authoritative) ──
     // The employee's assigned shift for this date is resolved HERE — a shift sent by
@@ -130,7 +132,7 @@ Deno.serve(async (req) => {
     // display use, so an edited record can never disagree with Time Entries.
     const calculatedStatus = calculateAttendanceStatus(sequenceRecord, resolvedShift, settings, [], new Date());
 
-    const payload = {
+    const payload: any = {
       personnel_id: personnelId, employee_name: employeeName, company,
       attendance_date: attendanceDate,
       check_in_at: checkInIso, check_out_at: checkOutIso,
@@ -148,6 +150,25 @@ Deno.serve(async (req) => {
       manual_status_override: manualStatusOverride || '',
       manual_status_reason: manualStatusOverride ? (manualStatusReason || reason || '').trim() : '',
     };
+
+    // WHO performed each punch. Editing a record never rewrites the account that
+    // originally scanned a punch: a punch that already existed keeps its stored
+    // account, and only a punch newly entered here is attributed to this user.
+    // The editor is recorded separately as Last Edited By.
+    if (record) {
+      payload.first_in_by_user_id = record.first_in_by_user_id || (!record.first_in_at && firstInIso ? userId : '');
+      payload.first_out_by_user_id = record.first_out_by_user_id || (!record.first_out_at && firstOutIso ? userId : '');
+      payload.second_in_by_user_id = record.second_in_by_user_id || (!record.second_in_at && secondInIso ? userId : '');
+      payload.final_out_by_user_id = record.final_out_by_user_id || (!record.final_out_at && finalOutIso ? userId : '');
+      payload.last_edited_by_user_id = userId;
+      payload.last_edited_by_name = name;
+      payload.last_edited_at = new Date().toISOString();
+    } else {
+      payload.first_in_by_user_id = firstInIso ? userId : '';
+      payload.first_out_by_user_id = firstOutIso ? userId : '';
+      payload.second_in_by_user_id = secondInIso ? userId : '';
+      payload.final_out_by_user_id = finalOutIso ? userId : '';
+    }
 
     if (record) {
       // Update existing — log correction

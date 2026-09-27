@@ -49,6 +49,22 @@
       "format": "date-time",
       "description": "Final Punch Out timestamp (ISO) \u2014 latest clock-out for the day"
     },
+    "first_in_by_user_id": {
+      "type": "string",
+      "description": "Authenticated account (User record id) that performed the First Punch In. Permanent reference \u2014 the display name is resolved from the User record, so renaming an account never rewrites history. Empty when the punch was never attributed (legacy rows)."
+    },
+    "first_out_by_user_id": {
+      "type": "string",
+      "description": "Authenticated account (User record id) that performed the First Punch Out (break start)."
+    },
+    "second_in_by_user_id": {
+      "type": "string",
+      "description": "Authenticated account (User record id) that performed the Second Punch In (return from break)."
+    },
+    "final_out_by_user_id": {
+      "type": "string",
+      "description": "Authenticated account (User record id) that performed the Final Punch Out."
+    },
     "duration_minutes": {
       "type": "number",
       "description": "Total working duration in minutes (sum of completed IN\u2192OUT pairs, minus break if configured)",
@@ -165,6 +181,19 @@
     "manual_reason": {
       "type": "string",
       "description": "Reason provided for manual entry/correction"
+    },
+    "last_edited_by_user_id": {
+      "type": "string",
+      "description": "Authenticated account (User record id) that last corrected this record through Manual Entry / Edit Attendance. Audit only \u2014 it never replaces the account that performed an original punch."
+    },
+    "last_edited_by_name": {
+      "type": "string",
+      "description": "Display name of the account that last corrected this record (denormalized for the audit trail)"
+    },
+    "last_edited_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the last manual correction (Manual Entry / Edit Attendance)"
     },
     "remarks": {
       "type": "string",

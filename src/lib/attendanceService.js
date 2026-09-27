@@ -254,6 +254,9 @@ export async function recordPunch({
   const tsIso = timestamp.toISOString();
   const email = currentUser?.email || '';
   const name = currentUser?.full_name || '';
+  // The authenticated ACCOUNT is stored per punch (never only a name) so the
+  // scanner of every individual punch can be shown and audited later.
+  const userId = currentUser?.id || '';
 
   // The raw punch is only written once the punch has been ACCEPTED, so a rejected
   // scan can never leave a stray AttendancePunch row behind.
@@ -261,7 +264,7 @@ export async function recordPunch({
     personnel_id: personnelId, employee_name: employeeName, company,
     attendance_date: attDate, punch_timestamp: tsIso, punch_type: punchType,
     punch_sequence: punchSeq, source, location,
-    created_by: email, created_by_name: name,
+    created_by: email, created_by_user_id: userId, created_by_name: name,
   });
 
   if (!session) {
@@ -284,6 +287,7 @@ export async function recordPunch({
       duration_minutes: 0, overtime_minutes: 0,
       work_location: workLocation || location || '',
       checked_in_by: email, checked_in_by_name: name,
+      first_in_by_user_id: userId,
       status: 'open', source, source_page: source,
       // The shift that actually judged this punch is stored on the record, so the
       // rules applied stay auditable ('default' = no shift assignment resolved).
@@ -307,9 +311,11 @@ export async function recordPunch({
       updates.check_in_at = tsIso;
       updates.checked_in_by = email;
       updates.checked_in_by_name = name;
+      updates.first_in_by_user_id = userId;
     } else if (!session.second_in_at && session.first_out_at) {
       // Second IN (return from break) — only valid after first_out
       updates.second_in_at = tsIso;
+      updates.second_in_by_user_id = userId;
     } else if (!session.second_in_at && !session.first_out_at) {
       throw new Error('Cannot punch in — session is already open. Punch OUT to check out.');
     } else {
@@ -322,16 +328,19 @@ export async function recordPunch({
       updates.check_out_at = tsIso;
       updates.checked_out_by = email;
       updates.checked_out_by_name = name;
+      updates.final_out_by_user_id = userId;
       updates.status = 'completed';
     } else if (!session.first_out_at) {
       // Break start (lunch out)
       updates.first_out_at = tsIso;
+      updates.first_out_by_user_id = userId;
     } else if (!session.final_out_at) {
       // Final out after break
       updates.final_out_at = tsIso;
       updates.check_out_at = tsIso;
       updates.checked_out_by = email;
       updates.checked_out_by_name = name;
+      updates.final_out_by_user_id = userId;
       updates.status = 'completed';
     } else {
       throw new Error('All punches already recorded for this date.');
@@ -387,6 +396,9 @@ async function processSplitPunch({
   if (!timestamp) throw new Error('Punch timestamp is required.');
   const email = currentUser?.email || '';
   const name = currentUser?.full_name || '';
+  // The account responsible for THIS punch (each split-shift punch may be
+  // performed by a different supervisor).
+  const userId = currentUser?.id || '';
   const tsIso = timestamp.toISOString();
 
   const existing = await base44.entities.AttendanceRecord.filter(
@@ -460,7 +472,7 @@ async function processSplitPunch({
     personnel_id: personnelId, employee_name: employeeName, company,
     attendance_date: attDate, punch_timestamp: tsIso, punch_type: pType,
     punch_sequence: pSeq, source, location,
-    created_by: email, created_by_name: name,
+    created_by: email, created_by_user_id: userId, created_by_name: name,
   });
 
   // No session yet → first punch must be FIRST IN
@@ -476,6 +488,7 @@ async function processSplitPunch({
       duration_minutes: 0, overtime_minutes: 0,
       work_location: workLocation || location || '',
       checked_in_by: email, checked_in_by_name: name,
+      first_in_by_user_id: userId,
       status: 'open', source, source_page: source,
       shift_id: shiftId, shift_name: shiftName,
     });
@@ -498,13 +511,17 @@ async function processSplitPunch({
   if (expectedKey === 'FIRST_IN') {
     updates.first_in_at = tsIso; updates.check_in_at = tsIso;
     updates.checked_in_by = email; updates.checked_in_by_name = name;
+    updates.first_in_by_user_id = userId;
   } else if (expectedKey === 'FIRST_OUT') {
     updates.first_out_at = tsIso;
+    updates.first_out_by_user_id = userId;
   } else if (expectedKey === 'SECOND_IN') {
     updates.second_in_at = tsIso;
+    updates.second_in_by_user_id = userId;
   } else if (expectedKey === 'FINAL_OUT') {
     updates.final_out_at = tsIso; updates.check_out_at = tsIso;
     updates.checked_out_by = email; updates.checked_out_by_name = name;
+    updates.final_out_by_user_id = userId;
     updates.status = 'completed';
   }
 

@@ -42,6 +42,8 @@ export async function saveAttendanceSession({
       duration_minutes: duration, work_location: workLocation || 'COMO CAMP',
       checked_in_by: email, checked_in_by_name: name,
       checked_out_by: completed ? email : '', checked_out_by_name: completed ? name : '',
+      first_in_by_user_id: currentUser?.id || '',
+      final_out_by_user_id: completed ? (currentUser?.id || '') : '',
       status: completed ? 'completed' : 'open', source_page: sourcePage,
     });
     await base44.entities.ActivityLog.create({
@@ -82,6 +84,8 @@ export async function saveAttendanceSession({
       duration_minutes: duration, work_location: workLocation || 'COMO CAMP',
       checked_in_by: email, checked_in_by_name: name,
       checked_out_by: completed ? email : '', checked_out_by_name: completed ? name : '',
+      first_in_by_user_id: currentUser?.id || '',
+      final_out_by_user_id: completed ? (currentUser?.id || '') : '',
       status: completed ? 'completed' : 'open', source_page: sourcePage,
     });
     await base44.entities.ActivityLog.create({
@@ -109,6 +113,11 @@ export async function saveAttendanceSession({
   if (outChanged || outCleared) {
     updates.checked_out_by = finalOut ? email : '';
     updates.checked_out_by_name = finalOut ? name : '';
+  }
+  // A punch that is newly ADDED here belongs to this account. A punch that
+  // already existed keeps the account that originally performed it.
+  if (outChanged && !existingRecord.check_out_at) {
+    updates.final_out_by_user_id = currentUser?.id || '';
   }
 
   await base44.entities.AttendanceRecord.update(existingRecord.id, updates);

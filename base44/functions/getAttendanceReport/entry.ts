@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
 import { filterEmployees, resolveShift, calculateAttendanceStatus } from "../../shared/attendanceCalc.ts";
+import { loadUserDirectory, resolveScannedBy, needsUserDirectory } from "../../shared/attendanceUsers.ts";
 
 // Server-side filtering and pagination for the Daily Attendance → Attendance Reports tab.
 //
@@ -96,11 +97,23 @@ export default async function (req: Request): Promise<Response> {
       return (a.emp?.name || "").localeCompare(b.emp?.name || "");
     });
 
-    // 6. Paginate (or return all for export)
+    // 6. Scanned By — WHO performed each punch, resolved from the User entity
+    //    with ONE batched lookup per request (never one query per row), so the
+    //    table and the export both carry the per-punch account.
+    let userDir: any = null;
+    const withScannedBy = async (rowsToSend: any[]) => {
+      if (needsUserDirectory(rowsToSend.map((r) => r.record))) {
+        if (!userDir) userDir = await loadUserDirectory(base44);
+      }
+      const dir = userDir || { byId: new Map(), byEmail: new Map() };
+      return rowsToSend.map((r) => ({ ...r, scanned_by: resolveScannedBy(r.record, dir) }));
+    };
+
+    // 7. Paginate (or return all for export)
     const total = reportRows.length;
     if (exportAll) {
       return Response.json({
-        rows: reportRows,
+        rows: await withScannedBy(reportRows),
         total,
         page: 1,
         pageSize: total,
@@ -114,7 +127,7 @@ export default async function (req: Request): Promise<Response> {
     const pageRows = reportRows.slice(startIdx, startIdx + pageSize);
 
     return Response.json({
-      rows: pageRows,
+      rows: await withScannedBy(pageRows),
       total,
       page: safePage,
       pageSize,

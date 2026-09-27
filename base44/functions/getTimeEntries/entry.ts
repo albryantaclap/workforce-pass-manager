@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
 import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus } from "../../shared/attendanceCalc.ts";
+import { loadUserDirectory, resolveScannedBy, needsUserDirectory } from "../../shared/attendanceUsers.ts";
 
 // Server-side filtering, pagination, and KPI aggregation for the
 // Daily Attendance → Time Entries tab.
@@ -117,7 +118,13 @@ export default async function (req: Request): Promise<Response> {
     const startIdx = (safePage - 1) * pageSize;
     const pageRows = rows.slice(startIdx, startIdx + pageSize);
 
-    // 9. Return rows (with employee + attendance data) + KPIs
+    // 9. Scanned By — WHO performed each punch, resolved with ONE batched user
+    //    lookup for this page only (never a query per attendance row).
+    const userDir = needsUserDirectory(pageRows.map((r: any) => r.att))
+      ? await loadUserDirectory(base44)
+      : { byId: new Map<string, string>(), byEmail: new Map<string, string>() };
+
+    // 10. Return rows (with employee + attendance data) + KPIs
     return Response.json({
       rows: pageRows.map(({ emp, att }: any) => ({
         emp: {
@@ -139,6 +146,7 @@ export default async function (req: Request): Promise<Response> {
           overtime_minutes: att.overtime_minutes || 0,
           attendance_status: att.attendance_status || "",
           manual_status_override: att.manual_status_override || "",
+          scanned_by: resolveScannedBy(att, userDir),
         } : null,
       })),
       total, page: safePage, pageSize, totalPages,

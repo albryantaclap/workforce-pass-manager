@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AttendanceFilterBar from './AttendanceFilterBar';
+import ScannedByCell from './ScannedByCell';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
@@ -167,12 +168,15 @@ export default function AttendanceReports({
         exportAll: true,
       });
       const allRows = res.data?.rows || [];
-      const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Source'];
-      const rows = allRows.map(({ record: r, emp, calcStatus }) => [
+      const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
+      const rows = allRows.map(({ record: r, emp, calcStatus, scanned_by }) => [
         emp?.name || r.employee_name, emp?.company || r.company, emp?.department || '',
         r.attendance_date, formatTimeShort(getFirstIn(r)), formatTimeShort(r.first_out_at),
         formatTimeShort(r.second_in_at), formatTimeShort(getFinalOut(r)),
-        r.duration_minutes || 0, r.overtime_minutes || 0, calcStatus || r.attendance_status || '', r.source || '',
+        r.duration_minutes || 0, r.overtime_minutes || 0, calcStatus || r.attendance_status || '',
+        scanned_by?.label || '—',
+        scanned_by?.names?.first_in || '', scanned_by?.names?.first_out || '',
+        scanned_by?.names?.second_in || '', scanned_by?.names?.final_out || '',
       ]);
       const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
@@ -309,7 +313,7 @@ export default function AttendanceReports({
                 <th className="px-3 py-2 font-semibold">DURATION</th>
                 <th className="px-3 py-2 font-semibold">O.T.</th>
                 <th className="px-3 py-2 font-semibold">STATUS</th>
-                <th className="px-3 py-2 font-semibold">SOURCE</th>
+                <th className="px-3 py-2 font-semibold">SCANNED BY</th>
               </tr>
             </thead>
             <tbody>
@@ -317,7 +321,7 @@ export default function AttendanceReports({
                 <tr><td colSpan={12} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
               ) : reportRows.length === 0 ? (
                 <tr><td colSpan={12} className="text-center py-8 text-muted-foreground">No records for the selected report and filters.</td></tr>
-              ) : reportRows.map(({ record: r, emp, calcStatus }) => {
+              ) : reportRows.map(({ record: r, emp, calcStatus, scanned_by }) => {
                 const status = calcStatus || r.attendance_status || '—';
                 const colors = STATUS_COLORS[status] || STATUS_COLORS['Absent'];
                 return (
@@ -342,7 +346,7 @@ export default function AttendanceReports({
                         {status}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-muted-foreground">{r.source || '—'}</td>
+                    <td className="px-3 py-2"><ScannedByCell scannedBy={scanned_by} /></td>
                   </tr>
                 );
               })}

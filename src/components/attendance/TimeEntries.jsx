@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import AttendanceKpiCards from './AttendanceKpiCards';
 import AttendanceFilterBar from './AttendanceFilterBar';
+import ScannedByCell from './ScannedByCell';
 import ManualEntryDialog from './ManualEntryDialog';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import { useRbac } from '@/lib/useRbac';
@@ -120,7 +121,7 @@ export default function TimeEntries({
 
   // Export the current page's attendance data to CSV.
   const exportCSV = () => {
-    const headers = ['Employee', 'Designation', 'QID', 'PID', 'Company', 'Dept', 'Branch', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status'];
+    const headers = ['Employee', 'Designation', 'QID', 'PID', 'Company', 'Dept', 'Branch', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
     const csvRows = rows.map(({ emp, att }) => {
       const shift = resolveShift(emp, assignments, shifts, settings);
       let status;
@@ -137,6 +138,9 @@ export default function TimeEntries({
         att?.first_in_at || att?.check_in_at || '', att?.first_out_at || '',
         att?.second_in_at || '', att?.final_out_at || att?.check_out_at || '',
         att?.duration_minutes || 0, att?.overtime_minutes || 0, status,
+        att?.scanned_by?.label || '—',
+        att?.scanned_by?.names?.first_in || '', att?.scanned_by?.names?.first_out || '',
+        att?.scanned_by?.names?.second_in || '', att?.scanned_by?.names?.final_out || '',
       ];
     });
     const csv = [headers, ...csvRows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
@@ -239,18 +243,19 @@ export default function TimeEntries({
                 <th className="px-3 py-2 font-semibold">DURATION</th>
                 <th className="px-3 py-2 font-semibold">O.T.</th>
                 <th className="px-3 py-2 font-semibold">STATUS</th>
+                <th className="px-3 py-2 font-semibold">SCANNED BY</th>
                 {(canEditEntry || canDeleteEntry) && <th className="px-3 py-2 font-semibold text-right">ACTIONS</th>}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 16 : 15} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
+                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 17 : 16} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
               ) : error ? (
-                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 16 : 15} className="text-center py-8 text-red-600">
+                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 17 : 16} className="text-center py-8 text-red-600">
                   Failed to load. <button onClick={() => qc.invalidateQueries({ queryKey: ['time-entries'] })} className="underline">Retry</button>
                 </td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 16 : 15} className="px-3 py-8 text-center text-muted-foreground">
+                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 17 : 16} className="px-3 py-8 text-center text-muted-foreground">
                   No attendance records for the selected date and filters.
                 </td></tr>
               ) : rows.map(({ emp, att }) => {
@@ -309,6 +314,9 @@ export default function TimeEntries({
                         </span>
                       )}
                     </td>
+                    {/* WHO scanned/punched — one name, "Multiple" (hover for the
+                        per-punch breakdown) or — when nothing was ever stored */}
+                    <td className="px-3 py-2"><ScannedByCell scannedBy={att?.scanned_by} /></td>
                     {(canEditEntry || canDeleteEntry) && (
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-end gap-1">

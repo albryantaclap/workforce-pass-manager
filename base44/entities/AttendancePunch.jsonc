@@ -63,6 +63,10 @@
       "type": "string",
       "description": "Email of the user who created the punch"
     },
+    "created_by_user_id": {
+      "type": "string",
+      "description": "Authenticated account (User record id) that created the punch \u2014 the permanent reference for who scanned/entered it"
+    },
     "created_by_name": {
       "type": "string",
       "description": "Display name of the user who created the punch"
