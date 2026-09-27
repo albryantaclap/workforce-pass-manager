@@ -138,7 +138,7 @@ export function exportStockOutExcel(transactions) {
 export function exportAvailableStockExcel(rows) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Available Stock');
-  const headers = ['Item S.N.', 'Item Name', 'Unit', 'Stock In', 'Stock Out', 'Available', 'Min Level', 'Status'];
+  const headers = ['Item S.N.', 'Item Name', 'Unit', 'Stock In', 'Stock Out', 'Available', 'Min Level', 'Status', 'Warranty Status', 'Warranty Expiry'];
   writeTitle(ws, 'AVAILABLE STOCK REPORT', headers.length);
   writeHeaders(ws, headers);
   rows.forEach((row, ri) => {
@@ -224,6 +224,37 @@ export function exportEmployeeIssuanceExcel(employee, transactions) {
   autoWidth(ws, headers, rows);
   const safeName = (employee.name || 'employee').replace(/[^a-zA-Z0-9]/g, '_');
   wb.xlsx.writeBuffer().then(buf => download(buf, `Employee_Issuance_${safeName}.xlsx`));
+}
+
+/**
+ * Warranty Report — one row per receipt (batch) and per serialized asset, plus
+ * receipts saved without warranty. Columns match the on-screen report.
+ */
+export function exportWarrantyReportExcel(rows) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Warranty Report');
+  const headers = [
+    'Item S.N.', 'Item Name', 'Category', 'Serial / Asset No.', 'Supplier', 'D/N No.',
+    'Stock In Date', 'Warranty Start', 'Warranty Period', 'Warranty Expiry', 'Warranty Status',
+    'Current Location', 'Issued To', 'Company', 'Warranty Reference',
+  ];
+  writeTitle(ws, 'INVENTORY WARRANTY REPORT', headers.length);
+  writeHeaders(ws, headers);
+  const data = rows.map(r => [
+    r.item_sn, textValue(r.item_name), textValue(r.category), r.serial_no || '',
+    r.supplier || '', r.document_no || '', r.stock_in_date || '', r.warranty_start_date || '',
+    r.warranty_period || '', r.warranty_expiry_date || '', r.status || '',
+    r.current_location || '', r.issued_to || '', r.company || '', r.warranty_ref_no || '',
+  ]);
+  data.forEach((row, ri) => {
+    const bg = row[10] === 'Expired' ? CLR.outOfBg : row[10] === 'Expiring Soon' ? CLR.lowBg : null;
+    row.forEach((v, ci) => {
+      const c = ws.getCell(ri + 4, ci + 1);
+      applyCell(c, v, bg, font(false, 9), align(ci === 1 ? 'left' : 'center'));
+    });
+  });
+  autoWidth(ws, headers, data);
+  wb.xlsx.writeBuffer().then(buf => download(buf, 'Warranty_Report.xlsx'));
 }
 
 function download(buf, filename) {

@@ -6,9 +6,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Download, Printer, ChevronRight, ChevronDown } from 'lucide-react';
 import { exportEmployeeIssuanceExcel } from '@/lib/inventoryExcelExport';
 import { groupTransactionsIntoDocuments } from '@/lib/inventoryService';
+import { issuedAssetsFor, warrantyStatus, warrantyStatusClasses } from '@/lib/warranty';
+import { useWarrantySetting } from '@/hooks/useWarrantySetting';
 
-export default function EmployeeIssuanceDetailsDialog({ open, onClose, employee, transactions }) {
+export default function EmployeeIssuanceDetailsDialog({ open, onClose, employee, transactions, warranties = [] }) {
   const [expanded, setExpanded] = useState(() => new Set());
+  const warningDays = useWarrantySetting();
 
   const issuedItems = useMemo(() => {
     if (!employee) return [];
@@ -150,10 +153,10 @@ export default function EmployeeIssuanceDetailsDialog({ open, onClose, employee,
                   <TableHead className="w-8"></TableHead>
                   <TableHead className="w-28">Date</TableHead>
                   <TableHead className="w-24">I/V No.</TableHead>
-                  <TableHead>Item / Voucher</TableHead>
-                  <TableHead className="w-20">Site</TableHead>
-                  <TableHead className="w-20 text-right">Qty</TableHead>
-                  <TableHead>Remarks</TableHead>
+                  <TableHead>Item / Voucher / Asset</TableHead>
+                  <TableHead className="w-16">Unit</TableHead>
+                  <TableHead className="w-16 text-right">Qty</TableHead>
+                  <TableHead className="w-72">Warranty</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -169,22 +172,52 @@ export default function EmployeeIssuanceDetailsDialog({ open, onClose, employee,
                         <TableCell className="font-mono font-semibold">{v.documentNo || '—'}</TableCell>
                         <TableCell className="font-medium">
                           {v.lineCount} item{v.lineCount === 1 ? '' : 's'} in this voucher
+                          {v.site ? <span className="text-muted-foreground"> · {v.site}</span> : null}
                         </TableCell>
-                        <TableCell>{v.site || '—'}</TableCell>
+                        <TableCell className="text-muted-foreground">—</TableCell>
                         <TableCell className="text-right font-bold">{v.totalQty}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{isOpen ? 'Click to collapse' : 'Click to view items'}</TableCell>
                       </TableRow>
-                      {isOpen && v.lines.map(t => (
-                        <TableRow key={t.id}>
-                          <TableCell></TableCell>
-                          <TableCell></TableCell>
-                          <TableCell className="font-mono">{t.item_sn}</TableCell>
-                          <TableCell className="pl-4">{t.item_name}</TableCell>
-                          <TableCell>{t.unit}</TableCell>
-                          <TableCell className="text-right font-semibold">{t.quantity_abs}</TableCell>
-                          <TableCell>{t.remarks || '—'}</TableCell>
-                        </TableRow>
-                      ))}
+                      {isOpen && v.lines.map(t => {
+                        // The exact asset(s) issued keep their original warranty record.
+                        const assets = issuedAssetsFor(warranties, employee.id, t.item_id, t.iv_no || '');
+                        const asset = assets[0];
+                        const status = asset ? warrantyStatus(asset.warranty_expiry_date, warningDays) : 'No Warranty';
+                        const expiry = assets.map(a => a.warranty_expiry_date).filter(Boolean).sort()[0] || '';
+                        return (
+                          <TableRow key={t.id}>
+                            <TableCell></TableCell>
+                            <TableCell>{t.transaction_date}</TableCell>
+                            <TableCell className="font-mono">{t.iv_no || '—'}</TableCell>
+                            <TableCell className="pl-4">
+                              <span className="font-mono font-semibold">{t.item_sn}</span> — {t.item_name}
+                              {asset ? (
+                                <span className="ml-2 text-[10px] font-mono text-blue-700">
+                                  Asset: {assets.map(a => a.serial_no).join(', ')}
+                                </span>
+                              ) : null}
+                            </TableCell>
+                            <TableCell>{t.unit}</TableCell>
+                            <TableCell className="text-right font-semibold">{t.quantity_abs}</TableCell>
+                            <TableCell>
+                              {asset ? (
+                                <span className="flex flex-wrap items-center gap-2 text-[10px]">
+                                  <span className={`px-1.5 py-0.5 rounded border font-semibold ${warrantyStatusClasses(status)}`}>
+                                    {status}
+                                  </span>
+                                  <span>Expiry: <strong>{expiry || '—'}</strong></span>
+                                  <span className="text-muted-foreground">Ref: {asset.warranty_ref_no || '—'}</span>
+                                  <span className="text-muted-foreground">D/N: {asset.document_no || '—'}</span>
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">
+                                  No warranty recorded for this receipt{t.remarks ? ` · ${t.remarks}` : ''}
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </React.Fragment>
                   );
                 })}

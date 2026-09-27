@@ -3,7 +3,7 @@
  * transactions, and lookups for the Inventory Management module.
  */
 import { useQuery } from '@tanstack/react-query';
-import { fetchItems, fetchTransactions, fetchAllLookups } from '@/lib/inventoryService';
+import { fetchItems, fetchTransactions, fetchAllLookups, fetchWarrantyRecords } from '@/lib/inventoryService';
 
 export function useInventoryData(filters = {}) {
   const { data: items = [], isLoading: itemsLoading } = useQuery({
@@ -18,6 +18,15 @@ export function useInventoryData(filters = {}) {
     staleTime: 15000,
   });
 
+  // Warranty records live under the transactions query key on purpose, so every
+  // existing refresh (which invalidates ['inventory-transactions']) also reloads
+  // warranties and no page has to change.
+  const { data: warranties = [] } = useQuery({
+    queryKey: ['inventory-transactions', 'warranties'],
+    queryFn: fetchWarrantyRecords,
+    staleTime: 30000,
+  });
+
   const { data: lookups = [] } = useQuery({
     queryKey: ['inventory-lookups'],
     queryFn: fetchAllLookups,
@@ -30,6 +39,7 @@ export function useInventoryData(filters = {}) {
   return {
     items,
     transactions,
+    warranties,
     lookups,
     getLookupOptions,
     isLoading: itemsLoading || txnsLoading,

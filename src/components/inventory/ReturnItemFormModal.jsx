@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { createReturn } from '@/lib/inventoryService';
+import { createReturn, recordAssetMovement } from '@/lib/inventoryService';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function ReturnItemFormModal({ open, onClose, onSaved, originalTxn, stores, user }) {
@@ -51,7 +51,7 @@ export default function ReturnItemFormModal({ open, onClose, onSaved, originalTx
     }
     setSaving(true);
     try {
-      await createReturn({
+      const returnTxn = await createReturn({
         transaction_date: form.transaction_date,
         item_id: originalTxn.item_id,
         quantity: Number(form.quantity),
@@ -66,6 +66,8 @@ export default function ReturnItemFormModal({ open, onClose, onSaved, originalTx
         designation: originalTxn.designation || '',
         remarks: form.remarks,
       }, user);
+      // The returned asset keeps its own warranty record and history.
+      await recordAssetMovement(returnTxn, 'Returned', user);
       toast({ title: 'Return recorded successfully' });
       onSaved?.();
       onClose();

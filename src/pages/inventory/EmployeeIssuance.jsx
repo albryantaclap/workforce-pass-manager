@@ -16,7 +16,7 @@ import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 
 export default function EmployeeIssuance() {
-  const { transactions, isLoading: txnsLoading } = useInventoryData();
+  const { transactions, warranties, isLoading: txnsLoading } = useInventoryData();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
@@ -236,6 +236,7 @@ export default function EmployeeIssuance() {
         onClose={() => setDialogOpen(false)}
         employee={selectedEmp}
         transactions={transactions}
+        warranties={warranties}
       />
     </div>
   );

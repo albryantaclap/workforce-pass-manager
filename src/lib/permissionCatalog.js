@@ -142,6 +142,14 @@ export const PERMISSION_CATALOG = [
         { key: 'view', label: 'View' },
         { key: 'edit', label: 'Edit' },
       ]},
+      { key: 'warranty', label: 'Warranty Management', path: '/inventory/reports?type=warranty', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'add', label: 'Add' },
+        { key: 'edit', label: 'Edit' },
+        { key: 'export', label: 'Export' },
+        { key: 'print', label: 'Print' },
+        { key: 'manage_settings', label: 'Manage Settings' },
+      ]},
     ],
   },
   {
@@ -214,6 +222,8 @@ export const ROLE_PRESETS = {
       'inventory.transaction_history.view', 'inventory.transaction_history.export',
       'inventory.reports.view', 'inventory.reports.export', 'inventory.reports.print',
       'inventory.settings.view',
+      'inventory.warranty.view', 'inventory.warranty.add', 'inventory.warranty.edit',
+      'inventory.warranty.export', 'inventory.warranty.print',
       // System — chat + forms only
       'system.chat.view', 'system.chat.send',
       'system.forms.view', 'system.forms.create',
@@ -241,6 +251,7 @@ export const ROLE_PRESETS = {
       'inventory.employee_issuance.view', 'inventory.employee_issuance.export',
       'inventory.transaction_history.view', 'inventory.transaction_history.export',
       'inventory.reports.view',
+      'inventory.warranty.view', 'inventory.warranty.export', 'inventory.warranty.print',
       'system.chat.view', 'system.chat.send',
     ],
   },
@@ -303,6 +314,11 @@ export function getRoutePermissionKey(pathname, search = '') {
       settings: 'attendance.settings',
     };
     return tabMap[tab] || 'attendance.dashboard';
+  }
+  // Inventory reports — the warranty report is its own permission resource
+  if (pathname === '/inventory/reports') {
+    const type = new URLSearchParams(search).get('type');
+    if (type === 'warranty') return 'inventory.warranty';
   }
   // Dynamic employee routes
   if (pathname.startsWith('/employees/')) return 'workforce.master_list';

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import SearchableSelect from '@/components/common/SearchableSelect';
-import { createStockTransfer, generateInternalDnNo, uploadInventoryFile, fetchTransactions, calculateAvailableStock } from '@/lib/inventoryService';
+import { createStockTransfer, generateInternalDnNo, uploadInventoryFile, fetchTransactions, calculateAvailableStock, recordAssetMovement } from '@/lib/inventoryService';
 import { useToast } from '@/components/ui/use-toast';
 import { useQuery } from '@tanstack/react-query';
 
@@ -93,7 +93,7 @@ export default function StockTransferFormModal({ open, onClose, onSaved, items, 
     }
     setSaving(true);
     try {
-      await createStockTransfer({
+      const transferTxn = await createStockTransfer({
         transaction_date: form.transaction_date,
         item_id: form.item_id,
         quantity: Number(form.quantity),
@@ -103,6 +103,8 @@ export default function StockTransferFormModal({ open, onClose, onSaved, items, 
         dn_file_url: form.dn_file_url,
         remarks: form.remarks,
       }, user);
+      // A transfer moves the asset and keeps its warranty record intact.
+      await recordAssetMovement(transferTxn, 'Transferred', user);
       toast({ title: 'Stock transfer recorded successfully' });
       onSaved?.();
       onClose();

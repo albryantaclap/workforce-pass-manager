@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Package, ArrowDownCircle, ArrowUpCircle, AlertTriangle, PackageX,
   Users, Boxes, Activity, Archive, TrendingUp, MapPin, Tag, Truck,
-  LayoutDashboard, FileBarChart,
+  LayoutDashboard, FileBarChart, ShieldCheck, ShieldAlert, ShieldOff,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useRbac } from '@/lib/useRbac';
+import { useWarrantySetting } from '@/hooks/useWarrantySetting';
+import { WARRANTY_STATUS, warrantyStatus } from '@/lib/warranty';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { calculateDashboardStats as calcStats } from '@/lib/inventoryService';
 import InventoryMovementChart from '@/components/inventory/InventoryMovementChart';
@@ -14,8 +18,33 @@ import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
 const fmt = (n) => (n || 0).toLocaleString();
 
 export default function InventoryDashboard() {
-  const { items, transactions, isLoading } = useInventoryData();
+  const { items, transactions, warranties, isLoading } = useInventoryData();
   const stats = calcStats(items, transactions);
+  const navigate = useNavigate();
+  const { can } = useRbac();
+  const warningDays = useWarrantySetting();
+
+  // Warranty figures come from the actual receipts (batches) and serialized
+  // assets, with statuses calculated live from each expiry date.
+  const warrantyCounts = useMemo(() => {
+    const counts = {
+      [WARRANTY_STATUS.UNDER]: 0,
+      [WARRANTY_STATUS.SOON]: 0,
+      [WARRANTY_STATUS.EXPIRED]: 0,
+    };
+    for (const w of warranties) {
+      if (w.is_deleted || w.warranty_applicable === false || !w.warranty_expiry_date) continue;
+      const status = warrantyStatus(w.warranty_expiry_date, warningDays);
+      if (counts[status] !== undefined) counts[status] += 1;
+    }
+    return counts;
+  }, [warranties, warningDays]);
+
+  const warrantyCards = [
+    { label: 'Under Warranty', status: WARRANTY_STATUS.UNDER, icon: ShieldCheck, color: 'text-emerald-600 bg-emerald-50' },
+    { label: 'Expiring Soon', status: WARRANTY_STATUS.SOON, icon: ShieldAlert, color: 'text-amber-600 bg-amber-50' },
+    { label: 'Expired Warranty', status: WARRANTY_STATUS.EXPIRED, icon: ShieldOff, color: 'text-red-600 bg-red-50' },
+  ];
 
   if (isLoading) {
     return (
@@ -70,6 +99,38 @@ export default function InventoryDashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Warranty Overview — a card opens the matching warranty records */}
+      {can('inventory.warranty.view') && (
+        <div>
+          <p className="text-sm font-semibold mb-2 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            Warranty Overview
+            <span className="font-normal text-muted-foreground text-xs">
+              (expiring-soon window: {warningDays} days — configured in Inventory Settings)
+            </span>
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {warrantyCards.map((c) => (
+              <Card
+                key={c.status}
+                className="border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => navigate(`/inventory/reports?type=warranty&status=${encodeURIComponent(c.status)}`)}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${c.color}`}>
+                    <c.icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{fmt(warrantyCounts[c.status])}</p>
+                    <p className="text-[11px] text-muted-foreground">{c.label} — click to view records</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stock Movement Trend */}
       <Card className="border-slate-200">

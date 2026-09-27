@@ -19,7 +19,7 @@ import SearchableSelect from '@/components/common/SearchableSelect';
 import { InventoryFilterPanel, FilterField, FilterNumberRange, FilterDateRange } from '@/components/inventory/InventoryFilterPanel';
 
 export default function StockOut() {
-  const { items, transactions, getLookupOptions, isLoading } = useInventoryData();
+  const { items, transactions, warranties, getLookupOptions, isLoading } = useInventoryData();
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -429,6 +429,7 @@ export default function StockOut() {
         onSaved={refresh}
         items={items}
         transactions={transactions}
+        warranties={warranties}
         sites={getLookupOptions('site')}
         stores={getLookupOptions('store')}
         user={user}

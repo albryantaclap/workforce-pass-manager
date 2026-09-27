@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Pencil, Archive, ArchiveRestore, Upload, Download, Wand2 } from 'lucide-react';
+import { Plus, Search, Pencil, Archive, ArchiveRestore, Upload, Download, Wand2, ShieldCheck } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { archiveItem, unarchiveItem, calculateAvailableStock, getStockStatus } from '@/lib/inventoryService';
 import { exportItemsExcel } from '@/lib/inventoryExcelExport';
@@ -21,10 +21,15 @@ import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import MultiSelect from '@/components/common/MultiSelect';
 import { InventoryFilterPanel, FilterField, FilterNumberRange, FilterDateRange } from '@/components/inventory/InventoryFilterPanel';
+import WarrantyDetailsDialog from '@/components/inventory/WarrantyDetailsDialog';
+import { useWarrantySetting } from '@/hooks/useWarrantySetting';
 
 export default function InventoryItems() {
-  const { items, transactions, getLookupOptions, isLoading } = useInventoryData();
+  const { items, transactions, warranties, getLookupOptions, isLoading } = useInventoryData();
   const [search, setSearch] = useState('');
+  const [warrantyItem, setWarrantyItem] = useState(null);
+  const [warrantyOpen, setWarrantyOpen] = useState(false);
+  const warningDays = useWarrantySetting();
   const [showArchived, setShowArchived] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -319,6 +324,12 @@ export default function InventoryItems() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
+                        {can('inventory.warranty.view') && (
+                          <Button size="icon" variant="ghost" className="h-7 w-7" title="Warranty details"
+                            onClick={() => { setWarrantyItem(item); setWarrantyOpen(true); }}>
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          </Button>
+                        )}
                         {can('inventory.items.edit') && !item.is_archived && (
                           <Button size="icon" variant="ghost" className="h-7 w-7"
                             onClick={() => { setEditItem(item); setModalOpen(true); }}>
@@ -380,6 +391,13 @@ export default function InventoryItems() {
         onClose={() => setRepairOpen(false)}
         items={items}
         onRepaired={refresh}
+      />
+      <WarrantyDetailsDialog
+        open={warrantyOpen}
+        onClose={() => setWarrantyOpen(false)}
+        item={warrantyItem}
+        rows={warranties}
+        warningDays={warningDays}
       />
     </div>
   );

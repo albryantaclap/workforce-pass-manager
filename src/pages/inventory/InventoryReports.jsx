@@ -12,6 +12,9 @@ import {
   exportItemsExcel, exportStockInExcel, exportStockOutExcel,
   exportAvailableStockExcel, exportTransactionHistoryExcel,
 } from '@/lib/inventoryExcelExport';
+import WarrantyReport from '@/components/inventory/WarrantyReport';
+import { useWarrantySetting } from '@/hooks/useWarrantySetting';
+import { indexWarrantiesByItem, summarizeItemWarranty } from '@/lib/warranty';
 import { useRbac } from '@/lib/useRbac';
 import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
@@ -26,11 +29,16 @@ const REPORT_TYPES = [
   { key: 'store', label: 'Store Stock Report' },
   { key: 'low_stock', label: 'Low Stock Report' },
   { key: 'transactions', label: 'Transaction History' },
+  { key: 'warranty', label: 'Warranty Report' },
 ];
 
 export default function InventoryReports() {
-  const { items, transactions, getLookupOptions, isLoading } = useInventoryData();
-  const [reportType, setReportType] = useState('summary');
+  const { items, transactions, warranties, getLookupOptions, isLoading } = useInventoryData();
+  const urlParams = new URLSearchParams(window.location.search);
+  const [reportType, setReportType] = useState(urlParams.get('type') || 'summary');
+  const [warrantyStatus, setWarrantyStatus] = useState(urlParams.get('status') || '');
+  const warningDays = useWarrantySetting();
+  const warrantyIndex = useMemo(() => indexWarrantiesByItem(warranties), [warranties]);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [itemFilter, setItemFilter] = useState('');
@@ -75,9 +83,18 @@ export default function InventoryReports() {
         return items
           .filter(i => !i.is_archived)
           .map(i => {
+            const stockIn = calculateStockIn(filteredTxns, i.id);
+            const stockOut = calculateStockOut(filteredTxns, i.id);
             const available = calculateAvailableStock(transactions, i.id);
             const status = getStockStatus(available, i.min_stock_level);
-            return { ...i, available, status };
+            const warranty = summarizeItemWarranty(warrantyIndex.get(i.id) || [], warningDays);
+            return {
+              ...i, stockIn, stockOut, available, status, warranty,
+              values: [
+                i.item_sn, i.item_name, i.unit, stockIn, stockOut, available,
+                i.min_stock_level || 0, status, warranty.status, warranty.expiry || '',
+              ],
+            };
           })
           .filter(i => i.status !== 'Available')
           .filter(i => !categoryFilter || i.category === categoryFilter);
@@ -91,9 +108,13 @@ export default function InventoryReports() {
             const stockOut = calculateStockOut(filteredTxns, i.id);
             const available = calculateAvailableStock(transactions, i.id);
             const status = getStockStatus(available, i.min_stock_level);
+            const warranty = summarizeItemWarranty(warrantyIndex.get(i.id) || [], warningDays);
             return {
-              ...i, stockIn, stockOut, available, status,
-              values: [i.item_sn, i.item_name, i.unit, stockIn, stockOut, available, i.min_stock_level || 0, status],
+              ...i, stockIn, stockOut, available, status, warranty,
+              values: [
+                i.item_sn, i.item_name, i.unit, stockIn, stockOut, available,
+                i.min_stock_level || 0, status, warranty.status, warranty.expiry || '',
+              ],
             };
           });
       }
@@ -113,7 +134,7 @@ export default function InventoryReports() {
           });
       }
     }
-  }, [reportType, filteredTxns, items, transactions, categoryFilter, supplierFilter, storeFilter]);
+  }, [reportType, filteredTxns, items, transactions, categoryFilter, supplierFilter, storeFilter, warrantyIndex, warningDays]);
 
   // Pagination — display only; exports use the full reportData, not pageData
   const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [reportType, fromDate, toDate, itemFilter, categoryFilter, supplierFilter, storeFilter, siteFilter, typeFilter]);
@@ -143,6 +164,36 @@ export default function InventoryReports() {
   const handlePrint = () => window.print();
 
   const showFilters = (keys) => keys.some(k => reportType === k);
+
+  // Warranty Report — its own filter set and columns. Also the landing view when
+  // a warranty card on the dashboard is clicked (?type=warranty&status=…).
+  if (reportType === 'warranty' && can('inventory.warranty.view')) {
+    return (
+      <div className="p-6 space-y-4">
+        <InventorySubmenuNav />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Inventory Reports</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Warranty recorded against each receipt (D/N) and each serialized asset
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => setReportType('summary')}>
+            Back to Standard Reports
+          </Button>
+        </div>
+        <WarrantyReport
+          transactions={transactions}
+          items={items}
+          warranties={warranties}
+          getLookupOptions={getLookupOptions}
+          warningDays={warningDays}
+          initialStatus={warrantyStatus}
+          can={can}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-4">
@@ -179,7 +230,9 @@ export default function InventoryReports() {
               <Select value={reportType} onValueChange={setReportType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {REPORT_TYPES.map(r => <SelectItem key={r.key} value={r.key}>{r.label}</SelectItem>)}
+                  {REPORT_TYPES
+                    .filter(r => r.key !== 'warranty' || can('inventory.warranty.view'))
+                    .map(r => <SelectItem key={r.key} value={r.key}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

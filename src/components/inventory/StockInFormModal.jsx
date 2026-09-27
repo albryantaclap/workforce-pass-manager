@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DocumentLineItems, { blankLine } from '@/components/inventory/DocumentLineItems';
 import { createInventoryDocument, uploadInventoryFile } from '@/lib/inventoryService';
+import { useWarrantySetting } from '@/hooks/useWarrantySetting';
+import { useRbac } from '@/lib/useRbac';
 import { useToast } from '@/components/ui/use-toast';
 
 const emptyHeader = () => ({
@@ -22,6 +24,8 @@ export default function StockInFormModal({ open, onClose, onSaved, stores, suppl
   const [lines, setLines] = useState([blankLine()]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const warningDays = useWarrantySetting();
+  const { can } = useRbac();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -146,7 +150,13 @@ export default function StockInFormModal({ open, onClose, onSaved, stores, suppl
           </div>
 
           {/* ── Item lines ── */}
-          <DocumentLineItems mode="in" lines={lines} onChange={setLines} />
+          <DocumentLineItems
+            mode="in"
+            lines={lines}
+            onChange={setLines}
+            warningDays={warningDays}
+            warrantyEnabled={can('inventory.warranty.add')}
+          />
         </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between">

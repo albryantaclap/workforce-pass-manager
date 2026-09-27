@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DocumentLineItems, { blankLine } from '@/components/inventory/DocumentLineItems';
 import { createInventoryDocument, searchEmployees, uploadInventoryFile } from '@/lib/inventoryService';
+import { useWarrantySetting } from '@/hooks/useWarrantySetting';
 import { useToast } from '@/components/ui/use-toast';
 import { useQuery } from '@tanstack/react-query';
 
@@ -21,7 +22,8 @@ const emptyHeader = () => ({
  * lines. Every line is written under the same I/V as one document, and all
  * lines are validated against available stock before anything is saved.
  */
-export default function StockOutFormModal({ open, onClose, onSaved, sites, stores, transactions = [], user }) {
+export default function StockOutFormModal({ open, onClose, onSaved, sites, stores, transactions = [], warranties = [], user }) {
+  const warningDays = useWarrantySetting();
   const [header, setHeader] = useState(emptyHeader());
   const [lines, setLines] = useState([blankLine()]);
   const [empSearch, setEmpSearch] = useState('');
@@ -220,7 +222,14 @@ export default function StockOutFormModal({ open, onClose, onSaved, sites, store
           </div>
 
           {/* ── Item lines ── */}
-          <DocumentLineItems mode="out" lines={lines} onChange={setLines} transactions={transactions} />
+          <DocumentLineItems
+            mode="out"
+            lines={lines}
+            onChange={setLines}
+            transactions={transactions}
+            warranties={warranties}
+            warningDays={warningDays}
+          />
         </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between">

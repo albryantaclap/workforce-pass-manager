@@ -6,6 +6,7 @@
  */
 import { base44 } from '@/api/base44Client';
 import { textValue } from '@/lib/inventoryText';
+import { buildWarrantyRows, validateWarrantyLine, computeWarrantyExpiry } from '@/lib/warranty';
 
 const TXN = base44.entities.InventoryTransaction;
 const ITEM = base44.entities.InventoryItem;
@@ -612,6 +613,7 @@ export async function searchEmployees(query, limit = 20) {
 // ── Multi-item documents (one header → many lines) ─────────────────────
 
 const DOC = base44.entities.InventoryDocument;
+const WR = base44.entities.InventoryWarranty;
 
 /**
  * Document number carried by a transaction line.
@@ -714,6 +716,20 @@ export async function createInventoryDocument({ document: doc, lines = [] }, use
     }
   }
 
+  // Warranty is captured per line and stored against the receipt (batch) or the
+  // individual serialized asset — never against the Item Master. Lines with
+  // Warranty Applicable = No are saved without any warranty data.
+  if (!isStockOut) {
+    lines = lines.map((l) => {
+      if (!l.warranty_applicable) return l;
+      const normalized = (!l.warranty_expiry_date && l.warranty_start_date && l.warranty_period)
+        ? { ...l, warranty_expiry_date: computeWarrantyExpiry(l.warranty_start_date, l.warranty_period, l.warranty_period_unit) }
+        : l;
+      validateWarrantyLine(normalized);
+      return normalized;
+    });
+  }
+
   const masterMap = new Map((await fetchItems(true)).map(i => [i.id, i]));
   const ledger = await fetchTransactions({});
 
@@ -792,11 +808,41 @@ export async function createInventoryDocument({ document: doc, lines = [] }, use
       };
     }));
 
+    // Warranty register — one record per receipt, or one per serialized asset.
+    if (!isStockOut) {
+      const warrantyRows = [];
+      for (const line of lines) {
+        if (!line.warranty_applicable) continue;
+        const txn = created.find(c => c.item_id === line.item_id);
+        if (!txn) continue;
+        const item = masterMap.get(line.item_id) || {};
+        warrantyRows.push(...buildWarrantyRows(line, {
+          batchTxnId: txn.id,
+          documentId: header.id,
+          documentNo: doc.document_no || '',
+          date: doc.document_date,
+          supplier: doc.supplier,
+          mrfNo: doc.mrf_no,
+          lpo: doc.lpo,
+          store: doc.store,
+          category: textValue(item.category),
+          createdBy: user?.email || '',
+          createdByName: user?.full_name || user?.email || '',
+        }));
+      }
+      if (warrantyRows.length) await WR.bulkCreate(warrantyRows);
+    } else {
+      // Stock Out: link the issued units to their exact serialized assets so the
+      // asset keeps its own warranty record and history.
+      await assignIssuedAssets(created, doc, user, lines);
+    }
+
     return { header, lines: created };
   } catch (e) {
     // Roll the whole document back so no stock movement is left half-applied.
     const orphans = await TXN.filter({ document_id: header.id }).catch(() => []);
     if (orphans.length) await TXN.deleteMany({ document_id: header.id }).catch(() => {});
+    await WR.deleteMany({ document_id: header.id }).catch(() => {});
     await DOC.delete(header.id).catch(() => {});
     throw new Error(e.message || 'The document could not be saved — no stock was changed.');
   }
@@ -817,10 +863,142 @@ export async function deleteDocument(group, user, reason) {
     })));
   }
   if (group.documentId) {
+    const warrantyRows = await WR.filter({ document_id: group.documentId }, '-created_date', 5000).catch(() => []);
+    if (warrantyRows.length) {
+      await WR.bulkUpdate(warrantyRows.map(w => ({
+        id: w.id,
+        is_deleted: true,
+        deleted_by: user?.email || '',
+        deletion_reason: reason || '',
+      }))).catch(() => {});
+    }
     await DOC.update(group.documentId, {
       is_deleted: true,
       deleted_by: user?.email || '',
       deletion_reason: reason || '',
     }).catch(() => {});
   }
+}
+
+// ── Warranty register ──────────────────────────────────────────────────
+
+/**
+ * Every warranty record (one per receipt, or one per serialized asset).
+ * Warranty rows are never rewritten by later movements — only their status,
+ * location and history are updated — so the start/expiry dates always stay true.
+ */
+export async function fetchWarrantyRecords() {
+  const all = await WR.list('-created_date', 100000);
+  return all.map(withItemText);
+}
+
+/**
+ * Stock Out — mark the issued units against the exact serialized assets.
+ * Uses the assets chosen on the issue lines when given, otherwise links them in
+ * order of earliest expiry. Non-serialized (consumable) items create no asset
+ * records and are simply issued.
+ */
+export async function assignIssuedAssets(createdLines, doc, user, lines = []) {
+  const outLines = createdLines.filter(l => l.transaction_type === 'STOCK_OUT' && l.item_id);
+  if (!outLines.length) return;
+
+  const assets = (await WR.list('-created_date', 100000)).filter(w => !w.is_deleted && !!w.serial_no);
+  const used = new Set();
+  const updates = [];
+
+  for (const line of outLines) {
+    const source = lines.find(l => l.item_id === line.item_id) || {};
+    const chosen = Array.isArray(source.asset_serials) ? source.asset_serials.map(String) : [];
+    let candidates = assets.filter(w =>
+      w.item_id === line.item_id && w.asset_status !== 'Issued' && !used.has(w.id)
+    );
+    if (chosen.length) {
+      const wanted = new Set(chosen.map(s => s.toLowerCase()));
+      candidates = candidates.filter(w => wanted.has(String(w.serial_no).toLowerCase()));
+    }
+    candidates = candidates.sort((a, b) => (a.warranty_expiry_date || '').localeCompare(b.warranty_expiry_date || ''));
+
+    for (const asset of candidates.slice(0, Number(line.quantity_abs) || 0)) {
+      used.add(asset.id);
+      updates.push({
+        id: asset.id,
+        asset_status: 'Issued',
+        current_location: doc.site || doc.store || asset.current_location || '',
+        issued_to_employee_id: doc.employee_id || '',
+        issued_to_name: doc.employee_name || '',
+        issued_company: doc.company || '',
+        issued_date: doc.document_date || '',
+        issued_iv_no: doc.document_no || '',
+        movement_history: [
+          ...(asset.movement_history || []),
+          {
+            date: doc.document_date || '',
+            action: 'Issued',
+            detail: `Issued to ${doc.employee_name || 'employee'}${doc.document_no ? ` under ${doc.document_no}` : ''}`,
+            by: user?.email || '',
+          },
+        ],
+      });
+    }
+  }
+
+  if (updates.length) await WR.bulkUpdate(updates);
+}
+
+/**
+ * Return / Transfer / Reissue — append the movement to the affected assets and
+ * move them, keeping every warranty date and the full history untouched.
+ */
+export async function recordAssetMovement(txn, action, user) {
+  if (!txn?.item_id) return;
+  const assets = (await WR.list('-created_date', 100000)).filter(w =>
+    !w.is_deleted && !!w.serial_no && w.item_id === txn.item_id
+  );
+
+  let rows = assets;
+  if (action === 'Returned') {
+    const held = assets.filter(w => w.asset_status === 'Issued' && (!txn.employee_id || w.issued_to_employee_id === txn.employee_id));
+    if (held.length) rows = held;
+  } else if (action === 'Transferred') {
+    rows = assets.filter(w =>
+      w.asset_status !== 'Issued' &&
+      (txn.transfer_from_store ? w.current_location === txn.transfer_from_store : true)
+    );
+  }
+
+  const take = rows.slice(0, Number(txn.quantity_abs) || rows.length);
+  if (!take.length) return;
+
+  await WR.bulkUpdate(take.map((w) => {
+    const history = [
+      ...(w.movement_history || []),
+      {
+        date: txn.transaction_date || '',
+        action,
+        detail: action === 'Returned'
+          ? `Returned by ${txn.employee_name || 'employee'}${txn.store ? ` to ${txn.store}` : ''}`
+          : `Transferred from ${txn.transfer_from_store || 'store'} to ${txn.transfer_to_store || 'store'}`,
+        by: user?.email || '',
+      },
+    ];
+    if (action === 'Returned') {
+      return {
+        id: w.id,
+        asset_status: 'Returned',
+        current_location: txn.store || w.current_location || '',
+        issued_to_employee_id: '',
+        issued_to_name: '',
+        issued_company: '',
+        issued_date: '',
+        issued_iv_no: '',
+        movement_history: history,
+      };
+    }
+    return {
+      id: w.id,
+      asset_status: 'Transferred',
+      current_location: txn.transfer_to_store || w.current_location || '',
+      movement_history: history,
+    };
+  }));
 }

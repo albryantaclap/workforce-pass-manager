@@ -1,0 +1,23 @@
+{
+  "name": "InventorySetting",
+  "type": "object",
+  "properties": {
+    "setting_key": {
+      "type": "string",
+      "default": "inventory",
+      "description": "Unique setting key. Use 'inventory' for the module-wide settings."
+    },
+    "warranty_expiring_soon_days": {
+      "type": "number",
+      "default": 30,
+      "description": "Mark a warranty as Expiring Soon when its expiry is within this many days. Controls warranty status across the whole Inventory module."
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of the user who last updated the settings"
+    }
+  },
+  "required": [
+    "setting_key"
+  ]
+}

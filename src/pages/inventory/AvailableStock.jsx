@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Download } from 'lucide-react';
+import { Search, Download, Eye } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { calculateAvailableStock, calculateStockIn, calculateStockOut, getStockStatus } from '@/lib/inventoryService';
 import { exportAvailableStockExcel } from '@/lib/inventoryExcelExport';
@@ -14,10 +14,16 @@ import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import MultiSelect from '@/components/common/MultiSelect';
 import { InventoryFilterPanel, FilterField, FilterNumberRange } from '@/components/inventory/InventoryFilterPanel';
+import WarrantyDetailsDialog from '@/components/inventory/WarrantyDetailsDialog';
+import { useWarrantySetting } from '@/hooks/useWarrantySetting';
+import { indexWarrantiesByItem, summarizeItemWarranty, warrantyStatusClasses } from '@/lib/warranty';
 
 export default function AvailableStock() {
-  const { items, transactions, getLookupOptions, isLoading } = useInventoryData();
+  const { items, transactions, warranties, getLookupOptions, isLoading } = useInventoryData();
   const [search, setSearch] = useState('');
+  const [warrantyItem, setWarrantyItem] = useState(null);
+  const [warrantyOpen, setWarrantyOpen] = useState(false);
+  const warningDays = useWarrantySetting();
   const { can } = useRbac();
 
   // Filter state
@@ -56,15 +62,24 @@ export default function AvailableStock() {
   const rows = useMemo(() => {
     let result = items.filter(i => !i.is_archived);
 
+    // Warranty comes from the actual receipts (batches) and serialized assets —
+    // never from the Item Master. An item's row summarises its batches; the
+    // details dialog lists each receipt/serial with its own warranty.
+    const warrantyIndex = indexWarrantiesByItem(warranties);
+
     result = result.map(item => {
       const stockIn = calculateStockIn(transactions, item.id);
       const stockOut = calculateStockOut(transactions, item.id);
       const available = calculateAvailableStock(transactions, item.id);
       const status = getStockStatus(available, item.min_stock_level);
+      const warranty = summarizeItemWarranty(warrantyIndex.get(item.id) || [], warningDays);
       return {
         ...item,
-        stockIn, stockOut, available, status,
-        values: [item.item_sn, item.item_name, item.unit, stockIn, stockOut, available, item.min_stock_level || 0, status],
+        stockIn, stockOut, available, status, warranty,
+        values: [
+          item.item_sn, item.item_name, item.unit, stockIn, stockOut, available,
+          item.min_stock_level || 0, status, warranty.status, warranty.expiry || '',
+        ],
       };
     });
 
@@ -128,7 +143,7 @@ export default function AvailableStock() {
     }
 
     return result.sort((a, b) => (a.item_sn || '').localeCompare(b.item_sn || ''));
-  }, [items, transactions, search, categoryFilter, unitFilter, statusFilter, availMin, availMax, minLevelMin, minLevelMax, hasStockInFilter, hasStockOutFilter, hasStockInMap, hasStockOutMap]);
+  }, [items, transactions, warranties, warningDays, search, categoryFilter, unitFilter, statusFilter, availMin, availMax, minLevelMin, minLevelMax, hasStockInFilter, hasStockOutFilter, hasStockInMap, hasStockOutMap]);
 
   const allFilterDeps = [search, categoryFilter, unitFilter, statusFilter, availMin, availMax, minLevelMin, minLevelMax, hasStockInFilter, hasStockOutFilter];
   const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, allFilterDeps);
@@ -244,6 +259,9 @@ export default function AvailableStock() {
                 <TableHead className="w-20 text-right">Available</TableHead>
                 <TableHead className="w-20 text-right">Min Level</TableHead>
                 <TableHead className="w-24">Status</TableHead>
+                <TableHead className="w-32">Warranty Status</TableHead>
+                <TableHead className="w-24">Warranty Expiry</TableHead>
+                <TableHead className="w-24 text-center">Warranty</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -265,11 +283,30 @@ export default function AvailableStock() {
                       {r.status}
                     </span>
                   </TableCell>
+                  <TableCell>
+                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold border ${warrantyStatusClasses(r.warranty.status)}`}>
+                      {r.warranty.status}
+                    </span>
+                    {r.warranty.applicable && (
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        {r.warranty.batchCount > 0 ? `${r.warranty.batchCount} batch ` : ''}
+                        {r.warranty.serialCount > 0 ? `${r.warranty.serialCount} serial ` : ''}
+                        record{r.warranty.batchCount + r.warranty.serialCount === 1 ? '' : 's'}
+                      </p>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-semibold">{r.warranty.expiry || '—'}</TableCell>
+                  <TableCell className="text-center">
+                    <Button size="sm" variant="outline" className="h-7 text-xs"
+                      onClick={() => { setWarrantyItem(r); setWarrantyOpen(true); }}>
+                      <Eye className="w-3.5 h-3.5" /> View
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                     {isLoading ? 'Loading...' : 'No items found.'}
                   </TableCell>
                 </TableRow>
@@ -287,6 +324,14 @@ export default function AvailableStock() {
           isFiltered={isFiltered}
         />
       </Card>
+
+      <WarrantyDetailsDialog
+        open={warrantyOpen}
+        onClose={() => setWarrantyOpen(false)}
+        item={warrantyItem}
+        rows={warranties}
+        warningDays={warningDays}
+      />
     </div>
   );
 }

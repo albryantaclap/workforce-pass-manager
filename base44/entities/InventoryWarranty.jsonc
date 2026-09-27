@@ -1,0 +1,199 @@
+{
+  "name": "InventoryWarranty",
+  "type": "object",
+  "properties": {
+    "warranty_applicable": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether warranty tracking applies to this receipt/serial. Rows are only created when the Stock In line had Warranty Applicable = Yes."
+    },
+    "batch_txn_id": {
+      "type": "string",
+      "description": "The Stock In transaction line (batch) this warranty belongs to. Warranty always belongs to the actual receipt, never to the Item Master."
+    },
+    "document_id": {
+      "type": "string",
+      "description": "Linked InventoryDocument (delivery note) header ID"
+    },
+    "document_no": {
+      "type": "string",
+      "description": "D/N No. of the delivery note this warranty was received under"
+    },
+    "stock_in_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the batch was received (Stock In date)"
+    },
+    "item_id": {
+      "type": "string",
+      "description": "Linked InventoryItem record ID"
+    },
+    "item_sn": {
+      "type": "string",
+      "description": "Item S.N. (denormalized for display and filtering)"
+    },
+    "item_name": {
+      "type": "string",
+      "description": "Item name (denormalized for display)"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unit / UOM (denormalized for display)"
+    },
+    "category": {
+      "type": "string",
+      "description": "Item category at the time of receipt (denormalized for reporting)"
+    },
+    "supplier": {
+      "type": "string",
+      "description": "Supplier on the delivery note"
+    },
+    "mrf_no": {
+      "type": "string",
+      "description": "MRF No. on the delivery note"
+    },
+    "lpo": {
+      "type": "string",
+      "description": "LPO on the delivery note"
+    },
+    "store": {
+      "type": "string",
+      "description": "Store the batch was received into"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1,
+      "description": "Units covered by this warranty row (1 when it represents a single serialized asset)"
+    },
+    "serial_no": {
+      "type": "string",
+      "description": "Serial / Asset No. when the warranty is tracked per physical unit. Empty for a batch-level warranty (consumables, bulk items)."
+    },
+    "warranty_start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Warranty start date"
+    },
+    "warranty_period": {
+      "type": "number",
+      "description": "Warranty period length in warranty_period_unit"
+    },
+    "warranty_period_unit": {
+      "type": "string",
+      "enum": [
+        "Days",
+        "Months",
+        "Years"
+      ],
+      "default": "Months",
+      "description": "Warranty period unit"
+    },
+    "warranty_expiry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Warranty expiry date \u2014 calculated from start + period, and manually overridable when the supplier certificate states an exact expiry. Never recalculated after saving."
+    },
+    "warranty_expiry_overridden": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when the expiry date was entered manually instead of calculated"
+    },
+    "warranty_ref_no": {
+      "type": "string",
+      "description": "Warranty reference / certificate number"
+    },
+    "warranty_remarks": {
+      "type": "string",
+      "description": "Warranty remarks"
+    },
+    "warranty_file_url": {
+      "type": "string",
+      "description": "Uploaded warranty certificate / supporting document"
+    },
+    "current_location": {
+      "type": "string",
+      "description": "Where the asset currently sits (store or site)"
+    },
+    "asset_status": {
+      "type": "string",
+      "enum": [
+        "In Store",
+        "Issued",
+        "Returned",
+        "Transferred"
+      ],
+      "default": "In Store",
+      "description": "Current status of the asset/batch. Never resets the warranty dates."
+    },
+    "issued_to_employee_id": {
+      "type": "string",
+      "description": "Employee (Master List) the serialized asset was issued to"
+    },
+    "issued_to_name": {
+      "type": "string",
+      "description": "Name of the employee holding the asset (denormalized)"
+    },
+    "issued_company": {
+      "type": "string",
+      "description": "Company of the employee holding the asset (denormalized)"
+    },
+    "issued_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the asset was issued to the current employee"
+    },
+    "issued_iv_no": {
+      "type": "string",
+      "description": "Store issue voucher (I/V No.) the asset was issued under"
+    },
+    "movement_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Movement date (YYYY-MM-DD)"
+          },
+          "action": {
+            "type": "string",
+            "description": "Issued / Returned / Transferred / Reissued / Received"
+          },
+          "detail": {
+            "type": "string",
+            "description": "Human-readable detail (employee, store, document no.)"
+          },
+          "by": {
+            "type": "string",
+            "description": "Email of the user who recorded the movement"
+          }
+        }
+      },
+      "description": "Complete audit trail of the asset. Warranty start/expiry are never reset by a movement."
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete flag \u2014 set when the source delivery note is removed from the ledger"
+    },
+    "deleted_by": {
+      "type": "string",
+      "description": "Email of the user who soft-deleted this warranty record"
+    },
+    "deletion_reason": {
+      "type": "string",
+      "description": "Reason for soft-deleting this warranty record"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email of the user who recorded the receipt"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Display name of the user who recorded the receipt"
+    }
+  },
+  "required": [
+    "item_id"
+  ]
+}

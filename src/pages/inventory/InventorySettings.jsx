@@ -3,9 +3,12 @@ import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, Tag, Ruler, Warehouse, MapPin, Truck } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Trash2, Tag, Ruler, Warehouse, MapPin, Truck, ShieldCheck, Save } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { createLookup, deleteLookup } from '@/lib/inventoryService';
+import { useWarrantySetting } from '@/hooks/useWarrantySetting';
+import { saveWarrantySetting, EXPIRING_SOON_OPTIONS } from '@/lib/warranty';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
@@ -28,6 +31,36 @@ export default function InventorySettings() {
   const queryClient = useQueryClient();
 
   const refresh = () => queryClient.invalidateQueries(['inventory-lookups']);
+
+  // ── Warranty settings (the Expiring Soon window for the whole module) ──
+  const currentWarningDays = useWarrantySetting();
+  const [warrantyMode, setWarrantyMode] = useState('30');
+  const [customDays, setCustomDays] = useState('');
+  const [savingWarranty, setSavingWarranty] = useState(false);
+
+  useEffect(() => {
+    const isStandard = EXPIRING_SOON_OPTIONS.includes(Number(currentWarningDays));
+    setWarrantyMode(isStandard ? String(currentWarningDays) : 'custom');
+    setCustomDays(isStandard ? '' : String(currentWarningDays));
+  }, [currentWarningDays]);
+
+  const handleWarrantySave = async () => {
+    const value = warrantyMode === 'custom' ? Number(customDays) : Number(warrantyMode);
+    if (!value || value <= 0) {
+      toast({ title: 'Enter a valid number of days', variant: 'destructive' });
+      return;
+    }
+    setSavingWarranty(true);
+    try {
+      await saveWarrantySetting(value, user);
+      toast({ title: `Warranties now flagged as Expiring Soon ${value} days before expiry` });
+      queryClient.invalidateQueries(['inventory-warranty-setting']);
+    } catch (e) {
+      toast({ title: e.message, variant: 'destructive' });
+    } finally {
+      setSavingWarranty(false);
+    }
+  };
 
   const handleAdd = async (type) => {
     const value = (newValues[type] || '').trim();
@@ -60,6 +93,54 @@ export default function InventorySettings() {
         <h1 className="text-2xl font-bold">Inventory Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage lookup values used in dropdowns across the Inventory module</p>
       </div>
+
+      <Card className="border-slate-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-emerald-600 bg-emerald-50">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            Warranty Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Mark warranty as Expiring Soon when expiry is within:
+          </p>
+          {can('inventory.warranty.manage_settings') ? (
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="w-40">
+                <label className="text-xs text-muted-foreground">Warning window</label>
+                <Select value={warrantyMode} onValueChange={setWarrantyMode}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {EXPIRING_SOON_OPTIONS.map(d => (
+                      <SelectItem key={d} value={String(d)}>{d} Days</SelectItem>
+                    ))}
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {warrantyMode === 'custom' && (
+                <div className="w-32">
+                  <label className="text-xs text-muted-foreground">Days</label>
+                  <Input type="number" min="1" value={customDays}
+                    onChange={e => setCustomDays(e.target.value)} placeholder="e.g. 120" />
+                </div>
+              )}
+              <Button size="sm" onClick={handleWarrantySave} disabled={savingWarranty}>
+                <Save className="w-3.5 h-3.5" /> {savingWarranty ? 'Saving...' : 'Save'}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Currently: {currentWarningDays} days · applies to Inventory Dashboard, Available Stock,
+                Employee Issuance and the Warranty Report.
+              </span>
+            </div>
+          ) : (
+            <p className="text-sm">Currently: <strong>{currentWarningDays} days</strong> before expiry.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {LOOKUP_TYPES.map(({ type, label, icon: Icon, color }) => {
