@@ -543,6 +543,7 @@ export async function clockOut(opts) {
 // ── Manual entry — create or update a full day's attendance with all 4 punches ──
 export async function saveManualEntry({
   personnelId, employeeName, company, attendanceDate,
+  attendanceRecordId = '',
   firstInAt, firstOutAt, secondInAt, finalOutAt,
   reason, remarks, workLocation, currentUser,
   shiftId = '', shiftName = '', shift = null,
@@ -559,6 +560,7 @@ export async function saveManualEntry({
   try {
     const res = await base44.functions.invoke('attendanceManualEntry', {
       personnelId, employeeName, company, attendanceDate,
+      attendanceRecordId,
       firstInIso: toIso(firstInAt),
       firstOutIso: toIso(firstOutAt),
       secondInIso: toIso(secondInAt),

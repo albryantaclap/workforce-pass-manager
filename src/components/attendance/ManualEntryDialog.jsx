@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
+import { base44 } from '@/api/base44Client';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import { toDateStr, toTimeStr, buildDateTime } from '@/lib/attendanceUtils';
 import { saveManualEntry } from '@/lib/attendanceService';
@@ -38,20 +39,7 @@ export default function ManualEntryDialog({
   const [confirmUnusual, setConfirmUnusual] = useState(false);
 
   useEffect(() => {
-    if (editRecord) {
-      const emp = employees.find(e => e.id === editRecord.personnel_id);
-      setSelectedEmp(emp || { id: editRecord.personnel_id, name: editRecord.employee_name, company: editRecord.company });
-      setDate(editRecord.attendance_date || selectedDate || '');
-      const firstIn = getFirstIn(editRecord);
-      const finalOut = getFinalOut(editRecord);
-      setFirstInDate(toDateStr(firstIn)); setFirstInTime(toTimeStr(firstIn));
-      setFirstOutDate(toDateStr(editRecord.first_out_at)); setFirstOutTime(toTimeStr(editRecord.first_out_at));
-      setSecondInDate(toDateStr(editRecord.second_in_at)); setSecondInTime(toTimeStr(editRecord.second_in_at));
-      setFinalOutDate(toDateStr(finalOut)); setFinalOutTime(toTimeStr(finalOut));
-      setReason(editRecord.manual_reason || '');
-      setRemarks(editRecord.remarks || '');
-      setStatusOverride(editRecord.manual_status_override || '');
-    } else {
+    if (!editRecord) {
       setSelectedEmp(null);
       setDate(selectedDate || '');
       setFirstInDate(''); setFirstInTime('');
@@ -60,8 +48,46 @@ export default function ManualEntryDialog({
       setFinalOutDate(''); setFinalOutTime('');
       setReason(''); setRemarks('');
       setStatusOverride('');
+      return;
     }
-  }, [editRecord, selectedDate, employees]);
+    // Editing an existing row: bind by ID only. The row's employee id and attendance
+    // record id are authoritative — the employee is never looked up by name and the
+    // search text is never used. The exact record that was clicked is loaded.
+    let cancelled = false;
+    setSelectedEmp(null);
+    const load = async () => {
+      const empId = editRecord.personnel_id;
+      let emp = employees.find(e => e.id === empId) || null;
+      if (!emp && empId) {
+        try { emp = await base44.entities.Employee.get(empId); } catch { emp = null; }
+      }
+      if (cancelled) return;
+      setSelectedEmp(emp || {
+        id: empId, name: editRecord.employee_name || '', company: editRecord.company || '',
+      });
+
+      let rec = editRecord;
+      if (editRecord.id) {
+        try {
+          const full = await base44.entities.AttendanceRecord.get(editRecord.id);
+          if (full) rec = full;
+        } catch { /* keep the row values as a fallback */ }
+      }
+      if (cancelled) return;
+      setDate(rec.attendance_date || editRecord.attendance_date || selectedDate || '');
+      const firstIn = getFirstIn(rec);
+      const finalOut = getFinalOut(rec);
+      setFirstInDate(toDateStr(firstIn)); setFirstInTime(toTimeStr(firstIn));
+      setFirstOutDate(toDateStr(rec.first_out_at)); setFirstOutTime(toTimeStr(rec.first_out_at));
+      setSecondInDate(toDateStr(rec.second_in_at)); setSecondInTime(toTimeStr(rec.second_in_at));
+      setFinalOutDate(toDateStr(finalOut)); setFinalOutTime(toTimeStr(finalOut));
+      setReason(rec.manual_reason || '');
+      setRemarks(rec.remarks || '');
+      setStatusOverride(rec.manual_status_override || '');
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [editRecord, selectedDate]);
 
   const filteredEmps = useMemo(() => {
     if (!empSearch) return employees.slice(0, 20);
@@ -108,9 +134,11 @@ export default function ManualEntryDialog({
   useEffect(() => { setConfirmUnusual(false); },
     [firstInDate, firstInTime, firstOutDate, firstOutTime, secondInDate, secondInTime, finalOutDate, finalOutTime]);
 
+  // No assigned shift is shown honestly — the Default Shift is only named when the
+  // employee is actually assigned to a shift called that.
   const splitRules = isSplitEffective(shift, date);
   const shiftLabel = shift
-    ? `${shift.shift_name || 'Shift'}${shift.id === 'default' ? ' (no shift assigned)' : ''}${splitRules ? ' · Split-shift punch rules' : ''}`
+    ? `${shift.id === 'default' ? 'No Assigned Shift' : (shift.shift_name || 'Shift')}${splitRules ? ' · Split-shift punch rules' : ''}`
     : '—';
 
   const handleSave = async () => {
@@ -143,6 +171,9 @@ export default function ManualEntryDialog({
     try {
       await saveManualEntry({
         personnelId: selectedEmp.id,
+        // The exact attendance record that was opened — the backend verifies it belongs
+        // to this employee before updating it.
+        attendanceRecordId: editRecord?.id || '',
         employeeName: selectedEmp.name,
         company: selectedEmp.company,
         attendanceDate: date,
@@ -179,10 +210,11 @@ export default function ManualEntryDialog({
         <div className="overflow-y-auto p-4 space-y-4">
           {/* Who is being edited — read-only, so an Admin never edits the wrong person */}
           {selectedEmp && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 rounded-lg border border-border bg-muted/30">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-3 rounded-lg border border-border bg-muted/30">
               <ReadOnlyField label="Employee" value={selectedEmp.name} />
               <ReadOnlyField label="PID No." value={selectedEmp.pid} />
               <ReadOnlyField label="Company" value={selectedEmp.company} />
+              <ReadOnlyField label="Designation" value={selectedEmp.position_application || selectedEmp.designation_org_chart} />
               <ReadOnlyField label="Shift" value={shiftLabel} />
             </div>
           )}

@@ -315,7 +315,18 @@ export default function TimeEntries({
                           {att && (
                             <>
                               {canEditEntry && (
-                                <button onClick={() => { setEditRecord(att); setManualOpen(true); }}
+                                // Bind the dialog to THIS row only: the attendance record id
+                                // and the employee (personnel) id — never a name or the search text.
+                                <button onClick={() => {
+                                  setEditRecord({
+                                    ...att,
+                                    personnel_id: emp.id,
+                                    employee_name: emp.name,
+                                    company: emp.company,
+                                    attendance_date: att.attendance_date || selectedDate,
+                                  });
+                                  setManualOpen(true);
+                                }}
                                   className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit">
                                   <Edit2 className="w-3 h-3" />
                                 </button>

@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const {
       personnelId, employeeName, company, attendanceDate,
+      attendanceRecordId,
       firstInIso, firstOutIso, secondInIso, finalOutIso,
       reason, remarks, workLocation,
       shiftId, shiftName,
@@ -87,12 +88,26 @@ Deno.serve(async (req) => {
       return Response.json({ error: blocked.join(' ') }, { status: 400 });
     }
 
-    // Find existing record for this date
-    const existing = await base44.entities.AttendanceRecord.filter(
-      { personnel_id: personnelId, attendance_date: attendanceDate, is_deleted: { $ne: true } },
-      undefined, 100
-    );
-    const record = existing[0] || null;
+    // Resolve the record being edited. When the row's attendance record id is supplied
+    // it is authoritative: the record must exist and must belong to the employee passed
+    // in, so an edit can never touch another employee's attendance. Without an id the
+    // record is matched by employee + date (legacy callers).
+    let record: any = null;
+    if (attendanceRecordId) {
+      try { record = await base44.entities.AttendanceRecord.get(attendanceRecordId); } catch { record = null; }
+      if (!record || record.is_deleted) {
+        return Response.json({ error: 'The selected attendance record no longer exists.' }, { status: 404 });
+      }
+      if (record.personnel_id !== personnelId) {
+        return Response.json({ error: 'This attendance record belongs to a different employee.' }, { status: 400 });
+      }
+    } else {
+      const existing = await base44.entities.AttendanceRecord.filter(
+        { personnel_id: personnelId, attendance_date: attendanceDate, is_deleted: { $ne: true } },
+        undefined, 100
+      );
+      record = existing[0] || null;
+    }
 
     // Creating an attendance record from scratch still requires a reason; editing the
     // punches of an existing record does not force one.
