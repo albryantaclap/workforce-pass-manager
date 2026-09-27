@@ -550,7 +550,8 @@ export async function saveManualEntry({
 }) {
   if (!personnelId) throw new Error('Employee is required.');
   if (!attendanceDate) throw new Error('Attendance date is required.');
-  if (!reason?.trim()) throw new Error('A reason is required for manual entry.');
+  // The reason is enforced by the backend: required when creating a new record,
+  // optional when editing the punches of an existing one.
 
   // Delegate to the backend function which checks attendance.entries.edit
   // permission before performing the operation (server-side authorization).
@@ -562,7 +563,7 @@ export async function saveManualEntry({
       firstOutIso: toIso(firstOutAt),
       secondInIso: toIso(secondInAt),
       finalOutIso: toIso(finalOutAt),
-      reason: reason.trim(),
+      reason: (reason || '').trim(),
       remarks: remarks || '',
       workLocation: workLocation || '',
       shiftId, shiftName,

@@ -53,7 +53,6 @@ Deno.serve(async (req) => {
 
     if (!personnelId) return Response.json({ error: 'Employee is required.' }, { status: 400 });
     if (!attendanceDate) return Response.json({ error: 'Attendance date is required.' }, { status: 400 });
-    if (!reason?.trim()) return Response.json({ error: 'A reason is required for manual entry.' }, { status: 400 });
 
     const email = user?.email || '';
     const name = user?.full_name || '';
@@ -95,6 +94,13 @@ Deno.serve(async (req) => {
     );
     const record = existing[0] || null;
 
+    // Creating an attendance record from scratch still requires a reason; editing the
+    // punches of an existing record does not force one.
+    if (!record && !reason?.trim()) {
+      return Response.json({ error: 'A reason is required for manual entry.' }, { status: 400 });
+    }
+    const reasonText = (reason || '').trim();
+
     // Sync backward-compat fields. For a split shift the validator above has
     // already guaranteed that a FINAL OUT implies the whole required sequence.
     const checkInIso = firstInIso;
@@ -119,7 +125,7 @@ Deno.serve(async (req) => {
       work_location: workLocation || '',
       status: isCompleted ? 'completed' : 'open',
       source: 'Manual', source_page: 'Daily Attendance',
-      is_manual: true, manual_reason: reason.trim(), remarks: remarks || '',
+      is_manual: true, manual_reason: reasonText, remarks: remarks || '',
       shift_id: resolvedShift?.id && resolvedShift.id !== 'default' ? resolvedShift.id : (shiftId || ''),
       shift_name: resolvedShift?.shift_name || shiftName || '',
       calculated_status: calculatedStatus,
@@ -137,13 +143,13 @@ Deno.serve(async (req) => {
         field_changed: 'manual_entry',
         original_value: JSON.stringify({ first_in_at: record.first_in_at, first_out_at: record.first_out_at, second_in_at: record.second_in_at, final_out_at: record.final_out_at }),
         new_value: JSON.stringify({ first_in_at: firstInIso, first_out_at: firstOutIso, second_in_at: secondInIso, final_out_at: finalOutIso }),
-        reason: reason.trim(), changed_by: email, changed_by_name: name,
+        reason: reasonText, changed_by: email, changed_by_name: name,
       });
 
       await base44.asServiceRole.entities.ActivityLog.create({
         action: 'update', entity_name: 'AttendanceRecord', entity_id: record.id,
         performed_by: email, record_name: employeeName,
-        record_snapshot: { ...payload, manual_correction: true, reason: reason.trim() },
+        record_snapshot: { ...payload, manual_correction: true, reason: reasonText },
         changed_fields: ['first_in_at', 'first_out_at', 'second_in_at', 'final_out_at', 'manual_reason'],
       });
 
@@ -154,7 +160,7 @@ Deno.serve(async (req) => {
         await base44.asServiceRole.entities.ActivityLog.create({
           action: 'update', entity_name: 'AttendanceRecord', entity_id: record.id,
           performed_by: email, record_name: employeeName,
-          record_snapshot: { status_change: true, old_status: oldStatus, new_status: newStatus, manual_override: !!manualStatusOverride, reason: (manualStatusReason || reason || '').trim() },
+          record_snapshot: { status_change: true, old_status: oldStatus, new_status: newStatus, manual_override: !!manualStatusOverride, reason: (manualStatusReason || reasonText) },
           changed_fields: ['attendance_status'],
         });
       }

@@ -116,8 +116,9 @@ export default function ManualEntryDialog({
   const handleSave = async () => {
     if (!selectedEmp) { toast({ title: 'Please select an employee.', variant: 'destructive' }); return; }
     if (!date) { toast({ title: 'Please select an attendance date.', variant: 'destructive' }); return; }
-    if (!reason.trim()) { toast({ title: 'A reason is required.', variant: 'destructive' }); return; }
-    if (statusOverride && !reason.trim()) { toast({ title: 'A reason is required when overriding the status.', variant: 'destructive' }); return; }
+    // A reason is only required when creating a brand-new manual entry; correcting
+    // the punches of an existing attendance record does not force one.
+    if (!editRecord && !reason.trim()) { toast({ title: 'A reason is required for manual entry.', variant: 'destructive' }); return; }
 
     const firstIn = buildDateTime(firstInDate, firstInTime);
     const firstOut = buildDateTime(firstOutDate, firstOutTime);
@@ -291,8 +292,8 @@ export default function ManualEntryDialog({
 
           {/* Reason */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted-foreground uppercase">Reason (required)</label>
-            <Input placeholder="e.g. Device malfunction, employee forgot to punch..."
+            <label className="text-xs font-semibold text-muted-foreground uppercase">Reason {editRecord ? '(optional)' : '(required)'}</label>
+            <Input placeholder={editRecord ? 'Optional — e.g. device malfunction, employee forgot to punch' : 'e.g. Device malfunction, employee forgot to punch...'}
               value={reason} onChange={e => setReason(e.target.value)} />
           </div>
 
