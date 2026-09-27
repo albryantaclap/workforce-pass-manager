@@ -5,16 +5,28 @@
  * stored as a manually editable total.
  */
 import { base44 } from '@/api/base44Client';
+import { textValue } from '@/lib/inventoryText';
 
 const TXN = base44.entities.InventoryTransaction;
 const ITEM = base44.entities.InventoryItem;
 const LOOKUP = base44.entities.InventoryLookup;
 
+// Item name/unit leave this service as plain display text. Every inventory page,
+// dropdown and export reads through here, so a value stored as an object — or as
+// the leftover "[object Object]" placeholder — is never rendered raw.
+const withItemText = (record) => ({
+  ...record,
+  item_name: textValue(record?.item_name),
+  unit: textValue(record?.unit),
+});
+
 // ── Items ──────────────────────────────────────────────────────────────
 
 export async function fetchItems(includeArchived = false) {
   const all = await ITEM.list('-created_date', 100000);
-  return all.filter(i => includeArchived || !i.is_archived);
+  return all
+    .filter(i => includeArchived || !i.is_archived)
+    .map(withItemText);
 }
 
 export async function fetchItemBySn(itemSn) {
@@ -36,11 +48,11 @@ export async function searchItems(query, limit = 50) {
   if (query && query.trim()) {
     const q = query.toLowerCase();
     result = result.filter(i =>
-      (i.item_sn || '').toLowerCase().includes(q) ||
-      (i.item_name || '').toLowerCase().includes(q)
+      textValue(i.item_sn).toLowerCase().includes(q) ||
+      textValue(i.item_name).toLowerCase().includes(q)
     );
   }
-  return result.slice(0, limit);
+  return result.slice(0, limit).map(withItemText);
 }
 
 /**
@@ -51,7 +63,7 @@ export async function findSimilarItems(itemName, excludeId) {
   const q = itemName.toLowerCase().trim();
   const all = await ITEM.list('-created_date', 100000);
   return all
-    .filter(i => !i.is_archived && i.id !== excludeId && (
+    .filter(i => !i.is_archived && i.id !== excludeId && !!textValue(i.item_name) && (
       (i.item_name || '').toLowerCase().trim() === q ||
       (i.item_name || '').toLowerCase().includes(q) ||
       q.includes((i.item_name || '').toLowerCase())
@@ -111,7 +123,7 @@ export async function fetchTransactions(filters = {}) {
   if (filters.toDate) {
     result = result.filter(t => t.transaction_date <= filters.toDate);
   }
-  return result;
+  return result.map(withItemText);
 }
 
 /**

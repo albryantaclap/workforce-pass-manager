@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, CheckCircle, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { parseInventoryWorkbook } from '@/lib/inventoryImport';
 
 export default function InventoryImportDialog({ open, onClose, onImported, user }) {
   const [file, setFile] = useState(null);
@@ -26,109 +27,11 @@ export default function InventoryImportDialog({ open, onClose, onImported, user 
       const wb = new ExcelJS.Workbook();
       await wb.xlsx.load(buf);
 
-      const masterSheet = wb.getWorksheet('MASTER FILE');
-      const invSheet = wb.getWorksheet('INVENTORY DETAILS');
-
-      const items = [];
-      const stockIn = [];
-      const stockOut = [];
-      const errs = [];
-
-      // Parse MASTER FILE (items)
-      if (masterSheet) {
-        masterSheet.eachRow((row, rowNum) => {
-          if (rowNum === 1) return; // header
-          const sn = row.getCell(2).value;
-          const desc = row.getCell(3).value;
-          const uom = row.getCell(4).value;
-          if (sn && desc) {
-            items.push({
-              item_sn: String(sn).trim(),
-              item_name: String(desc).trim(),
-              unit: String(uom || 'NOS').trim(),
-              category: '',
-              min_stock_level: 0,
-            });
-          }
-        });
-      }
-
-      // Parse INVENTORY DETAILS (IN / OUT)
-      if (invSheet) {
-        invSheet.eachRow((row, rowNum) => {
-          if (rowNum <= 3) return; // headers
-          // IN section: cols 2-12 (date, item_sn, item_name, unit, dn, mrf, lpo, supplier, store, qty, remarks)
-          const inDate = row.getCell(2).value;
-          const inSn = row.getCell(4).value;
-          const inName = row.getCell(5).value;
-          const inUnit = row.getCell(6).value;
-          const inDn = row.getCell(7).value;
-          const inMrf = row.getCell(8).value;
-          const inLpo = row.getCell(9).value;
-          const inSupplier = row.getCell(10).value;
-          const inStore = row.getCell(11).value;
-          const inQty = row.getCell(12).value;
-          if (inDate && inSn && inQty) {
-            const d = inDate instanceof Date ? inDate.toISOString().slice(0, 10) : String(inDate).slice(0, 10);
-            stockIn.push({
-              transaction_date: d,
-              item_sn: String(inSn).trim(),
-              item_name: String(inName || '').trim(),
-              unit: String(inUnit || 'NOS').trim(),
-              dn_no: String(inDn || '').trim(),
-              mrf_no: String(inMrf || '').trim(),
-              lpo: String(inLpo || '').trim(),
-              supplier: String(inSupplier || '').trim(),
-              store: String(inStore || '').trim(),
-              quantity: Number(inQty) || 0,
-            });
-          }
-          // OUT section: cols 15-25 (date, item_sn, item_name, unit, iv, site, pid, emp_name, company, qty, remarks)
-          const outDate = row.getCell(15).value;
-          const outSn = row.getCell(17).value;
-          const outName = row.getCell(18).value;
-          const outUnit = row.getCell(19).value;
-          const outIv = row.getCell(20).value;
-          const outSite = row.getCell(21).value;
-          const outPid = row.getCell(22).value;
-          const outEmp = row.getCell(23).value;
-          const outCompany = row.getCell(24).value;
-          const outQty = row.getCell(25).value;
-          if (outDate && outSn && outQty) {
-            const d = outDate instanceof Date ? outDate.toISOString().slice(0, 10) : String(outDate).slice(0, 10);
-            stockOut.push({
-              transaction_date: d,
-              item_sn: String(outSn).trim(),
-              item_name: String(outName || '').trim(),
-              unit: String(outUnit || 'NOS').trim(),
-              iv_no: String(outIv || '').trim(),
-              site: String(outSite || '').trim(),
-              pid: String(outPid || '').trim(),
-              employee_name: String(outEmp || '').trim(),
-              company: String(outCompany || '').trim(),
-              quantity: Number(outQty) || 0,
-            });
-          }
-        });
-      }
-
-      // Validate: check for duplicate item S.N.
-      const snSet = new Set();
-      items.forEach(i => {
-        if (snSet.has(i.item_sn)) errs.push(`Duplicate Item S.N. in MASTER FILE: ${i.item_sn}`);
-        snSet.add(i.item_sn);
-      });
-
-      // Validate: stock in/out items exist in master
-      stockIn.forEach(s => {
-        if (!snSet.has(s.item_sn)) errs.push(`Stock In references unknown Item S.N.: ${s.item_sn}`);
-      });
-      stockOut.forEach(s => {
-        if (!snSet.has(s.item_sn)) errs.push(`Stock Out references unknown Item S.N.: ${s.item_sn}`);
-      });
-
+      // Shared parser — reads every cell as text (rich text / formula / hyperlink
+      // cells used to stringify into "[object Object]").
+      const { items, stockIn, stockOut, errors: parseErrors } = parseInventoryWorkbook(wb);
       setPreview({ items, stockIn, stockOut });
-      setErrors(errs);
+      setErrors(parseErrors);
     } catch (e) {
       setErrors([`Failed to parse file: ${e.message}`]);
     }

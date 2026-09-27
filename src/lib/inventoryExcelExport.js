@@ -4,6 +4,7 @@
  * pattern as the rest of the GSO Qatar system.
  */
 import ExcelJS from 'exceljs';
+import { textValue } from '@/lib/inventoryText';
 
 const CLR = {
   headerBg: 'FF1E293B',
@@ -73,7 +74,7 @@ export function exportItemsExcel(items) {
   writeTitle(ws, 'INVENTORY ITEM MASTER', headers.length);
   writeHeaders(ws, headers);
   const rows = items.map(i => [
-    i.item_sn, i.item_name, i.unit, i.category || '',
+    i.item_sn, textValue(i.item_name), textValue(i.unit), textValue(i.category),
     i.min_stock_level || 0,
     i.is_archived ? 'Archived' : 'Active',
     i.remarks || '',
@@ -97,7 +98,7 @@ export function exportStockInExcel(transactions) {
   const rows = transactions
     .filter(t => t.transaction_type === 'STOCK_IN')
     .map(t => [
-      t.transaction_date, t.item_sn, t.item_name, t.unit,
+      t.transaction_date, t.item_sn, textValue(t.item_name), textValue(t.unit),
       t.dn_no, t.mrf_no, t.lpo, t.supplier, t.store,
       t.quantity_abs, t.remarks,
     ]);
@@ -120,7 +121,7 @@ export function exportStockOutExcel(transactions) {
   const rows = transactions
     .filter(t => t.transaction_type === 'STOCK_OUT')
     .map(t => [
-      t.transaction_date, t.item_sn, t.item_name, t.unit,
+      t.transaction_date, t.item_sn, textValue(t.item_name), textValue(t.unit),
       t.iv_no, t.site, t.pid, t.employee_name, t.company,
       t.quantity_abs, t.remarks,
     ]);
@@ -160,7 +161,7 @@ export function exportTransactionHistoryExcel(transactions) {
   const rows = transactions.map(t => [
     t.transaction_date,
     t.transaction_type.replace(/_/g, ' '),
-    t.item_sn, t.item_name,
+    t.item_sn, textValue(t.item_name),
     (t.transaction_type === 'STOCK_OUT' ? '-' : '') + (t.quantity_abs || 0),
     t.previous_balance, t.new_balance,
     t.transaction_type === 'STOCK_IN' ? (t.supplier || '') : (t.employee_name || ''),
@@ -201,8 +202,8 @@ export function exportEmployeeIssuanceExcel(employee, transactions) {
   ws.getRow(2).height = 18;
 
   const rows = transactions.map(t => [
-    t.transaction_date, t.iv_no || '', t.item_sn || '', t.item_name || '',
-    t.unit || '', t.site || '', t.quantity_abs || 0, t.remarks || '',
+    t.transaction_date, t.iv_no || '', t.item_sn || '', textValue(t.item_name),
+    textValue(t.unit), t.site || '', t.quantity_abs || 0, t.remarks || '',
   ]);
   rows.forEach((row, ri) => {
     row.forEach((v, ci) => {

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Pencil, Archive, ArchiveRestore, Upload, Download } from 'lucide-react';
+import { Plus, Search, Pencil, Archive, ArchiveRestore, Upload, Download, Wand2 } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { archiveItem, unarchiveItem, calculateAvailableStock, getStockStatus } from '@/lib/inventoryService';
 import { exportItemsExcel } from '@/lib/inventoryExcelExport';
@@ -15,6 +15,8 @@ import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
 import InventoryItemFormModal from '@/components/inventory/InventoryItemFormModal';
 import InventoryImportDialog from '@/components/inventory/InventoryImportDialog';
+import InventoryRepairNamesDialog from '@/components/inventory/InventoryRepairNamesDialog';
+import { itemDisplayName, itemDisplayUnit, textValue } from '@/lib/inventoryText';
 import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import MultiSelect from '@/components/common/MultiSelect';
@@ -26,6 +28,7 @@ export default function InventoryItems() {
   const [showArchived, setShowArchived] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [repairOpen, setRepairOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -70,10 +73,10 @@ export default function InventoryItems() {
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(i =>
-        (i.item_sn || '').toLowerCase().includes(q) ||
-        (i.item_name || '').toLowerCase().includes(q) ||
-        (i.category || '').toLowerCase().includes(q) ||
-        (i.unit || '').toLowerCase().includes(q)
+        textValue(i.item_sn).toLowerCase().includes(q) ||
+        textValue(i.item_name).toLowerCase().includes(q) ||
+        textValue(i.category).toLowerCase().includes(q) ||
+        textValue(i.unit).toLowerCase().includes(q)
       );
     }
 
@@ -158,7 +161,7 @@ export default function InventoryItems() {
   };
 
   const handleArchive = async (item) => {
-    if (!confirm(`Archive item "${item.item_sn} — ${item.item_name}"? It will be hidden from active lists but retained for history.`)) return;
+    if (!confirm(`Archive item "${item.item_sn} — ${itemDisplayName(item)}"? It will be hidden from active lists but retained for history.`)) return;
     try {
       await archiveItem(item.id, user?.email);
       toast({ title: 'Item archived' });
@@ -193,6 +196,11 @@ export default function InventoryItems() {
           {can('inventory.items.import') && (
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="w-4 h-4" /> Import
+            </Button>
+          )}
+          {can('inventory.items.import') && (
+            <Button variant="outline" onClick={() => setRepairOpen(true)}>
+              <Wand2 className="w-4 h-4" /> Repair Names
             </Button>
           )}
           {can('inventory.items.export') && (
@@ -294,9 +302,9 @@ export default function InventoryItems() {
                 return (
                   <TableRow key={item.id} className={item.is_archived ? 'opacity-50' : ''}>
                     <TableCell className="font-mono font-semibold">{item.item_sn}</TableCell>
-                    <TableCell className="font-medium">{item.item_name}</TableCell>
-                    <TableCell>{item.unit}</TableCell>
-                    <TableCell>{item.category || '—'}</TableCell>
+                    <TableCell className="font-medium">{itemDisplayName(item)}</TableCell>
+                    <TableCell>{itemDisplayUnit(item)}</TableCell>
+                    <TableCell>{textValue(item.category) || '—'}</TableCell>
                     <TableCell className="text-right">{item.min_stock_level || 0}</TableCell>
                     <TableCell className="text-right font-bold">{available}</TableCell>
                     <TableCell>
@@ -366,6 +374,12 @@ export default function InventoryItems() {
         onClose={() => setImportOpen(false)}
         onImported={refresh}
         user={user}
+      />
+      <InventoryRepairNamesDialog
+        open={repairOpen}
+        onClose={() => setRepairOpen(false)}
+        items={items}
+        onRepaired={refresh}
       />
     </div>
   );
