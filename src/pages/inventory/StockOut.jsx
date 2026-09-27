@@ -428,6 +428,7 @@ export default function StockOut() {
         onClose={() => setModalOpen(false)}
         onSaved={refresh}
         items={items}
+        transactions={transactions}
         sites={getLookupOptions('site')}
         stores={getLookupOptions('store')}
         user={user}

@@ -1,0 +1,112 @@
+{
+  "name": "InventoryDocument",
+  "type": "object",
+  "properties": {
+    "document_no": {
+      "type": "string",
+      "description": "Document number shared by all its lines \u2014 D/N No. for Stock In, I/V No. for Stock Out. May be empty."
+    },
+    "document_type": {
+      "type": "string",
+      "enum": [
+        "STOCK_IN",
+        "STOCK_OUT",
+        "TRANSFER",
+        "RETURN"
+      ],
+      "description": "Document type: STOCK_IN (delivery note) or STOCK_OUT (store issue voucher)"
+    },
+    "document_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Transaction date of the document (YYYY-MM-DD)"
+    },
+    "supplier": {
+      "type": "string",
+      "description": "Supplier (Stock In header)"
+    },
+    "store": {
+      "type": "string",
+      "description": "Store location (header)"
+    },
+    "site": {
+      "type": "string",
+      "description": "Site / location (Stock Out header)"
+    },
+    "mrf_no": {
+      "type": "string",
+      "description": "MRF No. (Stock In header)"
+    },
+    "lpo": {
+      "type": "string",
+      "description": "LPO (Stock In header)"
+    },
+    "pid": {
+      "type": "string",
+      "description": "Employee PID number (Stock Out header, references Master List)"
+    },
+    "employee_id": {
+      "type": "string",
+      "description": "Linked Employee record ID from Master List (Stock Out header)"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Employee name (Stock Out header, denormalized from Master List)"
+    },
+    "company": {
+      "type": "string",
+      "description": "Employee company (Stock Out header, denormalized from Master List)"
+    },
+    "department": {
+      "type": "string",
+      "description": "Employee department (Stock Out header, denormalized from Master List)"
+    },
+    "designation": {
+      "type": "string",
+      "description": "Employee designation (Stock Out header, denormalized from Master List)"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Document-level remarks"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "Uploaded scanned document \u2014 delivery note (Stock In) or store voucher (Stock Out)"
+    },
+    "item_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of item lines saved under this document"
+    },
+    "total_quantity": {
+      "type": "number",
+      "default": 0,
+      "description": "Total quantity across all lines of this document"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email of the user who created the document"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Display name of the user who created the document"
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete flag \u2014 set when the whole document (all lines) is removed"
+    },
+    "deleted_by": {
+      "type": "string",
+      "description": "Email of the user who soft-deleted the document"
+    },
+    "deletion_reason": {
+      "type": "string",
+      "description": "Reason for soft-deleting the document"
+    }
+  },
+  "required": [
+    "document_type",
+    "document_date"
+  ]
+}

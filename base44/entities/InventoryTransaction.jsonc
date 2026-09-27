@@ -18,6 +18,10 @@
       ],
       "description": "Transaction type: STOCK_IN (received), STOCK_OUT (issued), ADJUSTMENT (correction), TRANSFER (store-to-store), RETURN (items returned by employee)"
     },
+    "document_id": {
+      "type": "string",
+      "description": "Linked InventoryDocument header ID. Several lines sharing one document_id belong to the same D/N or I/V. Empty on legacy single-item records, which are treated as a one-line document by their own D/N or I/V."
+    },
     "item_id": {
       "type": "string",
       "description": "Linked InventoryItem record ID"
@@ -44,7 +48,7 @@
     },
     "dn_no": {
       "type": "string",
-      "description": "D/N No. (Stock In delivery note number)"
+      "description": "D/N No. (Stock In delivery note number \u2014 shared by all lines of the same delivery note)"
     },
     "mrf_no": {
       "type": "string",
@@ -64,7 +68,7 @@
     },
     "iv_no": {
       "type": "string",
-      "description": "I/V No. (Stock Out issue voucher number)"
+      "description": "I/V No. (Stock Out issue voucher number \u2014 shared by all lines of the same voucher)"
     },
     "site": {
       "type": "string",

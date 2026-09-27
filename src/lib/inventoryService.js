@@ -608,3 +608,219 @@ export async function searchEmployees(query, limit = 20) {
     )
     .slice(0, limit);
 }
+
+// ── Multi-item documents (one header → many lines) ─────────────────────
+
+const DOC = base44.entities.InventoryDocument;
+
+/**
+ * Document number carried by a transaction line.
+ */
+export function documentNoOf(t) {
+  if (t.transaction_type === 'STOCK_IN') return t.dn_no || t.mrf_no || t.lpo || '';
+  if (t.transaction_type === 'STOCK_OUT') return t.iv_no || '';
+  if (t.transaction_type === 'TRANSFER') return t.internal_dn_no || '';
+  if (t.transaction_type === 'RETURN') return t.iv_no || '';
+  return '';
+}
+
+/**
+ * Group transaction lines into their documents.
+ *
+ * Lines saved through the multi-item forms share a document_id. Older
+ * single-item records have no document_id, so they are grouped by their own
+ * D/N or I/V — each legacy row simply becomes a one-line document and keeps
+ * displaying exactly as before.
+ */
+export function groupTransactionsIntoDocuments(transactions = []) {
+  const groups = new Map();
+
+  for (const t of transactions) {
+    if (!t || t.is_deleted) continue;
+    const no = documentNoOf(t);
+    const key = t.document_id
+      || (no ? `${t.transaction_type}::${no}::${t.employee_id || t.pid || ''}` : t.id);
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        documentId: t.document_id || '',
+        documentNo: no,
+        type: t.transaction_type,
+        date: t.transaction_date || '',
+        supplier: '',
+        employeeId: '',
+        employeeName: '',
+        pid: '',
+        company: '',
+        site: '',
+        store: '',
+        createdBy: '',
+        fileUrl: '',
+        lines: [],
+      });
+    }
+
+    const g = groups.get(key);
+    g.lines.push(t);
+    if (!g.date || (t.transaction_date || '') < g.date) g.date = t.transaction_date || g.date;
+    if (!g.supplier && t.supplier) g.supplier = t.supplier;
+    if (!g.employeeId && t.employee_id) g.employeeId = t.employee_id;
+    if (!g.employeeName && t.employee_name) g.employeeName = t.employee_name;
+    if (!g.pid && t.pid) g.pid = t.pid;
+    if (!g.company && t.company) g.company = t.company;
+    if (!g.site && t.site) g.site = t.site;
+    if (!g.store && t.store) g.store = t.store;
+    if (!g.createdBy) g.createdBy = t.created_by_name || t.created_by || '';
+    if (!g.fileUrl) g.fileUrl = t.dn_file_url || t.voucher_file_url || '';
+  }
+
+  return [...groups.values()]
+    .map(g => {
+      const lines = g.lines.sort((a, b) => (a.created_date || '').localeCompare(b.created_date || ''));
+      return {
+        ...g,
+        lines,
+        lineCount: lines.length,
+        totalQty: lines.reduce((sum, l) => sum + (l.quantity_abs || 0), 0),
+        party: g.type === 'STOCK_IN' ? (g.supplier || '—') : (g.employeeName || '—'),
+      };
+    })
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+
+/**
+ * Create a multi-item Stock In / Stock Out document.
+ *
+ * Nothing is written until every line has passed validation (item selected,
+ * quantity entered, no duplicate items, and — for Stock Out — enough stock).
+ * The header and all its lines are then saved together; if the lines fail, the
+ * header and any line that slipped through are rolled back, so a delivery note
+ * or issue voucher is never left partially processed.
+ */
+export async function createInventoryDocument({ document: doc, lines = [] }, user) {
+  const isStockOut = doc.document_type === 'STOCK_OUT';
+  if (!lines.length) throw new Error('Add at least one item line.');
+
+  const seen = new Set();
+  for (const l of lines) {
+    if (!l.item_id) throw new Error('Select an item on every line.');
+    if (seen.has(l.item_id)) {
+      throw new Error(`Item already added: ${l.item_sn} — ${l.item_name}. Remove the duplicate line.`);
+    }
+    seen.add(l.item_id);
+    if (!Number(l.quantity) || Number(l.quantity) <= 0) {
+      throw new Error(`Enter a quantity for ${l.item_sn} — ${l.item_name}.`);
+    }
+  }
+
+  const masterMap = new Map((await fetchItems(true)).map(i => [i.id, i]));
+  const ledger = await fetchTransactions({});
+
+  // Validate every line against stock before anything is saved.
+  if (isStockOut) {
+    for (const l of lines) {
+      const available = calculateAvailableStock(ledger, l.item_id);
+      if (Number(l.quantity) > available) {
+        throw new Error(
+          `Insufficient stock for ${l.item_name || l.item_sn}. Available: ${available}, Requested: ${l.quantity}.`
+        );
+      }
+    }
+  }
+
+  const totalQty = lines.reduce((sum, l) => sum + Number(l.quantity), 0);
+
+  const header = await DOC.create({
+    document_no: doc.document_no || '',
+    document_type: doc.document_type,
+    document_date: doc.document_date,
+    supplier: doc.supplier || '',
+    store: doc.store || '',
+    site: doc.site || '',
+    mrf_no: doc.mrf_no || '',
+    lpo: doc.lpo || '',
+    pid: doc.pid || '',
+    employee_id: doc.employee_id || '',
+    employee_name: doc.employee_name || '',
+    company: doc.company || '',
+    department: doc.department || '',
+    designation: doc.designation || '',
+    remarks: doc.remarks || '',
+    file_url: doc.file_url || '',
+    item_count: lines.length,
+    total_quantity: totalQty,
+    created_by: user?.email || '',
+    created_by_name: user?.full_name || user?.email || '',
+  });
+
+  try {
+    const created = await TXN.bulkCreate(lines.map((l) => {
+      const item = masterMap.get(l.item_id) || {};
+      const available = calculateAvailableStock(ledger, l.item_id);
+      const qty = Number(l.quantity);
+      return {
+        transaction_date: doc.document_date,
+        transaction_type: doc.document_type,
+        document_id: header.id,
+        item_id: l.item_id,
+        item_sn: item.item_sn || l.item_sn || '',
+        item_name: item.item_name || l.item_name || '',
+        unit: item.unit || l.unit || '',
+        quantity: isStockOut ? -qty : qty,
+        quantity_abs: qty,
+        dn_no: isStockOut ? '' : (doc.document_no || ''),
+        mrf_no: isStockOut ? '' : (doc.mrf_no || ''),
+        lpo: isStockOut ? '' : (doc.lpo || ''),
+        supplier: isStockOut ? '' : (doc.supplier || ''),
+        iv_no: isStockOut ? (doc.document_no || '') : '',
+        site: isStockOut ? (doc.site || '') : '',
+        store: doc.store || '',
+        pid: isStockOut ? (doc.pid || '') : '',
+        employee_id: isStockOut ? (doc.employee_id || '') : '',
+        employee_name: isStockOut ? (doc.employee_name || '') : '',
+        company: isStockOut ? (doc.company || '') : '',
+        department: isStockOut ? (doc.department || '') : '',
+        designation: isStockOut ? (doc.designation || '') : '',
+        previous_balance: available,
+        new_balance: isStockOut ? available - qty : available + qty,
+        created_by: user?.email || '',
+        created_by_name: user?.full_name || user?.email || '',
+        dn_file_url: isStockOut ? '' : (doc.file_url || ''),
+        voucher_file_url: isStockOut ? (doc.file_url || '') : '',
+        remarks: l.remarks || doc.remarks || '',
+      };
+    }));
+
+    return { header, lines: created };
+  } catch (e) {
+    // Roll the whole document back so no stock movement is left half-applied.
+    const orphans = await TXN.filter({ document_id: header.id }).catch(() => []);
+    if (orphans.length) await TXN.deleteMany({ document_id: header.id }).catch(() => {});
+    await DOC.delete(header.id).catch(() => {});
+    throw new Error(e.message || 'The document could not be saved — no stock was changed.');
+  }
+}
+
+/**
+ * Soft-delete a whole document (every line plus its header), retaining the
+ * audit trail. Works for legacy one-line documents too.
+ */
+export async function deleteDocument(group, user, reason) {
+  const lines = group.lines || [];
+  if (lines.length) {
+    await TXN.bulkUpdate(lines.map(l => ({
+      id: l.id,
+      is_deleted: true,
+      deleted_by: user?.email || '',
+      deletion_reason: reason || '',
+    })));
+  }
+  if (group.documentId) {
+    await DOC.update(group.documentId, {
+      is_deleted: true,
+      deleted_by: user?.email || '',
+      deletion_reason: reason || '',
+    }).catch(() => {});
+  }
+}

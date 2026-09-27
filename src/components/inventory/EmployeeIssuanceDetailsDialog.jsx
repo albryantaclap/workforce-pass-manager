@@ -1,23 +1,35 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Printer } from 'lucide-react';
+import { Download, Printer, ChevronRight, ChevronDown } from 'lucide-react';
 import { exportEmployeeIssuanceExcel } from '@/lib/inventoryExcelExport';
+import { groupTransactionsIntoDocuments } from '@/lib/inventoryService';
 
 export default function EmployeeIssuanceDetailsDialog({ open, onClose, employee, transactions }) {
+  const [expanded, setExpanded] = useState(() => new Set());
+
   const issuedItems = useMemo(() => {
     if (!employee) return [];
-    return transactions
-      .filter(t => t.transaction_type === 'STOCK_OUT' && !t.is_deleted && t.employee_id === employee.id)
-      .sort((a, b) => (b.transaction_date || '').localeCompare(a.transaction_date || ''));
+    return transactions.filter(t => t.transaction_type === 'STOCK_OUT' && !t.is_deleted && t.employee_id === employee.id);
   }, [transactions, employee]);
+
+  // One row per store issue voucher (I/V), each expandable to its item lines.
+  const vouchers = useMemo(() => groupTransactionsIntoDocuments(issuedItems), [issuedItems]);
 
   const totalQty = issuedItems.reduce((sum, t) => sum + (t.quantity_abs || 0), 0);
   const distinctItems = new Set(issuedItems.map(t => t.item_id).filter(Boolean)).size;
 
   if (!employee) return null;
+
+  const toggle = (key) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   const handleExport = () => exportEmployeeIssuanceExcel(employee, issuedItems);
 
@@ -116,10 +128,12 @@ export default function EmployeeIssuanceDetailsDialog({ open, onClose, employee,
           </CardContent>
         </Card>
 
-        {/* Issuance table */}
+        {/* Issue vouchers — expand to see every item under the same I/V */}
         <Card className="border-slate-200">
           <div className="flex items-center justify-between p-3 border-b">
-            <p className="text-sm font-semibold">Issued Inventory ({issuedItems.length} transactions)</p>
+            <p className="text-sm font-semibold">
+              Issue Vouchers ({vouchers.length}) · {issuedItems.length} item line{issuedItems.length === 1 ? '' : 's'}
+            </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="w-3.5 h-3.5" /> Export Excel
@@ -133,32 +147,50 @@ export default function EmployeeIssuanceDetailsDialog({ open, onClose, employee,
             <Table className="table-list-view">
               <TableHeader>
                 <TableRow className="bg-slate-50 sticky top-0">
+                  <TableHead className="w-8"></TableHead>
                   <TableHead className="w-28">Date</TableHead>
                   <TableHead className="w-24">I/V No.</TableHead>
-                  <TableHead className="w-24">Item S.N.</TableHead>
-                  <TableHead>Item Name</TableHead>
-                  <TableHead className="w-16">Unit</TableHead>
+                  <TableHead>Item / Voucher</TableHead>
                   <TableHead className="w-20">Site</TableHead>
-                  <TableHead className="w-16 text-right">Qty</TableHead>
+                  <TableHead className="w-20 text-right">Qty</TableHead>
                   <TableHead>Remarks</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {issuedItems.map(t => (
-                  <TableRow key={t.id}>
-                    <TableCell>{t.transaction_date}</TableCell>
-                    <TableCell>{t.iv_no || '—'}</TableCell>
-                    <TableCell className="font-mono font-semibold">{t.item_sn}</TableCell>
-                    <TableCell className="font-medium">{t.item_name}</TableCell>
-                    <TableCell>{t.unit}</TableCell>
-                    <TableCell>{t.site || '—'}</TableCell>
-                    <TableCell className="text-right font-bold">{t.quantity_abs}</TableCell>
-                    <TableCell>{t.remarks || '—'}</TableCell>
-                  </TableRow>
-                ))}
-                {issuedItems.length === 0 && (
+                {vouchers.map(v => {
+                  const isOpen = expanded.has(v.key);
+                  return (
+                    <React.Fragment key={v.key}>
+                      <TableRow className="bg-slate-50/60 cursor-pointer" onClick={() => toggle(v.key)}>
+                        <TableCell>
+                          {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                        </TableCell>
+                        <TableCell>{v.date}</TableCell>
+                        <TableCell className="font-mono font-semibold">{v.documentNo || '—'}</TableCell>
+                        <TableCell className="font-medium">
+                          {v.lineCount} item{v.lineCount === 1 ? '' : 's'} in this voucher
+                        </TableCell>
+                        <TableCell>{v.site || '—'}</TableCell>
+                        <TableCell className="text-right font-bold">{v.totalQty}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{isOpen ? 'Click to collapse' : 'Click to view items'}</TableCell>
+                      </TableRow>
+                      {isOpen && v.lines.map(t => (
+                        <TableRow key={t.id}>
+                          <TableCell></TableCell>
+                          <TableCell></TableCell>
+                          <TableCell className="font-mono">{t.item_sn}</TableCell>
+                          <TableCell className="pl-4">{t.item_name}</TableCell>
+                          <TableCell>{t.unit}</TableCell>
+                          <TableCell className="text-right font-semibold">{t.quantity_abs}</TableCell>
+                          <TableCell>{t.remarks || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
+                {vouchers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No inventory issued to this employee.
                     </TableCell>
                   </TableRow>
