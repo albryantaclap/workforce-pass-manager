@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Edit2, Trash2, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Edit2, Trash2, Download, AlertTriangle } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
@@ -18,7 +18,7 @@ import { useAttendanceEmployees } from '@/hooks/useAttendanceEmployees';
 import {
   formatTimeShort, formatDateShort, formatMinutes, getDurationColor,
   STATUS_COLORS, isSplitEffective, getSplitPunchStatuses, calculateAttendanceState,
-  getFirstIn, getFinalOut, resolveShift,
+  getFirstIn, getFinalOut, resolveShift, getRecordSequenceIssue,
 } from '@/lib/attendanceEngine';
 import { saveManualEntry, softDeleteAttendance } from '@/lib/attendanceService';
 
@@ -264,6 +264,10 @@ export default function TimeEntries({
                 }
                 const splitEffective = isSplitEffective(shift, selectedDate);
                 const splitStatuses = splitEffective ? getSplitPunchStatuses(att, shift, new Date()) : null;
+                // Flags a stored record whose punches break the sequence for the shift
+                // that applies (e.g. a FINAL OUT with FIRST OUT / SECOND IN missing).
+                // Nothing is rewritten — the Admin repairs it through Edit Attendance.
+                const sequenceIssue = att ? getRecordSequenceIssue(att, shift) : null;
                 const colors = STATUS_COLORS[status] || STATUS_COLORS['Absent'];
                 return (
                   <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/30">
@@ -296,6 +300,14 @@ export default function TimeEntries({
                         <span className={cn('w-1.5 h-1.5 rounded-full', colors.dot)} />
                         {status}
                       </span>
+                      {sequenceIssue && (
+                        <span
+                          title={sequenceIssue}
+                          className="inline-flex items-center gap-0.5 ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border bg-amber-50 text-amber-700 border-amber-200 cursor-help"
+                        >
+                          <AlertTriangle className="w-3 h-3" /> Sequence
+                        </span>
+                      )}
                     </td>
                     {(canEditEntry || canDeleteEntry) && (
                       <td className="px-3 py-2">

@@ -131,6 +131,9 @@ export function calculateDailyStatus(record: any, shift: any, settings: any, hol
   const secondIn = record?.second_in_at || "";
   const finalOut = record?.final_out_at || record?.check_out_at || "";
   const isSplit = !!(shift && isSplitEffective(shift, dateStr));
+  // The strict sequence applies to punch-sequence records only; COMO Camp and
+  // Personnel Form sessions keep exactly their previous behaviour.
+  const splitSequence = isSplit && !isSingleSessionSource(record);
   const finished = shift ? hasShiftExpired(shift, dateStr, settings?.auto_close_buffer_minutes ?? 120, now) : true;
   const halfDayMin = (settings?.half_day_threshold_hours ?? 4) * 60;
   const duration = calculateDurationFromRecord(record);
@@ -151,7 +154,14 @@ export function calculateDailyStatus(record: any, shift: any, settings: any, hol
   }
 
   // 3. Shift finished → finalize from the completed punches and worked duration.
-  const sequenceComplete = !!finalOut && (!firstOut || !!secondIn);
+  //    For a split shift the day is only complete when every REQUIRED stage exists,
+  //    so a FINAL OUT that jumped a missing FIRST OUT / SECOND IN is never Present
+  //    or Half Day — it stays Incomplete.
+  const sequenceComplete = splitSequence
+    ? !!finalOut
+      && (!isPunchRequired("FIRST_OUT", shift) || !!firstOut)
+      && (!isPunchRequired("SECOND_IN", shift) || !!secondIn)
+    : (!!finalOut && (!firstOut || !!secondIn));
   if (sequenceComplete) {
     if (isSplit) return "Present";
     if (shift) {
@@ -163,7 +173,7 @@ export function calculateDailyStatus(record: any, shift: any, settings: any, hol
     }
     return duration > 0 && duration < halfDayMin ? "Half Day" : "Present";
   }
-  if (duration >= halfDayMin) return "Half Day";
+  if (!splitSequence && duration >= halfDayMin) return "Half Day";
   return isSplit ? "Incomplete" : "Missing Check-out";
 }
 
@@ -177,6 +187,147 @@ export function calculateAttendanceStatus(
   const manualOverride = record.manual_status_override || "";
   if (manualOverride) return manualOverride;
   return calculateDailyStatus(record, shift, settings, holidays, now);
+}
+
+// ── Punch-sequence validation (mirrors attendanceEngine.js) ───────────────
+// The punch sequence is authoritative on the server too: FIRST IN → FIRST OUT →
+// SECOND IN → FINAL OUT. A punch may never jump over an earlier required punch,
+// and the punches must be chronologically ordered as FULL datetimes (clock time
+// alone is never compared, so cross-midnight sequences stay valid).
+export const PUNCH_KEYS = ["FIRST_IN", "FIRST_OUT", "SECOND_IN", "FINAL_OUT"];
+const PUNCH_LABELS: Record<string, string> = {
+  FIRST_IN: "FIRST IN", FIRST_OUT: "FIRST OUT", SECOND_IN: "SECOND IN", FINAL_OUT: "FINAL OUT",
+};
+
+// COMO Camp / Personnel Form sessions are single IN→OUT sessions by design and
+// stay independent of the split-shift sequence (mirrors attendanceEngine.js).
+export const SINGLE_SESSION_SOURCES = ["COMO Camp", "Personnel Form"];
+
+export function isSingleSessionSource(record: any): boolean {
+  return SINGLE_SESSION_SOURCES.includes(record?.source_page || "") || record?.source === "COMO Camp";
+}
+
+export function isPunchRequired(punchKey: string, shift: any): boolean {
+  if (punchKey === "FIRST_IN" || punchKey === "FINAL_OUT") return true;
+  if (punchKey === "FIRST_OUT") return shift?.split_first_out_required !== false;
+  if (punchKey === "SECOND_IN") return shift?.split_second_in_required !== false;
+  return false;
+}
+
+// Resolve a "HH:mm" time onto the shift's attendance date, advancing to the next
+// calendar day when the wall-clock time is earlier than the shift start.
+function resolvePunchDateTime(timeStr: string, shift: any, attendanceDate: string, forceSameDay = false): Date | null {
+  if (!timeStr || !attendanceDate) return null;
+  const [y, m, d] = attendanceDate.split("-").map(Number);
+  const [ph, pm] = timeStr.split(":").map(Number);
+  let dayOffset = 0;
+  if (!forceSameDay) {
+    const ref = shift?.split_first_in_start || shift?.start_time || "00:00";
+    const [sh, sm] = ref.split(":").map(Number);
+    if (ph < sh || (ph === sh && pm < sm)) dayOffset = 1;
+  }
+  return qatarDateFromParts(y, m - 1, d + dayOffset, ph, pm);
+}
+
+export function resolvePunchWindow(punchKey: string, shift: any, attendanceDate: string): { earliest: Date | null; latest: Date | null } {
+  if (!isSplitEffective(shift, attendanceDate)) return { earliest: null, latest: null };
+  const eb = (min: number) => (min || 0) * 60000;
+  if (punchKey === "FIRST_IN") {
+    const start = resolvePunchDateTime(shift.split_first_in_start, shift, attendanceDate, true);
+    const cutoff = resolvePunchDateTime(shift.split_first_in_cutoff, shift, attendanceDate, true);
+    if (!start || !cutoff) return { earliest: null, latest: null };
+    return { earliest: new Date(start.getTime() - eb(shift.split_first_in_enable_before_min)), latest: cutoff };
+  }
+  if (punchKey === "FIRST_OUT") {
+    const target = resolvePunchDateTime(shift.split_first_out_target, shift, attendanceDate);
+    if (!target) return { earliest: null, latest: null };
+    return {
+      earliest: new Date(target.getTime() - eb(shift.split_first_out_enable_before_min)),
+      latest: new Date(target.getTime() + (shift.split_first_out_window_min || 0) * 60000),
+    };
+  }
+  if (punchKey === "SECOND_IN") {
+    const target = resolvePunchDateTime(shift.split_second_in_target, shift, attendanceDate);
+    if (!target) return { earliest: null, latest: null };
+    return {
+      earliest: new Date(target.getTime() - eb(shift.split_second_in_enable_before_min)),
+      latest: new Date(target.getTime() + (shift.split_second_in_window_min || 0) * 60000),
+    };
+  }
+  if (punchKey === "FINAL_OUT") {
+    const earliestT = resolvePunchDateTime(shift.split_final_out_earliest, shift, attendanceDate);
+    const latestT = resolvePunchDateTime(shift.split_final_out_latest, shift, attendanceDate);
+    if (!earliestT || !latestT) return { earliest: null, latest: null };
+    return { earliest: new Date(earliestT.getTime() - eb(shift.split_final_out_enable_before_min)), latest: latestT };
+  }
+  return { earliest: null, latest: null };
+}
+
+export function validatePunchSequence(
+  record: any, shift: any, _settings: any, opts: { enforceWindows?: boolean } = {}
+): { blocked: string[]; warnings: string[] } {
+  const blocked: string[] = [];
+  const warnings: string[] = [];
+  const dateStr = record?.attendance_date || "";
+  // "strictSplit" = the split-shift sequence applies. Single-session sources
+  // (COMO Camp / Personnel Form) keep their own 2-punch semantics.
+  const strictSplit = !!(shift && isSplitEffective(shift, dateStr)) && !isSingleSessionSource(record);
+  const values: Record<string, string> = {
+    FIRST_IN: record?.first_in_at || record?.check_in_at || "",
+    FIRST_OUT: record?.first_out_at || "",
+    SECOND_IN: record?.second_in_at || "",
+    FINAL_OUT: record?.final_out_at || record?.check_out_at || "",
+  };
+  const stamp = (iso: string) => {
+    if (!iso) return "—";
+    try {
+      return `${new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Qatar" })} ${new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Qatar" })}`;
+    } catch { return iso; }
+  };
+  const provided = PUNCH_KEYS.filter((k) => values[k]);
+
+  if (!values.FIRST_IN && provided.length) {
+    blocked.push("FIRST IN is required when any other punch is provided.");
+  }
+
+  for (let i = 1; i < provided.length; i++) {
+    const prev = provided[i - 1];
+    const cur = provided[i];
+    if (new Date(values[cur]).getTime() < new Date(values[prev]).getTime()) {
+      blocked.push(
+        `${PUNCH_LABELS[cur]} (${stamp(values[cur])}) cannot be earlier than ${PUNCH_LABELS[prev]} (${stamp(values[prev])}). Compare the full date and time — a cross-midnight punch only moves the calendar date forward.`
+      );
+    }
+  }
+
+  PUNCH_KEYS.forEach((key, idx) => {
+    if (!values[key]) return;
+    const missing = PUNCH_KEYS.slice(0, idx).find((earlier: string) => {
+      if (values[earlier]) return false;
+      return strictSplit ? isPunchRequired(earlier, shift) : earlier === "FIRST_IN";
+    });
+    if (missing) {
+      blocked.push(
+        `Expected punch: ${PUNCH_LABELS[missing]} has not been completed for this attendance record. Do not record ${PUNCH_LABELS[key]} before it.`
+      );
+    }
+  });
+
+  if (opts.enforceWindows && strictSplit) {
+    for (const key of PUNCH_KEYS) {
+      if (!values[key]) continue;
+      const { earliest, latest } = resolvePunchWindow(key, shift, dateStr);
+      if (!earliest || !latest) continue;
+      const t = new Date(values[key]).getTime();
+      if (t < earliest.getTime() || t > latest.getTime()) {
+        warnings.push(
+          `${PUNCH_LABELS[key]} at ${stamp(values[key])} is outside its configured shift window (${stamp(earliest.toISOString())} – ${stamp(latest.toISOString())}).`
+        );
+      }
+    }
+  }
+
+  return { blocked, warnings };
 }
 
 // Apply personnel filters (search, company, department, designation, manager,

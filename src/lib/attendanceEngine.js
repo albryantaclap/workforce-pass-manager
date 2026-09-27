@@ -228,6 +228,9 @@ export const calculateDailyStatus = (record, shift, settings, holidays = [], now
   const secondIn = record?.second_in_at || '';
   const finalOut = getFinalOut(record);
   const isSplit = !!(shift && isSplitEffective(shift, dateStr));
+  // The strict sequence applies to punch-sequence records only; COMO Camp and
+  // Personnel Form sessions keep exactly their previous behaviour.
+  const splitSequence = isSplit && !isSingleSessionSource(record);
   const finished = shift ? hasShiftExpired(shift, dateStr, settings?.auto_close_buffer_minutes ?? 120, now) : true;
   const halfDayMin = (settings?.half_day_threshold_hours ?? 4) * 60;
   const duration = calculateDurationFromRecord(record);
@@ -249,13 +252,20 @@ export const calculateDailyStatus = (record, shift, settings, holidays = [], now
 
   // 3. Shift finished → finalize from the completed punches and worked duration.
   //    Only completed IN/OUT pairs count — an open IN is never extrapolated.
-  const sequenceComplete = !!finalOut && (!firstOut || !!secondIn);
+  //    For a split shift the day only counts as complete when every REQUIRED stage
+  //    is present, so a FINAL OUT that jumped a missing FIRST OUT / SECOND IN can
+  //    never be reported as Present or Half Day — it stays Incomplete.
+  const sequenceComplete = splitSequence
+    ? !!finalOut
+      && (!isPunchRequired('FIRST_OUT', shift) || !!firstOut)
+      && (!isPunchRequired('SECOND_IN', shift) || !!secondIn)
+    : (!!finalOut && (!firstOut || !!secondIn));
   if (sequenceComplete) {
     if (isSplit) return 'Present';
     if (calculateLate(record, shift).isLate) return 'Late';
     return duration > 0 && duration < halfDayMin ? 'Half Day' : 'Present';
   }
-  if (duration >= halfDayMin) return 'Half Day';
+  if (!splitSequence && duration >= halfDayMin) return 'Half Day';
   return isSplit ? 'Incomplete' : 'Missing Check-out';
 };
 
@@ -446,6 +456,112 @@ export const punchSequence = (punchKey) =>
 // The split break (first_out → second_in) is not counted as worked time.
 // Falls back to single-session first_in → final_out when split punches are absent.
 export const calculateSplitDuration = (record) => calculateDurationFromRecord(record);
+
+// ── Punch-sequence validation (authoritative for EVERY save path) ──────────
+// THE rule: FIRST IN → FIRST OUT → SECOND IN → FINAL OUT.
+//
+//  • A punch may never jump over an earlier required punch.
+//  • The four timestamps must be chronologically ordered when compared as FULL
+//    datetimes — never by clock time alone — so a cross-midnight SECOND IN
+//    (00:55 on the next calendar day) is correctly ordered after a FIRST OUT at
+//    22:50 the previous evening, and the attendance date stays the shift-start date.
+//
+// Returns { blocked, warnings }:
+//   blocked  → the save must be rejected; the message names the expected punch
+//   warnings → unusual but allowed; the Admin is warned before saving
+export const PUNCH_LABELS = {
+  FIRST_IN: 'FIRST IN', FIRST_OUT: 'FIRST OUT', SECOND_IN: 'SECOND IN', FINAL_OUT: 'FINAL OUT',
+};
+
+// COMO Camp and Personnel Form sessions are single IN→OUT sessions by design —
+// they carry no break punches — so they are never judged by the split-shift
+// sequence. Only punch-sequence records (scanner, clock, manual entry) are.
+export const SINGLE_SESSION_SOURCES = ['COMO Camp', 'Personnel Form'];
+
+export const isSingleSessionSource = (record) =>
+  SINGLE_SESSION_SOURCES.includes(record?.source_page || '') || record?.source === 'COMO Camp';
+
+export const punchStamp = (iso) => {
+  if (!iso) return '—';
+  try { return `${formatDateShort(String(iso).slice(0, 10))} ${formatTimeShort(iso)}`; } catch { return String(iso); }
+};
+
+export const validatePunchSequence = (record, shift, settings, { enforceWindows = false } = {}) => {
+  const blocked = [];
+  const warnings = [];
+  const dateStr = record?.attendance_date || '';
+  // "strictSplit" = the split-shift sequence applies to this record. Single-session
+  // sources (COMO Camp / Personnel Form) keep their own 2-punch semantics.
+  const strictSplit = !!(shift && isSplitEffective(shift, dateStr)) && !isSingleSessionSource(record);
+  const values = {
+    FIRST_IN: record?.first_in_at || record?.check_in_at || '',
+    FIRST_OUT: record?.first_out_at || '',
+    SECOND_IN: record?.second_in_at || '',
+    FINAL_OUT: record?.final_out_at || record?.check_out_at || '',
+  };
+  const provided = PUNCH_KEYS.filter((k) => values[k]);
+
+  // 1. No punch can exist without a FIRST IN.
+  if (!values.FIRST_IN && provided.length) {
+    blocked.push('FIRST IN is required when any other punch is provided.');
+  }
+
+  // 2. Chronological order — compare complete datetimes, never clock times.
+  for (let i = 1; i < provided.length; i++) {
+    const prev = provided[i - 1];
+    const cur = provided[i];
+    if (new Date(values[cur]).getTime() < new Date(values[prev]).getTime()) {
+      blocked.push(
+        `${PUNCH_LABELS[cur]} (${punchStamp(values[cur])}) cannot be earlier than ${PUNCH_LABELS[prev]} (${punchStamp(values[prev])}). Compare the full date and time — a cross-midnight punch only moves the calendar date forward.`
+      );
+    }
+  }
+
+  // 3. A later punch must never skip an earlier required punch. For a split shift
+  //    the required stages come from the shift's own Split-Shift Punch Rules
+  //    (FIRST IN and FINAL OUT are always required).
+  PUNCH_KEYS.forEach((key, idx) => {
+    if (!values[key]) return;
+    const missing = PUNCH_KEYS.slice(0, idx).find((earlier) => {
+      if (values[earlier]) return false;
+      return strictSplit ? isPunchRequired(earlier, shift) : earlier === 'FIRST_IN';
+    });
+    if (missing) {
+      blocked.push(
+        `Expected punch: ${PUNCH_LABELS[missing]} has not been completed for this attendance record. Do not record ${PUNCH_LABELS[key]} before it.`
+      );
+    }
+  });
+
+  // 4. Window check — each punch must fall inside its own configured window, built
+  //    from the shift-start date (cross-midnight aware). Reported as a warning
+  //    only: an Admin repairing a record may legitimately be outside the window.
+  if (enforceWindows && strictSplit) {
+    for (const key of PUNCH_KEYS) {
+      if (!values[key]) continue;
+      const { earliest, latest } = resolvePunchWindow(key, shift, dateStr);
+      if (!earliest || !latest) continue;
+      const t = new Date(values[key]).getTime();
+      if (t < earliest.getTime() || t > latest.getTime()) {
+        warnings.push(
+          `${PUNCH_LABELS[key]} at ${punchStamp(values[key])} is outside its configured shift window (${punchStamp(earliest.toISOString())} – ${punchStamp(latest.toISOString())}).`
+        );
+      }
+    }
+  }
+
+  return { blocked, warnings };
+};
+
+// Detects records whose STORED punches break the sequence for the shift that
+// applies (e.g. a FINAL OUT with FIRST OUT / SECOND IN missing on a split shift).
+// Nothing is ever rewritten — the record is only flagged so an Admin can repair
+// it through Edit Attendance, and no timestamp is ever fabricated.
+export const getRecordSequenceIssue = (record, shift) => {
+  if (!record || isSingleSessionSource(record)) return null;
+  const { blocked } = validatePunchSequence(record, shift, null);
+  return blocked.length ? blocked[0] : null;
+};
 
 // ── Central attendance state engine ───────────────────────────────────────
 // One function used by every attendance view (Daily Attendance, Time Entries,

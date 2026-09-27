@@ -187,9 +187,17 @@ export async function recordPunch({
         if (r.attendance_date === attDate) return false;
         if (!isSplitEffective(shift, r.attendance_date)) return false;
         if (hasShiftExpired(shift, r.attendance_date, settings?.auto_close_buffer_minutes ?? 120)) return false;
-        if (r.attendance_status !== 'Missing Check-out') return false;
-        // Only re-open if the split sequence is incomplete (has first_in but no final_out)
-        return (r.first_in_at || r.check_in_at) && !(r.final_out_at || r.check_out_at);
+        // A record an Admin has explicitly overridden is left alone.
+        if (r.manual_status_override) return false;
+        // Continue the SAME attendance date whenever the required split sequence is
+        // still incomplete — whether the day was closed early (Missing Check-out) or
+        // a later punch was recorded before a required earlier one (an inconsistent
+        // record the Admin repairs in Edit Attendance). No timestamp is ever touched:
+        // the session is only re-opened so the next punch continues that shift date
+        // (cross-midnight stays ONE record).
+        const firstIn = r.first_in_at || r.check_in_at;
+        if (!firstIn) return false;
+        return determineSplitExpectedPunch(r, shift) !== null;
       });
       if (wronglyClosed) {
         await base44.entities.AttendanceRecord.update(wronglyClosed.id, { status: 'open' });
@@ -243,21 +251,23 @@ export async function recordPunch({
     else throw new Error('All 4 punches already recorded for this date. Edit the record instead.');
   }
 
-  // Record raw punch
   const tsIso = timestamp.toISOString();
-  await base44.entities.AttendancePunch.create({
+  const email = currentUser?.email || '';
+  const name = currentUser?.full_name || '';
+
+  // The raw punch is only written once the punch has been ACCEPTED, so a rejected
+  // scan can never leave a stray AttendancePunch row behind.
+  const writeRawPunch = () => base44.entities.AttendancePunch.create({
     personnel_id: personnelId, employee_name: employeeName, company,
     attendance_date: attDate, punch_timestamp: tsIso, punch_type: punchType,
     punch_sequence: punchSeq, source, location,
-    created_by: currentUser?.email || '', created_by_name: currentUser?.full_name || '',
+    created_by: email, created_by_name: name,
   });
-
-  const email = currentUser?.email || '';
-  const name = currentUser?.full_name || '';
 
   if (!session) {
     // Create new session
     if (punchType !== 'IN') throw new Error('Cannot clock out — no open session for this date.');
+    await writeRawPunch();
     // Calculate the initial attendance status using the centralized resolver
     // so the stored status matches the live display from the first punch.
     const tempRecord = {
@@ -275,7 +285,10 @@ export async function recordPunch({
       work_location: workLocation || location || '',
       checked_in_by: email, checked_in_by_name: name,
       status: 'open', source, source_page: source,
-      shift_id: shiftId, shift_name: shiftName,
+      // The shift that actually judged this punch is stored on the record, so the
+      // rules applied stay auditable ('default' = no shift assignment resolved).
+      shift_id: shift?.id && shift.id !== 'default' ? shift.id : (shiftId || ''),
+      shift_name: shift?.shift_name || shiftName || '',
       attendance_status: initState.calculatedStatus,
       calculated_status: initState.calculatedStatus,
       is_late: initState.isLate, late_minutes: initState.lateMinutes,
@@ -323,6 +336,15 @@ export async function recordPunch({
     } else {
       throw new Error('All punches already recorded for this date.');
     }
+  }
+
+  // The punch has been accepted — record it now (never before this point).
+  await writeRawPunch();
+
+  // Keep the shift that judged this punch auditable on older records.
+  if (!session.shift_id && shift) {
+    updates.shift_id = shift.id && shift.id !== 'default' ? shift.id : '';
+    updates.shift_name = shift.shift_name || '';
   }
 
   // Recalculate duration

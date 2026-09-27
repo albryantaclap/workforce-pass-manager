@@ -1,5 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
 import { checkPermission } from '../../shared/permissionCheck.ts';
+import {
+  resolveShift, isSplitEffective, validatePunchSequence, calculateAttendanceStatus,
+} from '../../shared/attendanceCalc.ts';
 
 // Backend authorization for attendance manual entry / edit.
 // Checks attendance.entries.edit permission before performing the operation.
@@ -55,6 +58,36 @@ Deno.serve(async (req) => {
     const email = user?.email || '';
     const name = user?.full_name || '';
 
+    // ── Server-side punch-sequence validation (the sequence is authoritative) ──
+    // The employee's assigned shift for this date is resolved HERE — a shift sent by
+    // the client is never trusted — and the four punches are validated against its
+    // Split-Shift Punch Rules: FIRST IN → FIRST OUT → SECOND IN → FINAL OUT. The
+    // punches are compared as FULL datetimes, so a cross-midnight sequence (SECOND IN
+    // 00:55 after FIRST OUT 22:50) stays valid and the attendance date stays the
+    // shift-start date. A save that would skip a required punch, jump a later punch
+    // over an earlier one, or order them wrongly is rejected with the punch that is
+    // expected. No timestamp is ever fabricated.
+    let employee: any = null;
+    try { employee = await base44.entities.Employee.get(personnelId); } catch { employee = null; }
+    const [shiftRows, assignmentRows, settingRows] = await Promise.all([
+      base44.asServiceRole.entities.AttendanceShift.list('-created_date', 1000),
+      base44.asServiceRole.entities.AttendanceShiftAssignment.list('-created_date', 5000),
+      base44.asServiceRole.entities.AttendanceSetting.list('-created_date', 100),
+    ]);
+    const settings = settingRows[0] || null;
+    const resolvedShift = resolveShift(employee || { id: personnelId, company }, assignmentRows, shiftRows, settings);
+    const splitEffective = !!(resolvedShift && isSplitEffective(resolvedShift, attendanceDate));
+
+    const sequenceRecord: any = {
+      attendance_date: attendanceDate,
+      first_in_at: firstInIso, first_out_at: firstOutIso,
+      second_in_at: secondInIso, final_out_at: finalOutIso,
+    };
+    const { blocked } = validatePunchSequence(sequenceRecord, resolvedShift, settings);
+    if (blocked.length) {
+      return Response.json({ error: blocked.join(' ') }, { status: 400 });
+    }
+
     // Find existing record for this date
     const existing = await base44.entities.AttendanceRecord.filter(
       { personnel_id: personnelId, attendance_date: attendanceDate, is_deleted: { $ne: true } },
@@ -62,22 +95,19 @@ Deno.serve(async (req) => {
     );
     const record = existing[0] || null;
 
-    // Sync backward-compat fields
+    // Sync backward-compat fields. For a split shift the validator above has
+    // already guaranteed that a FINAL OUT implies the whole required sequence.
     const checkInIso = firstInIso;
     const checkOutIso = finalOutIso || firstOutIso;
-    const isCompleted = !!finalOutIso || (!!firstOutIso && !secondInIso);
+    const isCompleted = splitEffective ? !!finalOutIso : (!!finalOutIso || (!!firstOutIso && !secondInIso));
 
     const tempRec = { first_in_at: firstInIso, first_out_at: firstOutIso, second_in_at: secondInIso, final_out_at: finalOutIso };
     const duration = calculateDurationFromRecord(tempRec);
-
-    // Fetch settings for overtime calculation
-    const settingsList = await base44.asServiceRole.entities.AttendanceSetting.list('-created_date', 100);
-    const settings = settingsList[0] || null;
     const overtime = calculateOvertime(duration, settings);
 
-    // Simplified status calculation (full split-shift recalculation happens
-    // on the frontend when the record is loaded for display)
-    const calculatedStatus = isCompleted ? 'Present' : (firstInIso ? 'Missing Check-out' : 'Absent');
+    // Status comes from the SAME shared calculation the punch paths and every
+    // display use, so an edited record can never disagree with Time Entries.
+    const calculatedStatus = calculateAttendanceStatus(sequenceRecord, resolvedShift, settings, [], new Date());
 
     const payload = {
       personnel_id: personnelId, employee_name: employeeName, company,
@@ -90,7 +120,8 @@ Deno.serve(async (req) => {
       status: isCompleted ? 'completed' : 'open',
       source: 'Manual', source_page: 'Daily Attendance',
       is_manual: true, manual_reason: reason.trim(), remarks: remarks || '',
-      shift_id: shiftId || '', shift_name: shiftName || '',
+      shift_id: resolvedShift?.id && resolvedShift.id !== 'default' ? resolvedShift.id : (shiftId || ''),
+      shift_name: resolvedShift?.shift_name || shiftName || '',
       calculated_status: calculatedStatus,
       attendance_status: manualStatusOverride || calculatedStatus,
       manual_status_override: manualStatusOverride || '',

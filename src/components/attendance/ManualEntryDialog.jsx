@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Search } from 'lucide-react';
+import { X, Search, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { saveManualEntry } from '@/lib/attendanceService';
 import {
   resolveShift, getFirstIn, getFinalOut,
   calculateAttendanceState, MANUAL_STATUS_OPTIONS,
+  validatePunchSequence, isSplitEffective,
 } from '@/lib/attendanceEngine';
 
 export default function ManualEntryDialog({
@@ -34,6 +35,7 @@ export default function ManualEntryDialog({
   const [remarks, setRemarks] = useState('');
   const [statusOverride, setStatusOverride] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmUnusual, setConfirmUnusual] = useState(false);
 
   useEffect(() => {
     if (editRecord) {
@@ -88,6 +90,29 @@ export default function ManualEntryDialog({
     return calculateAttendanceState(rec, shift, settings, [], new Date());
   }, [shift, date, selectedEmp, firstInDate, firstInTime, firstOutDate, firstOutTime, secondInDate, secondInTime, finalOutDate, finalOutTime, statusOverride, settings]);
 
+  // Authoritative punch-sequence check — the same rule the server enforces on save:
+  // FIRST IN → FIRST OUT → SECOND IN → FINAL OUT, compared as FULL datetimes so a
+  // cross-midnight sequence (FIRST OUT 22:50 → SECOND IN 00:55 next day) is valid.
+  // blocked = must be corrected; warnings = unusual but allowed, confirm before saving.
+  const sequenceCheck = useMemo(() => {
+    const toIso = (d, t) => { const dt = buildDateTime(d, t); return dt ? dt.toISOString() : ''; };
+    const rec = {
+      attendance_date: date,
+      first_in_at: toIso(firstInDate, firstInTime), first_out_at: toIso(firstOutDate, firstOutTime),
+      second_in_at: toIso(secondInDate, secondInTime), final_out_at: toIso(finalOutDate, finalOutTime),
+    };
+    return validatePunchSequence(rec, shift, settings, { enforceWindows: true });
+  }, [shift, settings, date, firstInDate, firstInTime, firstOutDate, firstOutTime, secondInDate, secondInTime, finalOutDate, finalOutTime]);
+
+  // Any change to a punch re-arms the "unusual sequence" confirmation.
+  useEffect(() => { setConfirmUnusual(false); },
+    [firstInDate, firstInTime, firstOutDate, firstOutTime, secondInDate, secondInTime, finalOutDate, finalOutTime]);
+
+  const splitRules = isSplitEffective(shift, date);
+  const shiftLabel = shift
+    ? `${shift.shift_name || 'Shift'}${shift.id === 'default' ? ' (no shift assigned)' : ''}${splitRules ? ' · Split-shift punch rules' : ''}`
+    : '—';
+
   const handleSave = async () => {
     if (!selectedEmp) { toast({ title: 'Please select an employee.', variant: 'destructive' }); return; }
     if (!date) { toast({ title: 'Please select an attendance date.', variant: 'destructive' }); return; }
@@ -99,8 +124,17 @@ export default function ManualEntryDialog({
     const secondIn = buildDateTime(secondInDate, secondInTime);
     const finalOut = buildDateTime(finalOutDate, finalOutTime);
 
-    if (!firstIn && (firstOut || secondIn || finalOut)) {
-      toast({ title: 'First Clock In is required when other punches are provided.', variant: 'destructive' });
+    if (sequenceCheck.blocked.length) {
+      toast({ title: 'Cannot process this attendance', description: sequenceCheck.blocked[0], variant: 'destructive' });
+      return;
+    }
+    if (sequenceCheck.warnings.length && !confirmUnusual) {
+      setConfirmUnusual(true);
+      toast({
+        title: 'Unusual sequence — please confirm',
+        description: `${sequenceCheck.warnings[0]} Press “Save anyway” to keep it, or correct the punches.`,
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -142,6 +176,38 @@ export default function ManualEntryDialog({
         </div>
 
         <div className="overflow-y-auto p-4 space-y-4">
+          {/* Who is being edited — read-only, so an Admin never edits the wrong person */}
+          {selectedEmp && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 rounded-lg border border-border bg-muted/30">
+              <ReadOnlyField label="Employee" value={selectedEmp.name} />
+              <ReadOnlyField label="PID No." value={selectedEmp.pid} />
+              <ReadOnlyField label="Company" value={selectedEmp.company} />
+              <ReadOnlyField label="Shift" value={shiftLabel} />
+            </div>
+          )}
+
+          {/* Sequence validation — the punch order is authoritative */}
+          {sequenceCheck.blocked.length > 0 && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1">
+              <p className="text-xs font-semibold text-red-700 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" /> Cannot process this attendance
+              </p>
+              {sequenceCheck.blocked.map((m, i) => (
+                <p key={i} className="text-[11px] text-red-700 leading-relaxed">{m}</p>
+              ))}
+            </div>
+          )}
+          {sequenceCheck.blocked.length === 0 && sequenceCheck.warnings.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-1">
+              <p className="text-xs font-semibold text-amber-700 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" /> Unusual sequence — review before saving
+              </p>
+              {sequenceCheck.warnings.map((m, i) => (
+                <p key={i} className="text-[11px] text-amber-700 leading-relaxed">{m}</p>
+              ))}
+            </div>
+          )}
+
           {/* Employee selection */}
           {!editRecord && (
             <div className="space-y-2">
@@ -239,11 +305,22 @@ export default function ManualEntryDialog({
 
         <div className="flex justify-end gap-2 p-4 border-t border-border">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : editRecord ? 'Update Attendance' : 'Save Entry'}
+          <Button onClick={handleSave} disabled={saving || sequenceCheck.blocked.length > 0}>
+            {saving ? 'Saving...' : (sequenceCheck.warnings.length && confirmUnusual)
+              ? 'Save anyway (unusual sequence)'
+              : editRecord ? 'Update Attendance' : 'Save Entry'}
           </Button>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function ReadOnlyField({ label, value }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase">{label}</p>
+      <p className="text-xs font-medium text-foreground truncate" title={value || '—'}>{value || '—'}</p>
     </div>
   );
 }
