@@ -33,12 +33,17 @@ export async function fetchTransactionById(id) {
  */
 export function warrantiesForTransaction(warranties = [], txn) {
   if (!txn) return [];
+  const active = warranties.filter(w => isActiveWarranty(w) && w.item_id === txn.item_id);
+
   if (txn.transaction_type === 'STOCK_IN') {
-    return warranties.filter(w => isActiveWarranty(w) && w.batch_txn_id === txn.id);
+    const receipt = active.filter(w => w.batch_txn_id === txn.id);
+    // Nothing recorded against this exact receipt — show the item's own warranty
+    // records (each row states its D/N no. and receipt date), never a new row.
+    return receipt.length ? receipt : active;
   }
+
   const issued = issuedAssetsFor(warranties, txn.employee_id, txn.item_id, txn.iv_no);
-  if (issued.length) return issued;
-  return warranties.filter(w => isActiveWarranty(w) && w.item_id === txn.item_id);
+  return issued.length ? issued : active;
 }
 
 /** Labels of the fields written to the correction audit trail. */
