@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeftRight, Printer, Search } from 'lucide-react';
 import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
+import PrintPageButton from '@/components/inventory/PrintPageButton';
 import StockTransferFormModal from '@/components/inventory/StockTransferFormModal';
 import { printInternalDn } from '@/components/inventory/InternalDnPrint';
 import { useInventoryData } from '@/hooks/useInventoryData';
@@ -55,9 +56,12 @@ export default function StockTransfer() {
             <p className="text-sm text-muted-foreground">Transfer stock between stores with Internal Delivery Note</p>
           </div>
         </div>
-        <Button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700">
-          <ArrowLeftRight className="w-4 h-4" /> New Transfer
-        </Button>
+        <div className="flex gap-2">
+          <PrintPageButton title="Stock Transfer" />
+          <Button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700">
+            <ArrowLeftRight className="w-4 h-4" /> New Transfer
+          </Button>
+        </div>
       </div>
 
       {/* Search */}

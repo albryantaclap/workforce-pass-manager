@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
+import PrintPageButton from '@/components/inventory/PrintPageButton';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -98,11 +99,14 @@ export default function TransactionHistory() {
           <h1 className="text-2xl font-bold">Transaction History</h1>
           <p className="text-sm text-muted-foreground mt-1">One row per delivery note or issue voucher — open it to see every item line</p>
         </div>
-        {can('inventory.transaction_history.export') && (
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="w-4 h-4" /> Export
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {can('inventory.transaction_history.export') && (
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="w-4 h-4" /> Export
+            </Button>
+          )}
+          <PrintPageButton title="Transaction History" />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

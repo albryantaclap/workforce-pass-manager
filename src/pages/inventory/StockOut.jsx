@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
+import PrintPageButton from '@/components/inventory/PrintPageButton';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -291,6 +292,7 @@ export default function StockOut() {
           <p className="text-sm text-muted-foreground mt-1">Issue stock to employees — deducts from available inventory</p>
         </div>
         <div className="flex gap-2">
+          <PrintPageButton title="Stock Out" />
           {can('inventory.stock_out.export') && (
             <Button variant="outline" onClick={() => exportStockOutExcel(filtered)}>
               <Download className="w-4 h-4" /> Export

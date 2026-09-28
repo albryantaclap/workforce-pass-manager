@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
+import PrintPageButton from '@/components/inventory/PrintPageButton';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -204,6 +205,7 @@ export default function InventoryReports() {
           <p className="text-sm text-muted-foreground mt-1">Generate and export inventory reports</p>
         </div>
         <div className="flex gap-2">
+          <PrintPageButton title="Inventory Reports" />
           {can('inventory.reports.export') && (
             <Button variant="outline" onClick={handleExport}>
               <Download className="w-4 h-4" /> Export Excel

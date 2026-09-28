@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Undo2, Search, ArrowDownLeft } from 'lucide-react';
 import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
+import PrintPageButton from '@/components/inventory/PrintPageButton';
 import ReturnItemFormModal from '@/components/inventory/ReturnItemFormModal';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { useCurrentUser } from '@/lib/useCurrentUser';
@@ -62,6 +63,9 @@ export default function ReturnItems() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Return Items</h1>
           <p className="text-sm text-muted-foreground">Process returned items and update stock accordingly</p>
+        </div>
+        <div className="ml-auto">
+          <PrintPageButton title="Return Items" />
         </div>
       </div>
 

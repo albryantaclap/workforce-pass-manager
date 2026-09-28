@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
+import PrintPageButton from '@/components/inventory/PrintPageButton';
 import { useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -198,6 +199,7 @@ export default function InventoryItems() {
           <p className="text-sm text-muted-foreground mt-1">Master list of all inventory items</p>
         </div>
         <div className="flex gap-2">
+          <PrintPageButton title="Inventory Items" />
           {can('inventory.items.import') && (
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="w-4 h-4" /> Import

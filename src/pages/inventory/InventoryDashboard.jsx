@@ -14,6 +14,7 @@ import { useInventoryData } from '@/hooks/useInventoryData';
 import { calculateDashboardStats as calcStats } from '@/lib/inventoryService';
 import InventoryMovementChart from '@/components/inventory/InventoryMovementChart';
 import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
+import PrintPageButton from '@/components/inventory/PrintPageButton';
 
 const fmt = (n) => (n || 0).toLocaleString();
 
@@ -79,6 +80,9 @@ export default function InventoryDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Inventory Dashboard</h1>
           <p className="text-sm text-muted-foreground">Live inventory overview calculated from transaction ledger</p>
+        </div>
+        <div className="ml-auto">
+          <PrintPageButton title="Inventory Dashboard" />
         </div>
       </div>
 

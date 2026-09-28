@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
+import PrintPageButton from '@/components/inventory/PrintPageButton';
 import { useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -203,6 +204,7 @@ export default function StockIn() {
           <p className="text-sm text-muted-foreground mt-1">Record received stock — adds to available inventory</p>
         </div>
         <div className="flex gap-2">
+          <PrintPageButton title="Stock In" />
           {can('inventory.stock_in.export') && (
             <Button variant="outline" onClick={() => exportStockInExcel(filtered)}>
               <Download className="w-4 h-4" /> Export

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import InventorySubmenuNav from '@/components/common/InventorySubmenuNav';
+import PrintPageButton from '@/components/inventory/PrintPageButton';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -181,11 +182,14 @@ export default function AvailableStock() {
           <h1 className="text-2xl font-bold">Available Stock</h1>
           <p className="text-sm text-muted-foreground mt-1">Dynamically calculated: Available = SUM(Stock In) − SUM(Stock Out)</p>
         </div>
-        {can('inventory.available_stock.export') && (
-          <Button variant="outline" onClick={() => exportAvailableStockExcel(rows)}>
-            <Download className="w-4 h-4" /> Export
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {can('inventory.available_stock.export') && (
+            <Button variant="outline" onClick={() => exportAvailableStockExcel(rows)}>
+              <Download className="w-4 h-4" /> Export
+            </Button>
+          )}
+          <PrintPageButton title="Available Stock" />
+        </div>
       </div>
 
       <div className="relative max-w-md">
