@@ -12,6 +12,11 @@ import { fetchAllEmployees } from '@/lib/inventoryEmployees';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
 import StockOutFormModal from '@/components/inventory/StockOutFormModal';
+import StockOutEditDialog from '@/components/inventory/StockOutEditDialog';
+import TransactionActions from '@/components/inventory/TransactionActions';
+import WarrantyDetailsDialog from '@/components/inventory/WarrantyDetailsDialog';
+import { warrantiesForTransaction } from '@/lib/inventoryCorrections';
+import { useWarrantySetting } from '@/hooks/useWarrantySetting';
 import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import MultiSelect from '@/components/common/MultiSelect';
@@ -22,6 +27,11 @@ export default function StockOut() {
   const { items, transactions, warranties, getLookupOptions, isLoading } = useInventoryData();
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [editTxn, setEditTxn] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [warrantyTxn, setWarrantyTxn] = useState(null);
+  const [warrantyOpen, setWarrantyOpen] = useState(false);
+  const warningDays = useWarrantySetting();
   const queryClient = useQueryClient();
   const user = useCurrentUser();
   const { can } = useRbac();
@@ -370,6 +380,7 @@ export default function StockOut() {
                 <TableHead className="w-28">Company</TableHead>
                 <TableHead className="w-16 text-right">Qty</TableHead>
                 <TableHead>Remarks</TableHead>
+                <TableHead className="w-28">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -399,12 +410,20 @@ export default function StockOut() {
                     <TableCell>{liveCompany || '—'}</TableCell>
                     <TableCell className="text-right font-bold text-orange-600">-{t.quantity_abs}</TableCell>
                     <TableCell>{t.remarks || '—'}</TableCell>
+                    <TableCell>
+                      <TransactionActions
+                        showWarranty={can('inventory.warranty.view')}
+                        showEdit={can('inventory.stock_out.edit')}
+                        onWarranty={() => { setWarrantyTxn(t); setWarrantyOpen(true); }}
+                        onEdit={() => { setEditTxn(t); setEditOpen(true); }}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     {isLoading ? 'Loading...' : 'No stock out records found.'}
                   </TableCell>
                 </TableRow>
@@ -433,6 +452,28 @@ export default function StockOut() {
         sites={getLookupOptions('site')}
         stores={getLookupOptions('store')}
         user={user}
+      />
+
+      {/* Edit the recorded issue — the difference goes back to stock, issued assets re-link */}
+      <StockOutEditDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={refresh}
+        txn={editTxn}
+        transactions={transactions}
+        documentLines={editTxn?.document_id ? transactions.filter(t => t.document_id === editTxn.document_id && !t.is_deleted).length : 1}
+        sites={getLookupOptions('site')}
+        stores={getLookupOptions('store')}
+        user={user}
+      />
+
+      {/* Warranty of the units (or item) in the clicked row */}
+      <WarrantyDetailsDialog
+        open={warrantyOpen}
+        onClose={() => setWarrantyOpen(false)}
+        item={warrantyTxn ? (itemMap.get(warrantyTxn.item_id) || { id: warrantyTxn.item_id, item_sn: warrantyTxn.item_sn, item_name: warrantyTxn.item_name }) : null}
+        rows={warrantyTxn ? warrantiesForTransaction(warranties, warrantyTxn) : []}
+        warningDays={warningDays}
       />
     </div>
   );

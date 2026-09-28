@@ -6,10 +6,7 @@
  */
 import { base44 } from '@/api/base44Client';
 import { textValue } from '@/lib/inventoryText';
-import {
-  buildWarrantyRows, validateWarrantyLine, computeWarrantyExpiry,
-  issuedAssetsFor, isActiveWarranty,
-} from '@/lib/warranty';
+import { buildWarrantyRows, validateWarrantyLine, computeWarrantyExpiry } from '@/lib/warranty';
 
 const TXN = base44.entities.InventoryTransaction;
 const ITEM = base44.entities.InventoryItem;
