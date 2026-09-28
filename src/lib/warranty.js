@@ -311,6 +311,38 @@ export async function saveWarrantySetting(days, user) {
   return base44.entities.InventorySetting.create({ setting_key: 'inventory', ...payload });
 }
 
+/**
+ * Pre-fill a Stock In warranty block from the warranty rows already stored for a
+ * receipt, so correcting a line updates the existing warranty instead of
+ * creating a second one.
+ */
+export function warrantyLineFromRows(rows = [], fallback = {}) {
+  const active = (rows || []).filter(r => isActiveWarranty(r));
+  const batch = active.find(r => !r.serial_no);
+  const serialRows = active.filter(r => r.serial_no);
+  const source = batch || serialRows[0] || {};
+  return {
+    warranty_applicable: active.length > 0,
+    warranty_start_date: source.warranty_start_date || fallback.warranty_start_date || '',
+    warranty_period: source.warranty_period || '',
+    warranty_period_unit: source.warranty_period_unit || 'Months',
+    warranty_expiry_date: source.warranty_expiry_date || '',
+    warranty_expiry_overridden: !!source.warranty_expiry_overridden,
+    warranty_ref_no: source.warranty_ref_no || '',
+    warranty_remarks: source.warranty_remarks || '',
+    warranty_file_url: source.warranty_file_url || '',
+    serial_text: serialRows.map(r => r.serial_no).join('\n'),
+    serials: serialRows.map(r => ({
+      serial_no: r.serial_no,
+      warranty_start_date: r.warranty_start_date || '',
+      warranty_period: r.warranty_period || '',
+      warranty_period_unit: r.warranty_period_unit || 'Months',
+      warranty_expiry_date: r.warranty_expiry_date || '',
+      warranty_ref_no: r.warranty_ref_no || '',
+    })),
+  };
+}
+
 export const emptyWarrantyLineFields = () => ({
   warranty_applicable: false,
   warranty_start_date: '',

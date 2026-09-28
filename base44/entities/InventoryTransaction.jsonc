@@ -172,6 +172,65 @@
     "correction_reason": {
       "type": "string",
       "description": "Reason for the correction/adjustment"
+    },
+    "last_edited_by": {
+      "type": "string",
+      "description": "Email of the user who last corrected this recorded line through Edit (audit only \u2014 the original recorded-by values are never overwritten)"
+    },
+    "last_edited_by_name": {
+      "type": "string",
+      "description": "Display name of the user who last corrected this recorded line"
+    },
+    "last_edited_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the last correction"
+    },
+    "edit_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "edited_by": {
+            "type": "string",
+            "description": "Email of the user who made the correction"
+          },
+          "edited_by_name": {
+            "type": "string",
+            "description": "Display name of the user who made the correction"
+          },
+          "edited_at": {
+            "type": "string",
+            "description": "Timestamp of the correction (ISO)"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason given for the correction"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "description": "Field label that changed"
+                },
+                "from": {
+                  "type": "string",
+                  "description": "Previous value"
+                },
+                "to": {
+                  "type": "string",
+                  "description": "New value"
+                }
+              }
+            },
+            "description": "Previous and new value of every field this correction changed"
+          }
+        }
+      },
+      "description": "Every correction made to this line \u2014 edited by, edited date and time, previous values and new values. The original recorded values are never lost."
     }
   },
   "required": [
