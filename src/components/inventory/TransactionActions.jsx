@@ -1,17 +1,22 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, Pencil } from 'lucide-react';
+import { ShieldCheck, Pencil, Eye } from 'lucide-react';
 
 /**
  * Actions cell for a recorded Stock In / Stock Out line — the same icon size,
  * spacing and hover behaviour used on the Inventory Items page.
  * Each action only appears when the user holds the matching permission.
  */
-export default function TransactionActions({ showWarranty, showEdit, onWarranty, onEdit }) {
-  if (!showWarranty && !showEdit) return <span className="text-muted-foreground">—</span>;
+export default function TransactionActions({ showView, showWarranty, showEdit, onView, onWarranty, onEdit }) {
+  if (!showView && !showWarranty && !showEdit) return <span className="text-muted-foreground">—</span>;
 
   return (
     <div className="flex gap-1">
+      {showView && (
+        <Button size="icon" variant="ghost" className="h-7 w-7" title="View Details" onClick={onView}>
+          <Eye className="w-3.5 h-3.5 text-blue-600" />
+        </Button>
+      )}
       {showWarranty && (
         <Button size="icon" variant="ghost" className="h-7 w-7" title="Warranty Details" onClick={onWarranty}>
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

@@ -16,6 +16,8 @@ import StockOutFormModal from '@/components/inventory/StockOutFormModal';
 import StockOutEditDialog from '@/components/inventory/StockOutEditDialog';
 import TransactionActions from '@/components/inventory/TransactionActions';
 import WarrantyDetailsDialog from '@/components/inventory/WarrantyDetailsDialog';
+import DocumentDetailsDialog from '@/components/inventory/DocumentDetailsDialog';
+import { groupTransactionsIntoDocuments } from '@/lib/inventoryService';
 import { warrantiesForTransaction } from '@/lib/inventoryCorrections';
 import { useWarrantySetting } from '@/hooks/useWarrantySetting';
 import Pagination from '@/components/inventory/Pagination';
@@ -32,6 +34,7 @@ export default function StockOut() {
   const [editOpen, setEditOpen] = useState(false);
   const [warrantyTxn, setWarrantyTxn] = useState(null);
   const [warrantyOpen, setWarrantyOpen] = useState(false);
+  const [viewGroup, setViewGroup] = useState(null);
   const warningDays = useWarrantySetting();
   const queryClient = useQueryClient();
   const user = useCurrentUser();
@@ -65,6 +68,13 @@ export default function StockOut() {
 
   const employeeMap = useMemo(() => new Map(employees.map(e => [e.id, e])), [employees]);
   const itemMap = useMemo(() => new Map(items.map(i => [i.id, i])), [items]);
+
+  // The document (I/V) each recorded line belongs to — used by the View action
+  const docGroupByTxnId = useMemo(() => {
+    const map = new Map();
+    groupTransactionsIntoDocuments(transactions).forEach(g => g.lines.forEach(l => map.set(l.id, g)));
+    return map;
+  }, [transactions]);
 
   const categories = getLookupOptions('item_category');
   const units = getLookupOptions('unit');
@@ -414,8 +424,10 @@ export default function StockOut() {
                     <TableCell>{t.remarks || '—'}</TableCell>
                     <TableCell>
                       <TransactionActions
+                        showView={can('inventory.stock_out.view')}
                         showWarranty={can('inventory.warranty.view')}
                         showEdit={can('inventory.stock_out.edit')}
+                        onView={() => setViewGroup(docGroupByTxnId.get(t.id) || null)}
                         onWarranty={() => { setWarrantyTxn(t); setWarrantyOpen(true); }}
                         onEdit={() => { setEditTxn(t); setEditOpen(true); }}
                       />
@@ -477,6 +489,11 @@ export default function StockOut() {
         rows={warrantyTxn ? warrantiesForTransaction(warranties, warrantyTxn) : []}
         warningDays={warningDays}
       />
+
+      {/* Read-only view of the whole issue voucher this line was recorded under */}
+      {viewGroup && (
+        <DocumentDetailsDialog open onClose={() => setViewGroup(null)} group={viewGroup} />
+      )}
     </div>
   );
 }

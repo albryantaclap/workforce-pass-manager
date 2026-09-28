@@ -15,6 +15,8 @@ import StockInFormModal from '@/components/inventory/StockInFormModal';
 import StockInEditDialog from '@/components/inventory/StockInEditDialog';
 import TransactionActions from '@/components/inventory/TransactionActions';
 import WarrantyDetailsDialog from '@/components/inventory/WarrantyDetailsDialog';
+import DocumentDetailsDialog from '@/components/inventory/DocumentDetailsDialog';
+import { groupTransactionsIntoDocuments } from '@/lib/inventoryService';
 import { warrantiesForTransaction } from '@/lib/inventoryCorrections';
 import { useWarrantySetting } from '@/hooks/useWarrantySetting';
 import Pagination from '@/components/inventory/Pagination';
@@ -31,6 +33,7 @@ export default function StockIn() {
   const [editOpen, setEditOpen] = useState(false);
   const [warrantyTxn, setWarrantyTxn] = useState(null);
   const [warrantyOpen, setWarrantyOpen] = useState(false);
+  const [viewGroup, setViewGroup] = useState(null);
   const warningDays = useWarrantySetting();
   const queryClient = useQueryClient();
   const user = useCurrentUser();
@@ -60,6 +63,13 @@ export default function StockIn() {
 
   // Build item map for category join
   const itemMap = useMemo(() => new Map(items.map(i => [i.id, i])), [items]);
+
+  // The document (D/N) each recorded line belongs to — used by the View action
+  const docGroupByTxnId = useMemo(() => {
+    const map = new Map();
+    groupTransactionsIntoDocuments(transactions).forEach(g => g.lines.forEach(l => map.set(l.id, g)));
+    return map;
+  }, [transactions]);
 
   // Build recorded-by options from distinct created_by_name values
   const recordedByOptions = useMemo(() => {
@@ -304,8 +314,10 @@ export default function StockIn() {
                   <TableCell>{t.remarks || '—'}</TableCell>
                   <TableCell>
                     <TransactionActions
+                      showView={can('inventory.stock_in.view')}
                       showWarranty={can('inventory.warranty.view')}
                       showEdit={can('inventory.stock_in.edit')}
+                      onView={() => setViewGroup(docGroupByTxnId.get(t.id) || null)}
                       onWarranty={() => { setWarrantyTxn(t); setWarrantyOpen(true); }}
                       onEdit={() => { setEditTxn(t); setEditOpen(true); }}
                     />
@@ -365,6 +377,11 @@ export default function StockIn() {
         rows={warrantyTxn ? warrantiesForTransaction(warranties, warrantyTxn) : []}
         warningDays={warningDays}
       />
+
+      {/* Read-only view of the whole delivery note this line was recorded under */}
+      {viewGroup && (
+        <DocumentDetailsDialog open onClose={() => setViewGroup(null)} group={viewGroup} />
+      )}
     </div>
   );
 }
