@@ -229,22 +229,30 @@ export default function MasterList() {
     onError: () => toast({ title: 'Delete failed', variant: 'destructive' }),
   });
 
+  // Filter option lists follow the dataset of the tab in view, so the Inactive tab
+  // offers the companies / positions that actually exist among inactive personnel.
+  // The controls, layout and behaviour stay identical on every tab.
+  const optionSource = useMemo(
+    () => (activeTab === 'inactive' ? inactiveRoster : employees),
+    [activeTab, inactiveRoster, employees]
+  );
+
   const uniqueCompanies = useMemo(() => {
-    const vals = [...new Set(employees.map(e => e.company).filter(Boolean))].sort();
+    const vals = [...new Set(optionSource.map(e => e.company).filter(Boolean))].sort();
     return vals.map(v => { const c = COMPANIES.find(x => x.value === v); return { value: v, label: c ? c.label : v }; });
-  }, [employees]);
+  }, [optionSource]);
 
   // Cascading company options: when department is selected, only show companies with employees in that dept
   const cascadedCompanyOptions = useMemo(() => {
     if (departmentFilter.length === 0) return uniqueCompanies;
     const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
     const validCompanies = new Set(
-      employees
+      optionSource
         .filter(e => deptSet.has((e.department || '').trim().toLowerCase()))
         .map(e => (e.company || '').trim().toUpperCase())
     );
     return uniqueCompanies.filter(c => validCompanies.has(c.value.trim().toUpperCase()));
-  }, [uniqueCompanies, departmentFilter, employees]);
+  }, [uniqueCompanies, departmentFilter, optionSource]);
 
   // Reset company selections that are no longer valid after department filter changes
   useEffect(() => {
@@ -255,9 +263,9 @@ export default function MasterList() {
   }, [cascadedCompanyOptions]);
 
   const positions = useMemo(() => {
-    const pos = [...new Set(employees.map(e => e.designation_org_chart).filter(Boolean))].sort();
+    const pos = [...new Set(optionSource.map(e => e.designation_org_chart).filter(Boolean))].sort();
     return pos.map(p => ({ value: p, label: p }));
-  }, [employees]);
+  }, [optionSource]);
 
   // Cascade positions by company, department, gate pass status, and PID status
   const filteredPositions = useMemo(() => {
@@ -266,7 +274,7 @@ export default function MasterList() {
     const coSet = companyFilter.length > 0 ? new Set(companyFilter.map(c => c.trim().toUpperCase())) : null;
     const deptSet = departmentFilter.length > 0 ? new Set(departmentFilter.map(d => d.trim().toLowerCase())) : null;
     const seen = new Set();
-    return employees
+    return optionSource
       .filter(e => {
         if (!e.designation_org_chart) return false;
         if (coSet && !coSet.has((e.company || '').trim().toUpperCase())) return false;
@@ -279,7 +287,7 @@ export default function MasterList() {
       .filter(p => { if (seen.has(p)) return false; seen.add(p); return true; })
       .sort()
       .map(p => ({ value: p, label: p }));
-  }, [employees, companyFilter, departmentFilter, gpStatusFilter, pidStatusFilter]);
+  }, [optionSource, companyFilter, departmentFilter, gpStatusFilter, pidStatusFilter]);
 
   // Reset position when any parent filter changes; keep only valid selections
   useEffect(() => {
@@ -419,9 +427,9 @@ export default function MasterList() {
         </div>
       </div>
 
-      {activeTab !== 'inactive' && (
-      <>
-      {/* Filters — collapsible */}
+      {/* Filters — ONE shared collapsible section for every tab (All Personnel,
+          Active on Site, Onboarding and Inactive). It always sits ABOVE the tabs;
+          the Inactive tab filters its own dataset through these same controls. */}
       <Card className="p-4">
         <button
           type="button"
@@ -551,10 +559,8 @@ export default function MasterList() {
         </div>
       </Card>
 
-      {editMode && hasActiveFilters && filtered.length > 0 && (
+      {activeTab !== 'inactive' && editMode && hasActiveFilters && filtered.length > 0 && (
         <BulkEditBar fields={masterBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
-      )}
-      </>
       )}
 
       {/* Personnel Status Tabs — Active + Onboarding = Active on Site + Onboarding */}
@@ -573,7 +579,33 @@ export default function MasterList() {
 
       {/* Table — the Inactive tab renders its own list instead */}
       {activeTab === 'inactive' && canViewInactive ? (
-        <InactivePersonnelView status="Inactive" />
+        // The Inactive list filters through the same shared section rendered
+        // above, so the state is passed straight into the list component.
+        <InactivePersonnelView
+          status="Inactive"
+          filters={{
+            search,
+            companies: companyFilter,
+            positions: positionFilter,
+            departments: departmentFilter,
+            locations: locationFilter,
+            dirs: dirFilter,
+            rlic: rlicFilter,
+            medicals: medicalResultFilter,
+            trainings: trainingStatusFilter,
+            gatePasses: gpStatusFilter,
+            pidStatuses: pidStatusFilter,
+            campStatus: attendanceFilter,
+            managerIds: selectedManagerIds,
+            managers,
+            dates: {
+              trainingScheduledFrom, trainingScheduledTo,
+              trApprovedFrom: medicalTrApprovedFrom, trApprovedTo: medicalTrApprovedTo,
+              gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo,
+              pidIssueFrom, pidIssueTo,
+            },
+          }}
+        />
       ) : (
       <Card className="overflow-hidden">
         <div className="table-scroll-x">
