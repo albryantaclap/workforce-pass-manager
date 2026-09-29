@@ -1,12 +1,11 @@
 /**
  * Personnel Status — the single source of truth for a personnel record's
- * lifecycle status.
+ * PROJECT / EMPLOYMENT status.
  *
- * There is exactly ONE place a status lives: the Employee.personnel_status
+ * There is exactly ONE place this status lives: the Employee.personnel_status
  * field. Everything reads from it — Add / Edit Personnel, the Master List
- * tabs & filters, the Inactive / Demobilized page, reports and the workforce
- * pages — so a person can never be "Active on Site" on one page and
- * "Onboarding" on another.
+ * tabs & filters, the Inactive list, reports and the workforce pages — so a
+ * person can never be "Active on Site" on one page and "Onboarding" on another.
  *
  *   (unassigned)    → no status set yet. Newly added or imported personnel
  *                     land here as 'Onboarding'; the app NEVER assigns
@@ -16,12 +15,20 @@
  *                     automatic rule.
  *   Onboarding      → registered, still completing requirements (Medical,
  *                     Gate Pass, Training, Project ID, …). Never auto-promoted.
- *   Inactive        → not currently active / not on site.
- *   Demobilized     → demobilized from the project.
+ *   Inactive        → no longer connected/active on the project (resigned,
+ *                     terminated, end of contract, released, removed, other
+ *                     project separation). This is the MAIN status of a person
+ *                     who left the project.
  *
- * Personnel status is completely separate from Daily Attendance status:
- * an "Active on Site" person can still be Present / Absent / First In
- * Completed / etc. on any given day.
+ * 'Demobilized' is NOT a personnel status. It is a COMO Camp / accommodation
+ * status (see @/lib/campStatus): an Inactive person who was checked out of
+ * COMO Camp as part of demobilization. Demobilized ⊆ Inactive — a demobilized
+ * person stays Inactive and appears in both lists.
+ *
+ * Personnel status is completely separate from Daily Attendance status and
+ * from camp status: an "Active on Site" person can still be Present / Absent /
+ * First In Completed / etc. on any given day, and camp check-in / check-out
+ * never changes the personnel status on its own.
  */
 
 export const UNASSIGNED = '';
@@ -30,10 +37,16 @@ export const UNASSIGNED_LABEL = 'Unassigned';
 export const ACTIVE_ON_SITE = 'Active on Site';
 export const ONBOARDING = 'Onboarding';
 export const INACTIVE = 'Inactive';
+
+/**
+ * Legacy value only — the old model stored 'Demobilized' as a personnel status.
+ * It is never set by the app any more (demobilization is a camp status), and it
+ * always reads as INACTIVE.
+ */
 export const DEMOBILIZED = 'Demobilized';
 
-/** The four selectable statuses, in display order. */
-export const PERSONNEL_STATUSES = [ACTIVE_ON_SITE, ONBOARDING, INACTIVE, DEMOBILIZED];
+/** The selectable personnel statuses, in display order. */
+export const PERSONNEL_STATUSES = [ACTIVE_ON_SITE, ONBOARDING, INACTIVE];
 
 /**
  * Statuses that stay on the working roster. A record with one of these — or
@@ -83,7 +96,7 @@ export const PERSONNEL_STATUS_CONFIG = {
   },
   [DEMOBILIZED]: {
     label: DEMOBILIZED,
-    description: 'Demobilized from the project.',
+    description: 'Legacy status: demobilized personnel are Inactive with a Demobilized camp status.',
     selected: 'bg-orange-600 text-white border-orange-600',
     idle: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100',
     text: 'text-orange-600',
@@ -95,10 +108,13 @@ export const PERSONNEL_STATUS_CONFIG = {
  * Normalises a stored status to the current vocabulary.
  * A blank value — or a legacy 'Active' left over from the old model — reads as
  * unassigned, or as 'Inactive' when the record is already flagged
- * is_active = false. 'Active on Site' is never inferred: it only ever appears
- * because a person set it.
+ * is_active = false. The legacy personnel status 'Demobilized' reads as
+ * 'Inactive' (demobilization is a camp status, never a project status).
+ * 'Active on Site' is never inferred: it only ever appears because a person
+ * set it.
  */
 export const normalizeStatus = (status, isActiveFlag) => {
+  if (status === DEMOBILIZED) return INACTIVE;
   if (status && status !== 'Active') return status;
   return isActiveFlag === false ? INACTIVE : UNASSIGNED;
 };

@@ -20,7 +20,7 @@
     },
     "is_active": {
       "type": "boolean",
-      "description": "Derived roster flag kept in sync with personnel_status: true for 'Active on Site', 'Onboarding' and unassigned (they stay in the Master List), false for 'Inactive' and 'Demobilized' (they live on the Inactive / Demobilized page).",
+      "description": "Derived roster flag kept in sync with personnel_status: true for 'Active on Site', 'Onboarding' and unassigned (they stay in the Master List), false for 'Inactive' (they live in the Inactive list). Camp status never influences this flag.",
       "default": true
     },
     "personnel_status": {
@@ -33,7 +33,7 @@
         "Demobilized"
       ],
       "default": "Onboarding",
-      "description": "THE single source of truth for personnel status. Empty string ('') = Unassigned, no status set yet. 'Active on Site' = mobilized and actively working on the project/site and is ONLY ever set by a person, never automatically by the app or its imports. 'Onboarding' = registered but still completing requirements (Medical, Gate Pass, Training, Project ID) and the default for newly added or imported personnel; never auto-promoted when those complete. 'Inactive' = not currently active/on site. 'Demobilized' = demobilized from the project. Completely independent of Daily Attendance status, and never derived from Medical, Gate Pass, Training, Project ID or COMO Camp data."
+      "description": "THE single source of truth for the PROJECT / EMPLOYMENT status. Empty string ('') = Unassigned, no status set yet. 'Active on Site' = mobilized and actively working on the project/site and is ONLY ever set by a person, never automatically by the app or its imports. 'Onboarding' = registered but still completing requirements (Medical, Gate Pass, Training, Project ID) and the default for newly added or imported personnel; never auto-promoted when those complete. 'Inactive' = no longer connected/active on the project (resigned, terminated, end of contract, released, removed from project or other project separation) \u2014 the MAIN status of a person who left the project. Every demobilized person is also Inactive: demobilization is a COMO Camp status (see camp_status), never a personnel status, and it never removes a record from the Inactive list. Never derived from Daily Attendance, Medical, Gate Pass, Training, Project ID or COMO Camp data."
     },
     "status_effective_date": {
       "type": "string",
@@ -43,7 +43,11 @@
     "inactive_date": {
       "type": "string",
       "format": "date",
-      "description": "Date personnel became inactive"
+      "description": "Date personnel became inactive (first day of the current inactivity \u2014 never overwritten once set)"
+    },
+    "inactive_reason": {
+      "type": "string",
+      "description": "Reason the personnel left the project (resigned, terminated, end of contract, released by supplier, removed from project, other project separation)"
     },
     "last_working_date": {
       "type": "string",
@@ -52,7 +56,7 @@
     },
     "status_reason": {
       "type": "string",
-      "description": "Reason for status change (inactive/demobilized)"
+      "description": "Reason for the personnel status change (inactive)"
     },
     "status_remarks": {
       "type": "string",
@@ -60,17 +64,43 @@
     },
     "status_changed_by": {
       "type": "string",
-      "description": "Email of user who last changed the personnel status"
+      "description": "Email of user who last changed the personnel status or demobilized this person (Processed By)"
     },
     "status_changed_at": {
       "type": "string",
       "format": "date-time",
       "description": "Timestamp of last status change"
     },
+    "camp_status": {
+      "type": "string",
+      "enum": [
+        "",
+        "NOT_CHECKED_IN",
+        "INSIDE_CAMP",
+        "CHECKED_OUT",
+        "DEMOBILIZED"
+      ],
+      "description": "COMO Camp / ACCOMMODATION status \u2014 completely separate from personnel_status. NOT_CHECKED_IN = never stayed in camp (or no open stay recorded). INSIDE_CAMP = currently accommodated in COMO Camp. CHECKED_OUT = left the camp accommodation but is still connected to the project (personnel status unchanged). DEMOBILIZED = checked out of COMO Camp as part of demobilization from the project; the person is Inactive and therefore appears in BOTH the Inactive list and the Demobilized list."
+    },
+    "camp_check_in_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the most recent COMO Camp check-in (the full stay history lives on ComoCampStay)"
+    },
+    "camp_check_out_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the most recent COMO Camp check-out (the full stay history lives on ComoCampStay)"
+    },
+    "demobilized_at": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the current demobilization from COMO Camp / project"
+    },
     "demobilization_date": {
       "type": "string",
       "format": "date",
-      "description": "Demobilization date (for Demobilized status)"
+      "description": "Demobilization date \u2014 historical, never overwritten when other fields change"
     },
     "demobilization_reason": {
       "type": "string",

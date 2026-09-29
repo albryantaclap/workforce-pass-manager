@@ -19,13 +19,16 @@ import PrintReportButton from '@/components/common/PrintReportButton';
 import MultiSelect from '@/components/common/MultiSelect';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import SharepointDocIcon from '@/components/common/SharepointDocIcon';
-import SharedStatusChangeModal from '@/components/common/StatusChangeModal';
+import CheckOutDialog from '@/components/comocamp/CheckOutDialog';
+import ReactivateDialog from '@/components/inactive/ReactivateDialog';
 import { useLatestCampStays } from '@/hooks/useLatestCampStays';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
-import { ACTIVE_ON_SITE, isActiveRosterStatus } from '@/lib/personnelStatus';
+import { INACTIVE, resolvePersonnelStatus, isActiveRosterStatus } from '@/lib/personnelStatus';
+import { CAMP_STATUS, CAMP_STATUS_CONFIG, campStatusLabel, isDemobilized, isStayOpen, resolveCampStatus } from '@/lib/campStatus';
+import { demobilizeFromCamp } from '@/lib/campDemobilization';
 import { COMPANIES, LOCATIONS, MEDICAL_RESULTS, PID_STATUSES, computePassStatus, formatDate } from '@/utils/constants';
-import { formatDateTimeCompact } from '@/lib/attendanceUtils';
+import { calcDuration, formatDateTimeCompact } from '@/lib/attendanceUtils';
 
 const RETURN_CONTEXT_KEY = 'inactiveReturnContext';
 const PAGE_SIZE = 50;
@@ -47,11 +50,16 @@ export function useInactiveRoster() {
   return { employees: data, isLoading };
 }
 
-/** Rows for one status: Inactive (no status set counts as Inactive) or Demobilized. */
+/**
+ * Rows for one tab.
+ *   Inactive    → EVERY project-inactive person, whatever their camp status
+ *                 (never excludes the demobilized ones).
+ *   Demobilized → the SUBSET of Inactive that was demobilized from COMO Camp.
+ */
 export function statusList(employees, status) {
-  return status === 'Demobilized'
-    ? employees.filter(e => e.personnel_status === 'Demobilized')
-    : employees.filter(e => !e.personnel_status || e.personnel_status === 'Inactive');
+  const inactive = employees.filter(e => resolvePersonnelStatus(e) === INACTIVE);
+  if (status !== 'Demobilized') return inactive;
+  return inactive.filter(e => isDemobilized(e));
 }
 
 // ── Badges ────────────────────────────────────────────────────────────────────
@@ -190,26 +198,26 @@ function FilterPanel({ filters, setters, uniqueCompanies, positions, rlicStatusO
 }
 
 // ── Personnel Table ───────────────────────────────────────────────────────────
-function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, onStatusChange, onDelete, onEdit, latestByPersonnel }) {
-  const [modalState, setModalState] = useState({ open: false, emp: null, newStatus: null });
+function CampStatusBadge({ status }) {
+  if (!status || status === CAMP_STATUS.NOT_CHECKED_IN) return <span className="text-xs text-muted-foreground">—</span>;
+  const cfg = CAMP_STATUS_CONFIG[status];
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border whitespace-nowrap ${cfg.badge}`}>
+      {cfg.label}
+    </span>
+  );
+}
 
+function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, onReactivate, onDelete, onEdit, onDemobilize, latestByPersonnel }) {
   const totalPages = Math.ceil(rows.length / PAGE_SIZE);
   const pagedRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  const openModal = (emp, newStatus) => setModalState({ open: true, emp, newStatus });
-  const closeModal = () => setModalState({ open: false, emp: null, newStatus: null });
-
-  const dateColLabel = tabType === 'inactive' ? 'Inactive Date' : 'Demobilization Date';
+  const isInactiveTab = tabType === 'inactive';
+  const dateColLabel = isInactiveTab ? 'Inactive Date' : 'Demobilization Date';
+  const columnCount = isInactiveTab ? 14 : 16;
 
   return (
     <>
-      <SharedStatusChangeModal
-        open={modalState.open}
-        onClose={closeModal}
-        emp={modalState.emp}
-        newStatus={modalState.newStatus}
-        onConfirm={onStatusChange}
-      />
       <Card className="overflow-hidden">
         <div className="table-scroll-x">
           <div className="table-scroll-y h-[560px]">
@@ -223,6 +231,7 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                   <TableHead className="text-[11px] bg-muted/50 w-32">Company</TableHead>
                   <TableHead className="text-[11px] bg-muted/50 w-44">Designation / Position</TableHead>
                   <TableHead className="text-[11px] bg-muted/50 w-28">{dateColLabel}</TableHead>
+                  {isInactiveTab && <TableHead className="text-[11px] bg-muted/50 w-24">Camp Status</TableHead>}
                   <TableHead className="text-[11px] bg-muted/50 w-20">Medical</TableHead>
                   <TableHead className="text-[11px] bg-muted/50 w-20">Gate Pass</TableHead>
                   <TableHead className="text-[11px] bg-muted/50 w-20">Training</TableHead>
@@ -241,11 +250,11 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
               <TableBody>
                 {isLoading ? (
                   Array(5).fill(0).map((_, i) => (
-                    <TableRow key={i}>{Array(tabType === 'demobilized' ? 16 : 13).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                    <TableRow key={i}>{Array(columnCount).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                   ))
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={tabType === 'demobilized' ? 16 : 13} className="text-center py-14">
+                    <TableCell colSpan={columnCount} className="text-center py-14">
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <UserCheck className="w-8 h-8 text-green-500" />
                         <p className="font-medium">{tabType === 'inactive' ? 'No inactive personnel' : 'No demobilized personnel'}</p>
@@ -254,8 +263,16 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                   </TableRow>
                 ) : (
                   pagedRows.map(emp => {
-                    const statusDate = tabType === 'inactive' ? emp.inactive_date || emp.status_effective_date : emp.demobilization_date;
-                    const stay = tabType === 'demobilized' ? latestByPersonnel?.get(emp.id) : null;
+                    const stay = latestByPersonnel?.get(emp.id);
+                    const statusDate = isInactiveTab ? (emp.inactive_date || emp.status_effective_date) : emp.demobilization_date;
+                    const campStatus = resolveCampStatus(emp, stay);
+                    const demobilized = isDemobilized(emp);
+                    // "Demobilize from COMO" is offered only to an Inactive person who is
+                    // still recorded inside COMO Camp and is not demobilized yet.
+                    const canDemobilizeFromCamp = isInactiveTab && !demobilized && isStayOpen(stay);
+                    const reasonText = isInactiveTab
+                      ? (emp.inactive_reason || emp.status_reason || emp.status_remarks)
+                      : (emp.demobilization_reason || emp.status_reason || emp.status_remarks);
                     return (
                       <TableRow key={emp.id} className="hover:bg-muted/30">
                         <TableCell className="p-2"><PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size={8} /></TableCell>
@@ -265,6 +282,7 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                         <TableCell className="text-xs whitespace-nowrap">{emp.company}</TableCell>
                         <TableCell className="text-xs whitespace-nowrap">{emp.designation_org_chart || emp.position_application || '—'}</TableCell>
                         <TableCell className="text-xs whitespace-nowrap">{formatDate(statusDate) || '—'}</TableCell>
+                        {isInactiveTab && <TableCell className="whitespace-nowrap"><CampStatusBadge status={campStatus} /></TableCell>}
                         <TableCell><MedicalBadge result={emp.ftw_result} /></TableCell>
                         <TableCell><GatePassBadge emp={emp} /></TableCell>
                         <TableCell>
@@ -280,8 +298,8 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                             <TableCell className="whitespace-nowrap"><CampDateTime iso={stay?.check_out_at} /></TableCell>
                           </>
                         )}
-                        <TableCell className="text-[11px] max-w-[160px] truncate" title={emp.status_reason || emp.status_remarks || ''}>
-                          {emp.status_reason || emp.status_remarks || <span className="text-muted-foreground">—</span>}
+                        <TableCell className="text-[11px] max-w-[160px] truncate" title={reasonText || ''}>
+                          {reasonText || <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="text-right whitespace-nowrap p-1">
                           <div className="flex items-center justify-end gap-1 flex-nowrap whitespace-nowrap">
@@ -289,20 +307,30 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
                               <Button variant="ghost" size="icon" className="h-6 w-6"><Eye className="w-3.5 h-3.5" /></Button>
                             </Link>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit(emp)}><Pencil className="w-3.5 h-3.5" /></Button>
-                            {/* Cross-status button */}
-                            <Button
-                              variant="outline" size="sm"
-                              className="text-[11px] h-6 px-1.5 gap-0.5 text-slate-600"
-                              onClick={() => openModal(emp, tabType === 'inactive' ? 'Demobilized' : 'Inactive')}
-                            >
-                              <ArrowLeftRight className="w-3 h-3" />
-                              {tabType === 'inactive' ? 'Demobilize' : 'Mark Inactive'}
-                            </Button>
-                            {/* Reactivate */}
+                            {/* Demobilization — COMO Camp action of an Inactive person.
+                                Never available without a camp stay; demobilized personnel
+                                show a status badge instead. */}
+                            {isInactiveTab && (
+                              demobilized ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-orange-50 text-orange-700 border-orange-200 whitespace-nowrap">
+                                  Demobilized
+                                </span>
+                              ) : canDemobilizeFromCamp ? (
+                                <Button
+                                  variant="outline" size="sm"
+                                  className="text-[11px] h-6 px-1.5 gap-0.5 text-orange-700 border-orange-200 hover:bg-orange-50"
+                                  onClick={() => onDemobilize(emp, stay)}
+                                  title="Still inside COMO Camp — check out and demobilize"
+                                >
+                                  <ArrowLeftRight className="w-3 h-3" /> Demobilize from COMO
+                                </Button>
+                              ) : null
+                            )}
+                            {/* Reactivate — personnel / project status only */}
                             <Button
                               size="sm"
                               className="text-[11px] h-6 px-1.5 gap-0.5 bg-green-600 hover:bg-green-700 text-white"
-                              onClick={() => openModal(emp, ACTIVE_ON_SITE)}
+                              onClick={() => onReactivate(emp)}
                             >
                               <UserCheck className="w-3.5 h-3.5" /> Reactivate
                             </Button>
@@ -380,6 +408,8 @@ export default function InactivePersonnelView({ status = 'Inactive' }) {
   const [gatePassFilter, setGatePassFilter] = useState([]);
   const [pidStatusFilter, setPidStatusFilter] = useState('all');
   const [page, setPage] = useState(0);
+  const [reactivateDialog, setReactivateDialog] = useState({ open: false, emp: null });
+  const [demobilizeDialog, setDemobilizeDialog] = useState({ open: false, emp: null, record: null });
 
   // Restore the list state saved before opening Edit (filters, page, scroll).
   useEffect(() => {
@@ -458,22 +488,19 @@ export default function InactivePersonnelView({ status = 'Inactive' }) {
     navigate(`/employees/${emp.id}/edit?section=${section}`);
   };
 
-  // ── Status change (Inactive ↔ Demobilized, either → Active on Site) ──
-  const statusChangeMutation = useMutation({
-    mutationFn: ({ emp, newStatus, effectiveDate, lastWorkingDate, reason }) => {
-      const updates = {
-        personnel_status: newStatus,
-        is_active: isActiveRosterStatus(newStatus),
-        status_effective_date: effectiveDate,
-        status_reason: reason || '',
-        status_changed_by: currentUser?.email || 'unknown',
-        status_changed_at: new Date().toISOString(),
-      };
-      if (lastWorkingDate) updates.last_working_date = lastWorkingDate;
-      if (newStatus === 'Inactive') updates.inactive_date = effectiveDate;
-      if (newStatus === 'Demobilized') updates.demobilization_date = effectiveDate;
-      return base44.entities.Employee.update(emp.id, updates);
-    },
+  // ── Reactivate — personnel / project status ONLY ──
+  // Returns the person to the working roster (Active on Site / Onboarding).
+  // Camp accommodation is never touched: a previous demobilization stays in
+  // history and a new camp stay is a separate COMO Camp check-in.
+  const reactivateMutation = useMutation({
+    mutationFn: ({ emp, newStatus, effectiveDate, reason }) => base44.entities.Employee.update(emp.id, {
+      personnel_status: newStatus,
+      is_active: isActiveRosterStatus(newStatus),
+      status_effective_date: effectiveDate || '',
+      status_reason: reason || '',
+      status_changed_by: currentUser?.email || 'unknown',
+      status_changed_at: new Date().toISOString(),
+    }),
     onSuccess: async (_, { emp, newStatus, effectiveDate, reason }) => {
       await base44.entities.ActivityLog.create({
         action: 'update', entity_name: 'Employee', entity_id: emp.id,
@@ -485,6 +512,7 @@ export default function InactivePersonnelView({ status = 'Inactive' }) {
           new_status: newStatus,
           effective_date: effectiveDate,
           reason: reason || '',
+          camp_status_kept: resolveCampStatus(emp),
           updated_by: currentUser?.full_name || currentUser?.email || 'unknown',
           updated_at: new Date().toISOString(),
         },
@@ -492,10 +520,56 @@ export default function InactivePersonnelView({ status = 'Inactive' }) {
       queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
       queryClient.invalidateQueries({ queryKey: ['employees-active'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
-      const msg = newStatus === ACTIVE_ON_SITE ? `${emp.name} returned to the active roster as Active on Site.` : `${emp.name} moved to ${newStatus}.`;
-      toast({ title: `Status updated to ${newStatus}`, description: msg });
+      toast({
+        title: 'Personnel reactivated',
+        description: `${emp.name} is back on the roster as ${newStatus}. Camp accommodation was not changed.`,
+      });
     },
-    onError: () => toast({ title: 'Status change failed', variant: 'destructive' }),
+    onError: () => toast({ title: 'Reactivation failed', variant: 'destructive' }),
+  });
+
+  // ── Demobilize from COMO Camp (Inactive person still inside camp) ──
+  // Closes the camp stay, keeps the personnel status Inactive and sets the camp
+  // status Demobilized — the person stays in the Inactive list AND appears under
+  // Demobilized. Camp history and every other field are preserved.
+  const demobilizeMutation = useMutation({
+    mutationFn: async ({ emp, record, at, reason }) => {
+      const outIso = at.toISOString();
+      const duration = record?.check_in_at ? calcDuration(record.check_in_at, outIso) : 0;
+      if (record) {
+        await base44.entities.ComoCampStay.update(record.id, {
+          check_out_at: outIso, duration_minutes: duration, status: 'completed',
+          checked_out_by: currentUser?.email || '', checked_out_by_name: currentUser?.full_name || '',
+        });
+      }
+      await demobilizeFromCamp({ emp, checkOutAt: outIso, reason, user: currentUser });
+      await base44.entities.ActivityLog.create({
+        action: 'update', entity_name: 'Employee', entity_id: emp.id,
+        performed_by: currentUser?.email || 'unknown',
+        record_name: emp.name,
+        changed_fields: ['camp_status', 'personnel_status'],
+        record_snapshot: {
+          action_type: 'Demobilize from COMO Camp',
+          camp_check_out_at: outIso,
+          personnel_status: 'Inactive',
+          camp_status: CAMP_STATUS.DEMOBILIZED,
+          reason: reason || '',
+          updated_by: currentUser?.full_name || currentUser?.email || 'unknown',
+          updated_at: new Date().toISOString(),
+        },
+      });
+    },
+    onSuccess: (_, { emp }) => {
+      queryClient.invalidateQueries({ queryKey: ['camp-stays'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      toast({
+        title: 'Demobilized from COMO Camp',
+        description: `${emp.name} stays Inactive and now also appears under Demobilized.`,
+      });
+    },
+    onError: () => toast({ title: 'Demobilization failed', variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
@@ -621,9 +695,30 @@ export default function InactivePersonnelView({ status = 'Inactive' }) {
         totalCount={allRows.length}
         tabType={tabType}
         latestByPersonnel={latestByPersonnel}
-        onStatusChange={(args) => statusChangeMutation.mutate(args)}
+        onReactivate={(emp) => setReactivateDialog({ open: true, emp })}
+        onDemobilize={(emp, record) => setDemobilizeDialog({ open: true, emp, record })}
         onDelete={(emp) => deleteMutation.mutate(emp)}
         onEdit={goToEdit}
+      />
+
+      <ReactivateDialog
+        open={reactivateDialog.open}
+        emp={reactivateDialog.emp}
+        onClose={() => setReactivateDialog({ open: false, emp: null })}
+        onConfirm={(args) => reactivateMutation.mutate(args)}
+      />
+
+      <CheckOutDialog
+        open={demobilizeDialog.open}
+        emp={demobilizeDialog.emp}
+        record={demobilizeDialog.record}
+        mode="demobilize"
+        onClose={() => setDemobilizeDialog({ open: false, emp: null, record: null })}
+        onConfirm={(record, at, { reason }) => {
+          const emp = demobilizeDialog.emp;
+          setDemobilizeDialog({ open: false, emp: null, record: null });
+          demobilizeMutation.mutate({ emp, record, at, reason });
+        }}
       />
     </div>
   );
