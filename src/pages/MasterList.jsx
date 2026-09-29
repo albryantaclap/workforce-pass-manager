@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import PersonnelStatusTabs from '@/components/master/PersonnelStatusTabs';
+import PillTabsBar from '@/components/common/PillTabsBar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, UserX, LogOut, HardHat, UserPlus, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
@@ -542,8 +542,8 @@ export default function MasterList() {
       )}
 
       {/* Personnel Status Tabs — Active + Onboarding = Active on Site + Onboarding */}
-      <PersonnelStatusTabs
-        activeTab={activeTab}
+      <PillTabsBar
+        activeKey={activeTab}
         onChange={(key) => { setActiveTab(key); setPage(0); }}
         tabs={[
           { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
