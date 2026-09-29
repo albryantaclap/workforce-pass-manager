@@ -546,7 +546,7 @@ export default function MasterList() {
         activeTab={activeTab}
         onChange={(key) => { setActiveTab(key); setPage(0); }}
         tabs={[
-          { key: 'all', label: 'Active + Onboarding', count: filtered.length, icon: null, color: '' },
+          { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
           { key: 'active_on_site', label: 'Active on Site', count: activeOnSiteList.length, icon: HardHat, color: 'text-emerald-600' },
           { key: 'onboarding', label: 'Onboarding', count: onboardingList.length, icon: UserPlus, color: 'text-indigo-600' },
         ]}
