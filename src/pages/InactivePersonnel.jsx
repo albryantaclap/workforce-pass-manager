@@ -4,7 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { PillTabsList, PillTabsTrigger } from '@/components/common/PillTabsList';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, UserCheck, UserX, Eye, Pencil, X, Trash2, ArrowLeftRight } from 'lucide-react';
@@ -625,18 +626,14 @@ export default function InactivePersonnel() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex items-center justify-between mb-3">
-          <TabsList>
-            <TabsTrigger value="inactive" className="gap-2">
-              <UserX className="w-3.5 h-3.5" />
+          <PillTabsList>
+            <PillTabsTrigger value="inactive" icon={UserX} iconClass="text-red-600" count={filteredInactive.length}>
               Inactive
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold">{filteredInactive.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="demobilized" className="gap-2">
-              <ArrowLeftRight className="w-3.5 h-3.5" />
+            </PillTabsTrigger>
+            <PillTabsTrigger value="demobilized" icon={ArrowLeftRight} iconClass="text-orange-600" count={filteredDemobilized.length}>
               Demobilized
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-bold">{filteredDemobilized.length}</span>
-            </TabsTrigger>
-          </TabsList>
+            </PillTabsTrigger>
+          </PillTabsList>
         </div>
 
         <TabsContent value="inactive">

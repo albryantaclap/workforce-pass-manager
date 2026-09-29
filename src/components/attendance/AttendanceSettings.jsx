@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Edit2, X, Clock, Calendar, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
 import ShiftAssignEmployees from './ShiftAssignEmployees';
 import { useAttendanceEmployees } from '@/hooks/useAttendanceEmployees';
+import PillTabsBar from '@/components/common/PillTabsBar';
 
 const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -33,16 +34,7 @@ export default function AttendanceSettings({ settings, shifts, assignments, holi
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 border-b border-border overflow-x-auto">
-        {SETTINGS_TABS.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={cn('flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap',
-              activeTab === tab.key ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-muted-foreground hover:text-foreground')}>
-            <tab.icon className="w-3.5 h-3.5" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <PillTabsBar size="compact" activeKey={activeTab} onChange={setActiveTab} tabs={SETTINGS_TABS} />
 
       {activeTab === 'working-days' && <WorkingDaysSettings settings={settings} canEdit={canEdit} />}
       {activeTab === 'working-hours' && <WorkingHoursSettings settings={settings} canEdit={canEdit} />}

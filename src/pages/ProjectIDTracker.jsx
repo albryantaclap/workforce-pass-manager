@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, BadgeCheck, ShieldCheck, Eye, Pencil, PencilLine, X as XIcon } from 'lucide-react';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { PillTabsList, PillTabsTrigger } from '@/components/common/PillTabsList';
+import PillTabsBar from '@/components/common/PillTabsBar';
+import { Search, BadgeCheck, ShieldCheck, Eye, Pencil, PencilLine, X as XIcon, LayoutDashboard, List } from 'lucide-react';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
 import SharepointDocIcon from '../components/common/SharepointDocIcon';
 import { Link } from 'react-router-dom';
@@ -305,10 +307,10 @@ export default function ProjectIDTracker() {
       />
 
       <Tabs defaultValue="list">
-        <TabsList>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="list">List</TabsTrigger>
-        </TabsList>
+        <PillTabsList>
+          <PillTabsTrigger value="dashboard" icon={LayoutDashboard}>Dashboard</PillTabsTrigger>
+          <PillTabsTrigger value="list" icon={List}>List</PillTabsTrigger>
+        </PillTabsList>
 
         <TabsContent value="dashboard" className="space-y-4 mt-4">
           {/* Combined Valid + Soon banner */}
@@ -421,37 +423,17 @@ export default function ProjectIDTracker() {
 
         <TabsContent value="list" className="space-y-4 mt-4">
           {/* Expiry Tabs */}
-          <div className="flex justify-center border-b overflow-x-auto">
-            <div className="flex items-center">
-              {[
-                { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
-                { key: 'gp_soon', label: 'Gate Pass Soon', count: gpSoonList.length, icon: ShieldCheck, color: 'text-amber-600' },
-                { key: 'gp_expired', label: 'Gate Pass Expired', count: gpExpiredList.length, icon: ShieldCheck, color: 'text-red-600' },
-                { key: 'pid_soon', label: 'PID Soon', count: pidSoonList.length, icon: BadgeCheck, color: 'text-amber-600' },
-                { key: 'pid_expired', label: 'PID Expired', count: pidExpiredList.length, icon: BadgeCheck, color: 'text-red-600' },
-              ].map(tab => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => { setActiveTab(tab.key); setPage(0); }}
-                    className={`flex items-center gap-2 px-6 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${
-                      isActive
-                        ? 'border-primary text-primary bg-primary/5'
-                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
-                    }`}
-                  >
-                    {Icon && <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : tab.color}`} />}
-                    {tab.label}
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                    }`}>{tab.count}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <PillTabsBar
+            activeKey={activeTab}
+            onChange={(key) => { setActiveTab(key); setPage(0); }}
+            tabs={[
+              { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
+              { key: 'gp_soon', label: 'Gate Pass Soon', count: gpSoonList.length, icon: ShieldCheck, color: 'text-amber-600' },
+              { key: 'gp_expired', label: 'Gate Pass Expired', count: gpExpiredList.length, icon: ShieldCheck, color: 'text-red-600' },
+              { key: 'pid_soon', label: 'PID Soon', count: pidSoonList.length, icon: BadgeCheck, color: 'text-amber-600' },
+              { key: 'pid_expired', label: 'PID Expired', count: pidExpiredList.length, icon: BadgeCheck, color: 'text-red-600' },
+            ]}
+          />
           <Card className="p-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">

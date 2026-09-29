@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { PillTabsList, PillTabsTrigger } from '@/components/common/PillTabsList';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -83,11 +84,11 @@ export default function Forms() {
 
       {/* Form tabs */}
       <Tabs defaultValue="transmittal">
-        <TabsList className="no-print">
-          <TabsTrigger value="transmittal">Transmittal Form</TabsTrigger>
-          <TabsTrigger value="mobilization">Mobilization Form</TabsTrigger>
-          <TabsTrigger value="training">Training Passport</TabsTrigger>
-        </TabsList>
+        <PillTabsList className="no-print">
+          <PillTabsTrigger value="transmittal">Transmittal Form</PillTabsTrigger>
+          <PillTabsTrigger value="mobilization">Mobilization Form</PillTabsTrigger>
+          <PillTabsTrigger value="training">Training Passport</PillTabsTrigger>
+        </PillTabsList>
 
         <TabsContent value="transmittal">
           <TransmittalFormTab selectedPersonnel={selectedPersonnel} />

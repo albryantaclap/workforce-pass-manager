@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, ShieldCheck, Eye, Pencil, Upload, PencilLine, X as XIcon } from 'lucide-react';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { PillTabsList, PillTabsTrigger } from '@/components/common/PillTabsList';
+import { Search, ShieldCheck, Eye, Pencil, Upload, PencilLine, X as XIcon, LayoutDashboard, List } from 'lucide-react';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
 import SharepointDocIcon from '../components/common/SharepointDocIcon';
 import { Link } from 'react-router-dom';
@@ -263,10 +264,10 @@ export default function GatepassTracker() {
       />
 
       <Tabs defaultValue="list">
-        <TabsList>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="list">List</TabsTrigger>
-        </TabsList>
+        <PillTabsList>
+          <PillTabsTrigger value="dashboard" icon={LayoutDashboard}>Dashboard</PillTabsTrigger>
+          <PillTabsTrigger value="list" icon={List}>List</PillTabsTrigger>
+        </PillTabsList>
 
         <TabsContent value="dashboard" className="space-y-4 mt-4">
           {/* Combined Valid + Soon banner */}

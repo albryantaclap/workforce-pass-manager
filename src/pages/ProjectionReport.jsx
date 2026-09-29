@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { PillTabsList, PillTabsTrigger } from '@/components/common/PillTabsList';
 import { Printer, X, FileText, RefreshCw, Search, Download, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { exportGatepassExcel } from '@/utils/exportGatepassExcel';
 import { computePassStatus, COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, normalizeDate } from '@/utils/constants';
@@ -1128,11 +1129,11 @@ export default function ProjectionReport() {
       </Card>
 
       <Tabs defaultValue="gatepass" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="gatepass">Gatepass Daily Report Update</TabsTrigger>
-          <TabsTrigger value="onboarding">Onboarding Monitoring</TabsTrigger>
-          <TabsTrigger value="approved">Approved List</TabsTrigger>
-        </TabsList>
+        <PillTabsList className="mb-4">
+          <PillTabsTrigger value="gatepass">Gatepass Daily Report Update</PillTabsTrigger>
+          <PillTabsTrigger value="onboarding">Onboarding Monitoring</PillTabsTrigger>
+          <PillTabsTrigger value="approved">Approved List</PillTabsTrigger>
+        </PillTabsList>
 
         <TabsContent value="approved">
           <ApprovedList />

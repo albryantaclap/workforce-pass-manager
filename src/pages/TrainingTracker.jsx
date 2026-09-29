@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { PillTabsList, PillTabsTrigger } from '@/components/common/PillTabsList';
 import { Search, GraduationCap, Eye, Pencil } from 'lucide-react';
 import TrainingRequestForm from './TrainingRequestForm';
 import TrainingRequestLogs from './TrainingRequestLogs';
@@ -210,13 +211,13 @@ export default function TrainingTracker() {
       />
 
       <Tabs defaultValue="list">
-        <TabsList>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="list">List</TabsTrigger>
-          <TabsTrigger value="request">Training Request</TabsTrigger>
-          <TabsTrigger value="logs">Request Logs</TabsTrigger>
-          <TabsTrigger value="ongoing">Ongoing Training</TabsTrigger>
-        </TabsList>
+        <PillTabsList>
+          <PillTabsTrigger value="dashboard">Dashboard</PillTabsTrigger>
+          <PillTabsTrigger value="list">List</PillTabsTrigger>
+          <PillTabsTrigger value="request">Training Request</PillTabsTrigger>
+          <PillTabsTrigger value="logs">Request Logs</PillTabsTrigger>
+          <PillTabsTrigger value="ongoing">Ongoing Training</PillTabsTrigger>
+        </PillTabsList>
 
         <TabsContent value="dashboard" className="space-y-4 mt-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

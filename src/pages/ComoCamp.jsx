@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { useManagerFilter } from '@/hooks/useManagerFilter';
 import WorkforceSubmenuNav from '@/components/common/WorkforceSubmenuNav';
+import PillTabsBar from '@/components/common/PillTabsBar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -1105,24 +1106,14 @@ export default function ComoCamp() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b">
-        <button
-          onClick={() => switchTab('all')}
-          disabled={editMode}
-          className={cn('px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-            !isComo ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}
-        >
-          All Locations <span className="ml-1 text-xs font-semibold">({employees.length})</span>
-        </button>
-        <button
-          onClick={() => switchTab('como')}
-          disabled={editMode}
-          className={cn('px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-            isComo ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}
-        >
-          COMO Camp <span className="ml-1 text-xs font-semibold">({comoEmployees.length})</span>
-        </button>
-      </div>
+      <PillTabsBar
+        activeKey={activeTab}
+        onChange={switchTab}
+        tabs={[
+          { key: 'all', label: 'All Locations', count: employees.length, disabled: editMode },
+          { key: 'como', label: 'COMO Camp', count: comoEmployees.length, disabled: editMode },
+        ]}
+      />
 
       {/* View toggle */}
       <div className="flex items-center gap-1 p-1 bg-muted/40 rounded-lg w-fit">
