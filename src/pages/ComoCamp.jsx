@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save, Check, LayoutDashboard, List, FileSpreadsheet, Printer, FileText, History } from 'lucide-react';
+import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save, Check, LayoutDashboard, List, FileSpreadsheet, Printer, FileText, History, ArrowLeftRight } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import FilterToolbar from '@/components/common/FilterToolbar';
@@ -50,6 +50,8 @@ import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { buildRankMap, applyReportSorting } from '../components/dashboard/reportSorting';
 import { cn } from '@/lib/utils';
+import { useRbac } from '@/lib/useRbac';
+import InactivePersonnelView, { useInactiveRoster, statusList, readReturnContext } from '@/components/inactive/InactivePersonnelView';
 
 const STORAGE_KEY = 'comocamp_filters';
 const SCROLL_KEY = 'comocamp_scroll';
@@ -124,7 +126,14 @@ export default function ComoCamp() {
   const { toast } = useToast();
 
   const saved = useMemo(() => loadFilters(), []);
-  const [activeTab, setActiveTab] = useState('como');
+  const [activeTab, setActiveTab] = useState(() => readReturnContext()?.tab === 'demobilized' ? 'demobilized' : 'como');
+
+  // Demobilized personnel — shown in the Demobilized tab beside COMO Camp
+  // (permission: Inactive / Demobilized → View)
+  const { canView } = useRbac();
+  const canViewInactive = canView('workforce.inactive');
+  const { employees: inactiveRoster } = useInactiveRoster();
+  const demobilizedCount = useMemo(() => statusList(inactiveRoster, 'Demobilized').length, [inactiveRoster]);
   const [view, setView] = useState('dashboard');
   const [searchInput, setSearchInput] = useState(saved.search || '');
   const [search, setSearch] = useState(saved.search || '');
@@ -1087,7 +1096,7 @@ export default function ComoCamp() {
               <Button variant="outline" onClick={() => setShowReportConfig(true)} className="gap-1.5 rounded-full bg-muted/40 hover:bg-muted/60">
                 <FileText className="w-3.5 h-3.5" /> Report Configuration
               </Button>
-              {view === 'list' && (
+              {view === 'list' && activeTab !== 'demobilized' && (
                 <>
                   <ExportButton getData={getExportData} filename={exportFilename} />
                   <PrintReportButton
@@ -1112,9 +1121,16 @@ export default function ComoCamp() {
         tabs={[
           { key: 'all', label: 'All Locations', count: employees.length, disabled: editMode },
           { key: 'como', label: 'COMO Camp', count: comoEmployees.length, disabled: editMode },
+          ...(canViewInactive
+            ? [{ key: 'demobilized', label: 'Demobilized', count: demobilizedCount, icon: ArrowLeftRight, color: 'text-orange-600', disabled: editMode }]
+            : []),
         ]}
       />
 
+      {activeTab === 'demobilized' && canViewInactive ? (
+        <InactivePersonnelView status="Demobilized" />
+      ) : (
+      <>
       {/* View toggle */}
       <div className="flex items-center gap-1 p-1 bg-muted/40 rounded-lg w-fit">
         <button
@@ -1417,6 +1433,8 @@ export default function ComoCamp() {
           )}
         </div>
       </Card>
+      )}
+      </>
       )}
 
       <Dialog open={bulkLocDialog.open} onOpenChange={(o) => setBulkLocDialog(s => ({ ...s, open: o }))}>

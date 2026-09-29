@@ -46,7 +46,6 @@ const navGroups = [
       { label: 'Project ID', path: '/project-id', icon: BadgeCheck },
       { label: 'Training', path: '/training', icon: GraduationCap },
       { label: 'COMO Camp', path: '/como-camp', icon: Tent },
-      { label: 'Inactive / Demobilized', path: '/inactive', icon: UserX },
       { label: 'Reports', path: '/projection', icon: TrendingUp },
     ],
   },

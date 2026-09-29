@@ -34,6 +34,8 @@ import BulkEditBar from '../components/common/BulkEditBar';
 import { ACTIVE_ON_SITE, ONBOARDING, INACTIVE, DEMOBILIZED, isActiveRosterStatus, resolvePersonnelStatus, personnelStatusLabel } from '@/lib/personnelStatus';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
+import { useRbac } from '@/lib/useRbac';
+import InactivePersonnelView, { useInactiveRoster, statusList, readReturnContext } from '@/components/inactive/InactivePersonnelView';
 
 const STORAGE_KEY = 'masterlist_filters';
 
@@ -62,9 +64,9 @@ export default function MasterList() {
   const currentUser = useCurrentUser();
   const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
   const [editMode, setEditMode] = useState(false);
-  // Exactly three tabs. 'all' = Active on Site + Onboarding (the active roster).
-  // Inactive / Demobilized never appear here — they live on their own page.
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'active_on_site' | 'onboarding'
+  // 'all' = Active on Site + Onboarding (the active roster). The Inactive tab
+  // lists non-active personnel and restores itself after returning from Edit.
+  const [activeTab, setActiveTab] = useState(() => readReturnContext()?.tab === 'inactive' ? 'inactive' : 'all');
   const saved = useMemo(() => loadFilters(), []);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(saved.search || '');
@@ -131,6 +133,12 @@ export default function MasterList() {
     queryKey: ['employees-active'],
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000),
   });
+
+  // Inactive personnel — shown in the Inactive tab (permission: Inactive / Demobilized → View)
+  const { canView } = useRbac();
+  const canViewInactive = canView('workforce.inactive');
+  const { employees: inactiveRoster } = useInactiveRoster();
+  const inactiveCount = useMemo(() => statusList(inactiveRoster, 'Inactive').length, [inactiveRoster]);
 
   // Latest camp stay per personnel — camp/accommodation movement (ComoCampStay).
   // This is separate from work attendance (AttendanceRecord). The Master List
@@ -407,6 +415,8 @@ export default function MasterList() {
         </div>
       </div>
 
+      {activeTab !== 'inactive' && (
+      <>
       {/* Filters — collapsible */}
       <Card className="p-4">
         <button
@@ -540,6 +550,8 @@ export default function MasterList() {
       {editMode && hasActiveFilters && filtered.length > 0 && (
         <BulkEditBar fields={masterBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
       )}
+      </>
+      )}
 
       {/* Personnel Status Tabs — Active + Onboarding = Active on Site + Onboarding */}
       <PillTabsBar
@@ -549,10 +561,16 @@ export default function MasterList() {
           { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
           { key: 'active_on_site', label: 'Active on Site', count: activeOnSiteList.length, icon: HardHat, color: 'text-emerald-600' },
           { key: 'onboarding', label: 'Onboarding', count: onboardingList.length, icon: UserPlus, color: 'text-indigo-600' },
+          ...(canViewInactive
+            ? [{ key: 'inactive', label: 'Inactive', count: inactiveCount, icon: UserX, color: 'text-red-600' }]
+            : []),
         ]}
       />
 
-      {/* Table */}
+      {/* Table — the Inactive tab renders its own list instead */}
+      {activeTab === 'inactive' && canViewInactive ? (
+        <InactivePersonnelView status="Inactive" />
+      ) : (
       <Card className="overflow-hidden">
         <div className="table-scroll-x">
           <div className="table-scroll-y h-[560px]">
@@ -774,6 +792,7 @@ export default function MasterList() {
           )}
         </div>
       </Card>
+      )}
 
       <StatusChangeModal
         open={statusModal.open}

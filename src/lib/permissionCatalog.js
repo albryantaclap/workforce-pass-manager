@@ -53,7 +53,7 @@ export const PERMISSION_CATALOG = [
         { key: 'delete', label: 'Delete' },
         { key: 'export', label: 'Export' },
       ]},
-      { key: 'inactive', label: 'Inactive / Demobilized', path: '/inactive', actions: [
+      { key: 'inactive', label: 'Inactive / Demobilized', path: '/master-list', actions: [
         { key: 'view', label: 'View' },
         { key: 'edit', label: 'Edit' },
       ]},
@@ -332,7 +332,6 @@ export function getRoutePermissionKey(pathname, search = '') {
     '/project-id': 'workforce.project_id',
     '/training': 'workforce.training',
     '/como-camp': 'workforce.como_camp',
-    '/inactive': 'workforce.inactive',
     '/projection': 'workforce.reports',
     '/deleted-personnel': 'system.deleted_personnel',
     '/activity-log': 'system.activity_log',

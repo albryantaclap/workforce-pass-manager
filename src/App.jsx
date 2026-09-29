@@ -21,7 +21,6 @@ import AdminPanel from './pages/AdminPanel';
 import MedicalImport from './pages/MedicalImport';
 import MasterImport from './pages/MasterImport';
 import GatepassImport from './pages/GatepassImport';
-import InactivePersonnel from './pages/InactivePersonnel';
 import ProjectionReport from './pages/ProjectionReport';
 import DeletedPersonnel from './pages/DeletedPersonnel';
 import ActivityLog from './pages/ActivityLog';
@@ -93,7 +92,6 @@ const AuthenticatedApp = () => {
         <Route path="/medical/import" element={<MedicalImport />} />
         <Route path="/master-list/import" element={<MasterImport />} />
         <Route path="/gatepass/import" element={<GatepassImport />} />
-        <Route path="/inactive" element={<InactivePersonnel />} />
         <Route path="/projection" element={<ProjectionReport />} />
         <Route path="/deleted-personnel" element={<DeletedPersonnel />} />
         <Route path="/activity-log" element={<ActivityLog />} />

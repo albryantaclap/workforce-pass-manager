@@ -1,33 +1,58 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { Link, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { PillTabsList, PillTabsTrigger } from '@/components/common/PillTabsList';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, UserCheck, UserX, Eye, Pencil, X, Trash2, ArrowLeftRight } from 'lucide-react';
-import ExportButton from '../components/common/ExportButton';
-import PrintReportButton from '../components/common/PrintReportButton';
-import { Link, useNavigate } from 'react-router-dom';
+import { Search, UserCheck, Eye, Pencil, X, Trash2, ArrowLeftRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
-import { formatDate, computePassStatus, normalizeDate, COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, MEDICAL_RESULTS } from '@/utils/constants';
-import MultiSelect from '../components/common/MultiSelect';
-import PersonnelAvatar from '../components/common/PersonnelAvatar';
-import SharepointDocIcon from '../components/common/SharepointDocIcon';
-import { useLatestCampStays } from '@/hooks/useLatestCampStays';
-import { formatDateTimeCompact } from '@/lib/attendanceUtils';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
+import ExportButton from '@/components/common/ExportButton';
+import PrintReportButton from '@/components/common/PrintReportButton';
+import MultiSelect from '@/components/common/MultiSelect';
+import PersonnelAvatar from '@/components/common/PersonnelAvatar';
+import SharepointDocIcon from '@/components/common/SharepointDocIcon';
 import SharedStatusChangeModal from '@/components/common/StatusChangeModal';
-import { ACTIVE_ON_SITE, isActiveRosterStatus } from '@/lib/personnelStatus';
+import { useLatestCampStays } from '@/hooks/useLatestCampStays';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
+import { ACTIVE_ON_SITE, isActiveRosterStatus } from '@/lib/personnelStatus';
+import { COMPANIES, LOCATIONS, MEDICAL_RESULTS, PID_STATUSES, computePassStatus, formatDate } from '@/utils/constants';
+import { formatDateTimeCompact } from '@/lib/attendanceUtils';
+
+const RETURN_CONTEXT_KEY = 'inactiveReturnContext';
+const PAGE_SIZE = 50;
+
+/** Saved list context, used to return to the same list state after Edit. */
+export function readReturnContext() {
+  try {
+    const raw = sessionStorage.getItem(RETURN_CONTEXT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+/** Inactive / Demobilized roster — shared cache, also powers the host tab counts. */
+export function useInactiveRoster() {
+  const { data = [], isLoading } = useQuery({
+    queryKey: ['employees-inactive'],
+    queryFn: () => base44.entities.Employee.filter({ is_active: false }, '-created_date', 100000),
+  });
+  return { employees: data, isLoading };
+}
+
+/** Rows for one status: Inactive (no status set counts as Inactive) or Demobilized. */
+export function statusList(employees, status) {
+  return status === 'Demobilized'
+    ? employees.filter(e => e.personnel_status === 'Demobilized')
+    : employees.filter(e => !e.personnel_status || e.personnel_status === 'Inactive');
+}
 
 // ── Badges ────────────────────────────────────────────────────────────────────
 const medicalResultStyles = {
@@ -81,10 +106,6 @@ function CampDateTime({ iso }) {
   );
 }
 
-const PAGE_SIZE = 50;
-
-// StatusChangeModal is imported from @/components/common/StatusChangeModal
-
 // ── Filter Panel ──────────────────────────────────────────────────────────────
 function FilterPanel({ filters, setters, uniqueCompanies, positions, rlicStatusOptions, trainingStatusOptions, onClear }) {
   const { search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter } = filters;
@@ -107,7 +128,7 @@ function FilterPanel({ filters, setters, uniqueCompanies, positions, rlicStatusO
           <SelectTrigger><SelectValue placeholder="Department" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Departments</SelectItem>
-            {['Electrical','Mechanical','Civil','Services','Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+            {['Electrical', 'Mechanical', 'Civil', 'Services', 'Steel Structure'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={locationFilter} onValueChange={v => { setLocationFilter(v); setPage(0); }}>
@@ -192,35 +213,35 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
       <Card className="overflow-hidden">
         <div className="table-scroll-x">
           <div className="table-scroll-y h-[560px]">
-            <Table>
+            <Table className="table-list-view">
               <TableHeader className="sticky top-0 z-10">
                 <TableRow className="bg-muted/50">
-                 <TableHead className="text-[11px] bg-muted/50 w-10">Photo</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 w-8">Docs</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 w-44">Name</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 w-28">QID No</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 w-32">Company</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 w-44">Designation / Position</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 w-28">{dateColLabel}</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 w-20">Medical</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 w-20">Gate Pass</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 w-20">Training</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 w-20">PID Status</TableHead>
-                 {tabType === 'demobilized' && (
-                   <>
-                     <TableHead className="text-[11px] bg-muted/50 w-28">Location</TableHead>
-                     <TableHead className="text-[11px] bg-muted/50 w-28">Camp Check-in</TableHead>
-                     <TableHead className="text-[11px] bg-muted/50 w-28">Camp Check-out</TableHead>
-                   </>
-                 )}
-                 <TableHead className="text-[11px] bg-muted/50 w-44">Reason / Remarks</TableHead>
-                 <TableHead className="text-[11px] bg-muted/50 text-right w-[280px] min-w-[280px] whitespace-nowrap">Actions</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-10">Photo</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-8">Docs</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-44">Name</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-28">QID No</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-32">Company</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-44">Designation / Position</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-28">{dateColLabel}</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-20">Medical</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-20">Gate Pass</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-20">Training</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 w-20">PID Status</TableHead>
+                  {tabType === 'demobilized' && (
+                    <>
+                      <TableHead className="text-[11px] bg-muted/50 w-28">Location</TableHead>
+                      <TableHead className="text-[11px] bg-muted/50 w-28">Camp Check-in</TableHead>
+                      <TableHead className="text-[11px] bg-muted/50 w-28">Camp Check-out</TableHead>
+                    </>
+                  )}
+                  <TableHead className="text-[11px] bg-muted/50 w-44">Reason / Remarks</TableHead>
+                  <TableHead className="text-[11px] bg-muted/50 text-right w-[280px] min-w-[280px] whitespace-nowrap">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   Array(5).fill(0).map((_, i) => (
-                   <TableRow key={i}>{Array(tabType === 'demobilized' ? 16 : 13).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+                    <TableRow key={i}>{Array(tabType === 'demobilized' ? 16 : 13).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
                   ))
                 ) : rows.length === 0 ? (
                   <TableRow>
@@ -334,14 +355,19 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-export default function InactivePersonnel() {
+// ── Inactive / Demobilized list ───────────────────────────────────────────────
+// Self-contained list for one status. Rendered as a tab inside Master List
+// (status="Inactive") and COMO Camp (status="Demobilized").
+export default function InactivePersonnelView({ status = 'Inactive' }) {
+  const tabType = status === 'Demobilized' ? 'demobilized' : 'inactive';
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { rlicStatusOptions, trainingStatusOptions } = useLookupOptions();
   const currentUser = useCurrentUser();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('inactive');
+
+  const { employees, isLoading } = useInactiveRoster();
+  const { latestByPersonnel } = useLatestCampStays();
 
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState([]);
@@ -353,54 +379,40 @@ export default function InactivePersonnel() {
   const [trainingFilter, setTrainingFilter] = useState('all');
   const [gatePassFilter, setGatePassFilter] = useState([]);
   const [pidStatusFilter, setPidStatusFilter] = useState('all');
-  const [inactivePage, setInactivePage] = useState(0);
-  const [demobPage, setDemobPage] = useState(0);
+  const [page, setPage] = useState(0);
 
-  // Restore previously-saved list state (tab, pagination, filters, scroll) when returning from edit
+  // Restore the list state saved before opening Edit (filters, page, scroll).
   useEffect(() => {
-    const saved = sessionStorage.getItem('inactiveReturnContext');
-    if (!saved) return;
-    try {
-      const ctx = JSON.parse(saved);
-      if (ctx.tab === 'inactive' || ctx.tab === 'demobilized') setActiveTab(ctx.tab);
-      if (typeof ctx.inactivePage === 'number') setInactivePage(ctx.inactivePage);
-      if (typeof ctx.demobPage === 'number') setDemobPage(ctx.demobPage);
-      if (typeof ctx.search === 'string') setSearch(ctx.search);
-      if (Array.isArray(ctx.companyFilter)) setCompanyFilter(ctx.companyFilter);
-      if (Array.isArray(ctx.positionFilter)) setPositionFilter(ctx.positionFilter);
-      if (ctx.departmentFilter) setDepartmentFilter(ctx.departmentFilter);
-      if (ctx.locationFilter) setLocationFilter(ctx.locationFilter);
-      if (ctx.dirFilter) setDirFilter(ctx.dirFilter);
-      if (ctx.medicalResultFilter) setMedicalResultFilter(ctx.medicalResultFilter);
-      if (ctx.trainingFilter) setTrainingFilter(ctx.trainingFilter);
-      if (Array.isArray(ctx.gatePassFilter)) setGatePassFilter(ctx.gatePassFilter);
-      if (ctx.pidStatusFilter) setPidStatusFilter(ctx.pidStatusFilter);
-      const sy = typeof ctx.scrollY === 'number' ? ctx.scrollY : 0;
-      setTimeout(() => window.scrollTo(0, sy), 80);
-    } catch { /* ignore malformed context */ }
-    sessionStorage.removeItem('inactiveReturnContext');
-  }, []);
+    const ctx = readReturnContext();
+    if (!ctx || ctx.tab !== tabType) return;
+    sessionStorage.removeItem(RETURN_CONTEXT_KEY);
+    if (typeof ctx.search === 'string') setSearch(ctx.search);
+    if (Array.isArray(ctx.companyFilter)) setCompanyFilter(ctx.companyFilter);
+    if (Array.isArray(ctx.positionFilter)) setPositionFilter(ctx.positionFilter);
+    if (ctx.departmentFilter) setDepartmentFilter(ctx.departmentFilter);
+    if (ctx.locationFilter) setLocationFilter(ctx.locationFilter);
+    if (ctx.dirFilter) setDirFilter(ctx.dirFilter);
+    if (ctx.medicalResultFilter) setMedicalResultFilter(ctx.medicalResultFilter);
+    if (ctx.trainingFilter) setTrainingFilter(ctx.trainingFilter);
+    if (Array.isArray(ctx.gatePassFilter)) setGatePassFilter(ctx.gatePassFilter);
+    if (ctx.pidStatusFilter) setPidStatusFilter(ctx.pidStatusFilter);
+    if (typeof ctx.page === 'number') setPage(ctx.page);
+    setTimeout(() => window.scrollTo(0, typeof ctx.scrollY === 'number' ? ctx.scrollY : 0), 80);
+  }, [tabType]);
 
-  const { data: employees = [], isLoading } = useQuery({
-    queryKey: ['employees-inactive'],
-    queryFn: () => base44.entities.Employee.filter({ is_active: false }, '-created_date', 100000),
-  });
-
-  // Latest camp stay per personnel — powers the Demobilized table's
-  // Location / Camp Check-in / Camp Check-out columns.
-  const { latestByPersonnel } = useLatestCampStays();
+  const allRows = useMemo(() => statusList(employees, status), [employees, status]);
 
   const uniqueCompanies = useMemo(() => {
-    const vals = [...new Set(employees.map(e => e.company).filter(Boolean))].sort();
+    const vals = [...new Set(allRows.map(e => e.company).filter(Boolean))].sort();
     return vals.map(v => { const c = COMPANIES.find(x => x.value === v); return { value: v, label: c ? c.label : v }; });
-  }, [employees]);
+  }, [allRows]);
 
   const positions = useMemo(() => {
-    const pos = [...new Set(employees.map(e => e.designation_org_chart || e.position_application).filter(Boolean))].sort();
+    const pos = [...new Set(allRows.map(e => e.designation_org_chart || e.position_application).filter(Boolean))].sort();
     return pos.map(p => ({ value: p, label: p }));
-  }, [employees]);
+  }, [allRows]);
 
-  const applyFilters = (list) => list.filter(e => {
+  const filtered = useMemo(() => allRows.filter(e => {
     if (search) {
       const q = search.toLowerCase();
       const matched =
@@ -426,48 +438,27 @@ export default function InactivePersonnel() {
     const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
     if (pidStatusFilter !== 'all' && effectivePid !== pidStatusFilter) return false;
     return true;
-  });
-
-  const allInactive = useMemo(() => employees.filter(e => !e.personnel_status || e.personnel_status === 'Inactive'), [employees]);
-  const allDemobilized = useMemo(() => employees.filter(e => e.personnel_status === 'Demobilized'), [employees]);
-
-  const filteredInactive = useMemo(() => applyFilters(allInactive),
-    [allInactive, search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter]);
-  const filteredDemobilized = useMemo(() => applyFilters(allDemobilized),
-    [allDemobilized, search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter]);
+  }), [allRows, search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter]);
 
   const clearFilters = () => {
     setSearch(''); setCompanyFilter([]); setPositionFilter([]);
     setDepartmentFilter('all'); setLocationFilter('all'); setDirFilter('all');
     setMedicalResultFilter('all'); setTrainingFilter('all'); setGatePassFilter([]); setPidStatusFilter('all');
-    setInactivePage(0); setDemobPage(0);
+    setPage(0);
   };
 
-  // Save the current list context (tab, pagination, filters, scroll) before opening edit,
-  // so the form can return to the exact same list state after saving.
+  // Save the current list state before opening Edit, so the form returns to it.
   const goToEdit = (emp) => {
-    const context = {
-      tab: activeTab,
-      inactivePage,
-      demobPage,
-      search,
-      companyFilter,
-      positionFilter,
-      departmentFilter,
-      locationFilter,
-      dirFilter,
-      medicalResultFilter,
-      trainingFilter,
-      gatePassFilter,
-      pidStatusFilter,
-      scrollY: window.scrollY,
-    };
-    sessionStorage.setItem('inactiveReturnContext', JSON.stringify(context));
-    const section = activeTab === 'demobilized' ? 'demobilization-details' : 'inactive-details';
+    sessionStorage.setItem(RETURN_CONTEXT_KEY, JSON.stringify({
+      tab: tabType, page, search, companyFilter, positionFilter, departmentFilter,
+      locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter,
+      pidStatusFilter, scrollY: window.scrollY,
+    }));
+    const section = tabType === 'demobilized' ? 'demobilization-details' : 'inactive-details';
     navigate(`/employees/${emp.id}/edit?section=${section}`);
   };
 
-  // ── Status change (covers: Inactive→Demobilized, Demobilized→Inactive, either→Active) ──
+  // ── Status change (Inactive ↔ Demobilized, either → Active on Site) ──
   const statusChangeMutation = useMutation({
     mutationFn: ({ emp, newStatus, effectiveDate, lastWorkingDate, reason }) => {
       const updates = {
@@ -544,7 +535,7 @@ export default function InactivePersonnel() {
   }));
 
   const filters = { search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter };
-  const setters = { setSearch, setCompanyFilter, setPositionFilter, setDepartmentFilter, setLocationFilter, setDirFilter, setMedicalResultFilter, setTrainingFilter, setGatePassFilter, setPidStatusFilter, setPage: (p) => { setInactivePage(p); setDemobPage(p); } };
+  const setters = { setSearch, setCompanyFilter, setPositionFilter, setDepartmentFilter, setLocationFilter, setDirFilter, setMedicalResultFilter, setTrainingFilter, setGatePassFilter, setPidStatusFilter, setPage };
 
   // ── Print / PDF report data ──
   const printColumns = [
@@ -564,7 +555,7 @@ export default function InactivePersonnel() {
   const medPrintLabels = { 'ACCEPTED': 'Accepted', 'REJECTED': 'Rejected', 'WAITING TR APPROVAL': 'Waiting TR', 'RE-ASSESS': 'Re-Assess' };
   const passPrintLabels = { 'VALID RLIC PASS': 'Valid', 'EXPIRED RLIC PASS': 'Expired', 'SOON TO EXPIRE': 'Soon to Expire', 'NO RLIC PASS': 'No Pass', 'VALID PID PASS': 'Valid', 'EXPIRED PID PASS': 'Expired', 'NO PID PASS': 'No Pass' };
 
-  const buildPrintRows = (list, tabType) => list.map(e => {
+  const printRows = useMemo(() => filtered.map(e => {
     const statusDate = tabType === 'inactive' ? (e.inactive_date || e.status_effective_date) : e.demobilization_date;
     return {
       name: e.name || '—',
@@ -579,7 +570,7 @@ export default function InactivePersonnel() {
       pid_status: passPrintLabels[computePassStatus(e.pid_expiry, 'pid', e.pid_status)] || '—',
       reason: e.status_reason || e.status_remarks || '—',
     };
-  });
+  }), [filtered, tabType]);
 
   const activeAppliedFilters = useMemo(() => {
     const items = [];
@@ -596,24 +587,10 @@ export default function InactivePersonnel() {
     return items;
   }, [search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter]);
 
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center">
-          <UserX className="w-5 h-5 text-red-600" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Inactive / Demobilized</h2>
-          <p className="text-sm text-muted-foreground">
-            <span className="text-red-600 font-semibold">{allInactive.length} inactive</span>
-            {' · '}
-            <span className="text-orange-600 font-semibold">{allDemobilized.length} demobilized</span>
-            {' · '}
-            {employees.length} total non-active records
-          </p>
-        </div>
-      </div>
+  const reportTitle = tabType === 'inactive' ? 'GSO Qatar — Inactive Personnel Report' : 'GSO Qatar — Demobilized Personnel Report';
 
+  return (
+    <div className="space-y-3">
       <FilterPanel
         filters={filters}
         setters={setters}
@@ -624,63 +601,30 @@ export default function InactivePersonnel() {
         onClear={clearFilters}
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex items-center justify-between mb-3">
-          <PillTabsList>
-            <PillTabsTrigger value="inactive" icon={UserX} iconClass="text-red-600" count={filteredInactive.length}>
-              Inactive
-            </PillTabsTrigger>
-            <PillTabsTrigger value="demobilized" icon={ArrowLeftRight} iconClass="text-orange-600" count={filteredDemobilized.length}>
-              Demobilized
-            </PillTabsTrigger>
-          </PillTabsList>
-        </div>
+      <div className="flex justify-end items-center gap-2">
+        <PrintReportButton
+          records={printRows}
+          columns={printColumns}
+          title={reportTitle}
+          appliedFilters={activeAppliedFilters}
+          totalFiltered={filtered.length}
+          sortBy={['company', 'designation', 'name']}
+        />
+        <ExportButton filename={`${tabType}_personnel`} label="Export" getData={() => exportData(filtered)} />
+      </div>
 
-        <TabsContent value="inactive">
-          <div className="flex justify-end items-center gap-2 mb-2">
-            <PrintReportButton
-              records={buildPrintRows(filteredInactive, 'inactive')}
-              columns={printColumns}
-              title="GSO Qatar — Inactive Personnel Report"
-              appliedFilters={activeAppliedFilters}
-              totalFiltered={filteredInactive.length}
-              sortBy={['company', 'designation', 'name']}
-            />
-            <ExportButton filename="inactive_personnel" label="Export" getData={() => exportData(filteredInactive)} />
-          </div>
-          <PersonnelTable
-            rows={filteredInactive} isLoading={isLoading}
-            page={inactivePage} setPage={setInactivePage}
-            totalCount={allInactive.length} tabType="inactive"
-            onStatusChange={(args) => statusChangeMutation.mutate(args)}
-            onDelete={(emp) => deleteMutation.mutate(emp)}
-            onEdit={goToEdit}
-          />
-        </TabsContent>
-
-        <TabsContent value="demobilized">
-          <div className="flex justify-end items-center gap-2 mb-2">
-            <PrintReportButton
-              records={buildPrintRows(filteredDemobilized, 'demobilized')}
-              columns={printColumns}
-              title="GSO Qatar — Demobilized Personnel Report"
-              appliedFilters={activeAppliedFilters}
-              totalFiltered={filteredDemobilized.length}
-              sortBy={['company', 'designation', 'name']}
-            />
-            <ExportButton filename="demobilized_personnel" label="Export" getData={() => exportData(filteredDemobilized)} />
-          </div>
-          <PersonnelTable
-            rows={filteredDemobilized} isLoading={isLoading}
-            page={demobPage} setPage={setDemobPage}
-            totalCount={allDemobilized.length} tabType="demobilized"
-            latestByPersonnel={latestByPersonnel}
-            onStatusChange={(args) => statusChangeMutation.mutate(args)}
-            onDelete={(emp) => deleteMutation.mutate(emp)}
-            onEdit={goToEdit}
-          />
-        </TabsContent>
-      </Tabs>
+      <PersonnelTable
+        rows={filtered}
+        isLoading={isLoading}
+        page={page}
+        setPage={setPage}
+        totalCount={allRows.length}
+        tabType={tabType}
+        latestByPersonnel={latestByPersonnel}
+        onStatusChange={(args) => statusChangeMutation.mutate(args)}
+        onDelete={(emp) => deleteMutation.mutate(emp)}
+        onEdit={goToEdit}
+      />
     </div>
   );
 }
