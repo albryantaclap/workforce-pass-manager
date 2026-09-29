@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, UserX, LogOut, HardHat, UserPlus } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, UserX, LogOut, HardHat, UserPlus, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
@@ -65,6 +65,7 @@ export default function MasterList() {
   // Inactive / Demobilized never appear here — they live on their own page.
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'active_on_site' | 'onboarding'
   const saved = useMemo(() => loadFilters(), []);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [searchInput, setSearchInput] = useState(saved.search || '');
   const [search, setSearch] = useState(saved.search || '');
   const [page, setPage] = useState(saved.page || 0);
@@ -405,8 +406,22 @@ export default function MasterList() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters — collapsible */}
       <Card className="p-4">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(o => !o)}
+          className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          Filters
+          {hasActiveFilters && (
+            <span className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full leading-none">Active</span>
+          )}
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${filtersOpen ? '' : '-rotate-90'}`} />
+        </button>
+
+        <div className={`mt-3 ${filtersOpen ? '' : 'hidden'}`}>
         {/* Row 1: dropdowns & selects */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-3">
           <div className="relative xl:col-span-2">
@@ -518,6 +533,7 @@ export default function MasterList() {
             </Button>
           </div>
         )}
+        </div>
       </Card>
 
       {editMode && hasActiveFilters && filtered.length > 0 && (

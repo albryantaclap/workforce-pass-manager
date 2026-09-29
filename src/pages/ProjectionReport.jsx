@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Printer, X, FileText, RefreshCw, Search, Download } from 'lucide-react';
+import { Printer, X, FileText, RefreshCw, Search, Download, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { exportGatepassExcel } from '@/utils/exportGatepassExcel';
 import { computePassStatus, COMPANIES, DEPARTMENTS, RLIC_STATUSES, PID_STATUSES, TRAINING_STATUSES, MEDICAL_RESULTS, normalizeDate } from '@/utils/constants';
 import { format } from 'date-fns';
@@ -692,6 +692,7 @@ export default function ProjectionReport() {
   const [showPreview, setShowPreview] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   // ── Shared filters (Dashboard-equivalent) ────────────────────────────────
   const [companyFilter, setCompanyFilter] = useState([]);
@@ -1003,7 +1004,15 @@ export default function ProjectionReport() {
       <Card className="border shadow-sm">
         <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filters</p>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(o => !o)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              Filters
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${filtersOpen ? '' : '-rotate-90'}`} />
+            </button>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
@@ -1021,7 +1030,7 @@ export default function ProjectionReport() {
             </button>
           )}
         </div>
-        <div className="p-4 space-y-3">
+        <div className={`p-4 space-y-3 ${filtersOpen ? '' : 'hidden'}`}>
           {/* Row 1 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>

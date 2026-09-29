@@ -37,6 +37,9 @@ export default function FilterToolbar({
 }) {
   const managerChange = onManagerIdsChange || setSelectedManagerIds || (() => {});
 
+  // Collapsible filter body — the header row stays visible as the toggle
+  const [collapsed, setCollapsed] = useState(false);
+
   const activeChips = useMemo(() => {
     const chips = [];
     if (setCompanyFilter) companyFilter.forEach(v => chips.push({ label: 'Company', value: v, onRemove: () => setCompanyFilter(companyFilter.filter(x => x !== v)) }));
@@ -83,15 +86,20 @@ export default function FilterToolbar({
     <div className="rounded-2xl border border-border bg-card shadow-sm w-full min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/20 rounded-t-2xl">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filters</span>
+        <button
+          type="button"
+          onClick={() => setCollapsed(c => !c)}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          <span className="text-xs font-semibold uppercase tracking-wider">Filters</span>
           {hasFilter && (
             <span className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full leading-none">
               {activeChips.length}
             </span>
           )}
-        </div>
+          <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', collapsed && '-rotate-90')} />
+        </button>
         <div className="flex items-center gap-3">
           {totalFiltered !== undefined && hasFilter && (
             <span className="text-xs text-muted-foreground">
@@ -106,6 +114,7 @@ export default function FilterToolbar({
         </div>
       </div>
 
+      {!collapsed && (
       <div className="px-4 py-3 space-y-2 min-w-0">
         {/* Row 1 – Dropdown filters (full-width grid) */}
         <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${[
@@ -203,6 +212,7 @@ export default function FilterToolbar({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
