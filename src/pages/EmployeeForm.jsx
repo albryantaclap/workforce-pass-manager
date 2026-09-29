@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Upload, User, UserX, Shield, HardHat, UserPlus, LogOut } from 'lucide-react';
+import { ArrowLeft, Save, Upload, User, UserX, Shield, HardHat, UserPlus } from 'lucide-react';
 import SharepointFormButton from '@/components/common/SharepointFormButton';
 import StatusChangeModal from '@/components/common/StatusChangeModal';
 import StatusDetailsSection from '@/components/employee/StatusDetailsSection';
