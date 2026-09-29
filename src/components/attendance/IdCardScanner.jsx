@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
+import { resolveEmployeeFromScan } from "@/lib/scannerEmployeeLookup";
+import { extractScanCandidates } from "@/lib/scannerRecognition";
 
 const SCAN_STEP = {
   READY: "ready",
@@ -25,34 +27,9 @@ function compressFrame(video, quality = 0.9) {
   return canvas.toDataURL("image/jpeg", quality);
 }
 
-// Extract candidate ID tokens from raw OCR text.
-function extractIds(text) {
-  const ids = new Set();
-  // QID: 11-digit number starting with 2 or 3
-  (text.match(/[23]\d{10}/g) || []).forEach((id) => ids.add(id));
-  // Alphanumeric codes (letters+digits) — PID, staff no, passport no
-  (text.match(/[A-Z0-9]{2,5}[-\s]?[0-9]{2,6}/gi) || []).forEach((id) =>
-    ids.add(id.replace(/\s/g, ""))
-  );
-  // Plain numeric IDs: 3–12 digits
-  (text.match(/\b\d{3,12}\b/g) || []).forEach((id) => ids.add(id));
-  return Array.from(ids);
-}
-
-// Match extracted IDs against existing Employee records by qid_no / pid / staff_no / pp_no.
-function matchEmployee(extractedIds, employees) {
-  for (const scannedId of extractedIds) {
-    const clean = scannedId.trim().replace(/[\s-]/g, "").toLowerCase();
-    const matched = employees.find((emp) => {
-      const fields = [emp.qid_no, emp.pid, emp.staff_no, emp.pp_no];
-      return fields.some(
-        (f) => f && f.replace(/[\s-]/g, "").toLowerCase() === clean
-      );
-    });
-    if (matched) return matched;
-  }
-  return null;
-}
+// Candidate identifiers are read off the OCR text by the shared recognition
+// module (see @/lib/scannerRecognition) — extraction, normalisation and matching
+// all live together so the scanner rules stay testable.
 
 function CountdownBar({ seconds }) {
   return (
@@ -64,11 +41,12 @@ function CountdownBar({ seconds }) {
   );
 }
 
-export default function IdCardScanner({ employees, onEmployeeFound, onStop }) {
+export default function IdCardScanner({ employees = [], onEmployeeFound, onStop }) {
   const { toast } = useToast();
   const [scanStep, setScanStep] = useState(SCAN_STEP.READY);
   const [facingMode, setFacingMode] = useState("environment");
   const [resultMessage, setResultMessage] = useState("");
+  const [resultTitle, setResultTitle] = useState("Not Recognized");
   const [foundEmployee, setFoundEmployee] = useState(null);
   const [countdown, setCountdown] = useState(3);
 
@@ -133,6 +111,7 @@ export default function IdCardScanner({ employees, onEmployeeFound, onStop }) {
       setScanStep(SCAN_STEP.SCANNING);
       setFoundEmployee(null);
       setResultMessage("");
+      setResultTitle("Not Recognized");
       processingRef.current = false;
 
       countdownValueRef.current = 3;
@@ -207,9 +186,10 @@ export default function IdCardScanner({ employees, onEmployeeFound, onStop }) {
       const {
         data: { text },
       } = await workerRef.current.recognize(dataUrl);
-      const extractedIds = extractIds(text);
+      const extractedIds = extractScanCandidates(text);
 
       if (extractedIds.length === 0) {
+        setResultTitle("Not Recognized");
         setResultMessage(
           "No ID detected. Please hold the card steady and ensure it's well-lit."
         );
@@ -218,8 +198,35 @@ export default function IdCardScanner({ employees, onEmployeeFound, onStop }) {
         return;
       }
 
-      const matched = matchEmployee(extractedIds, employees);
+      // Recognition only. PID No. is the primary identifier and the lookup runs
+      // against the complete workforce — a fresh database lookup is made when the
+      // records held in the browser do not resolve the card, so a query still in
+      // flight, the 2-minute cache or any pagination never lose a valid card.
+      const resolution = await resolveEmployeeFromScan(extractedIds, employees);
       processingRef.current = false;
+
+      if (resolution.duplicateIds.length > 1) {
+        // An identifier owned by several records is never guessed between.
+        console.error(
+          "[Attendance Clock] Ambiguous employee identifier — punch refused",
+          {
+            scanned: resolution.candidateIds,
+            field: resolution.field,
+            value: resolution.value,
+            personnelIds: resolution.duplicateIds,
+          }
+        );
+        setResultTitle("Duplicate PID Detected");
+        setResultMessage(
+          `${
+            resolution.field === "pid" ? "Duplicate PID" : "Duplicate employee record"
+          } detected${resolution.value ? ` (${resolution.value})` : ""}. Please contact administrator.`
+        );
+        setScanStep(SCAN_STEP.NOT_FOUND);
+        return;
+      }
+
+      const matched = resolution.employee;
 
       if (matched) {
         const lastScan = recentlyProcessedRef.current.get(matched.id);
@@ -233,13 +240,16 @@ export default function IdCardScanner({ employees, onEmployeeFound, onStop }) {
         setScanStep(SCAN_STEP.FOUND);
         onEmployeeFound(matched);
       } else {
+        // Only a value with no personnel record at all reaches this branch.
+        setResultTitle("Not Recognized");
         setResultMessage(
-          `Detected: ${extractedIds.slice(0, 3).join(", ")} — no matching employee found.`
+          `Detected: ${extractedIds.slice(0, 3).join(", ")} — no matching employee record found.`
         );
         setScanStep(SCAN_STEP.NOT_FOUND);
       }
     } catch (err) {
       processingRef.current = false;
+      setResultTitle("Scan Error");
       setResultMessage(err.message || "Scan error. Please try again.");
       setScanStep(SCAN_STEP.NOT_FOUND);
     }
@@ -387,7 +397,11 @@ export default function IdCardScanner({ employees, onEmployeeFound, onStop }) {
               <p className="font-bold text-emerald-700 text-lg">Employee Identified</p>
               <p className="text-sm font-semibold mt-0.5">{foundEmployee.name}</p>
               <p className="text-xs text-muted-foreground">
-                {[foundEmployee.qid_no, foundEmployee.pid, foundEmployee.company]
+                {[
+                  foundEmployee.pid ? `PID ${foundEmployee.pid}` : "",
+                  foundEmployee.qid_no,
+                  foundEmployee.company,
+                ]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
@@ -406,7 +420,7 @@ export default function IdCardScanner({ employees, onEmployeeFound, onStop }) {
               <XCircle className="w-7 h-7 text-red-500" />
             </div>
             <div className="text-center">
-              <p className="font-semibold text-red-600">Not Recognized</p>
+              <p className="font-semibold text-red-600">{resultTitle}</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
                 {resultMessage}
               </p>

@@ -41,6 +41,32 @@ export const normalizeScanId = (value) => {
     .toUpperCase();
 };
 
+/**
+ * Read candidate identifiers off OCR text.
+ *
+ * Two passes: the raw text, then the same text with its whitespace removed, so a
+ * value the OCR split ("102 1122") or glued to its label ("PID1021122") is still
+ * read as one token. Raw-text tokens come first because they are the most
+ * trustworthy ones.
+ */
+export const extractScanCandidates = (text) => {
+  const source = String(text || '');
+  const ids = new Set();
+  const add = (value) => {
+    const token = String(value || '').trim();
+    if (token) ids.add(token);
+  };
+  const collect = (pass, loose) => {
+    (pass.match(/[23]\d{10}/g) || []).forEach(add);                      // QID
+    (pass.match(/[A-Z0-9]{2,5}[-\s]?[0-9]{2,6}/gi) || []).forEach(add);  // alphanumeric codes
+    if (loose) (pass.match(/\d{3,12}/g) || []).forEach(add);             // digit runs, boundaries ignored
+    else (pass.match(/\b\d{3,12}\b/g) || []).forEach(add);               // plain numeric IDs
+  };
+  collect(source, false);
+  collect(source.replace(/\s+/g, ''), true);
+  return Array.from(ids);
+};
+
 /** Every normalised value stored on one employee for one lookup field. */
 const fieldValues = (employee, field) => {
   const raw = employee?.[field];

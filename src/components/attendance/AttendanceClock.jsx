@@ -17,6 +17,7 @@ import { useRbac } from "@/lib/useRbac";
 import { recordPunch } from "@/lib/attendanceService";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAttendanceEmployees } from "@/hooks/useAttendanceEmployees";
+import { resolvePersonnelStatus, INACTIVE, ONBOARDING } from "@/lib/personnelStatus";
 
 const STEP = {
   STANDBY: "standby",
@@ -51,11 +52,34 @@ export default function AttendanceClock({ onRecorded }) {
     step === STEP.SCANNING || step === STEP.PROCESSING
   );
 
+  // Recognition ≠ eligibility. The scanner has already established WHO the card
+  // belongs to, so these roster checks only decide whether attendance may be
+  // recorded — a recognized person is never reported as unrecognized.
+  const eligibilityBlock = (emp) => {
+    const status = resolvePersonnelStatus(emp);
+    if (status === INACTIVE || emp.is_active === false) {
+      return "Employee is inactive — attendance cannot be recorded.";
+    }
+    if (status === ONBOARDING) {
+      return "Employee is still onboarding and is not yet eligible to punch.";
+    }
+    return "";
+  };
+
   const handleEmployeeFound = async (emp) => {
     if (processingLockRef.current) return;
     processingLockRef.current = true;
 
     setMatchedEmployee(emp);
+
+    const blocked = eligibilityBlock(emp);
+    if (blocked) {
+      setFailReason(blocked);
+      setStep(STEP.FAILED);
+      processingLockRef.current = false;
+      return;
+    }
+
     setStep(STEP.PROCESSING);
 
     try {
@@ -290,6 +314,9 @@ export default function AttendanceClock({ onRecorded }) {
                 <XCircle className="w-12 h-12 text-red-500" />
               </div>
               <div>
+                {matchedEmployee?.name && (
+                  <p className="text-sm font-semibold">{matchedEmployee.name}</p>
+                )}
                 <p className="text-xl font-bold text-red-600">Cannot Process</p>
                 <p className="text-sm text-muted-foreground mt-2 max-w-xs">
                   {failReason}
