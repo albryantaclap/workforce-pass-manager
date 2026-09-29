@@ -65,7 +65,7 @@ export default function MasterList() {
   // Inactive / Demobilized never appear here — they live on their own page.
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'active_on_site' | 'onboarding'
   const saved = useMemo(() => loadFilters(), []);
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(saved.search || '');
   const [search, setSearch] = useState(saved.search || '');
   const [page, setPage] = useState(saved.page || 0);

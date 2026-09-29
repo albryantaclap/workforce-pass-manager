@@ -37,8 +37,8 @@ export default function FilterToolbar({
 }) {
   const managerChange = onManagerIdsChange || setSelectedManagerIds || (() => {});
 
-  // Collapsible filter body — the header row stays visible as the toggle
-  const [collapsed, setCollapsed] = useState(false);
+  // Collapsible filter body — collapsed by default, header row stays visible as the toggle
+  const [collapsed, setCollapsed] = useState(true);
 
   const activeChips = useMemo(() => {
     const chips = [];

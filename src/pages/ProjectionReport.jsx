@@ -692,7 +692,7 @@ export default function ProjectionReport() {
   const [showPreview, setShowPreview] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // ── Shared filters (Dashboard-equivalent) ────────────────────────────────
   const [companyFilter, setCompanyFilter] = useState([]);
