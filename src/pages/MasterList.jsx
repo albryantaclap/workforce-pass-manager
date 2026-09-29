@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import PersonnelStatusTabs from '@/components/master/PersonnelStatusTabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, UserX, LogOut, HardHat, UserPlus, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
@@ -540,36 +541,16 @@ export default function MasterList() {
         <BulkEditBar fields={masterBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
       )}
 
-      {/* Personnel Status Tabs — All Personnel = Active on Site + Onboarding */}
-      <div className="flex justify-center border-b overflow-x-auto">
-        <div className="flex items-center">
-          {[
-            { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
-            { key: 'active_on_site', label: 'Active on Site', count: activeOnSiteList.length, icon: HardHat, color: 'text-emerald-600' },
-            { key: 'onboarding', label: 'Onboarding', count: onboardingList.length, icon: UserPlus, color: 'text-indigo-600' },
-          ].map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setPage(0); }}
-                className={`flex items-center gap-2 px-6 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${
-                  isActive
-                    ? 'border-primary text-primary bg-primary/5'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
-                }`}
-              >
-                {Icon && <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : tab.color}`} />}
-                {tab.label}
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                  isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                }`}>{tab.count}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* Personnel Status Tabs — Active + Onboarding = Active on Site + Onboarding */}
+      <PersonnelStatusTabs
+        activeTab={activeTab}
+        onChange={(key) => { setActiveTab(key); setPage(0); }}
+        tabs={[
+          { key: 'all', label: 'Active + Onboarding', count: filtered.length, icon: null, color: '' },
+          { key: 'active_on_site', label: 'Active on Site', count: activeOnSiteList.length, icon: HardHat, color: 'text-emerald-600' },
+          { key: 'onboarding', label: 'Onboarding', count: onboardingList.length, icon: UserPlus, color: 'text-indigo-600' },
+        ]}
+      />
 
       {/* Table */}
       <Card className="overflow-hidden">
