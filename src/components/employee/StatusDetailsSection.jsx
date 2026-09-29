@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { UserX, LogOut, Clock, UserCog } from 'lucide-react';
+import { CAMP_STATUS } from '@/lib/campStatus';
 
 function toDateValue(val) {
   if (!val) return '';
@@ -75,80 +76,68 @@ const ReadOnlyField = ({ label, icon: Icon, value }) => (
 );
 
 /**
- * Displays the Inactive or Demobilized status details inside the Edit Personnel form.
- * Visible only when the personnel record currently has a non-active status.
- * Editable: Effective Date, Last Working Date, Reason, Remarks.
- * Read-only: Status Changed By, Status Changed Date & Time.
+ * Status details for a person who is not on the working roster.
+ *
+ * The personnel / project status is Inactive, so the Inactive details are always
+ * shown. When the person was ALSO demobilized from COMO Camp (a camp status, not
+ * a personnel status) a second card holds the demobilization details — the
+ * person stays Inactive either way.
  */
 export default function StatusDetailsSection({ form, onChange }) {
   const status = form.personnel_status;
   if (status !== 'Inactive' && status !== 'Demobilized') return null;
 
-  const isInactive = status === 'Inactive';
-  const title = isInactive ? 'Inactive Status Details' : 'Demobilization Details';
-  const Icon = isInactive ? UserX : LogOut;
-  const accent = isInactive ? 'text-red-600' : 'text-orange-600';
-  const dateLabel = isInactive
-    ? 'Inactive Date / Status Effective Date'
-    : 'Demobilization Date / Status Effective Date';
-  const reasonLabel = isInactive ? 'Reason' : 'Demobilization Reason';
-  const syncedDateField = isInactive ? 'inactive_date' : 'demobilization_date';
-  const reasonField = isInactive ? 'status_reason' : 'demobilization_reason';
+  const demobilized = form.camp_status === CAMP_STATUS.DEMOBILIZED || !!form.demobilization_date;
 
-  // Keep status_effective_date and the status-specific date field in sync.
+  // Keep the paired fields in sync: the status date with the inactive date, and
+  // the inactive reason with the status reason.
   const handleFieldChange = (field, value) => {
     if (field === 'status_effective_date') {
       onChange('status_effective_date', value);
-      onChange(syncedDateField, value);
+      onChange('inactive_date', value);
+    } else if (field === 'inactive_reason') {
+      onChange('inactive_reason', value);
+      onChange('status_reason', value);
     } else {
       onChange(field, value);
     }
   };
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Icon className={`w-4 h-4 ${accent}`} />
-        <h3 className={`text-sm font-semibold ${accent}`}>{title}</h3>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <DateField
-          field="status_effective_date"
-          label={dateLabel}
-          form={form}
-          onChange={handleFieldChange}
-        />
-        <DateField
-          field="last_working_date"
-          label="Last Working Date"
-          form={form}
-          onChange={handleFieldChange}
-        />
-        <TextField
-          field={reasonField}
-          label={reasonLabel}
-          form={form}
-          onChange={handleFieldChange}
-        />
-        <div className="md:col-span-2 lg:col-span-3">
-          <TextAreaField
-            field="status_remarks"
-            label="Remarks"
-            form={form}
-            onChange={handleFieldChange}
-          />
+    <>
+      <Card className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <UserX className="w-4 h-4 text-red-600" />
+          <h3 className="text-sm font-semibold text-red-600">Inactive Status Details</h3>
         </div>
-        <ReadOnlyField
-          label="Status Changed By"
-          icon={UserCog}
-          value={form.status_changed_by}
-        />
-        <ReadOnlyField
-          label="Status Changed Date & Time"
-          icon={Clock}
-          value={formatDateTime(form.status_changed_at)}
-        />
-      </div>
-    </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <DateField field="status_effective_date" label="Inactive Date / Status Effective Date" form={form} onChange={handleFieldChange} />
+          <DateField field="last_working_date" label="Last Working Date" form={form} onChange={handleFieldChange} />
+          <TextField field="inactive_reason" label="Reason" form={form} onChange={handleFieldChange} />
+          <div className="md:col-span-2 lg:col-span-3">
+            <TextAreaField field="status_remarks" label="Remarks" form={form} onChange={handleFieldChange} />
+          </div>
+          <ReadOnlyField label="Status Changed By" icon={UserCog} value={form.status_changed_by} />
+          <ReadOnlyField label="Status Changed Date & Time" icon={Clock} value={formatDateTime(form.status_changed_at)} />
+        </div>
+      </Card>
+
+      {demobilized && (
+        <Card className="p-6 mt-6">
+          <div className="flex items-center gap-2 mb-1">
+            <LogOut className="w-4 h-4 text-orange-600" />
+            <h3 className="text-sm font-semibold text-orange-600">Demobilization Details</h3>
+          </div>
+          <p className="text-[11px] text-muted-foreground mb-4">
+            COMO Camp / accommodation status — the personnel status remains Inactive.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <DateField field="demobilization_date" label="Demobilization Date" form={form} onChange={handleFieldChange} />
+            <TextField field="demobilization_reason" label="Demobilization Reason" form={form} onChange={handleFieldChange} />
+            <ReadOnlyField label="Camp Check-out" icon={Clock} value={formatDateTime(form.camp_check_out_at)} />
+          </div>
+        </Card>
+      )}
+    </>
   );
 }

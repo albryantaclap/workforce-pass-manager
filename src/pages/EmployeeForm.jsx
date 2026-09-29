@@ -13,7 +13,7 @@ import SharepointFormButton from '@/components/common/SharepointFormButton';
 import StatusChangeModal from '@/components/common/StatusChangeModal';
 import StatusDetailsSection from '@/components/employee/StatusDetailsSection';
 import SearchableSelect from '@/components/common/SearchableSelect';
-import { ACTIVE_ON_SITE, ONBOARDING, INACTIVE, DEMOBILIZED, PERSONNEL_STATUSES, PERSONNEL_STATUS_CONFIG, isActiveRosterStatus, resolvePersonnelStatus, normalizeStatus } from '@/lib/personnelStatus';
+import { ACTIVE_ON_SITE, ONBOARDING, INACTIVE, PERSONNEL_STATUSES, PERSONNEL_STATUS_CONFIG, isActiveRosterStatus, resolvePersonnelStatus, normalizeStatus } from '@/lib/personnelStatus';
 import { useToast } from '@/components/ui/use-toast';
 import { COMPANIES, RLIC_STATUSES, PID_STATUSES, MEDICAL_RESULTS, TRAINING_STATUSES, LOCATIONS, DEPARTMENTS, computePassStatus } from '@/utils/constants';
 import { usePermissions } from '@/lib/usePermissions';
@@ -40,7 +40,9 @@ const emptyForm = {
   work_location: '', approval_date: '', approval_comments: '',
   personnel_status: ONBOARDING,
   status_effective_date: '', last_working_date: '', status_reason: '', status_remarks: '',
-  inactive_date: '', demobilization_date: '', demobilization_reason: '',
+  inactive_date: '', inactive_reason: '',
+  camp_status: '', camp_check_in_at: '', camp_check_out_at: '', demobilized_at: '',
+  demobilization_date: '', demobilization_reason: '',
   status_changed_by: '', status_changed_at: '',
 };
 
@@ -49,7 +51,6 @@ const STATUS_ICONS = {
   [ACTIVE_ON_SITE]: HardHat,
   [ONBOARDING]: UserPlus,
   [INACTIVE]: UserX,
-  [DEMOBILIZED]: LogOut,
 };
 
 const Field = ({ label, children }) => (
@@ -124,8 +125,10 @@ export default function EmployeeForm() {
   // Auto-scroll to the relevant Inactive/Demobilized details card when opened with ?section=...
   useEffect(() => {
     if (!sectionParam) return;
-    const expectedId = form.personnel_status === 'Demobilized' ? 'demobilization-details' : 'inactive-details';
-    if (expectedId !== sectionParam) return; // card not present for the current status
+    if (sectionParam !== 'inactive-details' && sectionParam !== 'demobilization-details') return;
+    // The demobilization sub-section only exists for a demobilized person.
+    const demobilized = form.camp_status === 'DEMOBILIZED' || !!form.demobilization_date;
+    if (sectionParam === 'demobilization-details' && !demobilized) return;
     const t = setTimeout(() => {
       statusCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 350);
@@ -683,16 +686,14 @@ export default function EmployeeForm() {
     if (lastWorkingDate) handleChange('last_working_date', lastWorkingDate);
     if (reason) {
       handleChange('status_reason', reason);
-      if (newStatus === DEMOBILIZED) handleChange('demobilization_reason', reason);
+      handleChange('inactive_reason', reason);
     }
     if (newStatus === INACTIVE) {
       handleChange('status_effective_date', effectiveDate);
       handleChange('inactive_date', effectiveDate);
     }
-    if (newStatus === DEMOBILIZED) {
-      handleChange('status_effective_date', effectiveDate);
-      handleChange('demobilization_date', effectiveDate);
-    }
+    // Demobilization is a COMO Camp status: it is recorded through the camp
+    // check-out ("Demobilize from Project"), never from the status buttons.
     setStatusModal({ open: false, newStatus: null });
   };
 
@@ -1005,7 +1006,7 @@ export default function EmployeeForm() {
         </Card>
 
         {/* Inactive / Demobilized status details — shown only when the record has a non-active status */}
-        <div ref={statusCardRef} id={form.personnel_status === 'Demobilized' ? 'demobilization-details' : 'inactive-details'} className="scroll-mt-24">
+        <div ref={statusCardRef} id="inactive-details" className="scroll-mt-24">
           <StatusDetailsSection form={form} onChange={handleChange} />
         </div>
 

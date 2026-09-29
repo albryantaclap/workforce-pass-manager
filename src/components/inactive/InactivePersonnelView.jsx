@@ -593,58 +593,99 @@ export default function InactivePersonnelView({ status = 'Inactive' }) {
     onError: () => toast({ title: 'Delete failed', variant: 'destructive' }),
   });
 
-  const exportData = (list) => list.map(e => ({
-    Name: e.name, QID: e.qid_no, PID_No: e.pid || '—', Nationality: e.nationality,
-    Company: e.company, Department: e.department,
-    Position: e.designation_org_chart || e.position_application,
-    Personnel_Status: e.personnel_status || 'Inactive',
-    Inactive_Date: e.inactive_date, Demobilization_Date: e.demobilization_date,
-    Status_Effective_Date: e.status_effective_date, Last_Working_Date: e.last_working_date,
-    Status_Reason: e.status_reason, Status_Changed_By: e.status_changed_by,
-    Medical: e.ftw_result, Gate_Pass_Expiry: e.gate_pass_expiry, RLIC_Status: e.rlic_status,
-    Training_Status: e.training_status,
-    PID_Status: computePassStatus(e.pid_expiry, 'pid', e.pid_status) || '—',
-    Reason_Remarks: e.status_reason || e.status_remarks || '—',
-    Location: e.current_location,
-  }));
+  // Both exports follow the corrected model: the Inactive export carries EVERY
+  // project-inactive person, the Demobilized export only those demobilized from
+  // COMO Camp. Personnel status and camp status are reported separately.
+  const exportData = (list) => list.map(e => {
+    const stay = latestByPersonnel.get(e.id);
+    return {
+      Name: e.name, QID: e.qid_no, PID_No: e.pid || '—', Nationality: e.nationality,
+      Company: e.company, Department: e.department,
+      Position: e.designation_org_chart || e.position_application,
+      Location: e.current_location,
+      Personnel_Status: resolvePersonnelStatus(e) || 'Inactive',
+      Camp_Status: campStatusLabel(resolveCampStatus(e, stay)),
+      Inactive_Date: e.inactive_date, Inactive_Reason: e.inactive_reason || e.status_reason || '',
+      Camp_Check_In: stay?.check_in_at || '', Camp_Check_Out: stay?.check_out_at || e.camp_check_out_at || '',
+      Demobilization_Date: e.demobilization_date, Demobilization_Reason: e.demobilization_reason || '',
+      Status_Effective_Date: e.status_effective_date, Last_Working_Date: e.last_working_date,
+      Status_Reason: e.status_reason, Status_Changed_By: e.status_changed_by,
+      Medical: e.ftw_result, Gate_Pass_Expiry: e.gate_pass_expiry, RLIC_Status: e.rlic_status,
+      Training_Status: e.training_status,
+      PID_Status: computePassStatus(e.pid_expiry, 'pid', e.pid_status) || '—',
+      Reason_Remarks: e.inactive_reason || e.demobilization_reason || e.status_reason || e.status_remarks || '—',
+    };
+  });
 
   const filters = { search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter };
   const setters = { setSearch, setCompanyFilter, setPositionFilter, setDepartmentFilter, setLocationFilter, setDirFilter, setMedicalResultFilter, setTrainingFilter, setGatePassFilter, setPidStatusFilter, setPage };
 
   // ── Print / PDF report data ──
-  const printColumns = [
-    { key: 'name', label: 'Name' },
-    { key: 'qid_no', label: 'QID No.' },
-    { key: 'pid', label: 'PID No.' },
-    { key: 'company', label: 'Company' },
-    { key: 'designation', label: 'Designation / Position' },
-    { key: 'status_date', label: 'Inactive / Demobilization Date', align: 'center' },
-    { key: 'medical', label: 'Medical Status', align: 'center' },
-    { key: 'gate_pass', label: 'Gate Pass Status', align: 'center' },
-    { key: 'training', label: 'Training Status', align: 'center' },
-    { key: 'pid_status', label: 'PID Status', align: 'center' },
-    { key: 'reason', label: 'Reason / Remarks' },
-  ];
+  const printColumns = tabType === 'inactive'
+    ? [
+        { key: 'name', label: 'Name' },
+        { key: 'qid_no', label: 'QID No.' },
+        { key: 'pid', label: 'PID No.' },
+        { key: 'company', label: 'Company' },
+        { key: 'designation', label: 'Designation / Position' },
+        { key: 'status_date', label: 'Inactive Date', align: 'center' },
+        { key: 'camp_status', label: 'Camp Status', align: 'center' },
+        { key: 'medical', label: 'Medical Status', align: 'center' },
+        { key: 'gate_pass', label: 'Gate Pass Status', align: 'center' },
+        { key: 'training', label: 'Training Status', align: 'center' },
+        { key: 'pid_status', label: 'PID Status', align: 'center' },
+        { key: 'reason', label: 'Inactive Reason / Remarks' },
+      ]
+    : [
+        { key: 'name', label: 'Name' },
+        { key: 'qid_no', label: 'QID No.' },
+        { key: 'pid', label: 'PID No.' },
+        { key: 'company', label: 'Company' },
+        { key: 'designation', label: 'Designation / Position' },
+        { key: 'status_date', label: 'Demobilization Date', align: 'center' },
+        { key: 'location', label: 'Location', align: 'center' },
+        { key: 'camp_in', label: 'Camp Check-in', align: 'center' },
+        { key: 'camp_out', label: 'Camp Check-out', align: 'center' },
+        { key: 'medical', label: 'Medical Status', align: 'center' },
+        { key: 'gate_pass', label: 'Gate Pass Status', align: 'center' },
+        { key: 'training', label: 'Training Status', align: 'center' },
+        { key: 'pid_status', label: 'PID Status', align: 'center' },
+        { key: 'reason', label: 'Demobilization Reason' },
+      ];
 
   const medPrintLabels = { 'ACCEPTED': 'Accepted', 'REJECTED': 'Rejected', 'WAITING TR APPROVAL': 'Waiting TR', 'RE-ASSESS': 'Re-Assess' };
   const passPrintLabels = { 'VALID RLIC PASS': 'Valid', 'EXPIRED RLIC PASS': 'Expired', 'SOON TO EXPIRE': 'Soon to Expire', 'NO RLIC PASS': 'No Pass', 'VALID PID PASS': 'Valid', 'EXPIRED PID PASS': 'Expired', 'NO PID PASS': 'No Pass' };
 
-  const printRows = useMemo(() => filtered.map(e => {
-    const statusDate = tabType === 'inactive' ? (e.inactive_date || e.status_effective_date) : e.demobilization_date;
-    return {
-      name: e.name || '—',
-      qid_no: e.qid_no || '—',
-      pid: e.pid || '—',
-      company: e.company || '—',
-      designation: e.designation_org_chart || e.position_application || '—',
-      status_date: formatDate(statusDate) || '—',
-      medical: e.ftw_result ? (medPrintLabels[e.ftw_result] || e.ftw_result) : '—',
-      gate_pass: passPrintLabels[computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status)] || '—',
-      training: e.training_status || '—',
-      pid_status: passPrintLabels[computePassStatus(e.pid_expiry, 'pid', e.pid_status)] || '—',
-      reason: e.status_reason || e.status_remarks || '—',
+  const printRows = useMemo(() => {
+    const fmtStamp = (iso) => {
+      const dt = formatDateTimeCompact(iso);
+      return dt ? `${dt.date} ${dt.time}` : '—';
     };
-  }), [filtered, tabType]);
+    return filtered.map(e => {
+      const stay = latestByPersonnel.get(e.id);
+      const isInactiveTab = tabType === 'inactive';
+      const statusDate = isInactiveTab ? (e.inactive_date || e.status_effective_date) : e.demobilization_date;
+      return {
+        name: e.name || '—',
+        qid_no: e.qid_no || '—',
+        pid: e.pid || '—',
+        company: e.company || '—',
+        designation: e.designation_org_chart || e.position_application || '—',
+        status_date: formatDate(statusDate) || '—',
+        camp_status: campStatusLabel(resolveCampStatus(e, stay)),
+        location: (stay?.camp_location || stay?.work_location || e.current_location || '—').toUpperCase(),
+        camp_in: fmtStamp(stay?.check_in_at),
+        camp_out: fmtStamp(stay?.check_out_at || e.camp_check_out_at),
+        medical: e.ftw_result ? (medPrintLabels[e.ftw_result] || e.ftw_result) : '—',
+        gate_pass: passPrintLabels[computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status)] || '—',
+        training: e.training_status || '—',
+        pid_status: passPrintLabels[computePassStatus(e.pid_expiry, 'pid', e.pid_status)] || '—',
+        reason: (isInactiveTab
+          ? (e.inactive_reason || e.status_reason)
+          : (e.demobilization_reason || e.status_reason)) || e.status_remarks || '—',
+      };
+    });
+  }, [filtered, tabType, latestByPersonnel]);
 
   const activeAppliedFilters = useMemo(() => {
     const items = [];

@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import PillTabsBar from '@/components/common/PillTabsBar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, UserX, LogOut, HardHat, UserPlus, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, UserX, HardHat, UserPlus, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
@@ -31,7 +31,7 @@ import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
 import BulkEditBar from '../components/common/BulkEditBar';
-import { ACTIVE_ON_SITE, ONBOARDING, INACTIVE, DEMOBILIZED, isActiveRosterStatus, resolvePersonnelStatus, personnelStatusLabel } from '@/lib/personnelStatus';
+import { ACTIVE_ON_SITE, ONBOARDING, INACTIVE, isActiveRosterStatus, resolvePersonnelStatus, personnelStatusLabel } from '@/lib/personnelStatus';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
@@ -190,8 +190,12 @@ export default function MasterList() {
         _last_updated_at: new Date().toISOString(),
       };
       if (lastWorkingDate) updates.last_working_date = lastWorkingDate;
-      if (newStatus === INACTIVE) updates.inactive_date = effectiveDate;
-      if (newStatus === DEMOBILIZED) updates.demobilization_date = effectiveDate;
+      // Personnel / project status only. Demobilization is a COMO Camp status
+      // and is recorded through the camp check-out flow, never here.
+      if (newStatus === INACTIVE) {
+        updates.inactive_date = effectiveDate;
+        updates.inactive_reason = reason || '';
+      }
       return base44.entities.Employee.update(emp.id, updates);
     },
     onSuccess: (_, { emp, newStatus }) => {
@@ -735,14 +739,6 @@ export default function MasterList() {
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600 hover:text-amber-700" onClick={() => openStatusModal(emp, INACTIVE)}><UserX className="w-3.5 h-3.5" /></Button>
                             </TooltipTrigger>
                             <TooltipContent side="top">Set Inactive</TooltipContent>
-                          </Tooltip>
-                        )}
-                        {canEdit && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-orange-600 hover:text-orange-700" onClick={() => openStatusModal(emp, DEMOBILIZED)}><LogOut className="w-3.5 h-3.5" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">Demobilize</TooltipContent>
                           </Tooltip>
                         )}
                         {canDelete && (

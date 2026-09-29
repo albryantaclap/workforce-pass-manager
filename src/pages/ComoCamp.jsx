@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Pencil, X, MapPin, UserX, LogOut, Trash2, Save, Check, LayoutDashboard, List, FileSpreadsheet, Printer, FileText, History, ArrowLeftRight } from 'lucide-react';
+import { Search, Eye, Pencil, X, MapPin, UserX, Trash2, Save, Check, LayoutDashboard, List, FileSpreadsheet, Printer, FileText, History, ArrowLeftRight } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import FilterToolbar from '@/components/common/FilterToolbar';
@@ -34,7 +34,8 @@ import { useLatestCampStays } from '@/hooks/useLatestCampStays';
 import { useCampStaysByDate } from '@/hooks/useCampStaysByDate';
 import CheckInDialog from '../components/comocamp/CheckInDialog';
 import CheckOutDialog from '../components/comocamp/CheckOutDialog';
-import { demobilizeAfterCampCheckout } from '@/lib/campDemobilization';
+import { demobilizeFromCamp, recordCampMovement } from '@/lib/campDemobilization';
+import { CAMP_STATUS } from '@/lib/campStatus';
 import AttendanceHistoryDialog from '../components/comocamp/AttendanceHistoryDialog';
 import AttendanceCorrectionDialog from '../components/comocamp/AttendanceCorrectionDialog';
 import ComoCampEditDialog from '../components/comocamp/ComoCampEditDialog';
@@ -260,8 +261,12 @@ export default function ComoCamp() {
         _last_updated_at: new Date().toISOString(),
       };
       if (lastWorkingDate) updates.last_working_date = lastWorkingDate;
-      if (newStatus === 'Inactive') updates.inactive_date = effectiveDate;
-      if (newStatus === 'Demobilized') updates.demobilization_date = effectiveDate;
+      // Personnel status only — demobilization is a COMO Camp status and never
+      // set from a plain status change.
+      if (newStatus === 'Inactive') {
+        updates.inactive_date = effectiveDate;
+        updates.inactive_reason = reason || '';
+      }
       return base44.entities.Employee.update(emp.id, updates);
     },
     onSuccess: (_, { emp, newStatus }) => {
@@ -314,10 +319,14 @@ export default function ComoCamp() {
         record_snapshot: { stay_date: stayDate, check_in_at: rec.check_in_at, check_out_at: '', work_location: rec.work_location, action_type: 'Camp Check-in' },
         changed_fields: ['check_in_at'],
       });
+      // Camp movement only — the personnel/project status is never changed by a
+      // camp check-in.
+      await recordCampMovement({ emp, status: CAMP_STATUS.INSIDE_CAMP, checkInAt: at.toISOString(), user: currentUser });
       return rec;
     },
     onSuccess: (_, { emp, at }) => {
       queryClient.invalidateQueries({ queryKey: ['camp-stays'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       toast({ title: 'Camp Check-in', description: `${emp.name} checked in to camp at ${formatTime(at.toISOString())}` });
     },
@@ -325,7 +334,7 @@ export default function ComoCamp() {
   });
 
   const checkOutMutation = useMutation({
-    mutationFn: async ({ emp, record, at }) => {
+    mutationFn: async ({ emp, record, at, demobilize, reason }) => {
       const outIso = at.toISOString();
       const duration = calcDuration(record.check_in_at, outIso);
       const updated = await base44.entities.ComoCampStay.update(record.id, {
@@ -335,14 +344,24 @@ export default function ComoCamp() {
       await base44.entities.ActivityLog.create({
         action: 'update', entity_name: 'ComoCampStay', entity_id: record.id,
         performed_by: currentUser?.email || '', record_name: record.employee_name,
-        record_snapshot: { check_out_at: outIso, duration_minutes: duration, work_location: record.work_location, action_type: 'Camp Check-out' },
+        record_snapshot: {
+          check_out_at: outIso, duration_minutes: duration, work_location: record.work_location,
+          action_type: demobilize ? 'Camp Check-out + Demobilization' : 'Camp Check-out',
+          reason: reason || '',
+        },
         changed_fields: ['check_out_at'],
       });
-      // Auto-demobilize the personnel (existing centralized record only) after a
-      // completed Camp Check-out. Preserves camp stay history and Location, and
-      // never touches Daily Attendance. No-op if already Demobilized.
-      const demob = await demobilizeAfterCampCheckout({ emp, checkOutAt: outIso, user: currentUser });
-      return { updated, demobilized: !!demob };
+      // Scenario A — Camp Check-out Only: the camp status changes and the
+      // personnel / project status is left exactly as it is.
+      // Scenario B — Demobilize from Project: personnel status becomes Inactive
+      // and camp status Demobilized, so the person stays in the Inactive list
+      // and also appears under Demobilized.
+      if (demobilize) {
+        await demobilizeFromCamp({ emp, checkOutAt: outIso, reason, user: currentUser });
+      } else {
+        await recordCampMovement({ emp, status: CAMP_STATUS.CHECKED_OUT, checkOutAt: outIso, user: currentUser });
+      }
+      return { updated, demobilized: !!demobilize };
     },
     onSuccess: (result, { emp }) => {
       queryClient.invalidateQueries({ queryKey: ['camp-stays'] });
@@ -350,10 +369,10 @@ export default function ComoCamp() {
       queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       toast({
-        title: 'Camp Check-out',
+        title: result?.demobilized ? 'Demobilized from Project' : 'Camp Check-out',
         description: result?.demobilized
-          ? `${emp?.name || 'Personnel'} camp stay completed and moved to Demobilized.`
-          : `${emp?.name || 'Personnel'} camp stay completed.`,
+          ? `${emp?.name || 'Personnel'} checked out of COMO Camp, set Inactive and demobilized.`
+          : `${emp?.name || 'Personnel'} checked out of COMO Camp. Personnel status unchanged.`,
       });
     },
     onError: () => toast({ title: 'Camp Check-out failed', variant: 'destructive' }),
@@ -1378,14 +1397,6 @@ export default function ComoCamp() {
                                 <TooltipContent side="top">Set Inactive</TooltipContent>
                               </Tooltip>
                             )}
-                            {canEdit && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-orange-600 hover:text-orange-700" onClick={() => openStatusModal(emp, 'Demobilized')}><LogOut className="w-3.5 h-3.5" /></Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">Demobilize</TooltipContent>
-                              </Tooltip>
-                            )}
                             {canDelete && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -1505,7 +1516,7 @@ export default function ComoCamp() {
         emp={checkOutDialog.emp}
         record={checkOutDialog.record}
         onClose={() => setCheckOutDialog({ open: false, emp: null, record: null })}
-        onConfirm={(record, at) => { const emp = checkOutDialog.emp; setCheckOutDialog({ open: false, emp: null, record: null }); checkOutMutation.mutate({ emp, record, at }); }}
+        onConfirm={(record, at, { demobilize, reason }) => { const emp = checkOutDialog.emp; setCheckOutDialog({ open: false, emp: null, record: null }); checkOutMutation.mutate({ emp, record, at, demobilize, reason }); }}
       />
       <AttendanceHistoryDialog
         open={historyDialog.open}
