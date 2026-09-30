@@ -28,7 +28,8 @@ import { INACTIVE, resolvePersonnelStatus, isActiveRosterStatus } from '@/lib/pe
 import { CAMP_STATUS, CAMP_STATUS_CONFIG, campStatusLabel, isDemobilized, isStayOpen, resolveCampStatus } from '@/lib/campStatus';
 import { demobilizeFromCamp } from '@/lib/campDemobilization';
 import { COMPANIES, LOCATIONS, MEDICAL_RESULTS, PID_STATUSES, computePassStatus, formatDate } from '@/utils/constants';
-import { calcDuration, formatDateTimeCompact, ATT_STATUS } from '@/lib/attendanceUtils';
+import { calcDuration, formatDateTimeCompact } from '@/lib/attendanceUtils';
+import { activeMasterFilterLabels, createEmptyMasterFilters, filterMasterRows } from '@/lib/masterListFilters';
 
 const RETURN_CONTEXT_KEY = 'inactiveReturnContext';
 const PAGE_SIZE = 50;
@@ -36,20 +37,8 @@ const PAGE_SIZE = 50;
 /** Normalise a filter value into a list ('all' / empty → []). */
 const asList = (v) => (Array.isArray(v) ? v : v && v !== 'all' ? [v] : []);
 
-/** Shared Master List camp-status filter values ↔ COMO Camp statuses. */
-const CAMP_STATUS_BY_FILTER = {
-  [ATT_STATUS.CHECKED_IN]: CAMP_STATUS.INSIDE_CAMP,
-  [ATT_STATUS.CHECKED_OUT]: CAMP_STATUS.CHECKED_OUT,
-  [ATT_STATUS.NOT_CHECKED_IN]: CAMP_STATUS.NOT_CHECKED_IN,
-};
-
-/** Date-range test on a YYYY-MM-DD style value (empty bound = open). */
-const inRange = (value, from, to) => {
-  const d = value ? String(value).substring(0, 10) : '';
-  if (from && (!d || d < from)) return false;
-  if (to && (!d || d > to)) return false;
-  return true;
-};
+// Camp-status mapping, date-range tests and the filter rule itself live in the
+// ONE shared module (@/lib/masterListFilters) used by every personnel list.
 
 /** Saved list context, used to return to the same list state after Edit. */
 export function readReturnContext() {
@@ -60,9 +49,10 @@ export function readReturnContext() {
 }
 
 /** Inactive / Demobilized roster — shared cache, also powers the host tab counts. */
-export function useInactiveRoster() {
+export function useInactiveRoster({ enabled = true } = {}) {
   const { data = [], isLoading } = useQuery({
     queryKey: ['employees-inactive'],
+    enabled,
     queryFn: () => base44.entities.Employee.filter({ is_active: false }, '-created_date', 100000),
   });
   return { employees: data, isLoading };
@@ -405,12 +395,25 @@ function PersonnelTable({ rows, isLoading, page, setPage, totalCount, tabType, o
 // Self-contained list for one status. Rendered as a tab inside Master List
 // (status="Inactive") and COMO Camp (status="Demobilized").
 /**
- * @param filters  Filter state supplied by the host page. The Master List renders
- *                 ONE shared Search & Filter section for all of its tabs and hands
- *                 its state over here; when no filters are supplied (COMO Camp
- *                 renders this view stand-alone) the view keeps its own panel.
+ * @param filters    The SHARED filter state of the host page. The Master List
+ *                   renders ONE Search & Filter section for all of its tabs and
+ *                   hands that exact state over here, so this list filters
+ *                   identically to every other tab. Stand-alone (COMO Camp) the
+ *                   view keeps its own panel and normalises its state into the
+ *                   same shape — there is still only one filter rule.
+ * @param rows       Rows supplied by the host page (already queried with the same
+ *                   filters). Omitted when the list stands alone.
+ * @param managers   Manager list used by the manager filter.
+ * @param totalCount Tab total from the host page (a database status total).
  */
-export default function InactivePersonnelView({ status = 'Inactive', filters = null }) {
+export default function InactivePersonnelView({
+  status = 'Inactive',
+  filters = null,
+  rows = null,
+  isLoading: hostIsLoading = false,
+  managers = [],
+  totalCount = null,
+}) {
   const tabType = status === 'Demobilized' ? 'demobilized' : 'inactive';
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -418,7 +421,11 @@ export default function InactivePersonnelView({ status = 'Inactive', filters = n
   const currentUser = useCurrentUser();
   const navigate = useNavigate();
 
-  const { employees, isLoading } = useInactiveRoster();
+  // Rows come from the host page when this list is rendered as one of its tabs
+  // (same dataset, same filters). Stand-alone, the list fetches its own roster.
+  const hostRows = Array.isArray(rows) ? rows : null;
+  const { employees, isLoading: rosterLoading } = useInactiveRoster({ enabled: !hostRows });
+  const isLoading = hostRows ? hostIsLoading : rosterLoading;
   const { latestByPersonnel } = useLatestCampStays();
 
   const [search, setSearch] = useState('');
@@ -454,7 +461,8 @@ export default function InactivePersonnelView({ status = 'Inactive', filters = n
     setTimeout(() => window.scrollTo(0, typeof ctx.scrollY === 'number' ? ctx.scrollY : 0), 80);
   }, [tabType]);
 
-  const allRows = useMemo(() => statusList(employees, status), [employees, status]);
+  const source = hostRows || employees;
+  const allRows = useMemo(() => statusList(source, status), [source, status]);
 
   const uniqueCompanies = useMemo(() => {
     const vals = [...new Set(allRows.map(e => e.company).filter(Boolean))].sort();
@@ -467,104 +475,30 @@ export default function InactivePersonnelView({ status = 'Inactive', filters = n
   }, [allRows]);
 
   // ── Effective filters ──
-  // Host-supplied and built-in panel state are normalised to one shape, so a
-  // single predicate drives the list whichever way the view is rendered.
-  const eff = useMemo(() => {
-    if (filters) {
-      const d = filters.dates || {};
-      return {
-        search: filters.search || '',
-        companies: filters.companies || [],
-        positions: filters.positions || [],
-        departments: filters.departments || [],
-        locations: asList(filters.locations),
-        dirs: asList(filters.dirs),
-        rlicStatus: filters.rlic && filters.rlic !== 'all' ? filters.rlic : '',
-        medicals: filters.medicals || [],
-        trainings: asList(filters.trainings),
-        gatePasses: filters.gatePasses || [],
-        pidStatuses: filters.pidStatuses || [],
-        campStatus: filters.campStatus && filters.campStatus !== 'all' ? filters.campStatus : '',
-        managerIds: filters.managerIds || [],
-        managers: filters.managers || [],
-        trainingScheduledFrom: d.trainingScheduledFrom || '',
-        trainingScheduledTo: d.trainingScheduledTo || '',
-        trApprovedFrom: d.trApprovedFrom || '',
-        trApprovedTo: d.trApprovedTo || '',
-        gpIssueFrom: d.gpIssueFrom || '',
-        gpIssueTo: d.gpIssueTo || '',
-        gpReceivedFrom: d.gpReceivedFrom || '',
-        gpReceivedTo: d.gpReceivedTo || '',
-        pidIssueFrom: d.pidIssueFrom || '',
-        pidIssueTo: d.pidIssueTo || '',
-      };
-    }
-    return {
-      search,
-      companies: companyFilter,
-      positions: positionFilter,
-      departments: asList(departmentFilter),
-      locations: asList(locationFilter),
-      dirs: asList(dirFilter),
-      rlicStatus: '',
-      medicals: asList(medicalResultFilter),
-      trainings: asList(trainingFilter),
-      gatePasses: gatePassFilter,
-      pidStatuses: asList(pidStatusFilter),
-      campStatus: '',
-      managerIds: [],
-      managers: [],
-      trainingScheduledFrom: '', trainingScheduledTo: '',
-      trApprovedFrom: '', trApprovedTo: '',
-      gpIssueFrom: '', gpIssueTo: '',
-      gpReceivedFrom: '', gpReceivedTo: '',
-      pidIssueFrom: '', pidIssueTo: '',
-    };
-  }, [filters, search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter]);
+  // The host hands over the SHARED Master List filter state unchanged; rendered
+  // stand-alone, the local panel state is normalised into that same shape. Either
+  // way the one shared filter rule below drives the list.
+  const localFilterState = useMemo(() => ({
+    ...createEmptyMasterFilters(),
+    search,
+    companies: companyFilter,
+    positions: positionFilter,
+    departments: asList(departmentFilter),
+    locations: asList(locationFilter)[0] || 'all',
+    dir: asList(dirFilter)[0] || 'all',
+    medicals: asList(medicalResultFilter),
+    training: trainingFilter,
+    gatePasses: gatePassFilter,
+    pidStatuses: asList(pidStatusFilter),
+  }), [search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter]);
 
-  const filtered = useMemo(() => allRows.filter(e => {
-    if (eff.search) {
-      const q = eff.search.toLowerCase();
-      const matched =
-        e.name?.toLowerCase().includes(q) ||
-        e.qid_no?.toLowerCase().includes(q) ||
-        e.pid?.toLowerCase().includes(q) ||
-        e.pp_no?.toLowerCase().includes(q) ||
-        e.company?.toLowerCase().includes(q) ||
-        e.nationality?.toLowerCase().includes(q) ||
-        e.designation_org_chart?.toLowerCase().includes(q) ||
-        e.position_application?.toLowerCase().includes(q);
-      if (!matched) return false;
-    }
-    if (eff.companies.length > 0 && !eff.companies.includes(e.company)) return false;
-    if (eff.positions.length > 0 && !eff.positions.includes(e.designation_org_chart) && !eff.positions.includes(e.position_application)) return false;
-    if (eff.departments.length > 0 && !eff.departments.includes(e.department)) return false;
-    if (eff.locations.length > 0 && !eff.locations.includes(e.current_location)) return false;
-    if (eff.dirs.length > 0 && !eff.dirs.includes(e.dir_indir)) return false;
-    if (eff.rlicStatus && computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status) !== eff.rlicStatus) return false;
-    if (eff.medicals.length > 0 && !eff.medicals.includes(e.ftw_result) && !(eff.medicals.includes('NEW') && !e.ftw_result)) return false;
-    if (eff.trainings.length > 0 && !eff.trainings.includes(e.training_status)) return false;
-    const effectiveRlic = computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
-    if (eff.gatePasses.length > 0 && !eff.gatePasses.includes(effectiveRlic)) return false;
-    const effectivePid = computePassStatus(e.pid_expiry, 'pid', e.pid_status);
-    if (eff.pidStatuses.length > 0 && !eff.pidStatuses.includes(effectivePid)) return false;
-    if (eff.campStatus) {
-      const target = CAMP_STATUS_BY_FILTER[eff.campStatus];
-      if (target && resolveCampStatus(e, latestByPersonnel.get(e.id)) !== target) return false;
-    }
-    if (eff.managerIds.length > 0) {
-      const matchedManager = eff.managerIds.some(mid =>
-        e.assigned_manager_id ? e.assigned_manager_id === mid : e.assigned_manager_name === eff.managers.find(m => m.id === mid)?.label
-      );
-      if (!matchedManager) return false;
-    }
-    if (!inRange(e.training_date_scheduled, eff.trainingScheduledFrom, eff.trainingScheduledTo)) return false;
-    if (!inRange(e.ftw_approved_date, eff.trApprovedFrom, eff.trApprovedTo)) return false;
-    if (!inRange(e.gate_pass_issue_date, eff.gpIssueFrom, eff.gpIssueTo)) return false;
-    if (!inRange(e.gate_pass_received_date, eff.gpReceivedFrom, eff.gpReceivedTo)) return false;
-    if (!inRange(e.pid_issue_date, eff.pidIssueFrom, eff.pidIssueTo)) return false;
-    return true;
-  }), [allRows, eff, latestByPersonnel]);
+  const eff = filters || localFilterState;
+
+  // ONE shared filter rule — exactly the filters used by every Master List tab.
+  const filtered = useMemo(
+    () => filterMasterRows(allRows, eff, { latestByPersonnel, managers }),
+    [allRows, eff, latestByPersonnel, managers]
+  );
 
   // Keep the page in range when the shared filters shrink the list.
   useEffect(() => {
@@ -689,6 +623,7 @@ export default function InactivePersonnelView({ status = 'Inactive', filters = n
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees-inactive'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-active'] });
       queryClient.invalidateQueries({ queryKey: ['deleted-employees'] });
       toast({ title: 'Personnel permanently deleted', description: 'Record moved to Deleted Personnel.' });
     },
@@ -789,22 +724,9 @@ export default function InactivePersonnelView({ status = 'Inactive', filters = n
     });
   }, [filtered, tabType, latestByPersonnel]);
 
-  const activeAppliedFilters = useMemo(() => {
-    const items = [];
-    if (eff.search) items.push(`Search: "${eff.search}"`);
-    if (eff.companies.length > 0) items.push(`Company: ${eff.companies.join(', ')}`);
-    if (eff.positions.length > 0) items.push(`Position: ${eff.positions.join(', ')}`);
-    if (eff.departments.length > 0) items.push(`Department: ${eff.departments.join(', ')}`);
-    if (eff.locations.length > 0) items.push(`Location: ${eff.locations.join(', ')}`);
-    if (eff.dirs.length > 0) items.push(`DIR/INDIR: ${eff.dirs.join(', ')}`);
-    if (eff.rlicStatus) items.push(`Gate Pass: ${eff.rlicStatus}`);
-    if (eff.medicals.length > 0) items.push(`Medical: ${eff.medicals.map(m => MEDICAL_RESULTS.find(r => r.value === m)?.label || m).join(', ')}`);
-    if (eff.trainings.length > 0) items.push(`Training: ${eff.trainings.join(', ')}`);
-    if (eff.gatePasses.length > 0) items.push(`Gate Pass: ${eff.gatePasses.join(', ')}`);
-    if (eff.pidStatuses.length > 0) items.push(`PID Status: ${eff.pidStatuses.map(s => PID_STATUSES.find(x => x.value === s)?.label || s).join(', ')}`);
-    if (eff.campStatus) items.push(`Camp Status: ${CAMP_STATUS_CONFIG[CAMP_STATUS_BY_FILTER[eff.campStatus]]?.label || eff.campStatus}`);
-    return items;
-  }, [eff]);
+  // Reported from the same shared definition, so the printout can never list a
+  // filter set that differs from the one applied on screen.
+  const activeAppliedFilters = useMemo(() => activeMasterFilterLabels(eff), [eff]);
 
   const reportTitle = tabType === 'inactive' ? 'GSO Qatar — Inactive Personnel Report' : 'GSO Qatar — Demobilized Personnel Report';
 
@@ -841,7 +763,7 @@ export default function InactivePersonnelView({ status = 'Inactive', filters = n
         isLoading={isLoading}
         page={page}
         setPage={setPage}
-        totalCount={allRows.length}
+        totalCount={totalCount ?? allRows.length}
         tabType={tabType}
         latestByPersonnel={latestByPersonnel}
         onReactivate={(emp) => setReactivateDialog({ open: true, emp })}

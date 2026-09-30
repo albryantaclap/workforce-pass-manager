@@ -4,13 +4,12 @@ import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { useManagerFilter } from '@/hooks/useManagerFilter';
 import WorkforceSubmenuNav from '@/components/common/WorkforceSubmenuNav';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import PillTabsBar from '@/components/common/PillTabsBar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, UserX, HardHat, UserPlus, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import MasterListFilters from '@/components/masterlist/MasterListFilters';
+import { Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, UserX, HardHat, UserPlus } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
@@ -22,12 +21,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { COMPANIES, RLIC_STATUSES, PID_STATUSES, LOCATIONS, MEDICAL_RESULTS, FTW_RESULTS, TRAINING_STATUSES, formatDate, computePassStatus } from '@/utils/constants';
+import { formatDate } from '@/utils/constants';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
+import { useMasterListFilterOptions } from '@/hooks/useMasterListFilterOptions';
 import { useLatestCampStays } from '@/hooks/useLatestCampStays';
-import { formatTime, formatDateOnly, formatDuration, getAttendanceStatus, formatDateTimeCompact, ATT_STATUS } from '@/lib/attendanceUtils';
+import { formatDuration, formatDateTimeCompact } from '@/lib/attendanceUtils';
 
-import MultiSelect from '../components/common/MultiSelect';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
 import BulkEditBar from '../components/common/BulkEditBar';
@@ -35,110 +34,104 @@ import { ACTIVE_ON_SITE, ONBOARDING, INACTIVE, isActiveRosterStatus, resolvePers
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
-import InactivePersonnelView, { useInactiveRoster, statusList, readReturnContext } from '@/components/inactive/InactivePersonnelView';
-
-const STORAGE_KEY = 'masterlist_filters';
-
-function loadFilters() {
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || {};
-    return {
-      ...saved,
-      companyFilter: Array.isArray(saved.companyFilter) ? saved.companyFilter : [],
-      positionFilter: Array.isArray(saved.positionFilter) ? saved.positionFilter : [],
-      departmentFilter: Array.isArray(saved.departmentFilter) ? saved.departmentFilter : [],
-      pidStatusFilter: Array.isArray(saved.pidStatusFilter) ? saved.pidStatusFilter : [],
-      gpStatusFilter: Array.isArray(saved.gpStatusFilter) ? saved.gpStatusFilter : [],
-      medicalResultFilter: Array.isArray(saved.medicalResultFilter) ? saved.medicalResultFilter : [],
-      attendanceFilter: saved.attendanceFilter || 'all',
-      page: typeof saved.page === 'number' ? saved.page : 0,
-    };
-  } catch { return {}; }
-}
-function saveFilters(f) {
-  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(f)); } catch {}
-}
+import InactivePersonnelView, { readReturnContext } from '@/components/inactive/InactivePersonnelView';
+import {
+  createEmptyMasterFilters,
+  loadMasterFilters,
+  saveMasterFilters,
+  hasActiveMasterFilters,
+  buildMasterListQuery,
+  filterMasterRows,
+  matchesTabDataset,
+  TAB_TOTAL_LABEL,
+  MASTER_LIST_PAGE_SIZE,
+} from '@/lib/masterListFilters';
 
 export default function MasterList() {
   const { canEdit, canDelete } = usePermissions();
   const currentUser = useCurrentUser();
-  const { selectedManagerIds, setSelectedManagerIds, managers } = useManagerFilter();
+  // Managers only — which managers are selected lives in the shared filter state.
+  const { managers } = useManagerFilter();
   const [editMode, setEditMode] = useState(false);
   // 'all' = Active on Site + Onboarding (the active roster). The Inactive tab
   // lists non-active personnel and restores itself after returning from Edit.
   const [activeTab, setActiveTab] = useState(() => readReturnContext()?.tab === 'inactive' ? 'inactive' : 'all');
-  const saved = useMemo(() => loadFilters(), []);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [searchInput, setSearchInput] = useState(saved.search || '');
-  const [search, setSearch] = useState(saved.search || '');
-  const [page, setPage] = useState(saved.page || 0);
-  const PAGE_SIZE = 50;
 
-  // Debounce search input
+  // ── ONE filter state for ALL FOUR tabs ──
+  // Restored from the session, kept when switching tabs, and handed unchanged to
+  // the single shared filter section (and to the Inactive list).
+  const initialFilters = useMemo(() => loadMasterFilters(), []);
+  const [filters, setFilters] = useState(initialFilters);
+  const [searchInput, setSearchInput] = useState(initialFilters.search || '');
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = MASTER_LIST_PAGE_SIZE;
+
+  // A filter change keeps everything else selected and just re-runs the filters.
+  const updateFilters = useCallback((patch) => {
+    setFilters(prev => ({ ...prev, ...patch }));
+    setPage(0);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFilters(createEmptyMasterFilters());
+    setSearchInput('');
+    setPage(0);
+  }, []);
+
+  // Debounce the search box, then apply it like any other filter.
   const searchDebounceRef = useRef(null);
   const handleSearchChange = useCallback((val) => {
     setSearchInput(val);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      setSearch(val);
+      setFilters(prev => ({ ...prev, search: val }));
       setPage(0);
     }, 300);
   }, []);
-  const [companyFilter, setCompanyFilter] = useState(saved.companyFilter || []);
-  const [rlicFilter, setRlicFilter] = useState(saved.rlicFilter || 'all');
-  const [locationFilter, setLocationFilter] = useState(saved.locationFilter || 'all');
-  const [dirFilter, setDirFilter] = useState(saved.dirFilter || 'all');
-  const [positionFilter, setPositionFilter] = useState(saved.positionFilter || []);
-  const [departmentFilter, setDepartmentFilter] = useState(saved.departmentFilter || []);
-  const [pidStatusFilter, setPidStatusFilter] = useState(saved.pidStatusFilter || []);
-  const [gpStatusFilter, setGpStatusFilter] = useState(saved.gpStatusFilter || []);
-  const [medicalResultFilter, setMedicalResultFilter] = useState(saved.medicalResultFilter || []);
-  const [trainingStatusFilter, setTrainingStatusFilter] = useState(saved.trainingStatusFilter || 'all');
-  const [attendanceFilter, setAttendanceFilter] = useState(saved.attendanceFilter || 'all');
-  const [trainingScheduledFrom, setTrainingScheduledFrom] = useState(saved.trainingScheduledFrom || '');
-  const [trainingScheduledTo, setTrainingScheduledTo] = useState(saved.trainingScheduledTo || '');
-  const [medicalTrApprovedFrom, setMedicalTrApprovedFrom] = useState(saved.medicalTrApprovedFrom || '');
-  const [medicalTrApprovedTo, setMedicalTrApprovedTo] = useState(saved.medicalTrApprovedTo || '');
-  const [gpIssueFrom, setGpIssueFrom] = useState(saved.gpIssueFrom || '');
-  const [gpIssueTo, setGpIssueTo] = useState(saved.gpIssueTo || '');
-  const [gpReceivedFrom, setGpReceivedFrom] = useState(saved.gpReceivedFrom || '');
-  const [gpReceivedTo, setGpReceivedTo] = useState(saved.gpReceivedTo || '');
-  const [pidIssueFrom, setPidIssueFrom] = useState(saved.pidIssueFrom || '');
-  const [pidIssueTo, setPidIssueTo] = useState(saved.pidIssueTo || '');
 
-  useEffect(() => {
-    saveFilters({ search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page });
-  }, [search, companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, page]);
-
-  // Reset page on filter changes (skip initial mount to allow sessionStorage restore)
-  const isInitialMount = useRef(true);
-  useEffect(() => {
-    if (isInitialMount.current) { isInitialMount.current = false; return; }
-    setPage(0);
-  }, [companyFilter, rlicFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, gpStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo]);
+  // The shared filter state survives tab switches and page visits.
+  useEffect(() => { saveMasterFilters(filters); }, [filters]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const {
-    companyOptions, companyTypeOptions, locationOptions, departmentOptions,
-    rlicStatusOptions, pidStatusOptions, medicalResultOptions, trainingStatusOptions,
-  } = useLookupOptions();
+  const { departmentOptions, locationOptions, medicalResultOptions, trainingStatusOptions, rlicStatusOptions } = useLookupOptions();
 
-  const allGpStatusOptions = rlicStatusOptions;
-
-  const getEffectiveRlic = (e) => computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status);
-
-  // Only fetch active employees — dedicated filter avoids the list cap hiding records
-  const { data: employees = [], isLoading } = useQuery({
-    queryKey: ['employees-active'],
-    queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000),
-  });
-
-  // Inactive personnel — shown in the Inactive tab (permission: Inactive / Demobilized → View)
+  // Inactive tab access (permission: Inactive / Demobilized → View)
   const { canView } = useRbac();
   const canViewInactive = canView('workforce.inactive');
-  const { employees: inactiveRoster } = useInactiveRoster();
-  const inactiveCount = useMemo(() => statusList(inactiveRoster, 'Inactive').length, [inactiveRoster]);
+
+  // ── ONE query for the selected tab ──
+  // The tab supplies the BASE dataset only; every filter the database can apply
+  // is pushed into the query, so only matching records travel to the browser.
+  // (The key keeps the ['employees-active'] prefix every module already
+  // invalidates, so edits made anywhere refresh this list.)
+  const masterQuery = useMemo(
+    () => buildMasterListQuery(filters, activeTab, managers),
+    [filters, activeTab, managers]
+  );
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ['employees-active', 'master', activeTab, masterQuery],
+    queryFn: () => base44.entities.Employee.filter(masterQuery, '-created_date', 100000),
+  });
+
+  // Tab totals — status totals counted by the database: never taken from the
+  // loaded page, so pagination can never make them wrong.
+  const { data: tabTotals } = useQuery({
+    queryKey: ['employees-active', 'totals'],
+    staleTime: 30000,
+    queryFn: async () => {
+      const [all, activeOnSite, onboarding, inactive] = await Promise.all([
+        base44.entities.Employee.count({ is_active: true }),
+        base44.entities.Employee.count({ is_active: true, personnel_status: ACTIVE_ON_SITE }),
+        base44.entities.Employee.count({ is_active: true, personnel_status: ONBOARDING }),
+        base44.entities.Employee.count({ is_active: false }),
+      ]);
+      return { all, active_on_site: activeOnSite, onboarding, inactive };
+    },
+  });
+
+  // One set of filter options for all four tabs.
+  const filterOptions = useMasterListFilterOptions();
 
   // Latest camp stay per personnel — camp/accommodation movement (ComoCampStay).
   // This is separate from work attendance (AttendanceRecord). The Master List
@@ -155,7 +148,8 @@ export default function MasterList() {
     updateMutation.mutate({ id, data: { [field]: value } });
   };
 
-  const hasActiveFilters = selectedManagerIds.length > 0 || searchInput || companyFilter.length > 0 || positionFilter.length > 0 || rlicFilter !== 'all' || locationFilter !== 'all' || dirFilter !== 'all' || departmentFilter.length > 0 || pidStatusFilter.length > 0 || gpStatusFilter.length > 0 || medicalResultFilter.length > 0 || trainingStatusFilter !== 'all' || attendanceFilter !== 'all' || trainingScheduledFrom || trainingScheduledTo || medicalTrApprovedFrom || medicalTrApprovedTo || gpIssueFrom || gpIssueTo || gpReceivedFrom || gpReceivedTo || pidIssueFrom || pidIssueTo;
+  // Same rule on every tab — the shared filter state decides.
+  const hasActiveFilters = hasActiveMasterFilters(filters);
 
   const masterBulkFields = [
     { key: 'ftw_result', label: 'Medical Result', type: 'select', options: medicalResultOptions },
@@ -229,135 +223,25 @@ export default function MasterList() {
     onError: () => toast({ title: 'Delete failed', variant: 'destructive' }),
   });
 
-  // Filter option lists follow the dataset of the tab in view, so the Inactive tab
-  // offers the companies / positions that actually exist among inactive personnel.
-  // The controls, layout and behaviour stay identical on every tab.
-  const optionSource = useMemo(
-    () => (activeTab === 'inactive' ? inactiveRoster : employees),
-    [activeTab, inactiveRoster, employees]
+  // The filter option lists are NOT derived from the tab's dataset: they come from
+  // the lookup tables and from whole-workforce distinct values (see
+  // useMasterListFilterOptions), so they are identical on every tab and switching
+  // a tab can never change an option or silently drop a selection.
+
+  // ONE shared rule for every tab (@/lib/masterListFilters): the tab's base
+  // dataset first, then exactly the same filters on top of it.
+  const filtered = useMemo(
+    () => filterMasterRows(rows, filters, { latestByPersonnel: latestAttByPersonnel, managers })
+      .filter(e => matchesTabDataset(e, activeTab)),
+    [rows, filters, latestAttByPersonnel, managers, activeTab]
   );
 
-  const uniqueCompanies = useMemo(() => {
-    const vals = [...new Set(optionSource.map(e => e.company).filter(Boolean))].sort();
-    return vals.map(v => { const c = COMPANIES.find(x => x.value === v); return { value: v, label: c ? c.label : v }; });
-  }, [optionSource]);
-
-  // Cascading company options: when department is selected, only show companies with employees in that dept
-  const cascadedCompanyOptions = useMemo(() => {
-    if (departmentFilter.length === 0) return uniqueCompanies;
-    const deptSet = new Set(departmentFilter.map(d => d.trim().toLowerCase()));
-    const validCompanies = new Set(
-      optionSource
-        .filter(e => deptSet.has((e.department || '').trim().toLowerCase()))
-        .map(e => (e.company || '').trim().toUpperCase())
-    );
-    return uniqueCompanies.filter(c => validCompanies.has(c.value.trim().toUpperCase()));
-  }, [uniqueCompanies, departmentFilter, optionSource]);
-
-  // Reset company selections that are no longer valid after department filter changes
-  useEffect(() => {
-    if (companyFilter.length === 0) return;
-    const validSet = new Set(cascadedCompanyOptions.map(c => c.value.trim().toUpperCase()));
-    const still = companyFilter.filter(cf => validSet.has(cf.trim().toUpperCase()));
-    if (still.length !== companyFilter.length) setCompanyFilter(still);
-  }, [cascadedCompanyOptions]);
-
-  const positions = useMemo(() => {
-    const pos = [...new Set(optionSource.map(e => e.designation_org_chart).filter(Boolean))].sort();
-    return pos.map(p => ({ value: p, label: p }));
-  }, [optionSource]);
-
-  // Cascade positions by company, department, gate pass status, and PID status
-  const filteredPositions = useMemo(() => {
-    const hasFilter = companyFilter.length > 0 || departmentFilter.length > 0 || gpStatusFilter.length > 0 || pidStatusFilter.length > 0;
-    if (!hasFilter) return positions;
-    const coSet = companyFilter.length > 0 ? new Set(companyFilter.map(c => c.trim().toUpperCase())) : null;
-    const deptSet = departmentFilter.length > 0 ? new Set(departmentFilter.map(d => d.trim().toLowerCase())) : null;
-    const seen = new Set();
-    return optionSource
-      .filter(e => {
-        if (!e.designation_org_chart) return false;
-        if (coSet && !coSet.has((e.company || '').trim().toUpperCase())) return false;
-        if (deptSet && !deptSet.has((e.department || '').trim().toLowerCase())) return false;
-        if (gpStatusFilter.length > 0 && !gpStatusFilter.includes(computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status))) return false;
-        if (pidStatusFilter.length > 0 && !pidStatusFilter.includes(computePassStatus(e.pid_expiry, 'pid', e.pid_status))) return false;
-        return true;
-      })
-      .map(e => e.designation_org_chart.trim())
-      .filter(p => { if (seen.has(p)) return false; seen.add(p); return true; })
-      .sort()
-      .map(p => ({ value: p, label: p }));
-  }, [optionSource, companyFilter, departmentFilter, gpStatusFilter, pidStatusFilter]);
-
-  // Reset position when any parent filter changes; keep only valid selections
-  useEffect(() => {
-    if (positionFilter.length === 0) return;
-    const valid = new Set(filteredPositions.map(p => p.value));
-    const still = positionFilter.filter(p => valid.has(p));
-    if (still.length !== positionFilter.length) setPositionFilter(still);
-  }, [filteredPositions]);
-
-  const filtered = useMemo(() => {
-    return employees.filter((emp) => {
-      // All fetched records are already active — no need to re-check is_active here
-      const matchesSearch = !search ||
-        emp.name?.toLowerCase().includes(search.toLowerCase()) ||
-        emp.qid_no?.includes(search) ||
-        emp.pp_no?.includes(search) ||
-        emp.pid?.includes(search) ||
-        emp.staff_no?.toLowerCase().includes(search.toLowerCase()) ||
-        emp.nationality?.toLowerCase().includes(search.toLowerCase());
-      const matchesCompany = companyFilter.length === 0 || companyFilter.includes(emp.company);
-      const matchesManager = selectedManagerIds.length === 0 || selectedManagerIds.some(mid =>
-        emp.assigned_manager_id ? emp.assigned_manager_id === mid : emp.assigned_manager_name === managers.find(m => m.id === mid)?.label
-      );
-      const effectiveRlic = getEffectiveRlic(emp);
-      const matchesRlic = rlicFilter === 'all' || effectiveRlic === rlicFilter;
-      const matchesGpStatus = gpStatusFilter.length === 0 || gpStatusFilter.includes(effectiveRlic);
-      const matchesLocation = locationFilter === 'all' || emp.current_location === locationFilter;
-      const matchesDir = dirFilter === 'all' || emp.dir_indir === dirFilter;
-      const matchesPosition = positionFilter.length === 0 || positionFilter.includes(emp.designation_org_chart);
-      const matchesDepartment = departmentFilter.length === 0 || departmentFilter.includes(emp.department);
-      const effectivePid = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
-      const matchesPidStatus = pidStatusFilter.length === 0 || pidStatusFilter.includes(effectivePid);
-      const matchesMedicalResult = medicalResultFilter.length === 0 || medicalResultFilter.includes(emp.ftw_result) || (medicalResultFilter.includes('NEW') && !emp.ftw_result);
-      const matchesTrainingStatus = trainingStatusFilter === 'all' || emp.training_status === trainingStatusFilter;
-      const empTrainScheduled = emp.training_date_scheduled ? emp.training_date_scheduled.substring(0, 10) : '';
-      const matchesTrainingScheduledFrom = !trainingScheduledFrom || (empTrainScheduled && empTrainScheduled >= trainingScheduledFrom);
-      const matchesTrainingScheduledTo = !trainingScheduledTo || (empTrainScheduled && empTrainScheduled <= trainingScheduledTo);
-      const empMedTrApproved = emp.ftw_approved_date ? emp.ftw_approved_date.substring(0, 10) : '';
-      const matchesMedicalTrApprovedFrom = !medicalTrApprovedFrom || (empMedTrApproved && empMedTrApproved >= medicalTrApprovedFrom);
-      const matchesMedicalTrApprovedTo = !medicalTrApprovedTo || (empMedTrApproved && empMedTrApproved <= medicalTrApprovedTo);
-      const empGpIssue = emp.gate_pass_issue_date ? emp.gate_pass_issue_date.substring(0, 10) : '';
-      const matchesGpIssueFrom = !gpIssueFrom || (empGpIssue && empGpIssue >= gpIssueFrom);
-      const matchesGpIssueTo = !gpIssueTo || (empGpIssue && empGpIssue <= gpIssueTo);
-      const empGpReceived = emp.gate_pass_received_date ? emp.gate_pass_received_date.substring(0, 10) : '';
-      const matchesGpReceivedFrom = !gpReceivedFrom || (empGpReceived && empGpReceived >= gpReceivedFrom);
-      const matchesGpReceivedTo = !gpReceivedTo || (empGpReceived && empGpReceived <= gpReceivedTo);
-      const empPidIssue = emp.pid_issue_date ? emp.pid_issue_date.substring(0, 10) : '';
-      const matchesPidIssueFrom = !pidIssueFrom || (empPidIssue && empPidIssue >= pidIssueFrom);
-      const matchesPidIssueTo = !pidIssueTo || (empPidIssue && empPidIssue <= pidIssueTo);
-      const attRec = latestAttByPersonnel.get(emp.id);
-      const attSt = getAttendanceStatus(attRec);
-      const matchesAttendance = attendanceFilter === 'all' || attSt === attendanceFilter;
-      return matchesSearch && matchesCompany && matchesManager && matchesRlic && matchesGpStatus && matchesLocation && matchesDir && matchesPosition && matchesDepartment && matchesPidStatus && matchesMedicalResult && matchesTrainingStatus && matchesAttendance && matchesTrainingScheduledFrom && matchesTrainingScheduledTo && matchesMedicalTrApprovedFrom && matchesMedicalTrApprovedTo && matchesGpIssueFrom && matchesGpIssueTo && matchesGpReceivedFrom && matchesGpReceivedTo && matchesPidIssueFrom && matchesPidIssueTo;
-    });
-  },     [employees, search, companyFilter, rlicFilter, gpStatusFilter, locationFilter, dirFilter, positionFilter, departmentFilter, pidStatusFilter, medicalResultFilter, trainingStatusFilter, attendanceFilter, trainingScheduledFrom, trainingScheduledTo, medicalTrApprovedFrom, medicalTrApprovedTo, gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo, pidIssueFrom, pidIssueTo, selectedManagerIds, managers, latestAttByPersonnel]);
-
-  // ── Personnel Status tab lists ──
-  // 'All Personnel' is the whole active roster (= Active on Site + Onboarding).
-  // Inactive / Demobilized records are never fetched here (is_active = false),
-  // so they cannot appear in any tab. Both lists derive from `filtered`, so
-  // every existing filter still applies inside the selected tab.
-  const activeOnSiteList = useMemo(() => filtered.filter(e => resolvePersonnelStatus(e) === ACTIVE_ON_SITE), [filtered]);
-  const onboardingList = useMemo(() => filtered.filter(e => resolvePersonnelStatus(e) === ONBOARDING), [filtered]);
-
-  // Active data set based on selected tab
-  const tabData = useMemo(() => {
-    if (activeTab === 'active_on_site') return activeOnSiteList;
-    if (activeTab === 'onboarding') return onboardingList;
-    return filtered;
-  }, [activeTab, filtered, activeOnSiteList, onboardingList]);
+  // ── Tab dataset ──
+  // `filtered` already carries the selected tab's base dataset AND every shared
+  // filter on top of it, so the rows on screen are the filtered rows of this tab.
+  const tabData = filtered;
+  // Total of the selected tab — the database's status total, not a page count.
+  const tabTotal = tabTotals?.[activeTab] ?? tabData.length;
 
   const totalPages = Math.ceil(tabData.length / PAGE_SIZE);
   // Auto-adjust page when it exceeds total pages (e.g. after delete on last page)
@@ -405,7 +289,7 @@ export default function MasterList() {
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Master List</h2>
-          <p className="text-sm text-muted-foreground mt-1">{tabData.length} of {employees.length} active personnel</p>
+          <p className="text-sm text-muted-foreground mt-1">{tabData.length.toLocaleString()} of {tabTotal.toLocaleString()} {TAB_TOTAL_LABEL[activeTab]} personnel</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {canEdit && (
@@ -427,137 +311,18 @@ export default function MasterList() {
         </div>
       </div>
 
-      {/* Filters — ONE shared collapsible section for every tab (All Personnel,
-          Active on Site, Onboarding and Inactive). It always sits ABOVE the tabs;
-          the Inactive tab filters its own dataset through these same controls. */}
-      <Card className="p-4">
-        <button
-          type="button"
-          onClick={() => setFiltersOpen(o => !o)}
-          className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
-        >
-          <SlidersHorizontal className="w-3.5 h-3.5" />
-          Filters
-          {hasActiveFilters && (
-            <span className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full leading-none">Active</span>
-          )}
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${filtersOpen ? '' : '-rotate-90'}`} />
-        </button>
-
-        <div className={`mt-3 ${filtersOpen ? '' : 'hidden'}`}>
-        {/* Row 1: dropdowns & selects */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-3">
-          <div className="relative xl:col-span-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Name, QID, PP, PID..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} className="pl-9" />
-          </div>
-          <MultiSelect options={cascadedCompanyOptions} value={companyFilter} onChange={setCompanyFilter} placeholder="All Companies" className="dropdown-company" />
-          <MultiSelect options={filteredPositions} value={positionFilter} onChange={setPositionFilter} placeholder="Filter by position" className="dropdown-position" />
-          <MultiSelect options={departmentOptions} value={departmentFilter} onChange={setDepartmentFilter} placeholder="Filter by department" className="dropdown-department" />
-          <Select value={rlicFilter} onValueChange={setRlicFilter}>
-            <SelectTrigger className="dropdown-status"><SelectValue placeholder="RLIC Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All RLIC</SelectItem>
-              {rlicStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <MultiSelect options={pidStatusOptions} value={pidStatusFilter} onChange={setPidStatusFilter} placeholder="PID Status" className="dropdown-status" />
-          <MultiSelect options={allGpStatusOptions} value={gpStatusFilter} onChange={setGpStatusFilter} placeholder="GP Statuses" className="dropdown-status" />
-          <MultiSelect options={[{ value: 'NEW', label: 'New' }, ...medicalResultOptions]} value={medicalResultFilter} onChange={setMedicalResultFilter} placeholder="Medical Result" className="dropdown-status" />
-          <div className="flex gap-2">
-            <Select value={locationFilter} onValueChange={setLocationFilter}>
-              <SelectTrigger className="dropdown-location"><SelectValue placeholder="Location" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Locations</SelectItem>
-                {locationOptions.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={dirFilter} onValueChange={setDirFilter}>
-              <SelectTrigger className="w-28 dropdown-location"><SelectValue placeholder="Type" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="DIR">DIR</SelectItem>
-                <SelectItem value="INDIR">INDIR</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Select value={trainingStatusFilter} onValueChange={setTrainingStatusFilter}>
-             <SelectTrigger className="dropdown-training"><SelectValue placeholder="Training Status" /></SelectTrigger>
-             <SelectContent>
-               <SelectItem value="all">All Training Status</SelectItem>
-               {trainingStatusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-             </SelectContent>
-           </Select>
-           <Select value={attendanceFilter} onValueChange={setAttendanceFilter}>
-             <SelectTrigger className="dropdown-status"><SelectValue placeholder="Camp Status" /></SelectTrigger>
-             <SelectContent>
-               <SelectItem value="all">All Camp Status</SelectItem>
-               <SelectItem value={ATT_STATUS.CHECKED_IN}>Inside Camp</SelectItem>
-               <SelectItem value={ATT_STATUS.CHECKED_OUT}>Checked Out</SelectItem>
-               <SelectItem value={ATT_STATUS.NOT_CHECKED_IN}>Not Checked In</SelectItem>
-             </SelectContent>
-           </Select>
-           <MultiSelect
-             options={managers.map(m => ({ value: m.id, label: m.label }))}
-             value={selectedManagerIds}
-             onChange={setSelectedManagerIds}
-             placeholder="All Managers"
-             className="dropdown-manager"
-           />
-          </div>
-
-        {/* Row 2: date range filters */}
-         <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-5 lg:gap-3">
-           <div>
-             <p className="text-[10px] font-medium text-muted-foreground mb-1">Training Scheduled</p>
-             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-               <Input type="date" value={trainingScheduledFrom} onChange={e => setTrainingScheduledFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
-               <span className="hidden sm:block text-muted-foreground text-xs">–</span>
-               <Input type="date" value={trainingScheduledTo} onChange={e => setTrainingScheduledTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
-             </div>
-           </div>
-           <div>
-             <p className="text-[10px] font-medium text-muted-foreground mb-1">Medical TR Approved</p>
-             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-               <Input type="date" value={medicalTrApprovedFrom} onChange={e => setMedicalTrApprovedFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
-               <span className="hidden sm:block text-muted-foreground text-xs">–</span>
-               <Input type="date" value={medicalTrApprovedTo} onChange={e => setMedicalTrApprovedTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
-             </div>
-           </div>
-           <div>
-             <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Submitted</p>
-             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-               <Input type="date" value={gpIssueFrom} onChange={e => setGpIssueFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
-               <span className="hidden sm:block text-muted-foreground text-xs">–</span>
-               <Input type="date" value={gpIssueTo} onChange={e => setGpIssueTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
-             </div>
-           </div>
-           <div>
-             <p className="text-[10px] font-medium text-muted-foreground mb-1">Gate Pass Received</p>
-             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-               <Input type="date" value={gpReceivedFrom} onChange={e => setGpReceivedFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
-               <span className="hidden sm:block text-muted-foreground text-xs">–</span>
-               <Input type="date" value={gpReceivedTo} onChange={e => setGpReceivedTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
-             </div>
-           </div>
-           <div>
-             <p className="text-[10px] font-medium text-muted-foreground mb-1">Project ID Issue</p>
-             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-               <Input type="date" value={pidIssueFrom} onChange={e => setPidIssueFrom(e.target.value)} className="text-xs h-8 flex-1" title="From" placeholder="From" />
-               <span className="hidden sm:block text-muted-foreground text-xs">–</span>
-               <Input type="date" value={pidIssueTo} onChange={e => setPidIssueTo(e.target.value)} className="text-xs h-8 flex-1" title="To" placeholder="To" />
-             </div>
-           </div>
-         </div>
-        {hasActiveFilters && (
-          <div className="mt-3 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => { setSelectedManagerIds([]); setSearchInput(''); setSearch(''); setCompanyFilter([]); setPositionFilter([]); setRlicFilter('all'); setLocationFilter('all'); setDirFilter('all'); setDepartmentFilter([]); setPidStatusFilter([]); setGpStatusFilter([]); setMedicalResultFilter([]); setTrainingStatusFilter('all'); setAttendanceFilter('all'); setTrainingScheduledFrom(''); setTrainingScheduledTo(''); setMedicalTrApprovedFrom(''); setMedicalTrApprovedTo(''); setGpIssueFrom(''); setGpIssueTo(''); setGpReceivedFrom(''); setGpReceivedTo(''); setPidIssueFrom(''); setPidIssueTo(''); setPage(0); }}>
-              <X className="w-3.5 h-3.5 mr-1" /> Clear Filters
-            </Button>
-          </div>
-        )}
-        </div>
-      </Card>
+      {/* Filters — ONE shared section for all four tabs (All Personnel, Active on
+          Site, Onboarding, Inactive), always ABOVE the tabs. The tab only changes
+          the dataset; the filters themselves never change. */}
+      <MasterListFilters
+        filters={filters}
+        onChange={updateFilters}
+        options={{ ...filterOptions, managers }}
+        searchValue={searchInput}
+        onSearchChange={handleSearchChange}
+        hasActiveFilters={hasActiveFilters}
+        onClear={clearFilters}
+      />
 
       {activeTab !== 'inactive' && editMode && hasActiveFilters && filtered.length > 0 && (
         <BulkEditBar fields={masterBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
@@ -568,43 +333,26 @@ export default function MasterList() {
         activeKey={activeTab}
         onChange={(key) => { setActiveTab(key); setPage(0); }}
         tabs={[
-          { key: 'all', label: 'All Personnel', count: filtered.length, icon: null, color: '' },
-          { key: 'active_on_site', label: 'Active on Site', count: activeOnSiteList.length, icon: HardHat, color: 'text-emerald-600' },
-          { key: 'onboarding', label: 'Onboarding', count: onboardingList.length, icon: UserPlus, color: 'text-indigo-600' },
+          { key: 'all', label: 'All Personnel', count: tabTotals?.all, icon: null, color: '' },
+          { key: 'active_on_site', label: 'Active on Site', count: tabTotals?.active_on_site, icon: HardHat, color: 'text-emerald-600' },
+          { key: 'onboarding', label: 'Onboarding', count: tabTotals?.onboarding, icon: UserPlus, color: 'text-indigo-600' },
           ...(canViewInactive
-            ? [{ key: 'inactive', label: 'Inactive', count: inactiveCount, icon: UserX, color: 'text-red-600' }]
+            ? [{ key: 'inactive', label: 'Inactive', count: tabTotals?.inactive, icon: UserX, color: 'text-red-600' }]
             : []),
         ]}
       />
 
-      {/* Table — the Inactive tab renders its own list instead */}
+      {/* The Inactive tab is the same list, of the same filtered rows: its base
+          dataset is queried here and the shared filter state is handed over
+          unchanged, so it filters exactly like the other three tabs. */}
       {activeTab === 'inactive' && canViewInactive ? (
-        // The Inactive list filters through the same shared section rendered
-        // above, so the state is passed straight into the list component.
         <InactivePersonnelView
           status="Inactive"
-          filters={{
-            search,
-            companies: companyFilter,
-            positions: positionFilter,
-            departments: departmentFilter,
-            locations: locationFilter,
-            dirs: dirFilter,
-            rlic: rlicFilter,
-            medicals: medicalResultFilter,
-            trainings: trainingStatusFilter,
-            gatePasses: gpStatusFilter,
-            pidStatuses: pidStatusFilter,
-            campStatus: attendanceFilter,
-            managerIds: selectedManagerIds,
-            managers,
-            dates: {
-              trainingScheduledFrom, trainingScheduledTo,
-              trApprovedFrom: medicalTrApprovedFrom, trApprovedTo: medicalTrApprovedTo,
-              gpIssueFrom, gpIssueTo, gpReceivedFrom, gpReceivedTo,
-              pidIssueFrom, pidIssueTo,
-            },
-          }}
+          rows={rows}
+          isLoading={isLoading}
+          managers={managers}
+          filters={filters}
+          totalCount={tabTotals?.inactive}
         />
       ) : (
       <Card className="overflow-hidden">
@@ -807,7 +555,7 @@ export default function MasterList() {
         </div>
         <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between gap-3 flex-wrap">
           <span className="text-xs text-muted-foreground">
-            Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, tabData.length)}</strong> of <strong>{tabData.length}</strong> filtered · <strong>{employees.length}</strong> total active
+            Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, tabData.length)}</strong> of <strong>{tabData.length.toLocaleString()}</strong> filtered · <strong>{tabTotal.toLocaleString()}</strong> {TAB_TOTAL_LABEL[activeTab]} personnel
           </span>
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
