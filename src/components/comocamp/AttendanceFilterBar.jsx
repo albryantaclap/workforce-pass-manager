@@ -30,7 +30,7 @@ export default function AttendanceFilterBar({ attendanceDate, setAttendanceDate,
             type="button"
             onClick={() => setAttendanceStatus(o.id)}
             className={cn(
-              'px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap',
+              'px-3.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap',
               attendanceStatus === o.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             )}
           >
