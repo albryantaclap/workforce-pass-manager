@@ -17,7 +17,7 @@ import { useRbac } from "@/lib/useRbac";
 import { recordPunch } from "@/lib/attendanceService";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAttendanceEmployees } from "@/hooks/useAttendanceEmployees";
-import { resolvePersonnelStatus, INACTIVE, ONBOARDING } from "@/lib/personnelStatus";
+import { attendanceBlockReason } from "@/lib/attendanceEligibility";
 
 const STEP = {
   STANDBY: "standby",
@@ -53,18 +53,10 @@ export default function AttendanceClock({ onRecorded }) {
   );
 
   // Recognition ≠ eligibility. The scanner has already established WHO the card
-  // belongs to, so these roster checks only decide whether attendance may be
+  // belongs to, so the eligibility rule (shared with the attendance roster —
+  // @/lib/attendanceEligibility) only decides whether attendance may be
   // recorded — a recognized person is never reported as unrecognized.
-  const eligibilityBlock = (emp) => {
-    const status = resolvePersonnelStatus(emp);
-    if (status === INACTIVE || emp.is_active === false) {
-      return "Employee is inactive — attendance cannot be recorded.";
-    }
-    if (status === ONBOARDING) {
-      return "Employee is still onboarding and is not yet eligible to punch.";
-    }
-    return "";
-  };
+  const eligibilityBlock = (emp) => attendanceBlockReason(emp);
 
   const handleEmployeeFound = async (emp) => {
     if (processingLockRef.current) return;

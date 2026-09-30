@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { ATTENDANCE_ROSTER_QUERY } from '@/lib/attendanceEligibility';
 
 /**
  * Lazy-load all active employees. Only fetches when `enabled` is true.
@@ -17,10 +18,9 @@ import { base44 } from '@/api/base44Client';
 export function useAttendanceEmployees(enabled = true) {
   return useQuery({
     queryKey: ['employees', 'active-attendance'],
-    queryFn: () => base44.entities.Employee.filter(
-      { personnel_status: { $in: ['Active on Site', ''] }, is_active: { $ne: false } },
-      'name', 100000
-    ),
+    // Roster = the Master List read with the shared eligibility rule
+    // (@/lib/attendanceEligibility) — no separate attendance employee table.
+    queryFn: () => base44.entities.Employee.filter(ATTENDANCE_ROSTER_QUERY, 'name', 100000),
     enabled,
     staleTime: 2 * 60 * 1000,
   });

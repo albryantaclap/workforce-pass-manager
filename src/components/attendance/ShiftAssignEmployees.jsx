@@ -3,6 +3,7 @@ import { Search, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import { cn } from '@/lib/utils';
+import { isAttendanceEligible } from '@/lib/attendanceEligibility';
 
 // Multi-select of active Master List personnel to assign to a shift.
 // Uses the existing AttendanceShiftAssignment (assignment_type='employee')
@@ -12,9 +13,7 @@ export default function ShiftAssignEmployees({ employees, selectedIds, setSelect
 
   const filtered = useMemo(() => {
     if (!employees) return [];
-    const active = employees.filter(
-      (e) => (e.personnel_status === 'Active on Site' || !e.personnel_status) && e.is_active !== false
-    );
+    const active = employees.filter(isAttendanceEligible);
     if (!search) return active;
     const q = search.toLowerCase();
     return active.filter((e) =>

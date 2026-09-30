@@ -7,6 +7,7 @@ import {
   resolveShift,
   calculateAttendanceStatus,
 } from "../../shared/attendanceCalc.ts";
+import { ATTENDANCE_ROSTER_QUERY } from "../../shared/attendanceRoster.ts";
 
 // Server-side aggregation and pagination for the Daily Attendance → Employee Summary tab.
 //
@@ -42,7 +43,7 @@ export default async function (req: Request): Promise<Response> {
 
     // 2. Fetch all active employees
     const employees = await base44.entities.Employee.filter(
-      { personnel_status: { $in: ["Active on Site", ""] }, is_active: { $ne: false } },
+      ATTENDANCE_ROSTER_QUERY,
       "name",
       100000
     );

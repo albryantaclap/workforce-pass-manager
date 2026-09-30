@@ -1,4 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
+import { ATTENDANCE_ROSTER_QUERY } from "../../shared/attendanceRoster.ts";
 
 // Returns unique filter values (companies, departments, designations, branches,
 // managers) from active employees. Called once and cached on the frontend for
@@ -8,7 +9,7 @@ export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
     const employees = await base44.entities.Employee.filter(
-      { personnel_status: { $in: ["Active on Site", ""] }, is_active: { $ne: false } },
+      ATTENDANCE_ROSTER_QUERY,
       "name", 100000
     );
 

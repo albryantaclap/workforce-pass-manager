@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
 import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus } from "../../shared/attendanceCalc.ts";
+import { ATTENDANCE_ROSTER_QUERY } from "../../shared/attendanceRoster.ts";
 import { loadUserDirectory, resolveScannedBy, needsUserDirectory } from "../../shared/attendanceUsers.ts";
 
 // Server-side filtering, pagination, and KPI aggregation for the
@@ -38,7 +39,7 @@ export default async function (req: Request): Promise<Response> {
 
     // 2. Fetch all active employees and apply personnel filters
     const employees = await base44.entities.Employee.filter(
-      { personnel_status: { $in: ["Active on Site", ""] }, is_active: { $ne: false } },
+      ATTENDANCE_ROSTER_QUERY,
       "name", 100000
     );
     const filteredEmps = filterEmployees(employees, filters);
