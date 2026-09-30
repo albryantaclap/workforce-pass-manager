@@ -8,20 +8,21 @@
  *
  * Eligible PROJECT statuses (raw stored values):
  *   "Active on Site"  mobilized, working on the project/site
+ *   "Onboarding"      on site completing requirements — attendance is recorded
+ *                     while the status itself stays Onboarding
  *   ""                no status set yet — the app never assigns
  *                     "Active on Site" by itself, so newly added or imported
  *                     personnel must stay on the roster
  *   "Active"          legacy value, always read as unassigned
  *
- * Inactive (and the legacy "Demobilized") are never eligible, and Onboarding is
- * deliberately not eligible — it is still completing requirements. The clock's
+ * Inactive (and the legacy "Demobilized") are never eligible. The clock's
  * refusal message is the user-facing half of this rule.
  *
  * Keep in step with the frontend rule: src/lib/attendanceEligibility.js
  */
 export const LEGACY_ACTIVE_STATUS = "Active";
 
-export const ATTENDANCE_ELIGIBLE_STATUSES = ["Active on Site", "", LEGACY_ACTIVE_STATUS];
+export const ATTENDANCE_ELIGIBLE_STATUSES = ["Active on Site", "Onboarding", "", LEGACY_ACTIVE_STATUS];
 
 export const ATTENDANCE_ROSTER_QUERY = {
   personnel_status: { $in: ATTENDANCE_ELIGIBLE_STATUSES },

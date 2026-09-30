@@ -12,11 +12,13 @@
  * (@/lib/personnelStatus → resolvePersonnelStatus):
  *
  *   Active on Site   → eligible (mobilized, working on the project/site)
+ *   Onboarding       → eligible — onboarding personnel are on site completing
+ *                      their requirements and their attendance IS recorded
+ *                      (their status stays Onboarding; it is never promoted)
  *   unassigned ('')  → eligible — the app never assigns 'Active on Site' by
  *                      itself, so a newly added or imported person must stay
  *                      punchable
  *   legacy 'Active'  → reads as unassigned → eligible
- *   Onboarding       → NOT eligible — still completing requirements
  *   Inactive         → NOT eligible (never punchable)
  *   legacy 'Demobilized' → reads as Inactive → NOT eligible
  *
@@ -35,7 +37,7 @@ import {
 export const LEGACY_ACTIVE_STATUS = 'Active';
 
 /** Raw personnel_status values that put a record on the attendance roster. */
-export const ATTENDANCE_ELIGIBLE_STATUSES = [ACTIVE_ON_SITE, UNASSIGNED, LEGACY_ACTIVE_STATUS];
+export const ATTENDANCE_ELIGIBLE_STATUSES = [ACTIVE_ON_SITE, ONBOARDING, UNASSIGNED, LEGACY_ACTIVE_STATUS];
 
 /**
  * The roster query every attendance view uses to read the Master List.
@@ -51,7 +53,7 @@ export const ATTENDANCE_ROSTER_QUERY = {
 export const isAttendanceEligible = (emp) => {
   if (!emp || emp.is_active === false) return false;
   const status = resolvePersonnelStatus(emp);
-  return status === ACTIVE_ON_SITE || status === UNASSIGNED;
+  return status === ACTIVE_ON_SITE || status === ONBOARDING || status === UNASSIGNED;
 };
 
 /**
@@ -62,9 +64,6 @@ export const attendanceBlockReason = (emp) => {
   const status = resolvePersonnelStatus(emp);
   if (emp?.is_active === false || status === INACTIVE) {
     return 'Employee is inactive — attendance cannot be recorded.';
-  }
-  if (status === ONBOARDING) {
-    return 'Employee is still onboarding and is not yet eligible to punch.';
   }
   return '';
 };
