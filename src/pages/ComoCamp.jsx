@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Pencil, X, MapPin, UserX, Trash2, Save, Check, LayoutDashboard, List, FileSpreadsheet, Printer, FileText, History, ArrowLeftRight } from 'lucide-react';
+import { Search, Eye, Pencil, X, MapPin, UserX, Trash2, Save, Check, LayoutDashboard, FileSpreadsheet, Printer, FileText, History, ArrowLeftRight } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import FilterToolbar from '@/components/common/FilterToolbar';
@@ -127,7 +127,8 @@ export default function ComoCamp() {
   const { toast } = useToast();
 
   const saved = useMemo(() => loadFilters(), []);
-  const [activeTab, setActiveTab] = useState(() => readReturnContext()?.tab === 'demobilized' ? 'demobilized' : 'como');
+  // Main tabs: Dashboard (All Locations summary) | All Locations | COMO Camp | Demobilized
+  const [activeTab, setActiveTab] = useState(() => readReturnContext()?.tab === 'demobilized' ? 'demobilized' : 'dashboard');
 
   // Demobilized personnel — shown in the Demobilized tab beside COMO Camp
   // (permission: Inactive / Demobilized → View)
@@ -135,7 +136,6 @@ export default function ComoCamp() {
   const canViewInactive = canView('workforce.inactive');
   const { employees: inactiveRoster } = useInactiveRoster();
   const demobilizedCount = useMemo(() => statusList(inactiveRoster, 'Demobilized').length, [inactiveRoster]);
-  const [view, setView] = useState('dashboard');
   const [searchInput, setSearchInput] = useState(saved.search || '');
   const [search, setSearch] = useState(saved.search || '');
   const [page, setPage] = useState(saved.page || 0);
@@ -514,8 +514,12 @@ export default function ComoCamp() {
 
   // COMO Camp dataset (Work Location = COMO CAMP, normalized)
   const comoEmployees = useMemo(() => employees.filter(isComoCamp), [employees]);
-  const baseDataset = activeTab === 'como' ? comoEmployees : employees;
+  // Tab scope: the Dashboard tab is the All Locations summary, so it shares the
+  // All Locations dataset. Only the COMO Camp tab narrows to camp personnel.
+  const isDashboard = activeTab === 'dashboard';
   const isComo = activeTab === 'como';
+  const isList = activeTab === 'all' || isComo;
+  const baseDataset = isComo ? comoEmployees : employees;
 
   // Cascading company options: when department is selected, only show companies with employees in that dept
   const cascadedCompanyOptions = useMemo(() => {
@@ -721,8 +725,10 @@ export default function ComoCamp() {
       snap[e.id] = { current_location: e.current_location || '', contact_details: e.contact_details || '' };
       orig[e.id] = { current_location: e.current_location || '', contact_details: e.contact_details || '' };
     }
-    setDrafts(snap); setOriginals(orig); setSelectedIds(new Set()); setEditMode(true); setView('list');
-  }, [pagedRows]);
+    setDrafts(snap); setOriginals(orig); setSelectedIds(new Set()); setEditMode(true);
+    // The grid lives on the personnel list — leave the Dashboard tab for it.
+    if (isDashboard) setActiveTab('all');
+  }, [pagedRows, isDashboard]);
 
   const updateDraft = (empId, field, value) => {
     setDrafts(prev => prev[empId] ? { ...prev, [empId]: { ...prev[empId], [field]: value } } : prev);
@@ -830,7 +836,7 @@ export default function ComoCamp() {
   // sees the filtered records. Reuses existing filter options so the
   // applied value matches what the FilterToolbar expects.
   const findOpt = (opts, key) => { const k = String(key ?? '').toUpperCase(); return opts.find(o => String(o.value ?? '').toUpperCase() === k); };
-  const drillAndShow = (apply) => { apply(); setView('list'); setPage(0); };
+  const drillAndShow = (apply) => { apply(); setActiveTab('all'); setPage(0); };
   const onDrill = {
     company: (key) => { if (key === 'Unassigned') return; drillAndShow(() => { const o = findOpt(allCompanyOptions, key); setCompanyFilter(o ? [o.value] : [key]); }); },
     department: (key) => { if (key === 'Unassigned') return; drillAndShow(() => { const o = findOpt(allDepartmentOptions, key); setDepartmentFilter(o ? [o.value] : [key]); }); },
@@ -844,7 +850,7 @@ export default function ComoCamp() {
     pidExpiry: (key) => { if (key === 'expired') drillAndShow(() => setPidStatusFilter(['EXPIRED PID PASS'])); },
   };
 
-  // ── Attendance KPI card click → set attendance status filter + switch to list
+  // ── Attendance KPI card click (COMO Camp tab) → apply the attendance status filter
   const handleAttCardClick = (id) => {
     const map = {
       attTotal: 'all', attCheckedIn: 'checked_in', attCheckedOut: 'checked_out',
@@ -853,7 +859,6 @@ export default function ComoCamp() {
     const st = map[id];
     if (!st) return;
     setAttendanceStatus(st);
-    setView('list');
     setPage(0);
   };
 
@@ -1115,7 +1120,7 @@ export default function ComoCamp() {
               <Button variant="outline" onClick={() => setShowReportConfig(true)} className="gap-1.5 rounded-full bg-muted/40 hover:bg-muted/60">
                 <FileText className="w-3.5 h-3.5" /> Report Configuration
               </Button>
-              {view === 'list' && activeTab !== 'demobilized' && (
+              {isList && (
                 <>
                   <ExportButton getData={getExportData} filename={exportFilename} />
                   <PrintReportButton
@@ -1138,6 +1143,7 @@ export default function ComoCamp() {
         activeKey={activeTab}
         onChange={switchTab}
         tabs={[
+          { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, disabled: editMode },
           { key: 'all', label: 'All Locations', count: employees.length, disabled: editMode },
           { key: 'como', label: 'COMO Camp', count: comoEmployees.length, disabled: editMode },
           ...(canViewInactive
@@ -1150,26 +1156,6 @@ export default function ComoCamp() {
         <InactivePersonnelView status="Demobilized" />
       ) : (
       <>
-      {/* View toggle */}
-      <div className="flex items-center gap-1 p-1 bg-muted/40 rounded-lg w-fit">
-        <button
-          onClick={() => !editMode && setView('dashboard')}
-          disabled={editMode}
-          className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50',
-            view === 'dashboard' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
-        >
-          <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
-        </button>
-        <button
-          onClick={() => !editMode && setView('list')}
-          disabled={editMode}
-          className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50',
-            view === 'list' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
-        >
-          <List className="w-3.5 h-3.5" /> Personnel List
-        </button>
-      </div>
-
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1214,15 +1200,18 @@ export default function ComoCamp() {
       )}
 
       {isComo && (
-        <AttendanceFilterBar
-          attendanceDate={attendanceDate}
-          setAttendanceDate={setAttendanceDate}
-          attendanceStatus={attendanceStatus}
-          setAttendanceStatus={setAttendanceStatus}
-        />
+        <>
+          <AttendanceFilterBar
+            attendanceDate={attendanceDate}
+            setAttendanceDate={setAttendanceDate}
+            attendanceStatus={attendanceStatus}
+            setAttendanceStatus={setAttendanceStatus}
+          />
+          <AttendanceKpiCards data={sorted} latestByPersonnel={latestByPersonnel} daySessionIds={daySessionIds} onCard={handleAttCardClick} />
+        </>
       )}
 
-      {view === 'dashboard' && (
+      {isDashboard && (
         <div className="space-y-3">
           <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportDashboardExcel({ data: sorted, isComo, filters: appliedFilters })}>
@@ -1232,14 +1221,11 @@ export default function ComoCamp() {
               <Printer className="w-3.5 h-3.5" /> Print / PDF
             </Button>
           </div>
-          {isComo && (
-            <AttendanceKpiCards data={sorted} latestByPersonnel={latestByPersonnel} daySessionIds={daySessionIds} onCard={handleAttCardClick} />
-          )}
           <ComoCampDashboard data={sorted} isComo={isComo} firstCardLabel={firstCardLabel} onDrill={onDrill} onCard={handleCardClick} />
         </div>
       )}
 
-      {view === 'list' && (
+      {!isDashboard && (
         <Card className="overflow-hidden">
         <div className="table-scroll-x">
           <div className="table-scroll-y h-[560px]" ref={scrollRef}>
