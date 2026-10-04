@@ -47,13 +47,43 @@ export const TAB_TOTAL_LABEL = {
   inactive: 'inactive',
 };
 
-/** The same base rule applied to the rows that arrive (legacy values included). */
+/**
+ * The same base rule applied to the rows that arrive (legacy values included) —
+ * the ONE partition the four tab counts AND the tables are both built from, so a
+ * tab's count and the rows it lists can never disagree:
+ *
+ *   All Personnel    the active roster (Active on Site, Onboarding, no status yet)
+ *   Active on Site   active roster + status 'Active on Site'
+ *   Onboarding       active roster + status 'Onboarding'
+ *   Inactive         is_active = false + status 'Inactive' (legacy 'Demobilized' included)
+ */
 export const matchesTabDataset = (emp, tab) => {
-  if (tab === 'inactive') return resolvePersonnelStatus(emp) === INACTIVE;
-  if (tab === 'active_on_site') return resolvePersonnelStatus(emp) === ACTIVE_ON_SITE;
-  if (tab === 'onboarding') return resolvePersonnelStatus(emp) === ONBOARDING;
+  if (!emp) return false;
+  const status = resolvePersonnelStatus(emp);
+  if (tab === 'inactive') return emp.is_active === false && status === INACTIVE;
+  if (emp.is_active !== true) return false;
+  if (tab === 'active_on_site') return status === ACTIVE_ON_SITE;
+  if (tab === 'onboarding') return status === ONBOARDING;
   return true;
 };
+
+/**
+ * The four tab counts for a set of rows.
+ *
+ * Always called with the FULL filtered dataset — never with the page on screen —
+ * so a count is the total number of matching records, whatever the page size is.
+ * */
+export const countMasterListTabs = (rows) =>
+  (rows || []).reduce(
+    (counts, emp) => {
+      if (matchesTabDataset(emp, 'all')) counts.all += 1;
+      if (matchesTabDataset(emp, 'active_on_site')) counts.active_on_site += 1;
+      if (matchesTabDataset(emp, 'onboarding')) counts.onboarding += 1;
+      if (matchesTabDataset(emp, 'inactive')) counts.inactive += 1;
+      return counts;
+    },
+    { all: 0, active_on_site: 0, onboarding: 0, inactive: 0 }
+  );
 
 // ── Camp status (accommodation) ───────────────────────────────────────────────
 /** Camp-status filter values ↔ the camp status each one means. */
@@ -181,14 +211,18 @@ export const MASTER_SEARCH_FIELDS = [
 ];
 
 /**
- * Builds the database query for a tab: its base dataset plus every filter the
- * database can apply. Deliberately a superset of the predicate below — records
- * that pass this query are still checked against the exact rule.
+ * The database part of the shared filters — every filter the database can apply,
+ * with NO tab base dataset. This is the query the Master List runs: its result
+ * covers all four tab datasets, which is what lets the tab counts be computed
+ * from the same rows the table is built from.
+ *
+ * Deliberately a superset of the predicate below — records that pass this query
+ * are still checked against the exact rule.
  */
-export function buildMasterListQuery(filters, tab, managers = []) {
+export function buildMasterListFilterQuery(filters, managers = []) {
   const f = filters || createEmptyMasterFilters();
   const d = f.dates || {};
-  const query = { ...(TAB_DATASET_QUERY[tab] || TAB_DATASET_QUERY.all) };
+  const query = {};
 
   if (list(f.companies).length) query.company = { $in: list(f.companies) };
   if (list(f.departments).length) query.department = { $in: list(f.departments) };
@@ -245,6 +279,17 @@ export function buildMasterListQuery(filters, tab, managers = []) {
 
   if (groups.length) query.$and = groups;
   return query;
+}
+
+/**
+ * The database query for ONE tab on its own: its base dataset plus the shared
+ * filters. Used by callers that need a single tab's records.
+ */
+export function buildMasterListQuery(filters, tab, managers = []) {
+  return {
+    ...(TAB_DATASET_QUERY[tab] || TAB_DATASET_QUERY.all),
+    ...buildMasterListFilterQuery(filters, managers),
+  };
 }
 
 // ── Exact rule (browser side) ────────────────────────────────────────────────

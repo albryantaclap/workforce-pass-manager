@@ -30,7 +30,7 @@ import { formatDuration, formatDateTimeCompact } from '@/lib/attendanceUtils';
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
 import BulkEditBar from '../components/common/BulkEditBar';
-import { ACTIVE_ON_SITE, ONBOARDING, INACTIVE, isActiveRosterStatus, resolvePersonnelStatus, personnelStatusLabel } from '@/lib/personnelStatus';
+import { ONBOARDING, INACTIVE, isActiveRosterStatus, resolvePersonnelStatus, personnelStatusLabel } from '@/lib/personnelStatus';
 import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
@@ -40,7 +40,8 @@ import {
   loadMasterFilters,
   saveMasterFilters,
   hasActiveMasterFilters,
-  buildMasterListQuery,
+  buildMasterListFilterQuery,
+  countMasterListTabs,
   filterMasterRows,
   matchesTabDataset,
   TAB_TOTAL_LABEL,
@@ -100,34 +101,21 @@ export default function MasterList() {
   const { canView } = useRbac();
   const canViewInactive = canView('workforce.inactive');
 
-  // ── ONE query for the selected tab ──
-  // The tab supplies the BASE dataset only; every filter the database can apply
-  // is pushed into the query, so only matching records travel to the browser.
+  // ── ONE query for the whole Master List ──
+  // Every filter the database can apply is pushed into the query, so only
+  // matching records travel to the browser. The query is deliberately NOT
+  // restricted to the selected tab: its result carries all four tab datasets, so
+  // the tab counts are computed from the very rows the table lists — the count of
+  // a tab can never disagree with what that tab shows.
   // (The key keeps the ['employees-active'] prefix every module already
   // invalidates, so edits made anywhere refresh this list.)
   const masterQuery = useMemo(
-    () => buildMasterListQuery(filters, activeTab, managers),
-    [filters, activeTab, managers]
+    () => buildMasterListFilterQuery(filters, managers),
+    [filters, managers]
   );
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ['employees-active', 'master', activeTab, masterQuery],
+    queryKey: ['employees-active', 'master', masterQuery],
     queryFn: () => base44.entities.Employee.filter(masterQuery, '-created_date', 100000),
-  });
-
-  // Tab totals — status totals counted by the database: never taken from the
-  // loaded page, so pagination can never make them wrong.
-  const { data: tabTotals } = useQuery({
-    queryKey: ['employees-active', 'totals'],
-    staleTime: 30000,
-    queryFn: async () => {
-      const [all, activeOnSite, onboarding, inactive] = await Promise.all([
-        base44.entities.Employee.count({ is_active: true }),
-        base44.entities.Employee.count({ is_active: true, personnel_status: ACTIVE_ON_SITE }),
-        base44.entities.Employee.count({ is_active: true, personnel_status: ONBOARDING }),
-        base44.entities.Employee.count({ is_active: false }),
-      ]);
-      return { all, active_on_site: activeOnSite, onboarding, inactive };
-    },
   });
 
   // One set of filter options for all four tabs.
@@ -159,9 +147,9 @@ export default function MasterList() {
   ];
 
   const handleBulkApply = async (field, value) => {
-    await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
+    await Promise.all(tabData.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
     queryClient.invalidateQueries({ queryKey: ['employees-active'] });
-    toast({ title: `Updated ${filtered.length} records` });
+    toast({ title: `Updated ${tabData.length} records` });
   };
 
   // Move to Onboarding / Inactive / Demobilized — opens the StatusChangeModal, then updates the record.
@@ -228,20 +216,27 @@ export default function MasterList() {
   // useMasterListFilterOptions), so they are identical on every tab and switching
   // a tab can never change an option or silently drop a selection.
 
-  // ONE shared rule for every tab (@/lib/masterListFilters): the tab's base
-  // dataset first, then exactly the same filters on top of it.
+  // ONE shared rule for every tab (@/lib/masterListFilters): the same filters,
+  // applied to the same query result. Not restricted to the selected tab — the
+  // four tab counts and the table below both come from this one dataset.
   const filtered = useMemo(
-    () => filterMasterRows(rows, filters, { latestByPersonnel: latestAttByPersonnel, managers })
-      .filter(e => matchesTabDataset(e, activeTab)),
-    [rows, filters, latestAttByPersonnel, managers, activeTab]
+    () => filterMasterRows(rows, filters, { latestByPersonnel: latestAttByPersonnel, managers }),
+    [rows, filters, latestAttByPersonnel, managers]
   );
 
+  // ── Tab counts ──
+  // Counted from the FULL filtered dataset with the current Search & Filters in
+  // force — never from the page on screen, so pagination can never shrink a count.
+  const tabCounts = useMemo(() => countMasterListTabs(filtered), [filtered]);
+
   // ── Tab dataset ──
-  // `filtered` already carries the selected tab's base dataset AND every shared
-  // filter on top of it, so the rows on screen are the filtered rows of this tab.
-  const tabData = filtered;
-  // Total of the selected tab — the database's status total, not a page count.
-  const tabTotal = tabTotals?.[activeTab] ?? tabData.length;
+  // The selected tab's slice of that same filtered dataset: exactly the records
+  // its count above promises.
+  const tabData = useMemo(
+    () => filtered.filter(e => matchesTabDataset(e, activeTab)),
+    [filtered, activeTab]
+  );
+  const tabTotal = tabCounts[activeTab] ?? tabData.length;
 
   const totalPages = Math.ceil(tabData.length / PAGE_SIZE);
   // Auto-adjust page when it exceeds total pages (e.g. after delete on last page)
@@ -324,8 +319,8 @@ export default function MasterList() {
         onClear={clearFilters}
       />
 
-      {activeTab !== 'inactive' && editMode && hasActiveFilters && filtered.length > 0 && (
-        <BulkEditBar fields={masterBulkFields} filteredCount={filtered.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
+      {activeTab !== 'inactive' && editMode && hasActiveFilters && tabData.length > 0 && (
+        <BulkEditBar fields={masterBulkFields} filteredCount={tabData.length} onApply={handleBulkApply} isLoading={updateMutation.isPending} />
       )}
 
       {/* Personnel Status Tabs — Active + Onboarding = Active on Site + Onboarding */}
@@ -333,11 +328,11 @@ export default function MasterList() {
         activeKey={activeTab}
         onChange={(key) => { setActiveTab(key); setPage(0); }}
         tabs={[
-          { key: 'all', label: 'All Personnel', count: tabTotals?.all, icon: null, color: '' },
-          { key: 'active_on_site', label: 'Active on Site', count: tabTotals?.active_on_site, icon: HardHat, color: 'text-emerald-600' },
-          { key: 'onboarding', label: 'Onboarding', count: tabTotals?.onboarding, icon: UserPlus, color: 'text-indigo-600' },
+          { key: 'all', label: 'All Personnel', count: tabCounts.all, icon: null, color: '' },
+          { key: 'active_on_site', label: 'Active on Site', count: tabCounts.active_on_site, icon: HardHat, color: 'text-emerald-600' },
+          { key: 'onboarding', label: 'Onboarding', count: tabCounts.onboarding, icon: UserPlus, color: 'text-indigo-600' },
           ...(canViewInactive
-            ? [{ key: 'inactive', label: 'Inactive', count: tabTotals?.inactive, icon: UserX, color: 'text-red-600' }]
+            ? [{ key: 'inactive', label: 'Inactive', count: tabCounts.inactive, icon: UserX, color: 'text-red-600' }]
             : []),
         ]}
       />
@@ -348,11 +343,11 @@ export default function MasterList() {
       {activeTab === 'inactive' && canViewInactive ? (
         <InactivePersonnelView
           status="Inactive"
-          rows={rows}
+          rows={tabData}
           isLoading={isLoading}
           managers={managers}
           filters={filters}
-          totalCount={tabTotals?.inactive}
+          totalCount={tabCounts.inactive}
         />
       ) : (
       <Card className="overflow-hidden">
