@@ -47,6 +47,7 @@ Deno.serve(async (req) => {
       personnelId, employeeName, company, attendanceDate,
       attendanceRecordId,
       firstInIso, firstOutIso, secondInIso, finalOutIso,
+      changedPunchKeys,
       reason, remarks, workLocation,
       shiftId, shiftName,
       manualStatusOverride, manualStatusReason,
@@ -60,15 +61,9 @@ Deno.serve(async (req) => {
     // The authenticated ACCOUNT behind this action (the permanent reference).
     const userId = user?.id || '';
 
-    // ── Server-side punch-sequence validation (the sequence is authoritative) ──
     // The employee's assigned shift for this date is resolved HERE — a shift sent by
-    // the client is never trusted — and the four punches are validated against its
-    // Split-Shift Punch Rules: FIRST IN → FIRST OUT → SECOND IN → FINAL OUT. The
-    // punches are compared as FULL datetimes, so a cross-midnight sequence (SECOND IN
-    // 00:55 after FIRST OUT 22:50) stays valid and the attendance date stays the
-    // shift-start date. A save that would skip a required punch, jump a later punch
-    // over an earlier one, or order them wrongly is rejected with the punch that is
-    // expected. No timestamp is ever fabricated.
+    // the client is never trusted. It decides the Split-Shift Punch Rules that the
+    // punches are validated against, below, once the record being edited is known.
     let employee: any = null;
     try { employee = await base44.entities.Employee.get(personnelId); } catch { employee = null; }
     const [shiftRows, assignmentRows, settingRows] = await Promise.all([
@@ -79,16 +74,6 @@ Deno.serve(async (req) => {
     const settings = settingRows[0] || null;
     const resolvedShift = resolveShift(employee || { id: personnelId, company }, assignmentRows, shiftRows, settings);
     const splitEffective = !!(resolvedShift && isSplitEffective(resolvedShift, attendanceDate));
-
-    const sequenceRecord: any = {
-      attendance_date: attendanceDate,
-      first_in_at: firstInIso, first_out_at: firstOutIso,
-      second_in_at: secondInIso, final_out_at: finalOutIso,
-    };
-    const { blocked } = validatePunchSequence(sequenceRecord, resolvedShift, settings);
-    if (blocked.length) {
-      return Response.json({ error: blocked.join(' ') }, { status: 400 });
-    }
 
     // Resolve the record being edited. When the row's attendance record id is supplied
     // it is authoritative: the record must exist and must belong to the employee passed
@@ -111,6 +96,42 @@ Deno.serve(async (req) => {
       record = existing[0] || null;
     }
 
+    // ── PATCH: only the punches the Admin actually changed are applied ─────────
+    // Edit Attendance sends just the punch fields the Admin touched; every other punch
+    // keeps the value already stored on the record. A punch recorded by the scanner
+    // while the dialog was open is therefore never overwritten with the form's older
+    // value, and one punch is never copied into another — a blank punch stays blank
+    // unless the Admin sets it explicitly.
+    const changed: string[] | null = Array.isArray(changedPunchKeys) ? changedPunchKeys : null;
+    const punch: any = {
+      first_in_at: record?.first_in_at || '',
+      first_out_at: record?.first_out_at || '',
+      second_in_at: record?.second_in_at || '',
+      final_out_at: record?.final_out_at || '',
+    };
+    if (!changed || changed.includes('first_in')) punch.first_in_at = firstInIso || '';
+    if (!changed || changed.includes('first_out')) punch.first_out_at = firstOutIso || '';
+    if (!changed || changed.includes('second_in')) punch.second_in_at = secondInIso || '';
+    if (!changed || changed.includes('final_out')) punch.final_out_at = finalOutIso || '';
+
+    // ── Server-side punch-sequence validation (the sequence is authoritative) ──
+    // The punches the record WILL hold are validated against the shift's Split-Shift
+    // Punch Rules: FIRST IN → FIRST OUT → SECOND IN → FINAL OUT. They are compared as
+    // FULL datetimes, so a cross-midnight sequence (SECOND IN 00:55 after FIRST OUT
+    // 22:50) stays valid and the attendance date stays the shift-start date. A save
+    // that would skip a required punch, jump a later punch over an earlier one, or
+    // order them wrongly is rejected with the punch that is expected. Validation only
+    // ever REJECTS: it never creates, fills in or infers a missing punch.
+    const sequenceRecord: any = {
+      attendance_date: attendanceDate,
+      first_in_at: punch.first_in_at, first_out_at: punch.first_out_at,
+      second_in_at: punch.second_in_at, final_out_at: punch.final_out_at,
+    };
+    const { blocked } = validatePunchSequence(sequenceRecord, resolvedShift, settings);
+    if (blocked.length) {
+      return Response.json({ error: blocked.join(' ') }, { status: 400 });
+    }
+
     // Creating an attendance record from scratch still requires a reason; editing the
     // punches of an existing record does not force one.
     if (!record && !reason?.trim()) {
@@ -118,13 +139,21 @@ Deno.serve(async (req) => {
     }
     const reasonText = (reason || '').trim();
 
-    // Sync backward-compat fields. For a split shift the validator above has
-    // already guaranteed that a FINAL OUT implies the whole required sequence.
-    const checkInIso = firstInIso;
-    const checkOutIso = finalOutIso || firstOutIso;
-    const isCompleted = splitEffective ? !!finalOutIso : (!!finalOutIso || (!!firstOutIso && !secondInIso));
+    // Backward-compat mirror fields. check_out_at follows a REAL final out only, and
+    // a legacy single-session out that already lives in check_out_at is left exactly
+    // where it is (it is never promoted into final_out_at either). No other punch is
+    // ever copied into it — in particular a first out never becomes a final out — so
+    // a cleared FINAL OUT stays cleared and a missing FINAL OUT stays missing.
+    const singleSessionOut = (!punch.first_out_at && !punch.second_in_at)
+      ? (record?.check_out_at || '')
+      : '';
+    const checkInIso = punch.first_in_at || record?.check_in_at || '';
+    const checkOutIso = punch.final_out_at || singleSessionOut;
+    const isCompleted = splitEffective
+      ? !!punch.final_out_at
+      : (!!punch.final_out_at || (!!punch.first_out_at && !punch.second_in_at));
 
-    const tempRec = { first_in_at: firstInIso, first_out_at: firstOutIso, second_in_at: secondInIso, final_out_at: finalOutIso };
+    const tempRec = punch;
     const duration = calculateDurationFromRecord(tempRec);
     const overtime = calculateOvertime(duration, settings);
 
@@ -136,8 +165,8 @@ Deno.serve(async (req) => {
       personnel_id: personnelId, employee_name: employeeName, company,
       attendance_date: attendanceDate,
       check_in_at: checkInIso, check_out_at: checkOutIso,
-      first_in_at: firstInIso, first_out_at: firstOutIso,
-      second_in_at: secondInIso, final_out_at: finalOutIso,
+      first_in_at: punch.first_in_at, first_out_at: punch.first_out_at,
+      second_in_at: punch.second_in_at, final_out_at: punch.final_out_at,
       duration_minutes: duration, overtime_minutes: overtime,
       work_location: workLocation || '',
       status: isCompleted ? 'completed' : 'open',
@@ -156,18 +185,18 @@ Deno.serve(async (req) => {
     // account, and only a punch newly entered here is attributed to this user.
     // The editor is recorded separately as Last Edited By.
     if (record) {
-      payload.first_in_by_user_id = record.first_in_by_user_id || (!record.first_in_at && firstInIso ? userId : '');
-      payload.first_out_by_user_id = record.first_out_by_user_id || (!record.first_out_at && firstOutIso ? userId : '');
-      payload.second_in_by_user_id = record.second_in_by_user_id || (!record.second_in_at && secondInIso ? userId : '');
-      payload.final_out_by_user_id = record.final_out_by_user_id || (!record.final_out_at && finalOutIso ? userId : '');
+      payload.first_in_by_user_id = record.first_in_by_user_id || (!record.first_in_at && punch.first_in_at ? userId : '');
+      payload.first_out_by_user_id = record.first_out_by_user_id || (!record.first_out_at && punch.first_out_at ? userId : '');
+      payload.second_in_by_user_id = record.second_in_by_user_id || (!record.second_in_at && punch.second_in_at ? userId : '');
+      payload.final_out_by_user_id = record.final_out_by_user_id || (!record.final_out_at && punch.final_out_at ? userId : '');
       payload.last_edited_by_user_id = userId;
       payload.last_edited_by_name = name;
       payload.last_edited_at = new Date().toISOString();
     } else {
-      payload.first_in_by_user_id = firstInIso ? userId : '';
-      payload.first_out_by_user_id = firstOutIso ? userId : '';
-      payload.second_in_by_user_id = secondInIso ? userId : '';
-      payload.final_out_by_user_id = finalOutIso ? userId : '';
+      payload.first_in_by_user_id = punch.first_in_at ? userId : '';
+      payload.first_out_by_user_id = punch.first_out_at ? userId : '';
+      payload.second_in_by_user_id = punch.second_in_at ? userId : '';
+      payload.final_out_by_user_id = punch.final_out_at ? userId : '';
     }
 
     if (record) {
@@ -178,7 +207,7 @@ Deno.serve(async (req) => {
         attendance_id: record.id, personnel_id: personnelId, employee_name: employeeName,
         field_changed: 'manual_entry',
         original_value: JSON.stringify({ first_in_at: record.first_in_at, first_out_at: record.first_out_at, second_in_at: record.second_in_at, final_out_at: record.final_out_at }),
-        new_value: JSON.stringify({ first_in_at: firstInIso, first_out_at: firstOutIso, second_in_at: secondInIso, final_out_at: finalOutIso }),
+        new_value: JSON.stringify({ first_in_at: punch.first_in_at, first_out_at: punch.first_out_at, second_in_at: punch.second_in_at, final_out_at: punch.final_out_at }),
         reason: reasonText, changed_by: email, changed_by_name: name,
       });
 

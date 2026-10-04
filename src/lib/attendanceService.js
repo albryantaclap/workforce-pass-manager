@@ -110,12 +110,12 @@ export async function autoCloseExpiredSessions(personnelId, settings, shifts, as
       duration_minutes: calculateDurationFromRecord(rec),
     };
 
-    // Sync check_out_at with the latest available out timestamp for backward compat
-    const lastOut = rec.final_out_at || rec.check_out_at || rec.first_out_at || '';
-    if (!rec.check_out_at && lastOut) updates.check_out_at = lastOut;
-    // Populate new fields from old ones if missing
+    // Backward-compat sync ONLY — no punch timestamp is ever fabricated here.
+    // check_out_at mirrors a real FINAL OUT (never a first out), and an existing
+    // check_out_at is never promoted into final_out_at: a missing FINAL OUT stays
+    // missing, so auto-close can never invent one out of a first out.
     if (!rec.first_in_at && rec.check_in_at) updates.first_in_at = rec.check_in_at;
-    if (!rec.final_out_at && rec.check_out_at) updates.final_out_at = rec.check_out_at;
+    if (!rec.check_out_at && rec.final_out_at) updates.check_out_at = rec.final_out_at;
 
     await base44.entities.AttendanceRecord.update(rec.id, updates);
     await logActivity('update', rec.id, rec.employee_name, {
@@ -557,11 +557,15 @@ export async function clockOut(opts) {
   return recordPunch({ ...opts, punchType: 'OUT' });
 }
 
-// ── Manual entry — create or update a full day's attendance with all 4 punches ──
+// ── Manual entry — create or update a day's attendance punches ──
+// Editing an existing record is a PATCH: `changedPunchKeys` lists ONLY the punches
+// the Admin actually changed, and every punch not listed keeps the value stored on
+// the record. Punch timestamps are never inferred, copied or auto-completed.
 export async function saveManualEntry({
   personnelId, employeeName, company, attendanceDate,
   attendanceRecordId = '',
   firstInAt, firstOutAt, secondInAt, finalOutAt,
+  changedPunchKeys = null,
   reason, remarks, workLocation, currentUser,
   shiftId = '', shiftName = '', shift = null,
   manualStatusOverride = '', manualStatusReason = '',
@@ -573,7 +577,8 @@ export async function saveManualEntry({
 
   // Delegate to the backend function which checks attendance.entries.edit
   // permission before performing the operation (server-side authorization).
-  const toIso = (dt) => dt ? dt.toISOString() : '';
+  // Accepts a Date or an ISO string (the dialog sends the punches it changed).
+  const toIso = (v) => !v ? '' : (typeof v === 'string' ? v : v.toISOString());
   try {
     const res = await base44.functions.invoke('attendanceManualEntry', {
       personnelId, employeeName, company, attendanceDate,
@@ -582,6 +587,8 @@ export async function saveManualEntry({
       firstOutIso: toIso(firstOutAt),
       secondInIso: toIso(secondInAt),
       finalOutIso: toIso(finalOutAt),
+      // Only these punches are applied; every other punch keeps its stored value.
+      changedPunchKeys,
       reason: (reason || '').trim(),
       remarks: remarks || '',
       workLocation: workLocation || '',

@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
-import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus } from "../../shared/attendanceCalc.ts";
+import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus, getFinalOut } from "../../shared/attendanceCalc.ts";
 import { ATTENDANCE_ROSTER_QUERY } from "../../shared/attendanceRoster.ts";
 import { loadUserDirectory, resolveScannedBy, needsUserDirectory } from "../../shared/attendanceUsers.ts";
 
@@ -104,7 +104,8 @@ export default async function (req: Request): Promise<Response> {
       else if (simpleStatus === "Holiday") restDay++;
 
       const firstIn = att?.first_in_at || att?.check_in_at || "";
-      const finalOut = att?.final_out_at || att?.check_out_at || "";
+      // getFinalOut: a FINAL OUT is never inferred from another punch.
+      const finalOut = getFinalOut(att);
       if (firstIn && !finalOut) { checkedIn++; currentlyWorking++; }
       if (finalOut) checkedOut++;
     }
@@ -140,7 +141,7 @@ export default async function (req: Request): Promise<Response> {
           first_in_at: att.first_in_at || att.check_in_at || "",
           first_out_at: att.first_out_at || "",
           second_in_at: att.second_in_at || "",
-          final_out_at: att.final_out_at || att.check_out_at || "",
+          final_out_at: getFinalOut(att),
           check_in_at: att.check_in_at || "",
           check_out_at: att.check_out_at || "",
           duration_minutes: att.duration_minutes || 0,

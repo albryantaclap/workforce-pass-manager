@@ -136,7 +136,7 @@ export default function TimeEntries({
         emp.company || '', emp.department || '', emp.current_location || '',
         selectedDate,
         att?.first_in_at || att?.check_in_at || '', att?.first_out_at || '',
-        att?.second_in_at || '', att?.final_out_at || att?.check_out_at || '',
+        att?.second_in_at || '', att ? getFinalOut(att) : '',
         att?.duration_minutes || 0, att?.overtime_minutes || 0, status,
         att?.scanned_by?.label || '—',
         att?.scanned_by?.names?.first_in || '', att?.scanned_by?.names?.first_out || '',

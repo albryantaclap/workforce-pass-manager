@@ -13,6 +13,8 @@
 // old flows already stored (checked_in_by / checked_out_by) is used, because
 // that email does identify the authenticated account that performed the punch.
 
+import { getFinalOut } from "./attendanceCalc.ts";
+
 export type UserDirectory = { byId: Map<string, string>; byEmail: Map<string, string> };
 
 export type ScannedBy = {
@@ -65,7 +67,9 @@ export function resolveScannedBy(record: any, dir: UserDirectory): ScannedBy {
     },
     {
       stage: "Final Out",
-      punch: record?.final_out_at || record?.check_out_at || "",
+      // getFinalOut: the FINAL OUT stage exists only when the record really holds a
+      // final out — never because check_out_at mirrors another punch.
+      punch: getFinalOut(record),
       name: byId(record?.final_out_by_user_id) || byEmail(record?.checked_out_by),
     },
   ];

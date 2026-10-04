@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
-import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus } from "../../shared/attendanceCalc.ts";
+import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus, getFinalOut } from "../../shared/attendanceCalc.ts";
 import { ATTENDANCE_ROSTER_QUERY } from "../../shared/attendanceRoster.ts";
 
 // Server-side aggregation for the Daily Attendance → Dashboard tab.
@@ -82,7 +82,8 @@ export default async function (req: Request): Promise<Response> {
       else if (status === "Holiday") restDay++;
 
       const firstIn = att?.first_in_at || att?.check_in_at || "";
-      const finalOut = att?.final_out_at || att?.check_out_at || "";
+      // getFinalOut: a FINAL OUT is never inferred from another punch.
+      const finalOut = getFinalOut(att);
       if (firstIn && !finalOut) {
         checkedIn++; currentlyWorking++;
         clockedIn.push({ emp, since: firstIn });

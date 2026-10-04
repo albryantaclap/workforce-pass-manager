@@ -7,10 +7,22 @@ export function calcDuration(a: string, b: string): number {
   return Math.max(0, Math.round(ms / 60000));
 }
 
+// FINAL OUT is read from its OWN field. check_out_at is a backward-compat mirror:
+// it is the day's OUT only for a genuine single-session record — one with no first
+// out and no second in. As soon as a break punch exists, a check_out_at that merely
+// mirrors another punch is never treated as a FINAL OUT, so one punch timestamp is
+// never inferred from a different punch.
+export function getFinalOut(record: any): string {
+  if (!record) return "";
+  if (record.final_out_at) return record.final_out_at;
+  if (record.first_out_at || record.second_in_at) return "";
+  return record.check_out_at || "";
+}
+
 export function calculateDurationFromRecord(record: any): number {
   if (!record) return 0;
   const firstIn = record.first_in_at || record.check_in_at || "";
-  const finalOut = record.final_out_at || record.check_out_at || "";
+  const finalOut = getFinalOut(record);
   let total = 0;
   if (record.first_in_at && record.first_out_at) {
     total += calcDuration(record.first_in_at, record.first_out_at);
@@ -129,7 +141,7 @@ export function calculateDailyStatus(record: any, shift: any, settings: any, hol
   const firstIn = record?.first_in_at || record?.check_in_at || "";
   const firstOut = record?.first_out_at || "";
   const secondIn = record?.second_in_at || "";
-  const finalOut = record?.final_out_at || record?.check_out_at || "";
+  const finalOut = getFinalOut(record);
   const isSplit = !!(shift && isSplitEffective(shift, dateStr));
   // The strict sequence applies to punch-sequence records only; COMO Camp and
   // Personnel Form sessions keep exactly their previous behaviour.
@@ -276,7 +288,9 @@ export function validatePunchSequence(
     FIRST_IN: record?.first_in_at || record?.check_in_at || "",
     FIRST_OUT: record?.first_out_at || "",
     SECOND_IN: record?.second_in_at || "",
-    FINAL_OUT: record?.final_out_at || record?.check_out_at || "",
+    // Read through getFinalOut: a FINAL OUT that exists only as a mirror of another
+    // punch is not a punch, so it can never raise a sequence error.
+    FINAL_OUT: getFinalOut(record),
   };
   const stamp = (iso: string) => {
     if (!iso) return "—";

@@ -37,6 +37,9 @@ export default function ManualEntryDialog({
   const [statusOverride, setStatusOverride] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmUnusual, setConfirmUnusual] = useState(false);
+  // The exact punches the form was loaded with — the PATCH baseline. A punch the
+  // Admin does not touch is never sent back, so it keeps the value stored on the record.
+  const [storedPunches, setStoredPunches] = useState(null);
 
   useEffect(() => {
     if (!editRecord) {
@@ -48,6 +51,7 @@ export default function ManualEntryDialog({
       setFinalOutDate(''); setFinalOutTime('');
       setReason(''); setRemarks('');
       setStatusOverride('');
+      setStoredPunches(null);
       return;
     }
     // Editing an existing row: bind by ID only. The row's employee id and attendance
@@ -81,6 +85,12 @@ export default function ManualEntryDialog({
       setFirstOutDate(toDateStr(rec.first_out_at)); setFirstOutTime(toTimeStr(rec.first_out_at));
       setSecondInDate(toDateStr(rec.second_in_at)); setSecondInTime(toTimeStr(rec.second_in_at));
       setFinalOutDate(toDateStr(finalOut)); setFinalOutTime(toTimeStr(finalOut));
+      // The punches exactly as stored — FINAL OUT from its own field (getFinalOut),
+      // never copied from another punch. Also the baseline for the PATCH below.
+      setStoredPunches({
+        first_in: firstIn || '', first_out: rec.first_out_at || '',
+        second_in: rec.second_in_at || '', final_out: finalOut || '',
+      });
       setReason(rec.manual_reason || '');
       setRemarks(rec.remarks || '');
       setStatusOverride(rec.manual_status_override || '');
@@ -153,6 +163,21 @@ export default function ManualEntryDialog({
     const secondIn = buildDateTime(secondInDate, secondInTime);
     const finalOut = buildDateTime(finalOutDate, finalOutTime);
 
+    // Save EXACTLY the punches entered — and only the ones that actually changed.
+    // A punch the Admin did not touch keeps the value stored on the record, so no
+    // punch is ever rewritten, cleared or inferred from another punch.
+    const enteredIso = {
+      first_in: firstIn ? firstIn.toISOString() : '',
+      first_out: firstOut ? firstOut.toISOString() : '',
+      second_in: secondIn ? secondIn.toISOString() : '',
+      final_out: finalOut ? finalOut.toISOString() : '',
+    };
+    const sameStamp = (a, b) =>
+      (a ? new Date(a).getTime() : 0) === (b ? new Date(b).getTime() : 0);
+    const changedPunchKeys = storedPunches
+      ? Object.keys(enteredIso).filter(k => !sameStamp(enteredIso[k], storedPunches[k]))
+      : Object.keys(enteredIso);
+
     if (sequenceCheck.blocked.length) {
       toast({ title: 'Cannot process this attendance', description: sequenceCheck.blocked[0], variant: 'destructive' });
       return;
@@ -177,8 +202,9 @@ export default function ManualEntryDialog({
         employeeName: selectedEmp.name,
         company: selectedEmp.company,
         attendanceDate: date,
-        firstInAt: firstIn, firstOutAt: firstOut,
-        secondInAt: secondIn, finalOutAt: finalOut,
+        firstInAt: enteredIso.first_in, firstOutAt: enteredIso.first_out,
+        secondInAt: enteredIso.second_in, finalOutAt: enteredIso.final_out,
+        changedPunchKeys,
         reason, remarks,
         workLocation: selectedEmp.current_location || '',
         currentUser: user,

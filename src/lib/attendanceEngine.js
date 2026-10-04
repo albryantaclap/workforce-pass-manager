@@ -136,7 +136,17 @@ export const hasShiftExpired = (shift, attendanceDate, bufferMinutes = 0, now = 
 // the new first_in_at/final_out_at fields. These fallbacks ensure old records
 // are handled correctly by the new multi-punch logic.
 export const getFirstIn = (record) => record?.first_in_at || record?.check_in_at || '';
-export const getFinalOut = (record) => record?.final_out_at || record?.check_out_at || '';
+// FINAL OUT is read from its OWN field. check_out_at (a backward-compat mirror) is
+// consulted ONLY for a genuine single-session record — one with no first out and no
+// second in — where it is the day's one and only OUT. As soon as a break punch
+// exists, a check_out_at that merely mirrors another punch is never reported as a
+// FINAL OUT: one punch is never derived from a different punch.
+export const getFinalOut = (record) => {
+  if (!record) return '';
+  if (record.final_out_at) return record.final_out_at;
+  if (record.first_out_at || record.second_in_at) return '';
+  return record.check_out_at || '';
+};
 
 // Determines the next expected punch type based on what's already recorded.
 export const getNextExpectedPunch = (record) => {
@@ -497,7 +507,9 @@ export const validatePunchSequence = (record, shift, settings, { enforceWindows 
     FIRST_IN: record?.first_in_at || record?.check_in_at || '',
     FIRST_OUT: record?.first_out_at || '',
     SECOND_IN: record?.second_in_at || '',
-    FINAL_OUT: record?.final_out_at || record?.check_out_at || '',
+    // Read through getFinalOut: a FINAL OUT that exists only as a mirror of
+    // another punch is not a punch, so it can never raise a sequence error.
+    FINAL_OUT: getFinalOut(record),
   };
   const provided = PUNCH_KEYS.filter((k) => values[k]);
 

@@ -1,4 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.38";
+import { getFinalOut } from "../../shared/attendanceCalc.ts";
 
 // Auto-close expired open attendance sessions (Day Reset Logic).
 //
@@ -41,7 +42,7 @@ function calculateDuration(record: any) {
   if (!record) return 0;
   // Backward-compat fallbacks: old records have check_in_at/check_out_at but not first_in_at/final_out_at
   const firstIn = record.first_in_at || record.check_in_at || "";
-  const finalOut = record.final_out_at || record.check_out_at || "";
+  const finalOut = getFinalOut(record);
   let total = 0;
   const calc = (a: string, b: string) => {
     if (!a || !b) return 0;
@@ -65,7 +66,7 @@ function getMissingPunchLabel(record: any) {
   if (!record) return "";
   // Backward-compat: fall back to check_in_at/check_out_at for old records
   const firstIn = record.first_in_at || record.check_in_at || "";
-  const finalOut = record.final_out_at || record.check_out_at || "";
+  const finalOut = getFinalOut(record);
   if (!firstIn) return "Missing First Punch In";
   if (record.first_out_at && !record.second_in_at && !finalOut) return "Missing Final Punch Out";
   if (record.first_out_at && record.second_in_at && !record.final_out_at) return "Missing Final Punch Out";
@@ -176,17 +177,17 @@ Deno.serve(async (req) => {
 
       const missingLabel = getMissingPunchLabel(rec);
       const duration = calculateDuration(rec);
-      const lastOut = rec.final_out_at || rec.check_out_at || rec.first_out_at || "";
-
       const updates: any = {
         status: "completed",
         attendance_status: "Missing Check-out",
         duration_minutes: duration,
       };
-      // Sync backward-compat fields and populate new fields from old ones if needed
-      if (!rec.check_out_at && lastOut) updates.check_out_at = lastOut;
+      // Backward-compat sync ONLY — no punch timestamp is ever fabricated here.
+      // check_out_at mirrors a real FINAL OUT (never a first out), and an existing
+      // check_out_at is never promoted into final_out_at: a missing FINAL OUT stays
+      // missing, so auto-close can never invent one out of a first out.
       if (!rec.first_in_at && rec.check_in_at) updates.first_in_at = rec.check_in_at;
-      if (!rec.final_out_at && rec.check_out_at) updates.final_out_at = rec.check_out_at;
+      if (!rec.check_out_at && rec.final_out_at) updates.check_out_at = rec.final_out_at;
 
       await base44.entities.AttendanceRecord.update(rec.id, updates);
       await sleep(100); // small delay to avoid rate limits
