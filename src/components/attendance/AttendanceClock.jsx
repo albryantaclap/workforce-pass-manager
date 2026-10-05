@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -18,6 +18,12 @@ import { recordPunch } from "@/lib/attendanceService";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAttendanceEmployees } from "@/hooks/useAttendanceEmployees";
 import { attendanceBlockReason } from "@/lib/attendanceEligibility";
+
+// While the scanner is running the attendance views refresh at most this often.
+// Each refresh re-reads the whole eligible roster through the backend functions
+// behind those views, so a refresh per scan is what used to exhaust the app's
+// read-volume limit during a clock-in rush.
+const REFRESH_THROTTLE_MS = 30000;
 
 const STEP = {
   STANDBY: "standby",
@@ -46,10 +52,48 @@ export default function AttendanceClock({ onRecorded }) {
   const { toast } = useToast();
   const processingLockRef = useRef(false);
 
+  // Attendance-view refresh throttle: `at` = when the views were last refreshed,
+  // `timer` = the pending throttled refresh.
+  const refreshRef = useRef({ at: 0, timer: null, pending: false });
+  const refreshAttendanceViews = (flush = false) => {
+    const state = refreshRef.current;
+    const run = () => {
+      state.pending = false;
+      state.at = Date.now();
+      // Only the affected attendance queries — never the whole module.
+      qc.invalidateQueries({ queryKey: ['time-entries'] });
+      qc.invalidateQueries({ queryKey: ['attendance-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['employee-summary'] });
+    };
+    if (flush) {
+      if (state.timer) { clearTimeout(state.timer); state.timer = null; state.pending = false; }
+      run();
+      return;
+    }
+    const elapsed = Date.now() - state.at;
+    if (elapsed >= REFRESH_THROTTLE_MS) { run(); return; }
+    if (state.pending) return;
+    state.pending = true;
+    state.timer = setTimeout(run, REFRESH_THROTTLE_MS - elapsed);
+  };
+
+  // Leaving the scanner marks the views stale (one read on the next visit) and
+  // never leaves a timer running.
+  useEffect(() => () => {
+    const state = refreshRef.current;
+    if (state.timer) clearTimeout(state.timer);
+    qc.invalidateQueries({ queryKey: ['time-entries'] });
+    qc.invalidateQueries({ queryKey: ['attendance-dashboard'] });
+    qc.invalidateQueries({ queryKey: ['employee-summary'] });
+  }, [qc]);
+
   // Lazy-load all employees only when the scanner is active (not on page load).
-  // Cached for 2 minutes so rapid re-scans don't re-fetch.
+  // Held for 15 minutes while scanning: a card that is not in this cached copy is
+  // still resolved by exact ID against the database, so the roster does not need
+  // to be re-read during a clock-in rush.
   const { data: employees = [] } = useAttendanceEmployees(
-    step === STEP.SCANNING || step === STEP.PROCESSING
+    step === STEP.SCANNING || step === STEP.PROCESSING,
+    15 * 60 * 1000
   );
 
   // Recognition ≠ eligibility. The scanner has already established WHO the card
@@ -108,10 +152,9 @@ export default function AttendanceClock({ onRecorded }) {
       setSuccessEmployee(emp);
       setStep(STEP.SUCCESS);
       if (onRecorded) onRecorded();
-      // Invalidate only the affected attendance queries (not the entire module)
-      qc.invalidateQueries({ queryKey: ['time-entries'] });
-      qc.invalidateQueries({ queryKey: ['attendance-dashboard'] });
-      qc.invalidateQueries({ queryKey: ['employee-summary'] });
+      // Throttled: the view behind the scanner stays current without re-reading the
+      // roster on every card. The last scan is flushed when scanning stops.
+      refreshAttendanceViews();
       setTimeout(() => resumeForNextEmployee(), 3500);
     } catch (err) {
       setFailReason(err.message || "Failed to record attendance.");
@@ -131,6 +174,8 @@ export default function AttendanceClock({ onRecorded }) {
   };
 
   const handleStop = () => {
+    // Flush any pending refresh so the list behind the scanner is up to date.
+    refreshAttendanceViews(true);
     setStep(STEP.STANDBY);
     setMatchedEmployee(null);
     setFailReason("");

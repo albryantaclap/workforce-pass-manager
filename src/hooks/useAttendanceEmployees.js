@@ -15,13 +15,17 @@ import { ATTENDANCE_ROSTER_QUERY } from '@/lib/attendanceEligibility';
  * This hook does NOT run on initial page load — only when explicitly
  * enabled by the consuming component.
  */
-export function useAttendanceEmployees(enabled = true) {
+export function useAttendanceEmployees(enabled = true, staleTime = 2 * 60 * 1000) {
   return useQuery({
     queryKey: ['employees', 'active-attendance'],
     // Roster = the Master List read with the shared eligibility rule
     // (@/lib/attendanceEligibility) — no separate attendance employee table.
     queryFn: () => base44.entities.Employee.filter(ATTENDANCE_ROSTER_QUERY, 'name', 100000),
     enabled,
-    staleTime: 2 * 60 * 1000,
+    // The caller may hold this roster much longer: the ID Card Scanner treats the
+    // cached copy as a fast path only and resolves any card it cannot match here
+    // through the authoritative exact-ID lookup (@/lib/scannerEmployeeLookup), so
+    // re-reading the whole workforce every 2 minutes buys nothing but read traffic.
+    staleTime,
   });
 }
