@@ -107,6 +107,7 @@ export const MASTER_DATE_RANGES = [
   ['gpIssueFrom', 'gpIssueTo', 'gate_pass_issue_date'],
   ['gpReceivedFrom', 'gpReceivedTo', 'gate_pass_received_date'],
   ['pidIssueFrom', 'pidIssueTo', 'pid_issue_date'],
+  ['inactiveFrom', 'inactiveTo', 'inactive_date'],
 ];
 
 export const createEmptyMasterFilters = () => ({

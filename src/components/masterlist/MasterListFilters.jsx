@@ -114,13 +114,14 @@ export default function MasterListFilters({
         </div>
 
         {/* Date ranges */}
-        <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-5 lg:gap-3">
+        <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-6 lg:gap-3">
           {[
             { label: 'Training Scheduled', from: 'trainingScheduledFrom', to: 'trainingScheduledTo' },
             { label: 'Medical TR Approved', from: 'medicalTrApprovedFrom', to: 'medicalTrApprovedTo' },
             { label: 'Gate Pass Submitted', from: 'gpIssueFrom', to: 'gpIssueTo' },
             { label: 'Gate Pass Received', from: 'gpReceivedFrom', to: 'gpReceivedTo' },
             { label: 'Project ID Issue', from: 'pidIssueFrom', to: 'pidIssueTo' },
+            { label: 'Inactive Date', from: 'inactiveFrom', to: 'inactiveTo' },
           ].map(range => (
             <div key={range.from}>
               <p className="text-[10px] font-medium text-muted-foreground mb-1">{range.label}</p>
