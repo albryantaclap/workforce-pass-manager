@@ -101,7 +101,7 @@ function getCellValue(e, colId) {
     const diff = Math.ceil((d - t) / 86400000);
     return diff < 0 ? `Expired ${Math.abs(diff)}d` : `${diff}d`;
   }
-  if (['gate_pass_issue_date','gate_pass_expiry','pid_expiry','pp_expiry','ftw_medical_date','ftw_approved_date','gate_pass_received_date','training_date_scheduled','training_date_start','pid_issue_date'].includes(colId)) return e[colId] ? formatDate(e[colId]) : '—';
+  if (['gate_pass_issue_date','gate_pass_expiry','pid_expiry','pp_expiry','ftw_medical_date','ftw_approved_date','gate_pass_received_date','training_date_scheduled','training_date_start','pid_issue_date','inactive_date','last_working_date','status_effective_date','demobilization_date'].includes(colId)) return e[colId] ? formatDate(e[colId]) : '—';
   if (colId === 'check_in_at') return e.check_in_at ? new Date(e.check_in_at).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
   if (colId === 'check_out_at') return e.check_out_at ? new Date(e.check_out_at).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
   if (colId === 'duration_minutes') return (e.duration_minutes && e.check_out_at) ? `${Math.floor(e.duration_minutes / 60)}h ${e.duration_minutes % 60}m` : '—';

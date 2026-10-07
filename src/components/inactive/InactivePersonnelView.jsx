@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, UserCheck, Eye, Pencil, X, Trash2, ArrowLeftRight } from 'lucide-react';
+import { Search, UserCheck, Eye, Pencil, X, Trash2, ArrowLeftRight, Printer } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -15,7 +15,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import ExportButton from '@/components/common/ExportButton';
-import PrintReportButton from '@/components/common/PrintReportButton';
+import ReportConfigModal from '@/components/dashboard/ReportConfigModal';
+import DashboardReport from '@/components/dashboard/DashboardReport';
 import MultiSelect from '@/components/common/MultiSelect';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import SharepointDocIcon from '@/components/common/SharepointDocIcon';
@@ -442,6 +443,13 @@ export default function InactivePersonnelView({
   const [reactivateDialog, setReactivateDialog] = useState({ open: false, emp: null });
   const [demobilizeDialog, setDemobilizeDialog] = useState({ open: false, emp: null, record: null });
 
+  // Report Configuration — the SAME modal + report preview engine as the main
+  // Dashboard (and COMO Camp). "Print / PDF" configures the report first, then
+  // generates the print-ready preview, instead of printing a fixed layout.
+  const [showReportConfig, setShowReportConfig] = useState(false);
+  const [reportConfig, setReportConfig] = useState(null);
+  const [showReport, setShowReport] = useState(false);
+
   // Restore the list state saved before opening Edit (filters, page, scroll).
   useEffect(() => {
     const ctx = readReturnContext();
@@ -657,76 +665,31 @@ export default function InactivePersonnelView({
   const localFilters = { search, companyFilter, positionFilter, departmentFilter, locationFilter, dirFilter, medicalResultFilter, trainingFilter, gatePassFilter, pidStatusFilter };
   const setters = { setSearch, setCompanyFilter, setPositionFilter, setDepartmentFilter, setLocationFilter, setDirFilter, setMedicalResultFilter, setTrainingFilter, setGatePassFilter, setPidStatusFilter, setPage };
 
-  // ── Print / PDF report data ──
-  const printColumns = tabType === 'inactive'
+  // ── Report Configuration columns ──
+  // The shared engine already offers the full personnel column list; these add
+  // the personnel-separation fields that only exist on this list.
+  const reportExtraColumns = tabType === 'inactive'
     ? [
-        { key: 'name', label: 'Name' },
-        { key: 'qid_no', label: 'QID No.' },
-        { key: 'pid', label: 'PID No.' },
-        { key: 'company', label: 'Company' },
-        { key: 'designation', label: 'Designation / Position' },
-        { key: 'status_date', label: 'Inactive Date', align: 'center' },
-        { key: 'camp_status', label: 'Camp Status', align: 'center' },
-        { key: 'medical', label: 'Medical Status', align: 'center' },
-        { key: 'gate_pass', label: 'Gate Pass Status', align: 'center' },
-        { key: 'training', label: 'Training Status', align: 'center' },
-        { key: 'pid_status', label: 'PID Status', align: 'center' },
-        { key: 'reason', label: 'Inactive Reason / Remarks' },
+        { id: 'inactive_date', label: 'Inactive Date' },
+        { id: 'last_working_date', label: 'Last Working Date' },
+        { id: 'status_effective_date', label: 'Status Effective Date' },
+        { id: 'inactive_reason', label: 'Inactive Reason' },
+        { id: 'status_remarks', label: 'Status Remarks' },
+        { id: 'status_changed_by', label: 'Status Changed By' },
+        { id: 'company_type', label: 'Company Type' },
+        { id: 'photo', label: 'Photo' },
+        { id: 'docs', label: 'Docs' },
       ]
     : [
-        { key: 'name', label: 'Name' },
-        { key: 'qid_no', label: 'QID No.' },
-        { key: 'pid', label: 'PID No.' },
-        { key: 'company', label: 'Company' },
-        { key: 'designation', label: 'Designation / Position' },
-        { key: 'status_date', label: 'Demobilization Date', align: 'center' },
-        { key: 'location', label: 'Location', align: 'center' },
-        { key: 'camp_in', label: 'Camp Check-in', align: 'center' },
-        { key: 'camp_out', label: 'Camp Check-out', align: 'center' },
-        { key: 'medical', label: 'Medical Status', align: 'center' },
-        { key: 'gate_pass', label: 'Gate Pass Status', align: 'center' },
-        { key: 'training', label: 'Training Status', align: 'center' },
-        { key: 'pid_status', label: 'PID Status', align: 'center' },
-        { key: 'reason', label: 'Demobilization Reason' },
+        { id: 'demobilization_date', label: 'Demobilization Date' },
+        { id: 'demobilization_reason', label: 'Demobilization Reason' },
+        { id: 'last_working_date', label: 'Last Working Date' },
+        { id: 'status_remarks', label: 'Status Remarks' },
+        { id: 'status_changed_by', label: 'Status Changed By' },
+        { id: 'company_type', label: 'Company Type' },
+        { id: 'photo', label: 'Photo' },
+        { id: 'docs', label: 'Docs' },
       ];
-
-  const medPrintLabels = { 'ACCEPTED': 'Accepted', 'REJECTED': 'Rejected', 'WAITING TR APPROVAL': 'Waiting TR', 'RE-ASSESS': 'Re-Assess' };
-  const passPrintLabels = { 'VALID RLIC PASS': 'Valid', 'EXPIRED RLIC PASS': 'Expired', 'SOON TO EXPIRE': 'Soon to Expire', 'NO RLIC PASS': 'No Pass', 'VALID PID PASS': 'Valid', 'EXPIRED PID PASS': 'Expired', 'NO PID PASS': 'No Pass' };
-
-  const printRows = useMemo(() => {
-    const fmtStamp = (iso) => {
-      const dt = formatDateTimeCompact(iso);
-      return dt ? `${dt.date} ${dt.time}` : '—';
-    };
-    return filtered.map(e => {
-      const stay = latestByPersonnel.get(e.id);
-      const isInactiveTab = tabType === 'inactive';
-      const statusDate = isInactiveTab ? (e.inactive_date || e.status_effective_date) : e.demobilization_date;
-      return {
-        name: e.name || '—',
-        qid_no: e.qid_no || '—',
-        pid: e.pid || '—',
-        company: e.company || '—',
-        designation: e.designation_org_chart || e.position_application || '—',
-        status_date: formatDate(statusDate) || '—',
-        camp_status: campStatusLabel(resolveCampStatus(e, stay)),
-        location: (stay?.camp_location || stay?.work_location || e.current_location || '—').toUpperCase(),
-        camp_in: fmtStamp(stay?.check_in_at),
-        camp_out: fmtStamp(stay?.check_out_at || e.camp_check_out_at),
-        medical: e.ftw_result ? (medPrintLabels[e.ftw_result] || e.ftw_result) : '—',
-        gate_pass: passPrintLabels[computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status)] || '—',
-        training: e.training_status || '—',
-        pid_status: passPrintLabels[computePassStatus(e.pid_expiry, 'pid', e.pid_status)] || '—',
-        reason: (isInactiveTab
-          ? (e.inactive_reason || e.status_reason)
-          : (e.demobilization_reason || e.status_reason)) || e.status_remarks || '—',
-      };
-    });
-  }, [filtered, tabType, latestByPersonnel]);
-
-  // Reported from the same shared definition, so the printout can never list a
-  // filter set that differs from the one applied on screen.
-  const activeAppliedFilters = useMemo(() => activeMasterFilterLabels(eff), [eff]);
 
   const reportTitle = tabType === 'inactive' ? 'GSO Qatar — Inactive Personnel Report' : 'GSO Qatar — Demobilized Personnel Report';
 
@@ -747,14 +710,9 @@ export default function InactivePersonnelView({
       )}
 
       <div className="flex justify-end items-center gap-2">
-        <PrintReportButton
-          records={printRows}
-          columns={printColumns}
-          title={reportTitle}
-          appliedFilters={activeAppliedFilters}
-          totalFiltered={filtered.length}
-          sortBy={['company', 'designation', 'name']}
-        />
+        <Button variant="outline" size="sm" onClick={() => setShowReportConfig(true)} className="gap-1.5">
+          <Printer className="w-4 h-4" /> Print / PDF
+        </Button>
         <ExportButton filename={`${tabType}_personnel`} label="Export" getData={() => exportData(filtered)} />
       </div>
 
@@ -791,6 +749,25 @@ export default function InactivePersonnelView({
           demobilizeMutation.mutate({ emp, record, at, reason });
         }}
       />
+
+      {showReportConfig && (
+        <ReportConfigModal
+          filtered={filtered}
+          extraColumns={reportExtraColumns}
+          onClose={() => setShowReportConfig(false)}
+          onGenerate={(cfg) => { setReportConfig(cfg); setShowReportConfig(false); setShowReport(true); }}
+        />
+      )}
+      {showReport && reportConfig && (
+        <DashboardReport
+          filtered={filtered}
+          categoryCards={[]}
+          reportTitle={reportTitle}
+          extraColumns={reportExtraColumns}
+          onClose={() => setShowReport(false)}
+          config={reportConfig}
+        />
+      )}
     </div>
   );
 }
