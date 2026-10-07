@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import MultiSelect from '@/components/common/MultiSelect';
 import { Search, SlidersHorizontal, ChevronDown, X } from 'lucide-react';
 import { CAMP_STATUS_FILTER_OPTIONS } from '@/lib/masterListFilters';
+import { DatePickerPill } from '@/components/common/FilterToolbar';
 
 /**
  * The ONE Search & Filter section of the Master List.
@@ -113,38 +114,26 @@ export default function MasterListFilters({
           <MultiSelect options={managerOptions} value={filters.managerIds} onChange={v => set({ managerIds: v })} placeholder="All Managers" className="dropdown-manager" />
         </div>
 
-        {/* Date ranges */}
-        <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-6 lg:gap-3">
+        {/* Date ranges — same pill style as the Dashboard filters */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           {[
-            { label: 'Training Scheduled', from: 'trainingScheduledFrom', to: 'trainingScheduledTo' },
-            { label: 'Medical TR Approved', from: 'medicalTrApprovedFrom', to: 'medicalTrApprovedTo' },
-            { label: 'Gate Pass Submitted', from: 'gpIssueFrom', to: 'gpIssueTo' },
-            { label: 'Gate Pass Received', from: 'gpReceivedFrom', to: 'gpReceivedTo' },
-            { label: 'Project ID Issue', from: 'pidIssueFrom', to: 'pidIssueTo' },
-            { label: 'Inactive Date', from: 'inactiveFrom', to: 'inactiveTo' },
+            { label: 'Training Scheduled', from: 'trainingScheduledFrom', to: 'trainingScheduledTo', color: 'teal' },
+            { label: 'Medical TR Approved', from: 'medicalTrApprovedFrom', to: 'medicalTrApprovedTo', color: 'blue' },
+            { label: 'Gate Pass Submitted', from: 'gpIssueFrom', to: 'gpIssueTo', color: 'emerald' },
+            { label: 'Gate Pass Received', from: 'gpReceivedFrom', to: 'gpReceivedTo', color: 'amber' },
+            { label: 'Project ID Issue', from: 'pidIssueFrom', to: 'pidIssueTo', color: 'violet' },
+            { label: 'Inactive Date', from: 'inactiveFrom', to: 'inactiveTo', color: 'rose' },
           ].map(range => (
-            <div key={range.from}>
-              <p className="text-[10px] font-medium text-muted-foreground mb-1">{range.label}</p>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-                <Input
-                  type="date"
-                  value={filters.dates[range.from]}
-                  onChange={e => set({ dates: { ...filters.dates, [range.from]: e.target.value } })}
-                  className="text-xs h-8 flex-1"
-                  title="From"
-                  placeholder="From"
-                />
-                <span className="hidden sm:block text-muted-foreground text-xs">–</span>
-                <Input
-                  type="date"
-                  value={filters.dates[range.to]}
-                  onChange={e => set({ dates: { ...filters.dates, [range.to]: e.target.value } })}
-                  className="text-xs h-8 flex-1"
-                  title="To"
-                  placeholder="To"
-                />
-              </div>
-            </div>
+            <DatePickerPill
+              key={range.from}
+              label={range.label}
+              color={range.color}
+              fullWidth
+              from={filters.dates[range.from]}
+              to={filters.dates[range.to]}
+              onFrom={v => set({ dates: { ...filters.dates, [range.from]: v } })}
+              onTo={v => set({ dates: { ...filters.dates, [range.to]: v } })}
+            />
           ))}
         </div>
 

@@ -419,7 +419,7 @@ const QUICK_OPTIONS = [
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function DatePickerPill({ label, from, to, onFrom, onTo, color = 'blue', fullWidth = false }) {
+export function DatePickerPill({ label, from, to, onFrom, onTo, color = 'blue', fullWidth = false }) {
   const { triggerRef, open, setOpen, pos, toggle } = usePortalDropdown();
   const [tab, setTab] = useState('quick');
   const [draftFrom, setDraftFrom] = useState('');
