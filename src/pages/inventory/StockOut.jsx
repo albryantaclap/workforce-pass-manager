@@ -13,7 +13,7 @@ import { fetchAllEmployees } from '@/lib/inventoryEmployees';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
 import StockOutFormModal from '@/components/inventory/StockOutFormModal';
-import StockOutEditDialog from '@/components/inventory/StockOutEditDialog';
+import StockOutVoucherEditDialog from '@/components/inventory/StockOutVoucherEditDialog';
 import TransactionActions from '@/components/inventory/TransactionActions';
 import WarrantyDetailsDialog from '@/components/inventory/WarrantyDetailsDialog';
 import DocumentDetailsDialog from '@/components/inventory/DocumentDetailsDialog';
@@ -30,7 +30,7 @@ export default function StockOut() {
   const { items, transactions, warranties, getLookupOptions, isLoading } = useInventoryData();
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editTxn, setEditTxn] = useState(null);
+  const [editGroup, setEditGroup] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [warrantyTxn, setWarrantyTxn] = useState(null);
   const [warrantyOpen, setWarrantyOpen] = useState(false);
@@ -429,7 +429,7 @@ export default function StockOut() {
                         showEdit={can('inventory.stock_out.edit')}
                         onView={() => setViewGroup(docGroupByTxnId.get(t.id) || null)}
                         onWarranty={() => { setWarrantyTxn(t); setWarrantyOpen(true); }}
-                        onEdit={() => { setEditTxn(t); setEditOpen(true); }}
+                        onEdit={() => { setEditGroup(docGroupByTxnId.get(t.id) || null); setEditOpen(true); }}
                       />
                     </TableCell>
                   </TableRow>
@@ -461,6 +461,7 @@ export default function StockOut() {
         onClose={() => setModalOpen(false)}
         onSaved={refresh}
         items={items}
+        employees={employees}
         transactions={transactions}
         warranties={warranties}
         sites={getLookupOptions('site')}
@@ -468,14 +469,15 @@ export default function StockOut() {
         user={user}
       />
 
-      {/* Edit the recorded issue — the difference goes back to stock, issued assets re-link */}
-      <StockOutEditDialog
+      {/* Edit the whole voucher — every line keeps its own employee, only the
+          difference moves stock, and issued assets re-link to the right person */}
+      <StockOutVoucherEditDialog
         open={editOpen}
         onClose={() => setEditOpen(false)}
         onSaved={refresh}
-        txn={editTxn}
+        group={editGroup}
+        employees={employees}
         transactions={transactions}
-        documentLines={editTxn?.document_id ? transactions.filter(t => t.document_id === editTxn.document_id && !t.is_deleted).length : 1}
         sites={getLookupOptions('site')}
         stores={getLookupOptions('store')}
         user={user}

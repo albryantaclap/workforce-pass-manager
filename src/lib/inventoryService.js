@@ -659,6 +659,7 @@ export function groupTransactionsIntoDocuments(transactions = []) {
         store: '',
         createdBy: '',
         fileUrl: '',
+        remarks: '',
         lines: [],
       });
     }
@@ -675,6 +676,7 @@ export function groupTransactionsIntoDocuments(transactions = []) {
     if (!g.store && t.store) g.store = t.store;
     if (!g.createdBy) g.createdBy = t.created_by_name || t.created_by || '';
     if (!g.fileUrl) g.fileUrl = t.dn_file_url || t.voucher_file_url || '';
+    if (!g.remarks && t.remarks) g.remarks = t.remarks;
   }
 
   return [...groups.values()]
@@ -704,15 +706,22 @@ export async function createInventoryDocument({ document: doc, lines = [] }, use
   const isStockOut = doc.document_type === 'STOCK_OUT';
   if (!lines.length) throw new Error('Add at least one item line.');
 
-  const seen = new Set();
   for (const l of lines) {
     if (!l.item_id) throw new Error('Select an item on every line.');
-    if (seen.has(l.item_id)) {
-      throw new Error(`Item already added: ${l.item_sn} — ${l.item_name}. Remove the duplicate line.`);
-    }
-    seen.add(l.item_id);
     if (!Number(l.quantity) || Number(l.quantity) <= 0) {
       throw new Error(`Enter a quantity for ${l.item_sn} — ${l.item_name}.`);
+    }
+  }
+
+  // A delivery note lists each item once. An issue voucher may put the same item
+  // on several lines (one per employee), so only Stock In blocks duplicates.
+  if (!isStockOut) {
+    const seen = new Set();
+    for (const l of lines) {
+      if (seen.has(l.item_id)) {
+        throw new Error(`Item already added: ${l.item_sn} — ${l.item_name}. Remove the duplicate line.`);
+      }
+      seen.add(l.item_id);
     }
   }
 
@@ -735,17 +744,30 @@ export async function createInventoryDocument({ document: doc, lines = [] }, use
 
   // Validate every line against stock before anything is saved.
   if (isStockOut) {
-    for (const l of lines) {
-      const available = calculateAvailableStock(ledger, l.item_id);
-      if (Number(l.quantity) > available) {
+    // The same item may sit on several lines — the voucher's total per item is
+    // what has to fit the available stock, so nothing is ever over-issued.
+    const requested = new Map();
+    for (const l of lines) requested.set(l.item_id, (requested.get(l.item_id) || 0) + Number(l.quantity));
+    for (const [itemId, qty] of requested) {
+      const available = calculateAvailableStock(ledger, itemId);
+      if (qty > available) {
+        const it = masterMap.get(itemId) || {};
         throw new Error(
-          `Insufficient stock for ${l.item_name || l.item_sn}. Available: ${available}, Requested: ${l.quantity}.`
+          `Insufficient stock for ${textValue(it.item_name) || it.item_sn || itemId}. Available: ${available}, Requested: ${qty}.`
         );
       }
     }
   }
 
   const totalQty = lines.reduce((sum, l) => sum + Number(l.quantity), 0);
+
+  // One issue voucher may serve several employees. The header keeps the employee
+  // when every line is the same person, otherwise it stays blank — every line
+  // always carries its own employee.
+  const employeesOnVoucher = [...new Set(lines.map(l => l.employee_id || '').filter(Boolean))];
+  const sharedEmployee = isStockOut && employeesOnVoucher.length === 1
+    ? lines.find(l => l.employee_id === employeesOnVoucher[0])
+    : null;
 
   const header = await DOC.create({
     document_no: doc.document_no || '',
@@ -756,12 +778,12 @@ export async function createInventoryDocument({ document: doc, lines = [] }, use
     site: doc.site || '',
     mrf_no: doc.mrf_no || '',
     lpo: doc.lpo || '',
-    pid: doc.pid || '',
-    employee_id: doc.employee_id || '',
-    employee_name: doc.employee_name || '',
-    company: doc.company || '',
-    department: doc.department || '',
-    designation: doc.designation || '',
+    pid: sharedEmployee ? (sharedEmployee.pid || '') : (doc.pid || ''),
+    employee_id: sharedEmployee ? (sharedEmployee.employee_id || '') : (doc.employee_id || ''),
+    employee_name: sharedEmployee ? (sharedEmployee.employee_name || '') : (doc.employee_name || ''),
+    company: sharedEmployee ? (sharedEmployee.company || '') : (doc.company || ''),
+    department: sharedEmployee ? (sharedEmployee.department || '') : (doc.department || ''),
+    designation: sharedEmployee ? (sharedEmployee.designation || '') : (doc.designation || ''),
     remarks: doc.remarks || '',
     file_url: doc.file_url || '',
     item_count: lines.length,
@@ -771,10 +793,27 @@ export async function createInventoryDocument({ document: doc, lines = [] }, use
   });
 
   try {
+    // Balances run per item, so two lines of the same item each show the balance
+    // they really left behind. Every issue line names its own employee, while a
+    // caller that only knows the document-level employee still works through the
+    // fallback here.
+    const running = new Map();
     const created = await TXN.bulkCreate(lines.map((l) => {
       const item = masterMap.get(l.item_id) || {};
-      const available = calculateAvailableStock(ledger, l.item_id);
       const qty = Number(l.quantity);
+      const available = running.has(l.item_id) ? running.get(l.item_id) : calculateAvailableStock(ledger, l.item_id);
+      const balanceAfter = isStockOut ? available - qty : available + qty;
+      running.set(l.item_id, balanceAfter);
+      const lineEmp = isStockOut
+        ? {
+            pid: l.pid || doc.pid || '',
+            employee_id: l.employee_id || doc.employee_id || '',
+            employee_name: l.employee_name || doc.employee_name || '',
+            company: l.company || doc.company || '',
+            department: l.department || doc.department || '',
+            designation: l.designation || doc.designation || '',
+          }
+        : { pid: '', employee_id: '', employee_name: '', company: '', department: '', designation: '' };
       return {
         transaction_date: doc.document_date,
         transaction_type: doc.document_type,
@@ -792,14 +831,9 @@ export async function createInventoryDocument({ document: doc, lines = [] }, use
         iv_no: isStockOut ? (doc.document_no || '') : '',
         site: isStockOut ? (doc.site || '') : '',
         store: doc.store || '',
-        pid: isStockOut ? (doc.pid || '') : '',
-        employee_id: isStockOut ? (doc.employee_id || '') : '',
-        employee_name: isStockOut ? (doc.employee_name || '') : '',
-        company: isStockOut ? (doc.company || '') : '',
-        department: isStockOut ? (doc.department || '') : '',
-        designation: isStockOut ? (doc.designation || '') : '',
+        ...lineEmp,
         previous_balance: available,
-        new_balance: isStockOut ? available - qty : available + qty,
+        new_balance: balanceAfter,
         created_by: user?.email || '',
         created_by_name: user?.full_name || user?.email || '',
         dn_file_url: isStockOut ? '' : (doc.file_url || ''),
@@ -899,16 +933,24 @@ export async function fetchWarrantyRecords() {
  * records and are simply issued.
  */
 export async function assignIssuedAssets(createdLines, doc, user, lines = []) {
-  const outLines = createdLines.filter(l => l.transaction_type === 'STOCK_OUT' && l.item_id);
-  if (!outLines.length) return;
+  if (!createdLines.length) return;
 
   const assets = (await WR.list('-created_date', 100000)).filter(w => !w.is_deleted && !!w.serial_no);
   const used = new Set();
   const updates = [];
 
-  for (const line of outLines) {
-    const source = lines.find(l => l.item_id === line.item_id) || {};
+  // Lines are written in the same order as the source lines they came from, so
+  // each stored line is matched to its own source — this is what lets the same
+  // item sit on several lines and still link the right serials to the right
+  // employee.
+  createdLines.forEach((line, index) => {
+    if (line.transaction_type !== 'STOCK_OUT' || !line.item_id) return;
+    const source = lines[index] || {};
+    const employeeId = source.employee_id || doc.employee_id || '';
+    const employeeName = source.employee_name || doc.employee_name || '';
+    const company = source.company || doc.company || '';
     const chosen = Array.isArray(source.asset_serials) ? source.asset_serials.map(String) : [];
+
     let candidates = assets.filter(w =>
       w.item_id === line.item_id && w.asset_status !== 'Issued' && !used.has(w.id)
     );
@@ -924,9 +966,9 @@ export async function assignIssuedAssets(createdLines, doc, user, lines = []) {
         id: asset.id,
         asset_status: 'Issued',
         current_location: doc.site || doc.store || asset.current_location || '',
-        issued_to_employee_id: doc.employee_id || '',
-        issued_to_name: doc.employee_name || '',
-        issued_company: doc.company || '',
+        issued_to_employee_id: employeeId,
+        issued_to_name: employeeName,
+        issued_company: company,
         issued_date: doc.document_date || '',
         issued_iv_no: doc.document_no || '',
         movement_history: [
@@ -934,13 +976,13 @@ export async function assignIssuedAssets(createdLines, doc, user, lines = []) {
           {
             date: doc.document_date || '',
             action: 'Issued',
-            detail: `Issued to ${doc.employee_name || 'employee'}${doc.document_no ? ` under ${doc.document_no}` : ''}`,
+            detail: `Issued to ${employeeName || 'employee'}${doc.document_no ? ` under ${doc.document_no}` : ''}`,
             by: user?.email || '',
           },
         ],
       });
     }
-  }
+  });
 
   if (updates.length) await WR.bulkUpdate(updates);
 }

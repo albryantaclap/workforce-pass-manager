@@ -126,22 +126,30 @@ export async function updateTransactionLine({ original, patch, warranty = null, 
     company: isStockOut ? (patch.company || '') : '',
     department: isStockOut ? (patch.department || '') : '',
     designation: isStockOut ? (patch.designation || '') : '',
+    // Remarks are what the correction itself is often about, so they are written
+    // through — the recorded value is kept when the caller has nothing to change.
+    remarks: patch.remarks !== undefined ? (patch.remarks || '') : (original.remarks || ''),
     previous_balance: balanceBefore,
     new_balance: balanceBefore + signed,
     last_edited_by: editedBy,
     last_edited_by_name: editedByName,
     last_edited_at: editedAt,
-    edit_history: [
-      ...(Array.isArray(original.edit_history) ? original.edit_history : []),
-      {
-        edited_by: editedBy,
-        edited_by_name: editedByName,
-        edited_at: editedAt,
-        reason: reason || '',
-        changes: buildChanges(original, { ...after, quantity_abs: quantity }),
-      },
-    ],
   };
+  // The audit entry is appended once `after` itself exists. Reading `after`
+  // inside its own object literal (spreading it into buildChanges) threw
+  // "Cannot access 'after' before initialization" — that is what made saving an
+  // edited Stock In / Stock Out line fail. quantity_abs is already set above,
+  // so the comparison below sees exactly the values being written.
+  after.edit_history = [
+    ...(Array.isArray(original.edit_history) ? original.edit_history : []),
+    {
+      edited_by: editedBy,
+      edited_by_name: editedByName,
+      edited_at: editedAt,
+      reason: reason || '',
+      changes: buildChanges(original, after),
+    },
+  ];
   if (isStockOut) {
     after.dn_file_url = '';
     if (patch.voucher_file_url !== undefined) after.voucher_file_url = patch.voucher_file_url || '';

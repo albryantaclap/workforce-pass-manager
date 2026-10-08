@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import ItemLinePicker from '@/components/inventory/ItemLinePicker';
+import LineEmployeePicker from '@/components/inventory/LineEmployeePicker';
 import LineWarrantyFields from '@/components/inventory/LineWarrantyFields';
 import AssetSerialPicker from '@/components/inventory/AssetSerialPicker';
 import { calculateAvailableStock } from '@/lib/inventoryService';
@@ -18,23 +19,42 @@ export function blankLine() {
   return {
     key: `line-${lineSeq}`,
     item_id: '', item_sn: '', item_name: '', unit: '', quantity: '', remarks: '',
+    employee_id: '', employee_name: '', pid: '', company: '', department: '', designation: '',
     ...emptyWarrantyLineFields(),
     serial_text: '',
     asset_serials: [],
   };
 }
 
+/** The employee fields one issue line carries once an employee is picked. */
+export const employeeLineFields = (emp) => ({
+  employee_id: emp?.id || '',
+  employee_name: emp?.name || '',
+  pid: String(emp?.pid || emp?.staff_no || ''),
+  company: emp?.company || '',
+  department: emp?.department || '',
+  designation: emp?.position_application || emp?.designation_org_chart || '',
+});
+
+export const emptyEmployeeLineFields = () => ({
+  employee_id: '', employee_name: '', pid: '', company: '', department: '', designation: '',
+});
+
 /**
  * Item lines table shared by Stock In (mode="in") and Stock Out (mode="out").
- * Handles multiple items under one document, duplicate prevention and, for
- * Stock Out, live available-stock display per line.
+ * Handles multiple items under one document and, for Stock Out, live
+ * available-stock display per line.
+ *
+ * Stock Out: every line is issued to its own employee (searched by Name, PID or
+ * QID), so one store issue voucher can serve several employees, and the same
+ * item may be issued to more than one of them — the voucher's total per item is
+ * what has to fit the available stock.
  *
  * Stock In: every line owns its warranty fields — one receipt may carry items
  * with completely different warranty periods, and serialized units keep their
  * own warranty each.
- * Stock Out: serialized assets can be pointed at exactly when issuing.
  */
-export default function DocumentLineItems({ mode = 'in', lines, onChange, transactions = [], warranties = [], warningDays = 30, warrantyEnabled = true }) {
+export default function DocumentLineItems({ mode = 'in', lines, onChange, employees = [], transactions = [], warranties = [], warningDays = 30, warrantyEnabled = true }) {
   const isOut = mode === 'out';
   const showWarranty = !isOut && warrantyEnabled;
   const usedIds = lines.map(l => l.item_id).filter(Boolean);
@@ -60,6 +80,16 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, transa
     });
   };
 
+  // Quantity asked for each item across all lines of this voucher — the same
+  // item on two lines is validated together, so nothing is ever over-issued.
+  const requestedByItem = new Map();
+  lines.forEach(l => {
+    if (l.item_id) requestedByItem.set(l.item_id, (requestedByItem.get(l.item_id) || 0) + Number(l.quantity || 0));
+  });
+
+  const outColumnCount = 11;
+  const inColumnCount = showWarranty ? 8 : 7;
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -76,11 +106,14 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, transa
           <TableHeader>
             <TableRow className="bg-slate-50">
               <TableHead className="w-8">#</TableHead>
-              <TableHead className="w-[300px]">Item S.N. *</TableHead>
+              <TableHead className="w-[280px]">Item S.N. *</TableHead>
               <TableHead>Item Name / Description</TableHead>
               <TableHead className="w-16">Unit</TableHead>
               {isOut && <TableHead className="w-20 text-right">Available</TableHead>}
               <TableHead className="w-24 text-right">Qty *</TableHead>
+              {isOut && <TableHead className="w-[220px]">Employee *</TableHead>}
+              {isOut && <TableHead className="w-24">PID No.</TableHead>}
+              {isOut && <TableHead className="w-28">Company</TableHead>}
               <TableHead className="w-40">Remarks</TableHead>
               {showWarranty && <TableHead className="w-32">Warranty</TableHead>}
               <TableHead className="w-10"></TableHead>
@@ -89,7 +122,9 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, transa
           <TableBody>
             {lines.map((line, idx) => {
               const available = isOut && line.item_id ? calculateAvailableStock(transactions, line.item_id) : null;
-              const over = isOut && available !== null && Number(line.quantity) > available;
+              const requested = line.item_id ? (requestedByItem.get(line.item_id) || 0) : 0;
+              const onSeveralLines = isOut && line.item_id && lines.filter(l => l.item_id === line.item_id).length > 1;
+              const over = isOut && available !== null && requested > available;
               const assets = isOut && line.item_id ? assetsInStockForItem(warranties, line.item_id) : [];
               const status = line.warranty_applicable
                 ? warrantyStatus(line.warranty_expiry_date, warningDays)
@@ -102,7 +137,7 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, transa
                     <TableCell>
                       <ItemLinePicker
                         item={line.item_id ? { id: line.item_id, item_sn: line.item_sn, item_name: line.item_name, unit: line.unit } : null}
-                        excludeIds={usedIds}
+                        excludeIds={isOut ? [] : usedIds}
                         onSelect={(item) => handleSelect(line.key, item)}
                       />
                     </TableCell>
@@ -111,6 +146,9 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, transa
                     {isOut && (
                       <TableCell className={`text-right font-semibold ${over ? 'text-red-600' : 'text-amber-700'}`}>
                         {available === null ? '—' : available}
+                        {onSeveralLines && !over && (
+                          <span className="block text-[9px] font-normal text-muted-foreground">{requested} on this voucher</span>
+                        )}
                       </TableCell>
                     )}
                     <TableCell>
@@ -128,6 +166,18 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, transa
                         </p>
                       )}
                     </TableCell>
+                    {isOut && (
+                      <TableCell>
+                        <LineEmployeePicker
+                          employees={employees}
+                          value={line}
+                          onSelect={(emp) => patchLine(line.key, employeeLineFields(emp))}
+                          onClear={() => patchLine(line.key, emptyEmployeeLineFields())}
+                        />
+                      </TableCell>
+                    )}
+                    {isOut && <TableCell className="font-mono">{line.pid || '—'}</TableCell>}
+                    {isOut && <TableCell>{line.company || '—'}</TableCell>}
                     <TableCell>
                       <Input
                         value={line.remarks}
@@ -175,7 +225,7 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, transa
                   {/* Warranty block — one per receipt, independent of the other lines */}
                   {showWarranty && warrantyOpen && (
                     <TableRow>
-                      <TableCell colSpan={showWarranty ? 8 : 7} className="bg-white p-2">
+                      <TableCell colSpan={inColumnCount} className="bg-white p-2">
                         <LineWarrantyFields line={line} onChange={(patch) => patchLine(line.key, patch)} />
                       </TableCell>
                     </TableRow>
@@ -184,7 +234,7 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, transa
                   {/* Serialized assets available to issue */}
                   {isOut && assets.length > 0 && (
                     <TableRow>
-                      <TableCell colSpan={8} className="bg-white p-2">
+                      <TableCell colSpan={outColumnCount} className="bg-white p-2">
                         <AssetSerialPicker
                           assets={assets}
                           quantity={line.quantity}
