@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, UserRound, X } from 'lucide-react';
+import AnchoredDropdown from '@/components/common/AnchoredDropdown';
 
 /**
  * The employee one issue line is handed to — searched against the Workforce
  * Master List by Name, PID (staff no.) or QID. The roster is passed in by the
  * host page (already loaded for its filters), so a line never fires its own
- * employee query.
+ * employee query. Results are rendered in a portal (see AnchoredDropdown) so the
+ * table's scroll container can never clip them.
  */
 export default function LineEmployeePicker({ employees = [], value, onSelect, onClear, placeholder = 'Search Name / PID / QID' }) {
   const [open, setOpen] = useState(false);
@@ -14,13 +16,7 @@ export default function LineEmployeePicker({ employees = [], value, onSelect, on
   const boxRef = useRef(null);
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    const close = (e) => {
-      if (boxRef.current && !boxRef.current.contains(e.target)) { setOpen(false); setSearch(''); }
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, []);
+  const close = () => { setOpen(false); setSearch(''); };
 
   useEffect(() => { if (open && inputRef.current) inputRef.current.focus(); }, [open]);
 
@@ -35,8 +31,7 @@ export default function LineEmployeePicker({ employees = [], value, onSelect, on
 
   const pick = (emp) => {
     onSelect?.(emp);
-    setOpen(false);
-    setSearch('');
+    close();
     setCursor(0);
   };
 
@@ -45,7 +40,6 @@ export default function LineEmployeePicker({ employees = [], value, onSelect, on
     if (e.key === 'ArrowDown') { e.preventDefault(); setCursor(c => Math.min(c + 1, results.length - 1)); }
     if (e.key === 'ArrowUp') { e.preventDefault(); setCursor(c => Math.max(c - 1, 0)); }
     if (e.key === 'Enter') { e.preventDefault(); pick(results[Math.min(cursor, results.length - 1)]); }
-    if (e.key === 'Escape') { setOpen(false); setSearch(''); }
   };
 
   const selected = !!value?.employee_id;
@@ -77,8 +71,8 @@ export default function LineEmployeePicker({ employees = [], value, onSelect, on
         )}
       </div>
 
-      {open && (
-        <div className="absolute z-50 mt-1 w-[340px] max-h-56 overflow-y-auto rounded-md border bg-popover shadow-lg">
+      <AnchoredDropdown anchorRef={boxRef} open={open} onClose={close} width={340}>
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {results.length === 0 ? (
             <div className="px-3 py-4 text-center text-xs text-muted-foreground">
               {search.trim().length < 2 ? 'Type at least 2 characters' : 'No matching employee found'}
@@ -99,7 +93,7 @@ export default function LineEmployeePicker({ employees = [], value, onSelect, on
             </button>
           ))}
         </div>
-      )}
+      </AnchoredDropdown>
     </div>
   );
 }

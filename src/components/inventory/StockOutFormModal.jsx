@@ -102,14 +102,16 @@ export default function StockOutFormModal({ open, onClose, onSaved, sites, store
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
-        <DialogHeader>
+      {/* The line table is the only scrolling area, and dropdown panels may
+          extend over it — so this modal itself never clips or scrolls. */}
+      <DialogContent className="max-w-6xl max-h-[92vh] flex flex-col overflow-visible">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Issue Stock Out — Store Issue Voucher</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 min-h-0 flex flex-col gap-4">
           {/* ── Voucher header (shared by every line) ── */}
-          <div className="rounded-md border bg-slate-50/60 p-3 space-y-3">
+          <div className="rounded-md border bg-slate-50/60 p-3 space-y-3 shrink-0">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <Label>Date</Label>
@@ -170,10 +172,12 @@ export default function StockOutFormModal({ open, onClose, onSaved, sites, store
             transactions={transactions}
             warranties={warranties}
             warningDays={warningDays}
+            className="flex-1 min-h-0 flex flex-col"
+            scrollClassName="flex-1 min-h-0 max-h-none"
           />
         </div>
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between">
+        <DialogFooter className="shrink-0 flex items-center justify-between sm:justify-between">
           <span className="text-xs text-muted-foreground">
             {lines.length} item{lines.length === 1 ? '' : 's'} · total quantity {totalQty} ·{' '}
             {new Set(lines.map(l => l.employee_id).filter(Boolean)).size || 0} employee

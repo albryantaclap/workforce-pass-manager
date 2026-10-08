@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import ItemLinePicker from '@/components/inventory/ItemLinePicker';
 import LineEmployeePicker from '@/components/inventory/LineEmployeePicker';
@@ -38,8 +38,8 @@ export default function StockOutVoucherLines({ lines, onChange, employees = [], 
         </Button>
       </div>
 
-      <div className="rounded-md border table-scroll-x">
-        <Table className="table-list-view">
+      <div className="rounded-md border doc-lines-scroll max-h-[45vh]">
+        <table className="w-full caption-bottom text-sm table-list-view">
           <TableHeader>
             <TableRow className="bg-slate-50">
               <TableHead className="w-8">#</TableHead>
@@ -133,7 +133,7 @@ export default function StockOutVoucherLines({ lines, onChange, employees = [], 
               );
             })}
           </TableBody>
-        </Table>
+        </table>
       </div>
     </div>
   );

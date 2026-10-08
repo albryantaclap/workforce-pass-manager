@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import ItemLinePicker from '@/components/inventory/ItemLinePicker';
 import LineEmployeePicker from '@/components/inventory/LineEmployeePicker';
 import LineWarrantyFields from '@/components/inventory/LineWarrantyFields';
@@ -54,7 +55,7 @@ export const emptyEmployeeLineFields = () => ({
  * with completely different warranty periods, and serialized units keep their
  * own warranty each.
  */
-export default function DocumentLineItems({ mode = 'in', lines, onChange, employees = [], transactions = [], warranties = [], warningDays = 30, warrantyEnabled = true }) {
+export default function DocumentLineItems({ mode = 'in', lines, onChange, employees = [], transactions = [], warranties = [], warningDays = 30, warrantyEnabled = true, className = '', scrollClassName = '' }) {
   const isOut = mode === 'out';
   const showWarranty = !isOut && warrantyEnabled;
   const usedIds = lines.map(l => l.item_id).filter(Boolean);
@@ -90,9 +91,13 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, employ
   const outColumnCount = 11;
   const inColumnCount = showWarranty ? 8 : 7;
 
+  // One clearly defined scroll container for the whole line table (header stays
+  // put, scrollbars are the only ones in play — the picker panels live in a portal).
+  const scrollClass = cn('rounded-md border doc-lines-scroll', scrollClassName || 'max-h-[45vh]');
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
+    <div className={cn('space-y-2', className)}>
+      <div className="flex items-center justify-between shrink-0">
         <p className="text-sm font-semibold">
           Items <span className="text-muted-foreground font-normal">({lines.length} line{lines.length === 1 ? '' : 's'})</span>
         </p>
@@ -101,8 +106,8 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, employ
         </Button>
       </div>
 
-      <div className="rounded-md border table-scroll-x">
-        <Table className="table-list-view">
+      <div className={scrollClass}>
+        <table className="w-full caption-bottom text-sm table-list-view">
           <TableHeader>
             <TableRow className="bg-slate-50">
               <TableHead className="w-8">#</TableHead>
@@ -249,7 +254,7 @@ export default function DocumentLineItems({ mode = 'in', lines, onChange, employ
               );
             })}
           </TableBody>
-        </Table>
+        </table>
       </div>
     </div>
   );
