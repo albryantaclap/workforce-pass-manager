@@ -1,0 +1,136 @@
+{
+  "name": "DocumentRenewalHistory",
+  "type": "object",
+  "properties": {
+    "personnel_id": {
+      "type": "string",
+      "description": "Linked Employee record ID (Master List identity). The stable unique key \u2014 never relies on QID or PID, which can change."
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Employee full name (denormalized for display only)"
+    },
+    "company": {
+      "type": "string",
+      "description": "Employee company (denormalized for display only)"
+    },
+    "document_type": {
+      "type": "string",
+      "enum": [
+        "Gate Pass",
+        "Project ID"
+      ],
+      "description": "Which document this renewal history belongs to: Gate Pass (RLIC) or Project ID."
+    },
+    "renewal_no": {
+      "type": "number",
+      "description": "Renewal sequence number within (personnel_id + document_type). 1 = first recorded issuance, incremented on every genuine renewal."
+    },
+    "entry_type": {
+      "type": "string",
+      "enum": [
+        "Initial Issuance",
+        "Renewal",
+        "Existing Record",
+        "Correction"
+      ],
+      "description": "How this entry was created. 'Initial Issuance' = the first time a document was issued (recorded going forward). 'Renewal' = a genuine renewal (new expiry / new PID number). 'Existing Record' = baseline entry seeded from pre-existing data during migration. 'Correction' = a manual admin correction of a historical entry (audited, never a renewal)."
+    },
+    "document_number": {
+      "type": "string",
+      "description": "Document number where applicable \u2014 the PID number for Project ID renewals (preserves previous numbers across renewals). Empty for Gate Pass."
+    },
+    "issue_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Issue / Submitted date. Gate Pass submitted date (gate_pass_issue_date) or Project ID issue date (pid_issue_date)."
+    },
+    "received_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Received date (Gate Pass only). Empty for Project ID."
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Expiry date captured at this renewal (gate_pass_expiry / pid_expiry). Defines the renewal period."
+    },
+    "recorded_status": {
+      "type": "string",
+      "description": "The status as originally recorded at the time of this renewal (rlic_status / pid_status snapshot). Preserved for auditing even after the current status changes."
+    },
+    "renewal_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the renewal was recorded (when this history entry was created)."
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of the user who recorded this renewal."
+    },
+    "updated_by_name": {
+      "type": "string",
+      "description": "Display name of the user who recorded this renewal."
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Optional remarks for this renewal entry."
+    },
+    "corrections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "corrected_by": {
+            "type": "string",
+            "description": "Email of the user who made the correction"
+          },
+          "corrected_by_name": {
+            "type": "string",
+            "description": "Display name of the user who made the correction"
+          },
+          "corrected_at": {
+            "type": "string",
+            "description": "Timestamp of the correction (ISO)"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for the correction"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "description": "Field that was corrected"
+                },
+                "from": {
+                  "type": "string",
+                  "description": "Previous value"
+                },
+                "to": {
+                  "type": "string",
+                  "description": "New value"
+                }
+              }
+            },
+            "description": "Every field changed by this correction, with previous and new values."
+          }
+        }
+      },
+      "description": "Audit trail of corrections made to this entry. Corrections never create a new renewal \u2014 they update the existing entry and are distinguishable from renewals."
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete flag \u2014 deleted history entries are hidden but retained for audit."
+    }
+  },
+  "required": [
+    "personnel_id",
+    "document_type",
+    "renewal_no"
+  ]
+}

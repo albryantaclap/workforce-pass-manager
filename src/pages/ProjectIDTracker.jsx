@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PillTabsList, PillTabsTrigger } from '@/components/common/PillTabsList';
 import PillTabsBar from '@/components/common/PillTabsBar';
-import { Search, BadgeCheck, ShieldCheck, Eye, Pencil, PencilLine, X as XIcon, LayoutDashboard, List } from 'lucide-react';
+import { Search, BadgeCheck, ShieldCheck, Eye, Pencil, PencilLine, X as XIcon, LayoutDashboard, List, History as HistoryIcon } from 'lucide-react';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
 import SharepointDocIcon from '../components/common/SharepointDocIcon';
 import { Link } from 'react-router-dom';
@@ -27,6 +27,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useManagerFilter } from '@/hooks/useManagerFilter';
 import WorkforceSubmenuNav from '@/components/common/WorkforceSubmenuNav';
+import RenewalHistoryModal from '../components/common/RenewalHistoryModal';
+import { syncRenewal, PROJECT_ID_FIELDS } from '@/lib/renewalHistory';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#94a3b8'];
 
@@ -92,6 +94,7 @@ export default function ProjectIDTracker() {
   const [trainingFilter, setTrainingFilter] = useState('all');
   const [gatePassFilter, setGatePassFilter] = useState([]);
   const [editMode, setEditMode] = useState(false);
+  const [historyEmp, setHistoryEmp] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
 
   const queryClient = useQueryClient();
@@ -244,7 +247,21 @@ export default function ProjectIDTracker() {
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
   });
 
-  const handleCellSave = (id, field, value) => updateMutation.mutate({ id, data: { [field]: value } });
+  // Project ID renewal-relevant fields are saved through the atomic sync function
+  // so the document update and the renewal-history recording stay consistent.
+  const handleCellSave = async (id, field, value) => {
+    if (PROJECT_ID_FIELDS.has(field)) {
+      try {
+        await syncRenewal({ employeeId: id, documentType: 'Project ID', field, value });
+      } catch (e) {
+        toast({ title: e.message || 'Update failed', variant: 'destructive' });
+      } finally {
+        queryClient.invalidateQueries({ queryKey: ['employees-active'] });
+      }
+      return;
+    }
+    updateMutation.mutate({ id, data: { [field]: value } });
+  };
 
   const handleFillDown = async (field, value) => {
     await Promise.all(filtered.map(e => base44.entities.Employee.update(e.id, { [field]: value })));
@@ -545,6 +562,7 @@ export default function ProjectIDTracker() {
                           <div className="flex gap-1">
                             <Link to={`/employees/${emp.id}`}><Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button></Link>
                             <Link to={`/employees/${emp.id}/edit`}><Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button></Link>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Renewal history" onClick={() => setHistoryEmp(emp)}><HistoryIcon className="w-3.5 h-3.5" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -571,6 +589,8 @@ export default function ProjectIDTracker() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <RenewalHistoryModal open={!!historyEmp} onClose={() => setHistoryEmp(null)} employee={historyEmp} documentType="Project ID" />
     </div>
   );
 }
