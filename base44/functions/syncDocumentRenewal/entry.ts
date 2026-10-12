@@ -74,9 +74,6 @@ Deno.serve(async (req) => {
     // as a Renewal or a Correction. A change in expiry/PID number must never be
     // auto-classified as a renewal without this confirmation.
     const explicitMode = mode === 'renewal' || mode === 'correction' ? (mode as string) : null;
-    const renewalDateVal = explicitMode === 'renewal'
-      ? (renewalDate && String(renewalDate).length >= 10 ? String(renewalDate).slice(0, 10) : '')
-      : today;
     const remarksVal = typeof remarks === 'string' ? remarks : '';
 
     if (explicitMode === 'renewal') {
@@ -133,7 +130,7 @@ Deno.serve(async (req) => {
           received_date: retroInitial.received_date || '',
           expiry_date: retroInitial.expiry_date || '',
           recorded_status: retroInitial.recorded_status || '',
-          renewal_date: retroInitial.issue_date || today,
+          renewal_date: retroInitial.expiry_date || '',
           updated_by: 'system',
           updated_by_name: 'Previous issuance (recorded at first renewal)',
         });
@@ -145,7 +142,7 @@ Deno.serve(async (req) => {
           received_date: snapshot.received_date || '',
           expiry_date: snapshot.expiry_date || '',
           recorded_status: snapshot.recorded_status || '',
-          renewal_date: renewalDateVal,
+          renewal_date: snapshot.expiry_date || '',
           updated_by: performer.updated_by,
           updated_by_name: performer.updated_by_name,
         });
@@ -160,7 +157,7 @@ Deno.serve(async (req) => {
           received_date: snapshot.received_date || '',
           expiry_date: snapshot.expiry_date || '',
           recorded_status: snapshot.recorded_status || '',
-          renewal_date: renewalDateVal,
+          renewal_date: snapshot.expiry_date || '',
           updated_by: performer.updated_by,
           updated_by_name: performer.updated_by_name,
         });
@@ -185,6 +182,8 @@ Deno.serve(async (req) => {
       const changes = diffSnapshot(latest, snapshot);
       const update: Record<string, any> = {};
       for (const c of changes) update[c.field] = c.to;
+      // Renewal Date always follows this document's own expiry date.
+      update.renewal_date = snapshot.expiry_date || '';
       update.corrections = [
         ...(latest.corrections || []),
         {
@@ -202,6 +201,7 @@ Deno.serve(async (req) => {
         // Restore the entry to its pre-correction state.
         const restore: Record<string, any> = {};
         for (const c of changes) restore[c.field] = c.from;
+        restore.renewal_date = latest.renewal_date || '';
         restore.corrections = latest.corrections || [];
         await base44.asServiceRole.entities.DocumentRenewalHistory.update(latest.id, restore);
         return Response.json({ error: (e as Error).message }, { status: 500 });

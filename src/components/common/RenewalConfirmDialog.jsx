@@ -7,12 +7,14 @@ import { FileWarning } from 'lucide-react';
 
 function DecisionRow({ doc, initial, onChange }) {
   const [mode, setMode] = useState(initial.mode);
-  const [renewalDate, setRenewalDate] = useState(initial.renewalDate);
   const [remarks, setRemarks] = useState('');
 
   useEffect(() => {
-    onChange(doc.documentType, { mode, renewalDate, remarks });
-  }, [mode, renewalDate, remarks]); // eslint-disable-line react-hooks/exhaustive-deps
+    onChange(doc.documentType, { mode, remarks });
+  }, [mode, remarks]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const expiryChange = doc.changes.find((c) => c.field === 'gate_pass_expiry' || c.field === 'pid_expiry');
+  const newExpiry = expiryChange ? expiryChange.to : '—';
 
   return (
     <div className="rounded-lg border p-3 space-y-2 bg-slate-50/50">
@@ -47,13 +49,9 @@ function DecisionRow({ doc, initial, onChange }) {
         </button>
       </div>
       {mode === 'renewal' && (
-        <div>
-          <Label className="text-xs">Actual Renewal Date</Label>
-          <Input type="date" value={renewalDate} onChange={(e) => setRenewalDate(e.target.value)} className="text-xs h-8" />
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            {doc.documentType === 'Gate Pass' ? 'Defaults to the Gate Pass Received Date' : 'Defaults to the Project ID Issue Date'}. Leave blank if unconfirmed.
-          </p>
-        </div>
+        <p className="text-[11px] text-muted-foreground bg-blue-50 border border-blue-100 rounded p-2">
+          The Renewal Date will be set to the new Expiry Date: <strong className="text-foreground">{newExpiry}</strong>. The previous version is preserved.
+        </p>
       )}
       <div>
         <Label className="text-xs">{mode === 'correction' ? 'Correction Reason' : 'Remarks'}</Label>
@@ -65,9 +63,10 @@ function DecisionRow({ doc, initial, onChange }) {
 
 /**
  * Confirmation dialog shown by Edit Personnel when a Gate Pass or Project ID
- * renewal-relevant field changed. The user must classify each change as a Renewal
- * (new history entry, previous version preserved) or a Correction (audited update,
- * no renewal count increase). A change in expiry date is never auto-classified.
+ * renewal-relevant field changed. The user classifies each change as a Renewal
+ * (new history entry, previous version preserved) or a Correction (audited
+ * update, no renewal count increase). The Renewal Date always follows the
+ * document's own expiry date — no manual date entry.
  */
 export default function RenewalConfirmDialog({ open, onClose, onConfirm, documents, employeeName }) {
   const [decisions, setDecisions] = useState({});
@@ -75,9 +74,7 @@ export default function RenewalConfirmDialog({ open, onClose, onConfirm, documen
   useEffect(() => {
     if (open && documents) {
       const init = {};
-      for (const d of documents) {
-        init[d.documentType] = { mode: d.isRenewalKey ? 'renewal' : 'correction', renewalDate: d.defaultRenewalDate || '', remarks: '' };
-      }
+      for (const d of documents) init[d.documentType] = { mode: d.isRenewalKey ? 'renewal' : 'correction', remarks: '' };
       setDecisions(init);
     }
   }, [open, documents]);
@@ -87,7 +84,7 @@ export default function RenewalConfirmDialog({ open, onClose, onConfirm, documen
   const handleConfirm = () => {
     const out = (documents || []).map((d) => ({
       documentType: d.documentType,
-      ...(decisions[d.documentType] || { mode: d.isRenewalKey ? 'renewal' : 'correction', renewalDate: d.defaultRenewalDate || '', remarks: '' }),
+      ...(decisions[d.documentType] || { mode: d.isRenewalKey ? 'renewal' : 'correction', remarks: '' }),
     }));
     onConfirm(out);
   };
@@ -109,7 +106,7 @@ export default function RenewalConfirmDialog({ open, onClose, onConfirm, documen
             <DecisionRow
               key={d.documentType}
               doc={d}
-              initial={decisions[d.documentType] || { mode: d.isRenewalKey ? 'renewal' : 'correction', renewalDate: d.defaultRenewalDate || '', remarks: '' }}
+              initial={decisions[d.documentType] || { mode: d.isRenewalKey ? 'renewal' : 'correction', remarks: '' }}
               onChange={handle}
             />
           ))}

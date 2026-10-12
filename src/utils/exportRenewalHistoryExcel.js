@@ -75,7 +75,7 @@ export async function exportRenewalHistoryExcel({ rows, periodLabel, isoLabel })
       receivedDate: r.received_date || '',
       expiryDate: r.expiry_date || '',
       recordedStatus: r.recorded_status || '',
-      renewalDate: r.renewal_date || '',
+      renewalDate: r.expiry_date || '',
       updatedBy: r.updated_by_name || '',
       remarks: r.remarks || '',
     };

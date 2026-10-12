@@ -3,11 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Download, FileText, RefreshCw, Printer } from 'lucide-react';
+import { Download, FileText, RefreshCw, Printer, X, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { exportRenewalHistoryExcel } from '@/utils/exportRenewalHistoryExcel';
 import Pagination from '@/components/inventory/Pagination';
 import PersonnelOverview from '@/components/projection/PersonnelOverview';
+import RenewalPersonnelSearch from '@/components/projection/RenewalPersonnelSearch';
+import { computePassStatus, formatDate } from '@/utils/constants';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const NOW = new Date();
@@ -52,15 +54,45 @@ const PRINT_CSS = `
   @media print { @page { size: A3 landscape; margin: 6mm; } }
 `;
 
-function buildReportHTML(rows, plabel) {
+// Renewal Date follows the document's own expiry date. Blank (not invented) when
+// the snapshot has no expiry — never the migration/creation date.
+function renewalDateOf(r) { return r.expiry_date || ''; }
+
+function buildReportHTML(rows, plabel, scopeLabel) {
   const head = `<tr><th>#</th><th>Personnel</th><th>Company</th><th>Document</th><th>Renewal No.</th><th>Entry Type</th><th>Doc No.</th><th>Issue / Submitted</th><th>Received</th><th>Expiry</th><th>Recorded Status</th><th>Renewal Date</th><th>Recorded By</th><th>Remarks</th></tr>`;
   const body = rows.map((r, i) => `<tr>
     <td>${i + 1}</td><td class="l">${r.employee_name || ''}</td><td>${r.company || ''}</td>
     <td>${r.document_type || ''}</td><td>${r.renewal_no ?? ''}</td><td>${r.entry_type || ''}</td>
     <td>${r.document_number || ''}</td><td>${r.issue_date || ''}</td><td>${r.received_date || ''}</td>
-    <td>${r.expiry_date || ''}</td><td>${r.recorded_status || ''}</td><td>${r.renewal_date || ''}</td>
+    <td>${r.expiry_date || ''}</td><td>${r.recorded_status || ''}</td><td>${renewalDateOf(r)}</td>
     <td>${r.updated_by_name || ''}</td><td class="l">${r.remarks || ''}</td></tr>`).join('');
-  return `<div class="wrap"><div class="title">Document Renewal History Report</div><div class="sub">Period: ${plabel} · Generated ${format(NOW, 'dd-MM-yyyy HH:mm')}</div><table><thead>${head}</thead><tbody>${body || '<tr><td colspan="14" style="text-align:center;padding:16px">No renewal records in this period</td></tr>'}</tbody></table></div>`;
+  return `<div class="wrap"><div class="title">Document Renewal History Report</div><div class="sub">${scopeLabel} · Generated ${format(NOW, 'dd-MM-yyyy HH:mm')}</div><table><thead>${head}</thead><tbody>${body || '<tr><td colspan="14" style="text-align:center;padding:16px">No renewal records</td></tr>'}</tbody></table></div>`;
+}
+
+function PersonnelBanner({ emp, onClear }) {
+  const gp = computePassStatus(emp.gate_pass_expiry, 'rlic', emp.rlic_status);
+  const pid = computePassStatus(emp.pid_expiry, 'pid', emp.pid_status);
+  return (
+    <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div className="flex items-center gap-2">
+          <User className="w-4 h-4 text-primary" />
+          <span className="font-semibold text-sm">{emp.name || '—'}</span>
+          <span className="text-xs text-muted-foreground">{emp.company || '—'}</span>
+          <span className="text-[10px] text-muted-foreground border rounded px-1.5 py-0.5">{emp.personnel_status || 'Unassigned'}</span>
+        </div>
+        <div className="text-xs text-muted-foreground">QID: <span className="font-mono text-foreground">{emp.qid_no || '—'}</span></div>
+        <div className="text-xs text-muted-foreground">PID No: <span className="font-mono text-foreground">{emp.pid || '—'}</span></div>
+        <div className="text-xs text-muted-foreground">Gate Pass Expiry: <span className="text-foreground">{formatDate(emp.gate_pass_expiry)}</span></div>
+        <div className="text-xs text-muted-foreground">PID Expiry: <span className="text-foreground">{formatDate(emp.pid_expiry)}</span></div>
+        <div className="text-[10px] text-muted-foreground">(GP: {gp || '—'} · PID: {pid || '—'})</div>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-[11px] text-primary font-medium">Showing complete history · all periods</span>
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={onClear}><X className="w-3 h-3" /> Clear</Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }) {
@@ -74,40 +106,55 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
   const [view, setView] = useState('history');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [selectedPersonnel, setSelectedPersonnel] = useState(null);
 
   const { from, to } = useMemo(() => getRange(periodMode, year, month, rangeFrom, rangeTo), [periodMode, year, month, rangeFrom, rangeTo]);
   const ready = !!(from && to);
 
+  // When a personnel is selected, show their COMPLETE history (all periods),
+  // filtered only by document type. Otherwise filter by the document expiry-based
+  // Renewal Date (= the entry's own expiry_date) within the selected period.
   const query = useMemo(() => {
-    const q = { is_deleted: { $ne: true }, renewal_date: { $gte: from, $lte: to } };
+    const q = { is_deleted: { $ne: true } };
     if (docType !== 'All') q.document_type = docType;
+    if (selectedPersonnel) {
+      q.personnel_id = selectedPersonnel.id;
+      return q;
+    }
+    q.expiry_date = { $gte: from, $lte: to };
     return q;
-  }, [from, to, docType]);
+  }, [from, to, docType, selectedPersonnel]);
+
+  const sort = selectedPersonnel ? '-renewal_no' : '-expiry_date';
 
   const { data: allRows = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['renewalHistoryReport', from, to, docType],
-    queryFn: () => base44.entities.DocumentRenewalHistory.filter(query, '-renewal_date', 100000),
-    enabled: ready,
+    queryKey: ['renewalHistoryReport', from, to, docType, selectedPersonnel?.id || ''],
+    queryFn: () => base44.entities.DocumentRenewalHistory.filter(query, sort, 100000),
+    enabled: ready || !!selectedPersonnel,
     staleTime: 30000,
   });
 
-  // Apply the page-level global filters (company, status, manager, search, etc.)
-  // by keeping only renewal rows whose linked personnel is in the filtered scope.
+  // A specifically-searched person bypasses the page-level global filters so their
+  // full history is always visible. Otherwise scope by the filtered personnel set.
   const rows = useMemo(() => {
+    if (selectedPersonnel) return allRows;
     if (!isFiltered || !filteredEmployeeIds) return allRows;
-    return allRows.filter(r => filteredEmployeeIds.has(r.personnel_id));
-  }, [allRows, isFiltered, filteredEmployeeIds]);
+    return allRows.filter((r) => filteredEmployeeIds.has(r.personnel_id));
+  }, [allRows, isFiltered, filteredEmployeeIds, selectedPersonnel]);
 
-  useEffect(() => { setPage(0); }, [from, to, docType, isFiltered, filteredEmployeeIds]);
+  useEffect(() => { setPage(0); }, [from, to, docType, isFiltered, filteredEmployeeIds, selectedPersonnel]);
 
   const plabel = periodLabel(periodMode, year, month, rangeFrom, rangeTo);
+  const scopeLabel = selectedPersonnel
+    ? `${selectedPersonnel.name || ''} — complete renewal history`
+    : `Period: ${plabel}${isFiltered ? ' · Global filters active' : ''}`;
 
   const summary = useMemo(() => {
-    const gp = rows.filter(r => r.document_type === 'Gate Pass').length;
-    const pid = rows.filter(r => r.document_type === 'Project ID').length;
-    const renewals = rows.filter(r => r.entry_type === 'Renewal').length;
-    const initial = rows.filter(r => r.entry_type === 'Initial Issuance').length;
-    const corrected = rows.filter(r => (r.corrections || []).length > 0).length;
+    const gp = rows.filter((r) => r.document_type === 'Gate Pass').length;
+    const pid = rows.filter((r) => r.document_type === 'Project ID').length;
+    const renewals = rows.filter((r) => r.entry_type === 'Renewal').length;
+    const initial = rows.filter((r) => r.entry_type === 'Initial Issuance').length;
+    const corrected = rows.filter((r) => (r.corrections || []).length > 0).length;
     return { total: rows.length, gp, pid, renewals, initial, corrected };
   }, [rows]);
 
@@ -117,14 +164,15 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
 
   const handlePrint = () => {
     const win = window.open('', '_blank', 'width=1400,height=900');
-    win.document.write(`<!DOCTYPE html><html><head><title>Renewal History ${plabel}</title><style>${PRINT_CSS}</style></head><body>${buildReportHTML(rows, plabel)}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
+    win.document.write(`<!DOCTYPE html><html><head><title>Renewal History ${plabel}</title><style>${PRINT_CSS}</style></head><body>${buildReportHTML(rows, plabel, scopeLabel)}<script>setTimeout(() => window.print(), 300);<\/script></body></html>`);
     win.document.close();
   };
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      await exportRenewalHistoryExcel({ rows, periodLabel: plabel, isoLabel: `${from}_to_${to}` });
+      const exportRows = rows.map((r) => ({ ...r, renewal_date: renewalDateOf(r) }));
+      await exportRenewalHistoryExcel({ rows: exportRows, periodLabel: scopeLabel, isoLabel: selectedPersonnel ? `personnel_${selectedPersonnel.id}` : `${from}_to_${to}` });
     } finally {
       setIsExporting(false);
     }
@@ -138,8 +186,11 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
           <h2 className="text-xl font-bold tracking-tight">Renewal History Report</h2>
           <p className="text-sm text-muted-foreground mt-1">
             {view === 'history'
-              ? <>Period: <strong>{plabel}</strong>{isFiltered && <span className="text-primary font-medium"> · Global filters active</span>}</>
-              : <>All personnel from Master List · Gate Pass & Project ID renewal counts</>}
+              ? (selectedPersonnel
+                  ? <>Personnel: <strong>{selectedPersonnel.name}</strong> · complete renewal history</>
+                  : <>Period: <strong>{plabel}</strong>{isFiltered && <span className="text-primary font-medium"> · Global filters active</span>}</>)
+              : <>All personnel from Master List · Gate Pass & Project ID renewal counts</>
+            }
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -152,10 +203,10 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
               <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
                 <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
               </Button>
-              <Button variant="outline" onClick={handleExport} disabled={!ready || rows.length === 0 || isExporting} className="gap-2">
+              <Button variant="outline" onClick={handleExport} disabled={rows.length === 0 || isExporting} className="gap-2">
                 <Download className="w-4 h-4" /> {isExporting ? 'Exporting...' : 'Export Excel'}
               </Button>
-              <Button onClick={handlePrint} disabled={!ready || rows.length === 0} className="gap-2">
+              <Button onClick={handlePrint} disabled={rows.length === 0} className="gap-2">
                 <Printer className="w-4 h-4" /> Print / PDF
               </Button>
             </>
@@ -167,24 +218,39 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
         <PersonnelOverview />
       ) : (
       <>
+      {/* Personnel search selector */}
+      <div className="bg-white rounded-xl border shadow-sm p-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Find Personnel</p>
+        <RenewalPersonnelSearch onSelect={(emp) => setSelectedPersonnel(emp)} />
+        {selectedPersonnel && (
+          <PersonnelBanner emp={selectedPersonnel} onClear={() => setSelectedPersonnel(null)} />
+        )}
+        <p className="text-[11px] text-muted-foreground mt-2">
+          Search the entire Master List (Active, Onboarding, Inactive, Demobilized). Selecting a person shows their complete renewal history regardless of the period below.
+        </p>
+      </div>
+
       {/* Period + type filters */}
       <div className="bg-white rounded-xl border shadow-sm p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mr-1">Period</span>
-          {PERIOD_MODES.map(m => (
+          {PERIOD_MODES.map((m) => (
             <button key={m.id} onClick={() => setPeriodMode(m.id)}
               className={`text-xs font-medium px-3 py-1.5 rounded-lg border-2 transition-all ${periodMode === m.id ? 'border-primary bg-primary/5 text-primary' : 'border-border text-foreground hover:border-primary/40'}`}>
               {m.label}
             </button>
           ))}
+          {selectedPersonnel && (
+            <span className="text-[11px] text-primary font-medium ml-auto">Personnel selected — period filters ignored, showing complete history.</span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {periodMode === 'year' && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Year</p>
-              <select value={year} onChange={e => setYear(Number(e.target.value))} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
           )}
@@ -192,14 +258,14 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
             <>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">Month</p>
-                <select value={month} onChange={e => setMonth(Number(e.target.value))} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                   {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
                 </select>
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">Year</p>
-                <select value={year} onChange={e => setYear(Number(e.target.value))} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                  {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                  {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
             </>
@@ -208,24 +274,22 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
             <>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">From</p>
-                <Input type="date" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} className="text-xs h-8" />
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">To</p>
-                <Input type="date" value={rangeTo} onChange={e => setRangeTo(e.target.value)} className="text-xs h-8" />
+                <Input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} className="text-xs h-8" />
               </div>
             </>
           )}
           <div className={periodMode === 'year' ? 'col-span-1' : 'lg:col-span-2'}>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Document Type</p>
-            <select value={docType} onChange={e => setDocType(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-              {DOC_TYPES.map(t => <option key={t} value={t}>{t === 'All' ? 'All Documents' : t}</option>)}
+            <select value={docType} onChange={(e) => setDocType(e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              {DOC_TYPES.map((t) => <option key={t} value={t}>{t === 'All' ? 'All Documents' : t}</option>)}
             </select>
           </div>
         </div>
-        {!ready && periodMode === 'range' && (
-          <p className="text-xs text-amber-600">Select both a From and To date to generate the report.</p>
-        )}
+        <p className="text-[11px] text-muted-foreground">Period filters apply to the document expiry-based Renewal Date.</p>
       </div>
 
       {/* Summary cards */}
@@ -237,7 +301,7 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
           { label: 'Renewals', value: summary.renewals, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Initial Issuance', value: summary.initial, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'With Corrections', value: summary.corrected, color: 'text-amber-600', bg: 'bg-amber-50' },
-        ].map(card => (
+        ].map((card) => (
           <div key={card.label} className={`rounded-xl border p-4 ${card.bg}`}>
             <div className="text-xs text-slate-500 font-medium">{card.label}</div>
             <div className={`text-2xl font-bold mt-1 ${card.color}`}>{card.value}</div>
@@ -255,7 +319,11 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
             <FileText className="w-10 h-10 opacity-30" />
-            <p className="font-medium">{isFiltered ? 'No renewal records match the current filters.' : `No renewal records found for ${plabel}.`}</p>
+            <p className="font-medium">
+              {selectedPersonnel
+                ? `No renewal history yet for ${selectedPersonnel.name}.`
+                : (isFiltered ? 'No renewal records match the current filters.' : `No renewal records found for ${plabel}.`)}
+            </p>
           </div>
         ) : (
           <table className="table-list-view w-full">
@@ -291,7 +359,7 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
                   <td className="px-2 py-1.5">{r.received_date || '—'}</td>
                   <td className="px-2 py-1.5">{r.expiry_date || '—'}</td>
                   <td className="px-2 py-1.5">{r.recorded_status || '—'}</td>
-                  <td className="px-2 py-1.5 font-medium">{r.renewal_date || '—'}</td>
+                  <td className="px-2 py-1.5 font-medium">{renewalDateOf(r) || '—'}</td>
                   <td className="px-2 py-1.5">{r.updated_by_name || '—'}</td>
                   <td className="px-2 py-1.5 max-w-xs truncate" title={r.remarks || ''}>{r.remarks || '—'}</td>
                 </tr>
