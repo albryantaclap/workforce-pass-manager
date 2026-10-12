@@ -926,6 +926,8 @@ export default function ProjectionReport() {
     });
   }, [managerSourceEmployees, selectedManagers]);
 
+  const filteredEmployeeIds = useMemo(() => new Set(filteredEmployees.map(e => e.id)), [filteredEmployees]);
+
   const hasFilter = companyFilter.length > 0 || positionFilter.length > 0 || departmentFilter.length > 0 || selectedManagers.length > 0 || !!dirFilter || gpStatusFilter.length > 0 || pidStatusFilter.length > 0 || trainingStatusFilter.length > 0 || medicalResultFilter.length > 0 || locationFilter.length > 0 || !!trainingScheduledFrom || !!trainingScheduledTo || !!medicalTrApprovedFrom || !!medicalTrApprovedTo || !!gpIssueFrom || !!gpIssueTo || !!gpReceivedFrom || !!gpReceivedTo || !!pidIssueFrom || !!pidIssueTo;
 
   const clearFilters = () => {
@@ -1142,7 +1144,7 @@ export default function ProjectionReport() {
         </TabsContent>
 
         <TabsContent value="renewal">
-          <RenewalHistoryReport />
+          <RenewalHistoryReport filteredEmployeeIds={filteredEmployeeIds} isFiltered={hasFilter || !!searchQuery} />
         </TabsContent>
 
         <TabsContent value="onboarding">

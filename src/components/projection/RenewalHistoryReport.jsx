@@ -62,7 +62,7 @@ function buildReportHTML(rows, plabel) {
   return `<div class="wrap"><div class="title">Document Renewal History Report</div><div class="sub">Period: ${plabel} · Generated ${format(NOW, 'dd-MM-yyyy HH:mm')}</div><table><thead>${head}</thead><tbody>${body || '<tr><td colspan="14" style="text-align:center;padding:16px">No renewal records in this period</td></tr>'}</tbody></table></div>`;
 }
 
-export default function RenewalHistoryReport() {
+export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }) {
   const [periodMode, setPeriodMode] = useState('month');
   const [year, setYear] = useState(CURRENT_YEAR);
   const [month, setMonth] = useState(NOW.getMonth());
@@ -82,14 +82,21 @@ export default function RenewalHistoryReport() {
     return q;
   }, [from, to, docType]);
 
-  const { data: rows = [], isLoading, isFetching, refetch } = useQuery({
+  const { data: allRows = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['renewalHistoryReport', from, to, docType],
     queryFn: () => base44.entities.DocumentRenewalHistory.filter(query, '-renewal_date', 100000),
     enabled: ready,
     staleTime: 30000,
   });
 
-  useEffect(() => { setPage(0); }, [from, to, docType]);
+  // Apply the page-level global filters (company, status, manager, search, etc.)
+  // by keeping only renewal rows whose linked personnel is in the filtered scope.
+  const rows = useMemo(() => {
+    if (!isFiltered || !filteredEmployeeIds) return allRows;
+    return allRows.filter(r => filteredEmployeeIds.has(r.personnel_id));
+  }, [allRows, isFiltered, filteredEmployeeIds]);
+
+  useEffect(() => { setPage(0); }, [from, to, docType, isFiltered, filteredEmployeeIds]);
 
   const plabel = periodLabel(periodMode, year, month, rangeFrom, rangeTo);
 
@@ -127,7 +134,7 @@ export default function RenewalHistoryReport() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Renewal History Report</h2>
-          <p className="text-sm text-muted-foreground mt-1">Period: <strong>{plabel}</strong></p>
+          <p className="text-sm text-muted-foreground mt-1">Period: <strong>{plabel}</strong>{isFiltered && <span className="text-primary font-medium"> · Global filters active</span>}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
@@ -230,7 +237,7 @@ export default function RenewalHistoryReport() {
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
             <FileText className="w-10 h-10 opacity-30" />
-            <p className="font-medium">No renewal records found for {plabel}.</p>
+            <p className="font-medium">{isFiltered ? 'No renewal records match the current filters.' : `No renewal records found for ${plabel}.`}</p>
           </div>
         ) : (
           <table className="table-list-view w-full">
