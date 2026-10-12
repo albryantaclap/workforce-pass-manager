@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Download, FileText, RefreshCw, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { exportRenewalHistoryExcel } from '@/utils/exportRenewalHistoryExcel';
+import Pagination from '@/components/inventory/Pagination';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const NOW = new Date();
@@ -69,6 +70,8 @@ export default function RenewalHistoryReport() {
   const [rangeTo, setRangeTo] = useState('');
   const [docType, setDocType] = useState('All');
   const [isExporting, setIsExporting] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
 
   const { from, to } = useMemo(() => getRange(periodMode, year, month, rangeFrom, rangeTo), [periodMode, year, month, rangeFrom, rangeTo]);
   const ready = !!(from && to);
@@ -86,6 +89,8 @@ export default function RenewalHistoryReport() {
     staleTime: 30000,
   });
 
+  useEffect(() => { setPage(0); }, [from, to, docType]);
+
   const plabel = periodLabel(periodMode, year, month, rangeFrom, rangeTo);
 
   const summary = useMemo(() => {
@@ -96,6 +101,10 @@ export default function RenewalHistoryReport() {
     const corrected = rows.filter(r => (r.corrections || []).length > 0).length;
     return { total: rows.length, gp, pid, renewals, initial, corrected };
   }, [rows]);
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / rowsPerPage));
+  const effPage = Math.min(page, totalPages - 1);
+  const pagedRows = rows.slice(effPage * rowsPerPage, effPage * rowsPerPage + rowsPerPage);
 
   const handlePrint = () => {
     const win = window.open('', '_blank', 'width=1400,height=900');
@@ -212,7 +221,8 @@ export default function RenewalHistoryReport() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border shadow overflow-auto">
+      <div className="bg-white rounded-xl border shadow overflow-hidden">
+        <div className="overflow-auto max-h-[70vh]">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
@@ -243,9 +253,9 @@ export default function RenewalHistoryReport() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
+              {pagedRows.map((r, i) => (
                 <tr key={r.id || i} className="border-b hover:bg-muted/30">
-                  <td className="px-2 py-1.5">{i + 1}</td>
+                  <td className="px-2 py-1.5">{effPage * rowsPerPage + i + 1}</td>
                   <td className="px-2 py-1.5 font-medium">{r.employee_name || '—'}</td>
                   <td className="px-2 py-1.5">{r.company || '—'}</td>
                   <td className="px-2 py-1.5">{r.document_type || '—'}</td>
@@ -263,6 +273,17 @@ export default function RenewalHistoryReport() {
               ))}
             </tbody>
           </table>
+        )}
+        </div>
+        {!isLoading && rows.length > 0 && (
+          <Pagination
+            page={effPage}
+            totalPages={totalPages}
+            totalRecords={rows.length}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={(n) => { setRowsPerPage(n); setPage(0); }}
+          />
         )}
       </div>
     </div>
