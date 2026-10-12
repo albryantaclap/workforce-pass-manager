@@ -7,6 +7,7 @@ import { Download, FileText, RefreshCw, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { exportRenewalHistoryExcel } from '@/utils/exportRenewalHistoryExcel';
 import Pagination from '@/components/inventory/Pagination';
+import PersonnelOverview from '@/components/projection/PersonnelOverview';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const NOW = new Date();
@@ -70,6 +71,7 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
   const [rangeTo, setRangeTo] = useState('');
   const [docType, setDocType] = useState('All');
   const [isExporting, setIsExporting] = useState(false);
+  const [view, setView] = useState('history');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
@@ -134,21 +136,37 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Renewal History Report</h2>
-          <p className="text-sm text-muted-foreground mt-1">Period: <strong>{plabel}</strong>{isFiltered && <span className="text-primary font-medium"> · Global filters active</span>}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {view === 'history'
+              ? <>Period: <strong>{plabel}</strong>{isFiltered && <span className="text-primary font-medium"> · Global filters active</span>}</>
+              : <>All personnel from Master List · Gate Pass & Project ID renewal counts</>}
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
-          <Button variant="outline" onClick={handleExport} disabled={!ready || rows.length === 0 || isExporting} className="gap-2">
-            <Download className="w-4 h-4" /> {isExporting ? 'Exporting...' : 'Export Excel'}
-          </Button>
-          <Button onClick={handlePrint} disabled={!ready || rows.length === 0} className="gap-2">
-            <Printer className="w-4 h-4" /> Print / PDF
-          </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border overflow-hidden">
+            <button onClick={() => setView('overview')} className={`text-xs font-medium px-3 py-2 transition-colors ${view === 'overview' ? 'bg-primary text-primary-foreground' : 'bg-white text-foreground hover:bg-muted'}`}>Personnel Overview</button>
+            <button onClick={() => setView('history')} className={`text-xs font-medium px-3 py-2 transition-colors ${view === 'history' ? 'bg-primary text-primary-foreground' : 'bg-white text-foreground hover:bg-muted'}`}>Renewal History</button>
+          </div>
+          {view === 'history' && (
+            <>
+              <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
+                <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+              </Button>
+              <Button variant="outline" onClick={handleExport} disabled={!ready || rows.length === 0 || isExporting} className="gap-2">
+                <Download className="w-4 h-4" /> {isExporting ? 'Exporting...' : 'Export Excel'}
+              </Button>
+              <Button onClick={handlePrint} disabled={!ready || rows.length === 0} className="gap-2">
+                <Printer className="w-4 h-4" /> Print / PDF
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
+      {view === 'overview' ? (
+        <PersonnelOverview />
+      ) : (
+      <>
       {/* Period + type filters */}
       <div className="bg-white rounded-xl border shadow-sm p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -293,6 +311,8 @@ export default function RenewalHistoryReport({ filteredEmployeeIds, isFiltered }
           />
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
