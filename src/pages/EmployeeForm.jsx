@@ -20,6 +20,8 @@ import { usePermissions } from '@/lib/usePermissions';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { calcDuration, formatDuration, getLatestSession, toDateStr, toTimeStr, buildDateTime } from '@/lib/attendanceUtils';
 import { saveAttendanceSession } from '@/lib/attendanceSave';
+import { syncDocumentFields } from '@/lib/renewalHistory';
+import RenewalConfirmDialog from '@/components/common/RenewalConfirmDialog';
 
 const emptyForm = {
   sl_no: '', name: '', photo_url: '', sharepoint_url: '',
@@ -71,6 +73,41 @@ function toDateValue(val) {
   return '';
 }
 
+const DOC_FIELD_LABELS = {
+  gate_pass_issue_date: 'Submitted Date', gate_pass_received_date: 'Received Date', gate_pass_expiry: 'Expiry Date', rlic_status: 'RLIC Status',
+  pid: 'PID No', pid_issue_date: 'Issue Date', pid_expiry: 'Expiry Date', pid_status: 'PID Status',
+};
+const GP_DOC_FIELDS = ['gate_pass_issue_date', 'gate_pass_received_date', 'gate_pass_expiry', 'rlic_status'];
+const PID_DOC_FIELDS = ['pid', 'pid_issue_date', 'pid_expiry', 'pid_status'];
+const GP_DATE_FIELDS = new Set(['gate_pass_issue_date', 'gate_pass_received_date', 'gate_pass_expiry']);
+const PID_DATE_FIELDS = new Set(['pid_issue_date', 'pid_expiry']);
+function normDocField(f, v) {
+  if (GP_DATE_FIELDS.has(f) || PID_DATE_FIELDS.has(f)) return toDateValue(v);
+  return String(v ?? '').trim();
+}
+// Detect Gate Pass / Project ID field changes between the stored record and the
+// form, classifying each changed document as a renewal-key change (new expiry /
+// new PID number) or a plain correction. Drives the renewal confirmation dialog.
+function buildRenewalDocuments(prev, next) {
+  const docs = [];
+  const gpChanges = GP_DOC_FIELDS
+    .filter((f) => normDocField(f, prev[f]) !== normDocField(f, next[f]))
+    .map((f) => ({ field: f, label: DOC_FIELD_LABELS[f], from: prev[f] || '', to: next[f] || '' }));
+  if (gpChanges.length) {
+    const expiryChanged = normDocField('gate_pass_expiry', prev.gate_pass_expiry) !== normDocField('gate_pass_expiry', next.gate_pass_expiry);
+    docs.push({ documentType: 'Gate Pass', changes: gpChanges, isRenewalKey: expiryChanged, defaultRenewalDate: next.gate_pass_received_date || '' });
+  }
+  const pidChanges = PID_DOC_FIELDS
+    .filter((f) => normDocField(f, prev[f]) !== normDocField(f, next[f]))
+    .map((f) => ({ field: f, label: DOC_FIELD_LABELS[f], from: prev[f] || '', to: next[f] || '' }));
+  if (pidChanges.length) {
+    const keyChanged = normDocField('pid', prev.pid) !== normDocField('pid', next.pid) ||
+      normDocField('pid_expiry', prev.pid_expiry) !== normDocField('pid_expiry', next.pid_expiry);
+    docs.push({ documentType: 'Project ID', changes: pidChanges, isRenewalKey: keyChanged, defaultRenewalDate: next.pid_issue_date || '' });
+  }
+  return docs;
+}
+
 const TextInput = ({ field, label, type = 'text', required, placeholder, form, onChange }) => (
   <Field label={label}>
     <Input
@@ -110,6 +147,7 @@ export default function EmployeeForm() {
   const [form, setForm] = useState(emptyForm);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [statusWarning, setStatusWarning] = useState('');
+  const [renewalDialog, setRenewalDialog] = useState({ open: false, documents: [] });
   const [statusModal, setStatusModal] = useState({ open: false, newStatus: null });
   const statusCardRef = useRef(null);
   // Attendance (COMO Camp check-in / check-out) — linked via personnel_id to
@@ -673,6 +711,34 @@ export default function EmployeeForm() {
       if (!ok) return;
     }
 
+    if (isEdit && empId && existingEmp?.[0]) {
+      const docs = buildRenewalDocuments(existingEmp[0], form);
+      if (docs.length) {
+        setRenewalDialog({ open: true, documents: docs });
+        return;
+      }
+    }
+    saveMutation.mutate(form);
+  };
+
+  const handleRenewalConfirm = async (decisions) => {
+    setRenewalDialog({ open: false, documents: [] });
+    if (decisions && decisions.length) {
+      const failed = [];
+      for (const d of decisions) {
+        const fields = d.documentType === 'Gate Pass'
+          ? { gate_pass_issue_date: form.gate_pass_issue_date, gate_pass_received_date: form.gate_pass_received_date, gate_pass_expiry: form.gate_pass_expiry, rlic_status: form.rlic_status }
+          : { pid: form.pid, pid_issue_date: form.pid_issue_date, pid_expiry: form.pid_expiry, pid_status: form.pid_status };
+        try {
+          await syncDocumentFields({ employeeId: empId, documentType: d.documentType, fields, mode: d.mode, renewalDate: d.renewalDate, remarks: d.remarks });
+        } catch (e) {
+          failed.push(`${d.documentType}: ${e?.message || 'recording failed'}`);
+        }
+      }
+      if (failed.length) {
+        toast({ title: 'Renewal history issue', description: `${failed.join('; ')}. The document will still be saved.`, variant: 'destructive' });
+      }
+    }
     saveMutation.mutate(form);
   };
 
@@ -726,6 +792,13 @@ export default function EmployeeForm() {
         emp={form.name ? { name: form.name, personnel_status: form.personnel_status, is_active: form.is_active } : null}
         newStatus={statusModal.newStatus}
         onConfirm={handleStatusModalConfirm}
+      />
+      <RenewalConfirmDialog
+        open={renewalDialog.open}
+        documents={renewalDialog.documents}
+        employeeName={form.name}
+        onClose={() => setRenewalDialog({ open: false, documents: [] })}
+        onConfirm={handleRenewalConfirm}
       />
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">

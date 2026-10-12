@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { employeeId, documentType, fields } = await req.json();
+    const { employeeId, documentType, fields, mode, renewalDate, remarks } = await req.json();
     if (!employeeId || !documentType || !DOC_TYPES[documentType as keyof typeof DOC_TYPES]) {
       return Response.json({ error: 'Invalid request' }, { status: 400 });
     }
@@ -70,7 +70,26 @@ Deno.serve(async (req) => {
     // recording the renewal as #2 — the original issuance is never lost.
     let retroInitial: any = null;
 
-    if (!latest) {
+    // Explicit confirmation from Edit Personnel: the user classified the change
+    // as a Renewal or a Correction. A change in expiry/PID number must never be
+    // auto-classified as a renewal without this confirmation.
+    const explicitMode = mode === 'renewal' || mode === 'correction' ? (mode as string) : null;
+    const renewalDateVal = explicitMode === 'renewal'
+      ? (renewalDate && String(renewalDate).length >= 10 ? String(renewalDate).slice(0, 10) : '')
+      : today;
+    const remarksVal = typeof remarks === 'string' ? remarks : '';
+
+    if (explicitMode === 'renewal') {
+      action = 'create';
+      if (!latest) {
+        const oldSnap = buildSnapshot(documentType, old);
+        if (hasMeaningfulData(documentType, oldSnap) && renewalKey(documentType, oldSnap)) retroInitial = oldSnap;
+      }
+    } else if (explicitMode === 'correction') {
+      // Audited update of the latest entry — never a new renewal. If there is no
+      // entry yet, record the first issuance instead.
+      action = latest ? 'correct' : 'create';
+    } else if (!latest) {
       const oldSnap = buildSnapshot(documentType, old);
       const oldKey = renewalKey(documentType, oldSnap);
       const newKey = renewalKey(documentType, snapshot);
@@ -100,7 +119,7 @@ Deno.serve(async (req) => {
         employee_name: old.name || '',
         company: old.company || '',
         document_type: documentType,
-        remarks: '',
+        remarks: remarksVal,
         corrections: [],
         is_deleted: false,
       };
@@ -126,7 +145,7 @@ Deno.serve(async (req) => {
           received_date: snapshot.received_date || '',
           expiry_date: snapshot.expiry_date || '',
           recorded_status: snapshot.recorded_status || '',
-          renewal_date: today,
+          renewal_date: renewalDateVal,
           updated_by: performer.updated_by,
           updated_by_name: performer.updated_by_name,
         });
@@ -141,7 +160,7 @@ Deno.serve(async (req) => {
           received_date: snapshot.received_date || '',
           expiry_date: snapshot.expiry_date || '',
           recorded_status: snapshot.recorded_status || '',
-          renewal_date: today,
+          renewal_date: renewalDateVal,
           updated_by: performer.updated_by,
           updated_by_name: performer.updated_by_name,
         });
@@ -172,7 +191,7 @@ Deno.serve(async (req) => {
           corrected_by: performer.updated_by,
           corrected_by_name: performer.updated_by_name,
           corrected_at: new Date().toISOString(),
-          reason: `${documentType} field corrected via ${documentType} page`,
+          reason: remarksVal || `${documentType} field corrected via ${documentType} page`,
           changes,
         },
       ];

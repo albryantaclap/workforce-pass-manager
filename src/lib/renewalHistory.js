@@ -35,6 +35,24 @@ export async function syncRenewal({ employeeId, documentType, field, value }) {
   return res.data;
 }
 
+/**
+ * Apply a set of Gate Pass / Project ID field edits with an EXPLICIT, user-confirmed
+ * classification. Used by Edit Personnel: the user chooses Renewal or Correction and
+ * supplies the actual renewal date (GP Received / PID Issue). Delegates to the
+ * syncDocumentRenewal backend function, which records the history atomically.
+ */
+export async function syncDocumentFields({ employeeId, documentType, fields, mode, renewalDate, remarks }) {
+  const res = await base44.functions.invoke('syncDocumentRenewal', {
+    employeeId,
+    documentType,
+    fields,
+    mode,
+    renewalDate,
+    remarks,
+  });
+  return res.data;
+}
+
 /** Read one personnel's renewal history (latest first), server-paginated. */
 export async function fetchRenewalHistory({ employeeId, documentType, cursor, limit = 50 }) {
   return base44.entities.DocumentRenewalHistory.filter(
