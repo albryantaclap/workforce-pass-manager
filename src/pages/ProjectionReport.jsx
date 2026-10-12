@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import MultiSelect from '@/components/common/MultiSelect';
 import OnboardingMonitoring from '@/components/projection/OnboardingMonitoring';
 import ApprovedList from '@/components/projection/ApprovedList';
+import RenewalHistoryReport from '@/components/projection/RenewalHistoryReport';
 import { Card } from '@/components/ui/card';
 
 // ── Manager helpers (assigned_manager_id is the single source of truth) ───────
@@ -1133,10 +1134,15 @@ export default function ProjectionReport() {
           <PillTabsTrigger value="gatepass">Gatepass Daily Report Update</PillTabsTrigger>
           <PillTabsTrigger value="onboarding">Onboarding Monitoring</PillTabsTrigger>
           <PillTabsTrigger value="approved">Approved List</PillTabsTrigger>
+          <PillTabsTrigger value="renewal">Renewal History</PillTabsTrigger>
         </PillTabsList>
 
         <TabsContent value="approved">
           <ApprovedList />
+        </TabsContent>
+
+        <TabsContent value="renewal">
+          <RenewalHistoryReport />
         </TabsContent>
 
         <TabsContent value="onboarding">
