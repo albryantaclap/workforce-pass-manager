@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Clock, LayoutDashboard, Users, ScanLine, Timer, FileBarChart, Settings } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import PillTabsBar from '@/components/common/PillTabsBar';
+import CardTabsBar from '@/components/common/CardTabsBar';
 import { useRbac } from '@/lib/useRbac';
 import { useAttendanceReference } from '@/hooks/useAttendanceReference';
 import AttendanceDashboard from '@/components/attendance/AttendanceDashboard';
@@ -62,8 +62,8 @@ export default function DailyAttendance() {
         </div>
       </div>
 
-      {/* Tabs — always visible, never blocked by loading */}
-      <PillTabsBar activeKey={activeTab} onChange={setActiveTab} tabs={visibleTabs} />
+      {/* Tabs — square card bar */}
+      <CardTabsBar activeKey={activeTab} onChange={setActiveTab} tabs={visibleTabs} />
 
       {/* Tab content — each tab fetches only its own data.
           No isLoading gate: the header and tabs are always visible.
