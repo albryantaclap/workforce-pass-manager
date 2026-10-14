@@ -1,0 +1,100 @@
+{
+  "name": "OrgUnit",
+  "type": "object",
+  "properties": {
+    "unit_code": {
+      "type": "string",
+      "description": "Unique unit code (e.g. CORP, DIV-EL, DEPT-QA)"
+    },
+    "unit_name": {
+      "type": "string",
+      "description": "Organization unit name"
+    },
+    "unit_type": {
+      "type": "string",
+      "enum": [
+        "Corporate",
+        "Business Unit",
+        "Division",
+        "Department",
+        "Section",
+        "Team"
+      ],
+      "default": "Department",
+      "description": "Type of organizational unit. Configurable levels are represented by this enum plus the level field."
+    },
+    "level": {
+      "type": "number",
+      "default": 1,
+      "description": "Organizational depth level (1 = top). Allows reordering levels without changing unit_type."
+    },
+    "parent_unit_id": {
+      "type": "string",
+      "description": "Linked OrgUnit record ID (parent in the hierarchy). Empty for top-level units."
+    },
+    "parent_unit_name": {
+      "type": "string",
+      "description": "Parent unit name (denormalized for display)"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "Linked OrganizationProject record ID. Empty = corporate / shared across projects."
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Project name (denormalized for display). Empty for corporate/shared units."
+    },
+    "company": {
+      "type": "string",
+      "description": "Company the unit belongs to (for contractor-specific units). Empty = shared."
+    },
+    "head_of_unit_id": {
+      "type": "string",
+      "description": "Linked Employee record ID (Master List) heading this unit"
+    },
+    "head_of_unit_name": {
+      "type": "string",
+      "description": "Head of unit name (denormalized for display)"
+    },
+    "display_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Display order within siblings"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this unit is active"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Additional remarks"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of user who last updated this unit"
+    }
+  },
+  "required": [
+    "unit_name",
+    "unit_type"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

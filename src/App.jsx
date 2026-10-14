@@ -40,6 +40,10 @@ import InventoryReports from './pages/inventory/InventoryReports';
 import InventorySettings from './pages/inventory/InventorySettings';
 import StockTransfer from './pages/inventory/StockTransfer';
 import ReturnItems from './pages/inventory/ReturnItems';
+import OrganizationDashboard from './pages/organization/OrganizationDashboard';
+import OrganizationProjects from './pages/organization/OrganizationProjects';
+import OrganizationUnits from './pages/organization/OrganizationUnits';
+import OrganizationPositions from './pages/organization/OrganizationPositions';
 
 
 const AuthenticatedApp = () => {
@@ -111,6 +115,11 @@ const AuthenticatedApp = () => {
         <Route path="/inventory/settings" element={<InventorySettings />} />
         <Route path="/inventory/stock-transfer" element={<StockTransfer />} />
         <Route path="/inventory/returns" element={<ReturnItems />} />
+
+        <Route path="/organization" element={<OrganizationDashboard />} />
+        <Route path="/organization/projects" element={<OrganizationProjects />} />
+        <Route path="/organization/units" element={<OrganizationUnits />} />
+        <Route path="/organization/positions" element={<OrganizationPositions />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

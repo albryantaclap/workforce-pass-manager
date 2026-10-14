@@ -1,0 +1,126 @@
+{
+  "name": "OrgPosition",
+  "type": "object",
+  "properties": {
+    "position_code": {
+      "type": "string",
+      "description": "Unique position code (e.g. POS-QA-MGR-001)"
+    },
+    "position_title": {
+      "type": "string",
+      "description": "Position title"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "Linked OrganizationProject record ID. Empty = corporate position."
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Project name (denormalized for display)"
+    },
+    "unit_id": {
+      "type": "string",
+      "description": "Linked OrgUnit record ID (department/section this position belongs to)"
+    },
+    "unit_name": {
+      "type": "string",
+      "description": "Unit name (denormalized for display)"
+    },
+    "reports_to_position_id": {
+      "type": "string",
+      "description": "Linked OrgPosition record ID this position reports to. Empty for top positions."
+    },
+    "reports_to_position_title": {
+      "type": "string",
+      "description": "Reports-to position title (denormalized for display)"
+    },
+    "job_grade": {
+      "type": "string",
+      "description": "Job grade / band"
+    },
+    "position_level": {
+      "type": "string",
+      "description": "Position level (e.g. L1, L2, L3, Manager, Supervisor, Staff)"
+    },
+    "employment_category": {
+      "type": "string",
+      "enum": [
+        "Direct",
+        "Indirect",
+        "Contract",
+        "Temporary"
+      ],
+      "default": "Direct",
+      "description": "Employment category for this position"
+    },
+    "approved_headcount": {
+      "type": "number",
+      "default": 1,
+      "description": "Approved headcount for this position"
+    },
+    "filled_headcount": {
+      "type": "number",
+      "default": 0,
+      "description": "Currently filled headcount (updated when assignments are managed in Milestone 3)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Vacant",
+        "On Hold",
+        "Closed"
+      ],
+      "default": "Vacant",
+      "description": "Position status. Vacant = approved but unfilled."
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date this position becomes effective"
+    },
+    "job_description": {
+      "type": "string",
+      "description": "Job description"
+    },
+    "responsibilities": {
+      "type": "string",
+      "description": "Key responsibilities"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Additional remarks"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this position is active"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of user who last updated this position"
+    }
+  },
+  "required": [
+    "position_title",
+    "status"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

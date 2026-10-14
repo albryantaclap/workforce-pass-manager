@@ -1,0 +1,117 @@
+{
+  "name": "OrganizationProject",
+  "type": "object",
+  "properties": {
+    "project_code": {
+      "type": "string",
+      "description": "Unique project ID / code (e.g. GSOQ-PRJ-001)"
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Project name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Project description"
+    },
+    "client": {
+      "type": "string",
+      "description": "Client / owner"
+    },
+    "main_contractor": {
+      "type": "string",
+      "description": "Main contractor"
+    },
+    "consultant": {
+      "type": "string",
+      "description": "Consultant"
+    },
+    "project_director_id": {
+      "type": "string",
+      "description": "Linked Employee record ID (Master List) acting as Project Director"
+    },
+    "project_director_name": {
+      "type": "string",
+      "description": "Project Director name (denormalized for display)"
+    },
+    "project_manager_id": {
+      "type": "string",
+      "description": "Linked Employee record ID (Master List) acting as Project Manager"
+    },
+    "project_manager_name": {
+      "type": "string",
+      "description": "Project Manager name (denormalized for display)"
+    },
+    "location": {
+      "type": "string",
+      "description": "Project location / site"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Project start date"
+    },
+    "planned_completion_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Planned completion date"
+    },
+    "actual_completion_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Actual completion date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Planning",
+        "Active",
+        "On Hold",
+        "Completed",
+        "Closed",
+        "Archived"
+      ],
+      "default": "Planning",
+      "description": "Project lifecycle status"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "Project logo image URL"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Additional remarks"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this project is active and available for assignment"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of user who last updated this project"
+    }
+  },
+  "required": [
+    "project_name",
+    "status"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

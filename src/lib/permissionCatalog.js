@@ -153,6 +153,27 @@ export const PERMISSION_CATALOG = [
     ],
   },
   {
+    group: 'Organization Management',
+    key: 'organization',
+    resources: [
+      { key: 'dashboard', label: 'Organization Dashboard', path: '/organization', actions: [
+        { key: 'view', label: 'View' },
+      ]},
+      { key: 'projects', label: 'Projects & Organizations', path: '/organization/projects', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'manage', label: 'Create / Edit Projects' },
+      ]},
+      { key: 'units', label: 'Departments & Divisions', path: '/organization/units', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'manage', label: 'Create / Edit Units' },
+      ]},
+      { key: 'positions', label: 'Position Management', path: '/organization/positions', actions: [
+        { key: 'view', label: 'View' },
+        { key: 'manage', label: 'Create / Edit Positions' },
+      ]},
+    ],
+  },
+  {
     group: 'System',
     key: 'system',
     resources: [
@@ -350,6 +371,11 @@ export function getRoutePermissionKey(pathname, search = '') {
     '/inventory/transactions': 'inventory.transaction_history',
     '/inventory/reports': 'inventory.reports',
     '/inventory/settings': 'inventory.settings',
+    // Organization Management routes
+    '/organization': 'organization.dashboard',
+    '/organization/projects': 'organization.projects',
+    '/organization/units': 'organization.units',
+    '/organization/positions': 'organization.positions',
   };
   return staticMap[pathname] || null;
 }

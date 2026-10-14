@@ -5,7 +5,8 @@ import {
   HardHat, Plus, Shield, LogOut, UserX, TrendingUp, Trash2, Activity, HardDrive,
   MessageCircle, FileText, Tent, Clock, Briefcase, Settings, Users, Timer,
   FileBarChart, ScanLine, ChevronRight, Package, ArrowDownCircle, ArrowUpCircle,
-  Boxes, UserCheck, History, FileBarChart2, SlidersHorizontal,
+  Boxes, UserCheck, History, FileBarChart2, SlidersHorizontal, Network, Building2,
+  GitBranch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -78,6 +79,18 @@ const navGroups = [
       { label: 'Transaction History', path: '/inventory/transactions', icon: History },
       { label: 'Reports', path: '/inventory/reports', icon: FileBarChart2 },
       { label: 'Inventory Settings', path: '/inventory/settings', icon: SlidersHorizontal },
+    ],
+  },
+  {
+    key: 'organization',
+    label: 'Organization Management',
+    icon: Network,
+    defaultPath: '/organization',
+    items: [
+      { label: 'Organization Dashboard', path: '/organization', icon: LayoutDashboard },
+      { label: 'Projects & Organizations', path: '/organization/projects', icon: Briefcase },
+      { label: 'Departments & Divisions', path: '/organization/units', icon: Building2 },
+      { label: 'Position Management', path: '/organization/positions', icon: GitBranch },
     ],
   },
   {
