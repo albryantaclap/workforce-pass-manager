@@ -42,7 +42,7 @@ export default function OrganizationProjects() {
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['org-projects'],
-    queryFn: async () => (await base44.entities.OrganizationProject.filter({}, '-created_date', 1000)).items,
+    queryFn: async () => (await base44.entities.OrganizationProject.filter({}, { sort: '-created_date', limit: 1000 })).items,
   });
 
   const filtered = useMemo(() => {

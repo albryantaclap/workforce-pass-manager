@@ -43,15 +43,15 @@ export default function OrganizationUnits() {
 
   const { data: units = [], isLoading } = useQuery({
     queryKey: ['org-units'],
-    queryFn: async () => (await base44.entities.OrgUnit.filter({ is_active: { $ne: false } }, 'level', 5000)).items,
+    queryFn: async () => (await base44.entities.OrgUnit.filter({ is_active: { $ne: false } }, { sort: 'level', limit: 5000 })).items,
   });
   const { data: projects = [] } = useQuery({
     queryKey: ['org-projects'],
-    queryFn: async () => (await base44.entities.OrganizationProject.filter({}, '-created_date', 1000)).items,
+    queryFn: async () => (await base44.entities.OrganizationProject.filter({}, { sort: '-created_date', limit: 1000 })).items,
   });
   const { data: employees = [] } = useQuery({
     queryKey: ['employees-active'],
-    queryFn: async () => (await base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000)).items,
+    queryFn: async () => (await base44.entities.Employee.filter({ is_active: true }, { sort: '-created_date', limit: 100000 })).items,
   });
 
   const projectName = (id) => projects.find(p => p.id === id)?.project_name || '';

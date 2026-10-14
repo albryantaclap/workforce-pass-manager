@@ -30,7 +30,7 @@ function KpiCard({ icon: Icon, label, value, sub, gradient }) {
 export default function OrganizationDashboard() {
   const { data: projects = [], isLoading: lp } = useQuery({
     queryKey: ['org-projects'],
-    queryFn: async () => (await base44.entities.OrganizationProject.filter({}, '-created_date', 1000)).items,
+    queryFn: async () => (await base44.entities.OrganizationProject.filter({}, { sort: '-created_date', limit: 1000 })).items,
   });
   const { data: units = [], isLoading: lu } = useQuery({
     queryKey: ['org-units'],
@@ -42,7 +42,7 @@ export default function OrganizationDashboard() {
   });
   const { data: employees = [] } = useQuery({
     queryKey: ['employees-active'],
-    queryFn: async () => (await base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000)).items,
+    queryFn: async () => (await base44.entities.Employee.filter({ is_active: true }, { sort: '-created_date', limit: 100000 })).items,
   });
 
   const loading = lp || lu || lpo;
