@@ -44,6 +44,7 @@ import OrganizationDashboard from './pages/organization/OrganizationDashboard';
 import OrganizationProjects from './pages/organization/OrganizationProjects';
 import OrganizationUnits from './pages/organization/OrganizationUnits';
 import OrganizationPositions from './pages/organization/OrganizationPositions';
+import DivisionalOrgChart from './pages/organization/DivisionalOrgChart';
 
 
 const AuthenticatedApp = () => {
@@ -120,6 +121,7 @@ const AuthenticatedApp = () => {
         <Route path="/organization/projects" element={<OrganizationProjects />} />
         <Route path="/organization/units" element={<OrganizationUnits />} />
         <Route path="/organization/positions" element={<OrganizationPositions />} />
+        <Route path="/organization/divisional-chart" element={<DivisionalOrgChart />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
