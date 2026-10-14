@@ -129,6 +129,7 @@ export default function TrackerFilters({
       totalFiltered={totalFiltered}
       totalAll={totalAll}
       onClearAll={clearAll}
+      defaultCollapsed={false}
     />
   );
 }

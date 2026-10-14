@@ -22,7 +22,7 @@ export default function MasterListFilters({
   searchValue, onSearchChange,
   hasActiveFilters, onClear,
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const set = (patch) => onChange(patch);
 
   const { companyOptions = [], positionOptions = [], departmentOptions = [], locationOptions = [],

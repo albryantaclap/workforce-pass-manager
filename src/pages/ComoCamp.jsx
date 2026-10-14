@@ -1187,6 +1187,7 @@ export default function ComoCamp() {
         pidIssueTo={pidIssueTo} setPidIssueTo={setPidIssueTo}
         totalFiltered={sorted.length} totalAll={baseDataset.length}
         onClearAll={clearFilters}
+        defaultCollapsed={false}
       />
 
       {workLocationQuick && (
