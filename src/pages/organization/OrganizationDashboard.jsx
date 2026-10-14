@@ -9,6 +9,7 @@ import {
   TrendingUp, Layers,
 } from 'lucide-react';
 import OrganizationSubmenuNav from '@/components/common/OrganizationSubmenuNav';
+import OrgChartTree from '@/components/organization/OrgChartTree';
 
 const STATUSES = ['Planning', 'Active', 'On Hold', 'Completed', 'Closed', 'Archived'];
 
@@ -34,11 +35,11 @@ export default function OrganizationDashboard() {
   });
   const { data: units = [], isLoading: lu } = useQuery({
     queryKey: ['org-units'],
-    queryFn: async () => (await base44.entities.OrgUnit.filter({ is_active: { $ne: false } }, '-created_date', 5000)).items,
+    queryFn: async () => (await base44.entities.OrgUnit.filter({ is_active: { $ne: false } }, { sort: '-created_date', limit: 5000 })).items,
   });
   const { data: positions = [], isLoading: lpo } = useQuery({
     queryKey: ['org-positions'],
-    queryFn: async () => (await base44.entities.OrgPosition.filter({ is_active: { $ne: false } }, '-created_date', 5000)).items,
+    queryFn: async () => (await base44.entities.OrgPosition.filter({ is_active: { $ne: false } }, { sort: '-created_date', limit: 5000 })).items,
   });
   const { data: employees = [] } = useQuery({
     queryKey: ['employees-active'],
@@ -157,6 +158,13 @@ export default function OrganizationDashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Interactive Org Chart */}
+      <Card className="p-5">
+        <h3 className="font-semibold mb-1">Organization Chart</h3>
+        <p className="text-xs text-muted-foreground mb-3">Hierarchical tree of projects, departments, and positions. Click a node to expand or collapse.</p>
+        <OrgChartTree projects={projects} units={units} positions={positions} loading={loading} />
+      </Card>
 
       {/* Quick links */}
       <Card className="p-5">
