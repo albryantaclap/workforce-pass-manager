@@ -16,7 +16,8 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Search, Building2, Loader2, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Search, Building2, Loader2, ChevronRight, Eye, Trash2 } from 'lucide-react';
+import DetailField from '@/components/organization/DetailField';
 
 const UNIT_TYPES = ['Corporate', 'Business Unit', 'Division', 'Department', 'Section', 'Team'];
 const TYPE_COLORS = {
@@ -38,6 +39,9 @@ export default function OrganizationUnits() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [viewing, setViewing] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const canManage = can('organization.units.manage');
 
@@ -97,6 +101,19 @@ export default function OrganizationUnits() {
     } finally { setSaving(false); }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await base44.entities.OrgUnit.delete(deleteTarget.id);
+      qc.invalidateQueries({ queryKey: ['org-units'] });
+      toast({ title: 'Unit deleted' });
+      setDeleteTarget(null);
+    } catch (e) {
+      toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+    } finally { setDeleting(false); }
+  };
+
   // Prevent setting a unit's parent to itself
   const parentOptions = units.filter(u => u.id !== editing?.id);
 
@@ -146,14 +163,14 @@ export default function OrganizationUnits() {
                 <TableHead className="text-xs">Project</TableHead>
                 <TableHead className="text-xs">Head of Unit</TableHead>
                 <TableHead className="text-xs">Company</TableHead>
-                {canManage && <TableHead className="text-xs text-right sticky right-0 bg-muted/50">Actions</TableHead>}
+                <TableHead className="text-xs text-right sticky right-0 bg-muted/50">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={canManage ? 9 : 8} className="text-center py-10 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /> Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /> Loading...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={canManage ? 9 : 8} className="text-center py-10 text-muted-foreground">No units found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">No units found.</TableCell></TableRow>
               ) : filtered.map(u => (
                 <TableRow key={u.id} className="hover:bg-muted/30">
                   <TableCell className="text-xs font-mono uppercase">{u.unit_code || '—'}</TableCell>
@@ -164,11 +181,15 @@ export default function OrganizationUnits() {
                   <TableCell className="text-xs uppercase">{u.project_name || (u.project_id ? '' : 'Corporate')}</TableCell>
                   <TableCell className="text-xs uppercase">{u.head_of_unit_name || '—'}</TableCell>
                   <TableCell className="text-xs uppercase">{u.company || '—'}</TableCell>
-                  {canManage && (
-                    <TableCell className="text-right sticky right-0 bg-white">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(u)}><Pencil className="w-3.5 h-3.5" /></Button>
-                    </TableCell>
-                  )}
+                  <TableCell className="text-right sticky right-0 bg-white">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewing(u)}><Eye className="w-3.5 h-3.5" /></Button>
+                    {canManage && (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(u)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-600 hover:text-rose-700" onClick={() => setDeleteTarget(u)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -226,6 +247,46 @@ export default function OrganizationUnits() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {editing ? 'Save Changes' : 'Create Unit'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Unit Details</DialogTitle>
+            <DialogDescription>{viewing?.unit_name}</DialogDescription>
+          </DialogHeader>
+          {viewing && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+              <DetailField label="Unit Code" value={viewing.unit_code} />
+              <DetailField label="Unit Name" value={viewing.unit_name} />
+              <DetailField label="Unit Type" value={viewing.unit_type} />
+              <DetailField label="Level" value={viewing.level} />
+              <DetailField label="Parent Unit" value={viewing.parent_unit_name} />
+              <DetailField label="Project" value={viewing.project_name || (viewing.project_id ? '' : 'Corporate / Shared')} />
+              <DetailField label="Company" value={viewing.company} />
+              <DetailField label="Head of Unit" value={viewing.head_of_unit_name} />
+              <DetailField label="Display Order" value={viewing.display_order} />
+              <DetailField label="Active" value={viewing.is_active === false ? 'No' : 'Yes'} />
+              <DetailField label="Remarks" value={viewing.remarks} full />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewing(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Unit</DialogTitle>
+            <DialogDescription>Are you sure you want to delete "{deleteTarget?.unit_name}"? This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>{deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

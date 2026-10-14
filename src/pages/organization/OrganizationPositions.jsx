@@ -16,7 +16,8 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Search, GitBranch, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Search, GitBranch, Loader2, Eye, Trash2 } from 'lucide-react';
+import DetailField from '@/components/organization/DetailField';
 
 const STATUS_OPTS = ['Active', 'Vacant', 'On Hold', 'Closed'];
 const STATUS_COLORS = {
@@ -39,6 +40,9 @@ export default function OrganizationPositions() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [viewing, setViewing] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const canManage = can('organization.positions.manage');
 
@@ -106,6 +110,19 @@ export default function OrganizationPositions() {
     } finally { setSaving(false); }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await base44.entities.OrgPosition.delete(deleteTarget.id);
+      qc.invalidateQueries({ queryKey: ['org-positions'] });
+      toast({ title: 'Position deleted' });
+      setDeleteTarget(null);
+    } catch (e) {
+      toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+    } finally { setDeleting(false); }
+  };
+
   const reportsToOptions = positions.filter(p => p.id !== editing?.id);
 
   return (
@@ -171,14 +188,14 @@ export default function OrganizationPositions() {
                 <TableHead className="text-xs text-center">Filled</TableHead>
                 <TableHead className="text-xs text-center">Vacant</TableHead>
                 <TableHead className="text-xs">Status</TableHead>
-                {canManage && <TableHead className="text-xs text-right sticky right-0 bg-muted/50">Actions</TableHead>}
+                <TableHead className="text-xs text-right sticky right-0 bg-muted/50">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={canManage ? 12 : 11} className="text-center py-10 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /> Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={12} className="text-center py-10 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /> Loading...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={canManage ? 12 : 11} className="text-center py-10 text-muted-foreground">No positions found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={12} className="text-center py-10 text-muted-foreground">No positions found.</TableCell></TableRow>
               ) : filtered.map(p => {
                 const vacant = Math.max(0, (p.approved_headcount || 0) - (p.filled_headcount || 0));
                 return (
@@ -194,11 +211,15 @@ export default function OrganizationPositions() {
                     <TableCell className="text-xs text-center text-green-600">{p.filled_headcount || 0}</TableCell>
                     <TableCell className={`text-xs text-center ${vacant > 0 ? 'text-rose-600 font-semibold' : ''}`}>{vacant}</TableCell>
                     <TableCell><Badge className={STATUS_COLORS[p.status] || 'bg-muted'} variant="secondary">{p.status}</Badge></TableCell>
-                    {canManage && (
-                      <TableCell className="text-right sticky right-0 bg-white">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button>
-                      </TableCell>
-                    )}
+                    <TableCell className="text-right sticky right-0 bg-white">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewing(p)}><Eye className="w-3.5 h-3.5" /></Button>
+                      {canManage && (
+                        <>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-600 hover:text-rose-700" onClick={() => setDeleteTarget(p)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -267,6 +288,50 @@ export default function OrganizationPositions() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {editing ? 'Save Changes' : 'Create Position'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Position Details</DialogTitle>
+            <DialogDescription>{viewing?.position_title}</DialogDescription>
+          </DialogHeader>
+          {viewing && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+              <DetailField label="Position Code" value={viewing.position_code} />
+              <DetailField label="Position Title" value={viewing.position_title} />
+              <DetailField label="Project" value={viewing.project_name || (viewing.project_id ? '' : 'Corporate / Shared')} />
+              <DetailField label="Unit" value={viewing.unit_name} />
+              <DetailField label="Reports To" value={viewing.reports_to_position_title} />
+              <DetailField label="Employment Category" value={viewing.employment_category} />
+              <DetailField label="Job Grade" value={viewing.job_grade} />
+              <DetailField label="Position Level" value={viewing.position_level} />
+              <DetailField label="Approved Headcount" value={viewing.approved_headcount} />
+              <DetailField label="Filled Headcount" value={viewing.filled_headcount} />
+              <DetailField label="Status" value={viewing.status} />
+              <DetailField label="Effective Date" value={viewing.effective_date} />
+              <DetailField label="Job Description" value={viewing.job_description} full />
+              <DetailField label="Responsibilities" value={viewing.responsibilities} full />
+              <DetailField label="Remarks" value={viewing.remarks} full />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewing(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Position</DialogTitle>
+            <DialogDescription>Are you sure you want to delete "{deleteTarget?.position_title}"? This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>{deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

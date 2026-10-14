@@ -16,7 +16,8 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Search, Briefcase, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Search, Briefcase, Loader2, Eye, Trash2 } from 'lucide-react';
+import DetailField from '@/components/organization/DetailField';
 
 const STATUSES = ['Planning', 'Active', 'On Hold', 'Completed', 'Closed', 'Archived'];
 const STATUS_COLORS = {
@@ -37,6 +38,9 @@ export default function OrganizationProjects() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [viewing, setViewing] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const canManage = can('organization.projects.manage');
 
@@ -70,6 +74,19 @@ export default function OrganizationProjects() {
     } catch (e) {
       toast({ title: 'Save failed', description: e.message, variant: 'destructive' });
     } finally { setSaving(false); }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await base44.entities.OrganizationProject.delete(deleteTarget.id);
+      qc.invalidateQueries({ queryKey: ['org-projects'] });
+      toast({ title: 'Project deleted' });
+      setDeleteTarget(null);
+    } catch (e) {
+      toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+    } finally { setDeleting(false); }
   };
 
   return (
@@ -112,14 +129,14 @@ export default function OrganizationProjects() {
                 <TableHead className="text-xs">Start</TableHead>
                 <TableHead className="text-xs">Planned End</TableHead>
                 <TableHead className="text-xs">Status</TableHead>
-                {canManage && <TableHead className="text-xs text-right sticky right-0 bg-muted/50">Actions</TableHead>}
+                <TableHead className="text-xs text-right sticky right-0 bg-muted/50">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={canManage ? 9 : 8} className="text-center py-10 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /> Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /> Loading...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={canManage ? 9 : 8} className="text-center py-10 text-muted-foreground">No projects found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">No projects found.</TableCell></TableRow>
               ) : filtered.map(p => (
                 <TableRow key={p.id} className="hover:bg-muted/30">
                   <TableCell className="text-xs font-mono uppercase">{p.project_code || '—'}</TableCell>
@@ -130,11 +147,15 @@ export default function OrganizationProjects() {
                   <TableCell className="text-xs">{p.start_date || '—'}</TableCell>
                   <TableCell className="text-xs">{p.planned_completion_date || '—'}</TableCell>
                   <TableCell><Badge className={STATUS_COLORS[p.status] || 'bg-muted'} variant="secondary">{p.status}</Badge></TableCell>
-                  {canManage && (
-                    <TableCell className="text-right sticky right-0 bg-white">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button>
-                    </TableCell>
-                  )}
+                  <TableCell className="text-right sticky right-0 bg-white">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewing(p)}><Eye className="w-3.5 h-3.5" /></Button>
+                    {canManage && (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-600 hover:text-rose-700" onClick={() => setDeleteTarget(p)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -170,6 +191,47 @@ export default function OrganizationProjects() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {editing ? 'Save Changes' : 'Create Project'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Project Details</DialogTitle>
+            <DialogDescription>{viewing?.project_name}</DialogDescription>
+          </DialogHeader>
+          {viewing && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+              <DetailField label="Project Code" value={viewing.project_code} />
+              <DetailField label="Project Name" value={viewing.project_name} />
+              <DetailField label="Client" value={viewing.client} />
+              <DetailField label="Main Contractor" value={viewing.main_contractor} />
+              <DetailField label="Consultant" value={viewing.consultant} />
+              <DetailField label="Location" value={viewing.location} />
+              <DetailField label="Start Date" value={viewing.start_date} />
+              <DetailField label="Planned Completion" value={viewing.planned_completion_date} />
+              <DetailField label="Actual Completion" value={viewing.actual_completion_date} />
+              <DetailField label="Status" value={viewing.status} />
+              <DetailField label="Description" value={viewing.description} full />
+              <DetailField label="Remarks" value={viewing.remarks} full />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewing(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+            <DialogDescription>Are you sure you want to delete "{deleteTarget?.project_name}"? This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>{deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
