@@ -29,6 +29,7 @@ import { formatDuration, formatDateTimeCompact } from '@/lib/attendanceUtils';
 
 import ExportButton from '../components/common/ExportButton';
 import InlineEditCell from '../components/common/InlineEditCell';
+import DirIndirToggle from '../components/common/DirIndirToggle';
 import BulkEditBar from '../components/common/BulkEditBar';
 import { ONBOARDING, INACTIVE, isActiveRosterStatus, resolvePersonnelStatus, personnelStatusLabel } from '@/lib/personnelStatus';
 import { usePermissions } from '@/lib/usePermissions';
@@ -432,7 +433,15 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.current_location} field="current_location" empId={emp.id} type="select" options={locationOptions} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     {(() => { const att = latestAttByPersonnel.get(emp.id); const ci = att?.check_in_at ? formatDateTimeCompact(att.check_in_at) : null; return <TableCell className="text-xs whitespace-nowrap">{ci ? <><div>{ci.date}</div><div className="text-muted-foreground">{ci.time}</div></> : <span className="text-muted-foreground">—</span>}</TableCell>; })()}
                     {(() => { const att = latestAttByPersonnel.get(emp.id); const co = att?.check_out_at ? formatDateTimeCompact(att.check_out_at) : null; return <TableCell className="text-xs whitespace-nowrap">{co ? <><div>{co.date}</div><div className="text-muted-foreground">{co.time}</div></> : <span className="text-muted-foreground">—</span>}</TableCell>; })()}
-                    <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.dir_indir} field="dir_indir" empId={emp.id} type="select" options={[{value:'DIR',label:'DIR'},{value:'INDIR',label:'INDIR'}]} onSave={handleCellSave} editMode={editMode} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      <div className="flex justify-center">
+                        <DirIndirToggle
+                          value={emp.dir_indir}
+                          disabled={!canEdit}
+                          onToggle={(v) => handleCellSave(emp.id, 'dir_indir', v)}
+                        />
+                      </div>
+                    </TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.contact_details} field="contact_details" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.sponsor} field="sponsor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs font-mono whitespace-nowrap uppercase"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
