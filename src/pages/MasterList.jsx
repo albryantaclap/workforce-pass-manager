@@ -359,6 +359,7 @@ export default function MasterList() {
               <TableRow className="bg-muted/50">
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap w-10">Photo</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap w-8">Docs</TableHead>
+                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">DIR/INDIR</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Name</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Position (Application)</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Designation (Org Chart)</TableHead>
@@ -370,7 +371,6 @@ export default function MasterList() {
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Location</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Camp Check-in</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Camp Check-out</TableHead>
-                <TableHead className="text-xs bg-muted/50 whitespace-nowrap">DIR/INDIR</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Contact</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">Sponsor</TableHead>
                 <TableHead className="text-xs bg-muted/50 whitespace-nowrap">QID No</TableHead>
@@ -422,6 +422,15 @@ export default function MasterList() {
                   <TableRow key={emp.id} className="hover:bg-muted/30">
                     <TableCell className="p-2"><PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size={8} /></TableCell>
                     <TableCell className="p-1"><SharepointDocIcon emp={emp} canEdit={canEdit} onSave={(id, url) => updateMutation.mutate({ id, data: { sharepoint_url: url } })} /></TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      <div className="flex justify-center">
+                        <DirIndirToggle
+                          value={emp.dir_indir}
+                          disabled={!canEdit}
+                          onToggle={(v) => handleCellSave(emp.id, 'dir_indir', v)}
+                        />
+                      </div>
+                    </TableCell>
                     <TableCell className="text-xs font-medium whitespace-nowrap uppercase"><InlineEditCell value={emp.name} field="name" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.position_application} field="position_application" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.designation_org_chart} field="designation_org_chart" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
@@ -433,15 +442,6 @@ export default function MasterList() {
                     <TableCell className="text-xs whitespace-nowrap"><InlineEditCell value={emp.current_location} field="current_location" empId={emp.id} type="select" options={locationOptions} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     {(() => { const att = latestAttByPersonnel.get(emp.id); const ci = att?.check_in_at ? formatDateTimeCompact(att.check_in_at) : null; return <TableCell className="text-xs whitespace-nowrap">{ci ? <><div>{ci.date}</div><div className="text-muted-foreground">{ci.time}</div></> : <span className="text-muted-foreground">—</span>}</TableCell>; })()}
                     {(() => { const att = latestAttByPersonnel.get(emp.id); const co = att?.check_out_at ? formatDateTimeCompact(att.check_out_at) : null; return <TableCell className="text-xs whitespace-nowrap">{co ? <><div>{co.date}</div><div className="text-muted-foreground">{co.time}</div></> : <span className="text-muted-foreground">—</span>}</TableCell>; })()}
-                    <TableCell className="text-xs whitespace-nowrap">
-                      <div className="flex justify-center">
-                        <DirIndirToggle
-                          value={emp.dir_indir}
-                          disabled={!canEdit}
-                          onToggle={(v) => handleCellSave(emp.id, 'dir_indir', v)}
-                        />
-                      </div>
-                    </TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.contact_details} field="contact_details" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs whitespace-nowrap uppercase"><InlineEditCell value={emp.sponsor} field="sponsor" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
                     <TableCell className="text-xs font-mono whitespace-nowrap uppercase"><InlineEditCell value={emp.qid_no} field="qid_no" empId={emp.id} onSave={handleCellSave} editMode={editMode} /></TableCell>
