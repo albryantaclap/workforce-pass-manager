@@ -24,6 +24,16 @@
       "type": "number",
       "description": "Hierarchy rank (lower = higher seniority)"
     },
+    "dir_indir": {
+      "type": "string",
+      "enum": [
+        "",
+        "DIR",
+        "INDIR"
+      ],
+      "default": "",
+      "description": "Direct / Indirect classification of this position. Empty = not yet classified. Setting it cascades the same DIR/INDIR value to every personnel record holding this position/designation."
+    },
     "is_active": {
       "type": "boolean",
       "default": true,

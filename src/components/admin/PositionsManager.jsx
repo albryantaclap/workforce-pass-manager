@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Pencil, Trash2, Plus, Check, X, Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
+import DirIndirAssignToggle from './DirIndirAssignToggle';
 
 const TYPE_LABELS = {
   position_application: 'Position (Application)',
@@ -86,6 +87,28 @@ export default function PositionsManager() {
 
   const toggleActive = (p) => {
     updateMutation.mutate({ id: p.id, data: { is_active: !p.is_active } });
+  };
+
+  // Saves the position's DIR/INDIR classification, then cascades the same value
+  // to every personnel record holding that position / designation.
+  const setDirIndir = async (p, value) => {
+    await base44.entities.LookupPosition.update(p.id, { dir_indir: value });
+    qc.invalidateQueries({ queryKey: ['lookupPositions'] });
+    try {
+      const res = await base44.functions.invoke('syncPositionDirIndir', {
+        position_name: p.name,
+        type: p.type,
+        dir_indir: value,
+      });
+      qc.invalidateQueries({ queryKey: ['employees-active'] });
+      qc.invalidateQueries({ queryKey: ['employees-inactive'] });
+      toast({
+        title: `${p.name} set to ${value}`,
+        description: `${res.data?.matched ?? 0} personnel record(s) updated in the Master List.`,
+      });
+    } catch (err) {
+      toast({ title: 'Position saved, but personnel records were not updated', variant: 'destructive' });
+    }
   };
 
   return (
@@ -168,6 +191,7 @@ export default function PositionsManager() {
               <TableHead className="text-xs">Position Name</TableHead>
               <TableHead className="text-xs">Type</TableHead>
               <TableHead className="text-xs">Department</TableHead>
+              <TableHead className="text-xs">DIR/INDIR</TableHead>
               <TableHead className="text-xs">Rank</TableHead>
               <TableHead className="text-xs">Status</TableHead>
               <TableHead className="text-xs w-24">Actions</TableHead>
@@ -205,6 +229,9 @@ export default function PositionsManager() {
                         </SelectContent>
                       </Select>
                     : <span className="text-xs text-muted-foreground">{p.department || 'Any'}</span>}
+                </TableCell>
+                <TableCell className="py-1.5">
+                  <DirIndirAssignToggle value={p.dir_indir} onToggle={(v) => setDirIndir(p, v)} />
                 </TableCell>
                 <TableCell className="py-1.5">
                   {editingId === p.id
