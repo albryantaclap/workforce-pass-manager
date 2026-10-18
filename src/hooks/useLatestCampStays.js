@@ -9,10 +9,28 @@ import { groupByPersonnel, getLatestSession } from '@/lib/attendanceUtils';
 //
 // The query key is prefixed with ['camp-stays'] so it is invalidated
 // independently from the work-attendance ['attendance'] queries.
+// Only the fields the screens read from a stay — the stay history is a long
+// table, so the rows are kept as small as possible.
+const STAY_FIELDS = [
+  'personnel_id', 'employee_name', 'company', 'stay_date',
+  'check_in_at', 'check_out_at', 'duration_minutes', 'status',
+  'camp_location', 'work_location', 'is_deleted',
+];
+
 export function useLatestCampStays() {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ['camp-stays', 'latest-all'],
-    queryFn: () => base44.entities.ComoCampStay.list('-check_in_at', 100000),
+    queryFn: async () => {
+      const { items } = await base44.entities.ComoCampStay.filter(
+        {},
+        { sort: '-check_in_at', limit: 100000, fields: STAY_FIELDS }
+      );
+      return items;
+    },
+    // The whole stay history is read once and kept for 5 minutes, so moving
+    // between the Master List, COMO Camp and Inactive does not re-read it each
+    // time. Camp check-ins/outs still invalidate ['camp-stays'] immediately.
+    staleTime: 5 * 60 * 1000,
   });
 
   const latestByPersonnel = useMemo(() => {

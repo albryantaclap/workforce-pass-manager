@@ -1,12 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Activity, Search, Plus, Pencil, Trash2, User } from 'lucide-react';
 import { format } from 'date-fns';
+
+// The audit log holds tens of thousands of entries, so the page reads one page
+// at a time instead of the whole table.
+const LOG_PAGE_SIZE = 500;
 
 const ACTION_CONFIG = {
   create: { label: 'Created', icon: Plus, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
@@ -60,12 +65,45 @@ function PerformedByCell({ log }) {
 export default function ActivityLog() {
   const [search, setSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('all');
+  const [olderLogs, setOlderLogs] = useState([]);
+  const [cursor, setCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const { data: logs = [], isLoading } = useQuery({
+  const { data: firstPage, isLoading } = useQuery({
     queryKey: ['activity-logs'],
-    queryFn: () => base44.entities.ActivityLog.list('-created_date', 100000),
-    refetchInterval: 30000,
+    queryFn: () => base44.entities.ActivityLog.list({ sort: '-created_date', limit: LOG_PAGE_SIZE }),
+    // The newest page is re-read every 5 minutes — an open page never pulls the
+    // whole audit log again.
+    refetchInterval: 300000,
   });
+
+  const logs = useMemo(
+    () => [...(firstPage?.items || []), ...olderLogs],
+    [firstPage, olderLogs]
+  );
+
+  // A refreshed first page replaces the accumulated older pages.
+  useEffect(() => {
+    setOlderLogs([]);
+    setCursor(firstPage?.next_cursor || null);
+    setHasMore(!!firstPage?.has_more);
+  }, [firstPage]);
+
+  const loadOlderEntries = async () => {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const next = await base44.entities.ActivityLog.list({
+        sort: '-created_date', limit: LOG_PAGE_SIZE, cursor,
+      });
+      setOlderLogs(prev => [...prev, ...(next.items || [])]);
+      setCursor(next.next_cursor || null);
+      setHasMore(!!next.has_more);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const filtered = useMemo(() => logs.filter(log => {
     const matchesSearch =
@@ -76,11 +114,25 @@ export default function ActivityLog() {
     return matchesSearch && matchesAction;
   }), [logs, search, actionFilter]);
 
-  const counts = useMemo(() => ({
-    create: logs.filter(l => l.action === 'create').length,
-    update: logs.filter(l => l.action === 'update').length,
-    delete: logs.filter(l => l.action === 'delete').length,
-  }), [logs]);
+  // Totals for the whole log, counted on the server (no records transferred).
+  const { data: actionCounts } = useQuery({
+    queryKey: ['activity-logs', 'counts'],
+    queryFn: async () => {
+      const [create, update, deleted] = await Promise.all([
+        base44.entities.ActivityLog.count({ action: 'create' }),
+        base44.entities.ActivityLog.count({ action: 'update' }),
+        base44.entities.ActivityLog.count({ action: 'delete' }),
+      ]);
+      return { create, update, delete: deleted };
+    },
+    staleTime: 300000,
+  });
+
+  const counts = {
+    create: actionCounts?.create || 0,
+    update: actionCounts?.update || 0,
+    delete: actionCounts?.delete || 0,
+  };
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -201,6 +253,17 @@ export default function ActivityLog() {
               })}
             </tbody>
           </table>
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20 text-xs text-muted-foreground">
+            <span>
+              Showing the newest {logs.length} {logs.length === 1 ? 'entry' : 'entries'}
+              {hasMore ? '' : ' — end of the log'}
+            </span>
+            {hasMore && (
+              <Button size="sm" variant="outline" onClick={loadOlderEntries} disabled={loadingMore}>
+                {loadingMore ? 'Loading…' : 'Load older entries'}
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

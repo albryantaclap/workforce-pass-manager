@@ -204,7 +204,8 @@ export default function RecentUpdates({ filteredEmployeeIds }) {
     queryKey: ['activity-logs-recent'],
     queryFn: () => base44.entities.ActivityLog.list('-created_date', 500),
     staleTime: 60000,
-    refetchInterval: 120000,
+    // The dashboard panel re-reads every 5 minutes instead of every 2.
+    refetchInterval: 300000,
   });
 
   if (isLoading) {

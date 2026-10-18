@@ -724,9 +724,11 @@ export default function ProjectionReport() {
   const { data: employees = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ['employees-active'],
     queryFn: () => base44.entities.Employee.filter({ is_active: true }, '-created_date', 100000),
-    refetchInterval: 15000,
+    // This report reads the whole personnel file, so it auto-refreshes every
+    // 5 minutes instead of every 15 seconds (the Refresh button is always there).
+    refetchInterval: 300000,
     refetchOnWindowFocus: true,
-    staleTime: 5000,
+    staleTime: 60000,
     gcTime: 1000 * 60 * 5,
     retry: 2,
   });

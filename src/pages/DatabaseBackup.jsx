@@ -44,7 +44,8 @@ export default function DatabaseBackup() {
   const { data: backups = [], isLoading } = useQuery({
     queryKey: ['backups'],
     queryFn: () => base44.entities.BackupRecord.list('-created_date', 100),
-    refetchInterval: 10000,
+    // The backup list does not need a 10-second refresh.
+    refetchInterval: 60000,
   });
 
   // ─── Create Backup ─────────────────────────────────────────────────────

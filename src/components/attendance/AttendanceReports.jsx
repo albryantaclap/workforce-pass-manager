@@ -136,12 +136,16 @@ export default function AttendanceReports({
 
   // All attendance records — loaded lazily only when a PDF dialog is open
   const pdfDialogOpen = showTimesheet || showPdf || showWeekly || showPwr;
+  // Attendance records for the PDF / Timesheet dialogs. Each dialog applies its
+  // OWN period, so this read does not depend on the report date range — keying it
+  // by the range used to re-read the entire attendance table on every date change.
   const { data: allRecords = [] } = useQuery({
-    queryKey: ['attendance', 'report-all', dateFrom, dateTo],
+    queryKey: ['attendance', 'report-all'],
     queryFn: () => base44.entities.AttendanceRecord.filter(
       { is_deleted: { $ne: true } }, '-attendance_date', 100000
     ),
     enabled: pdfDialogOpen,
+    staleTime: 5 * 60 * 1000,
   });
   // Lazy-load all employees only when a PDF dialog is open (not on page load).
   // Cached for 2 minutes so opening multiple PDFs doesn't re-fetch.
