@@ -21,7 +21,7 @@ import {
   STATUS_COLORS, isSplitEffective, getSplitPunchStatuses, calculateAttendanceState,
   getFirstIn, getFinalOut, resolveShift, getRecordSequenceIssue,
 } from '@/lib/attendanceEngine';
-import { saveManualEntry, softDeleteAttendance } from '@/lib/attendanceService';
+import { softDeleteAttendance } from '@/lib/attendanceService';
 
 const PAGE_SIZES = [20, 50, 100, 200];
 
@@ -121,7 +121,7 @@ export default function TimeEntries({
 
   // Export the current page's attendance data to CSV.
   const exportCSV = () => {
-    const headers = ['Employee', 'Designation', 'QID', 'PID', 'Company', 'Dept', 'Branch', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
+    const headers = ['Employee', 'Designation', 'QID', 'PID', 'Company', 'Dept', 'Branch', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'Work Location', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
     const csvRows = rows.map(({ emp, att }) => {
       const shift = resolveShift(emp, assignments, shifts, settings);
       let status;
@@ -139,6 +139,7 @@ export default function TimeEntries({
         att?.second_in_at || '', att ? getFinalOut(att) : '',
         att?.duration_minutes || 0, att?.overtime_minutes || 0, status,
         att?.scanned_by?.label || '—',
+        att?.work_location || '',
         att?.scanned_by?.names?.first_in || '', att?.scanned_by?.names?.first_out || '',
         att?.scanned_by?.names?.second_in || '', att?.scanned_by?.names?.final_out || '',
       ];
@@ -244,18 +245,19 @@ export default function TimeEntries({
                 <th className="px-3 py-2 font-semibold">O.T.</th>
                 <th className="px-3 py-2 font-semibold">STATUS</th>
                 <th className="px-3 py-2 font-semibold">SCANNED BY</th>
+                <th className="px-3 py-2 font-semibold">WORK LOCATION</th>
                 {(canEditEntry || canDeleteEntry) && <th className="px-3 py-2 font-semibold text-right">ACTIONS</th>}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 17 : 16} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
+                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 18 : 17} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
               ) : error ? (
-                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 17 : 16} className="text-center py-8 text-red-600">
+                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 18 : 17} className="text-center py-8 text-red-600">
                   Failed to load. <button onClick={() => qc.invalidateQueries({ queryKey: ['time-entries'] })} className="underline">Retry</button>
                 </td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 17 : 16} className="px-3 py-8 text-center text-muted-foreground">
+                <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 18 : 17} className="px-3 py-8 text-center text-muted-foreground">
                   No attendance records for the selected date and filters.
                 </td></tr>
               ) : rows.map(({ emp, att }) => {
@@ -317,6 +319,8 @@ export default function TimeEntries({
                     {/* WHO scanned/punched — one name, "Multiple" (hover for the
                         per-punch breakdown) or — when nothing was ever stored */}
                     <td className="px-3 py-2"><ScannedByCell scannedBy={att?.scanned_by} /></td>
+                    {/* WHERE the punches were recorded — the branch selected at the scanner */}
+                    <td className="px-3 py-2 text-muted-foreground">{att?.work_location || '—'}</td>
                     {(canEditEntry || canDeleteEntry) && (
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-end gap-1">

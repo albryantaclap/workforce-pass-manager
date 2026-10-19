@@ -172,13 +172,14 @@ export default function AttendanceReports({
         exportAll: true,
       });
       const allRows = res.data?.rows || [];
-      const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
+      const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'Work Location', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
       const rows = allRows.map(({ record: r, emp, calcStatus, scanned_by }) => [
         emp?.name || r.employee_name, emp?.company || r.company, emp?.department || '',
         r.attendance_date, formatTimeShort(getFirstIn(r)), formatTimeShort(r.first_out_at),
         formatTimeShort(r.second_in_at), formatTimeShort(getFinalOut(r)),
         r.duration_minutes || 0, r.overtime_minutes || 0, calcStatus || r.attendance_status || '',
         scanned_by?.label || '—',
+        r.work_location || '',
         scanned_by?.names?.first_in || '', scanned_by?.names?.first_out || '',
         scanned_by?.names?.second_in || '', scanned_by?.names?.final_out || '',
       ]);
@@ -318,13 +319,14 @@ export default function AttendanceReports({
                 <th className="px-3 py-2 font-semibold">O.T.</th>
                 <th className="px-3 py-2 font-semibold">STATUS</th>
                 <th className="px-3 py-2 font-semibold">SCANNED BY</th>
+                <th className="px-3 py-2 font-semibold">WORK LOCATION</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={12} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
+                <tr><td colSpan={13} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
               ) : reportRows.length === 0 ? (
-                <tr><td colSpan={12} className="text-center py-8 text-muted-foreground">No records for the selected report and filters.</td></tr>
+                <tr><td colSpan={13} className="text-center py-8 text-muted-foreground">No records for the selected report and filters.</td></tr>
               ) : reportRows.map(({ record: r, emp, calcStatus, scanned_by }) => {
                 const status = calcStatus || r.attendance_status || '—';
                 const colors = STATUS_COLORS[status] || STATUS_COLORS['Absent'];
@@ -351,6 +353,8 @@ export default function AttendanceReports({
                       </span>
                     </td>
                     <td className="px-3 py-2"><ScannedByCell scannedBy={scanned_by} /></td>
+                    {/* WHERE the punches were recorded — the branch selected at the scanner */}
+                    <td className="px-3 py-2 text-muted-foreground">{r.work_location || '—'}</td>
                   </tr>
                 );
               })}
