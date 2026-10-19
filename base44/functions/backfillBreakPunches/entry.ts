@@ -2,22 +2,24 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
 import { checkPermission } from '../../shared/permissionCheck.ts';
 import { calculateAttendanceStatus } from '../../shared/attendanceCalc.ts';
 
-// ── Backfill a missing SECOND IN (audited admin correction) ─────────────────
-// Fills in the Second In punch for employees who completed the First Out but were
-// unable to record the Second In (punch window already closed), so they can still
-// punch the Final Out later in the day.
+// ── Backfill missing BREAK punches (audited admin correction) ────────────────
+// Employees who scanned the First In but could not record the First Out and / or
+// the Second In (the punch window was already closed when they scanned) get those
+// break punches filled in, so they can still punch the Final Out themselves.
 //
 // Rules enforced here:
-//   • Only a MISSING Second In is written — a record that already has one is never
-//     touched, and the First In / First Out / Final Out are never written at all.
-//   • A Final Out is never fabricated: those employees still punch it themselves.
-//   • The time must fall after the First Out (a wrong order is skipped, not fixed).
-//   • Every change is recorded on the record (Last Edited By) and in the
-//     AttendanceCorrection + ActivityLog audit trails.
+//   • Only the break punches are written — a punch that already exists is never
+//     overwritten, and the Final Out is NEVER fabricated (the employee punches it).
+//   • A time that would fall out of order (before the First In / after an existing
+//     later punch) is skipped and reported, never "fixed".
+//   • Every change is stamped on the record (Last Edited By) and written to the
+//     AttendanceCorrection + ActivityLog audit trails, one entry per punch.
 //
-// Body: { attendanceDate: 'YYYY-MM-DD', secondInTime: 'HH:mm', reason?, dryRun? }
+// Body: { attendanceDate: 'YYYY-MM-DD', firstOutTime?: 'HH:mm', secondInTime?: 'HH:mm', reason?, dryRun? }
 
 const QATAR_OFFSET = '+03:00';
+
+const iso = (date: string, time: string) => new Date(`${date}T${time}:00${QATAR_OFFSET}`).toISOString();
 
 const calcDuration = (startIso: string, endIso: string) => {
   if (!startIso || !endIso) return 0;
@@ -47,23 +49,31 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const attendanceDate = (body.attendanceDate || '').trim();
+    const firstOutTime = (body.firstOutTime || '').trim();
     const secondInTime = (body.secondInTime || '').trim();
     const dryRun = body.dryRun === true;
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(attendanceDate)) {
       return Response.json({ error: 'A valid attendance date (YYYY-MM-DD) is required.' }, { status: 400 });
     }
-    if (!/^\d{2}:\d{2}$/.test(secondInTime)) {
-      return Response.json({ error: 'A valid time (HH:mm) is required.' }, { status: 400 });
+    if (!firstOutTime && !secondInTime) {
+      return Response.json({ error: 'Provide the First Out time and / or the Second In time to backfill.' }, { status: 400 });
+    }
+    if ((firstOutTime && !/^\d{2}:\d{2}$/.test(firstOutTime)) || (secondInTime && !/^\d{2}:\d{2}$/.test(secondInTime))) {
+      return Response.json({ error: 'Times must use the HH:mm format.' }, { status: 400 });
     }
 
-    // Qatar wall-clock time → stored ISO (same timezone the punch engine uses).
-    const secondInIso = new Date(`${attendanceDate}T${secondInTime}:00${QATAR_OFFSET}`).toISOString();
+    const firstOutIso = firstOutTime ? iso(attendanceDate, firstOutTime) : '';
+    const secondInIso = secondInTime ? iso(attendanceDate, secondInTime) : '';
+
     const userId = user?.id || '';
     const email = user?.email || '';
     const name = user?.full_name || '';
+    const parts = [];
+    if (firstOutTime) parts.push(`First Out to ${firstOutTime}`);
+    if (secondInTime) parts.push(`Second In to ${secondInTime}`);
     const reason = (body.reason
-      || `Second In backfilled to ${secondInTime} — the Second In punch window was already closed when the employee scanned.`).trim();
+      || `${parts.join(' and ')} backfilled — the punch window was already closed when the employee scanned.`).trim();
 
     const [settingsRows, shiftRows] = await Promise.all([
       base44.asServiceRole.entities.AttendanceSetting.list('-created_date', 100),
@@ -72,13 +82,12 @@ Deno.serve(async (req) => {
     const settings = settingsRows[0] || null;
     const shifts = shiftRows || [];
 
-    // Open sessions for the date that have a First Out but no Second In.
+    // Open sessions for the date that already hold a First In.
     const found = await base44.asServiceRole.entities.AttendanceRecord.filter({
       attendance_date: attendanceDate,
       is_deleted: { $ne: true },
       status: 'open',
-      first_out_at: { $ne: '' },
-      $or: [{ second_in_at: { $exists: false } }, { second_in_at: '' }, { second_in_at: null }],
+      first_in_at: { $ne: '' },
     }, '-created_date', 1000);
     const records = found?.items || found || [];
 
@@ -87,30 +96,55 @@ Deno.serve(async (req) => {
     const nowIso = new Date().toISOString();
 
     for (const rec of records) {
-      if (!rec.first_out_at) {
-        skipped.push({ name: rec.employee_name, why: 'No First Out recorded' });
-        continue;
-      }
-      if (secondInIso <= rec.first_out_at) {
-        skipped.push({ name: rec.employee_name, why: 'Time is before the First Out' });
-        continue;
-      }
-      if (rec.final_out_at && secondInIso >= rec.final_out_at) {
-        skipped.push({ name: rec.employee_name, why: 'Time is after the Final Out' });
-        continue;
+      const isBlank = (v: any) => !v || String(v).trim() === '';
+      const updates: any = {};
+      const changedFields: string[] = [];
+
+      // ── First Out (break start) ──
+      let firstOut = rec.first_out_at || '';
+      if (isBlank(firstOut) && firstOutIso) {
+        if (firstOutIso <= rec.first_in_at) {
+          skipped.push({ name: rec.employee_name, why: 'First Out time is before the First In' });
+          continue;
+        }
+        firstOut = firstOutIso;
+        updates.first_out_at = firstOutIso;
+        updates.first_out_by_user_id = userId;
+        changedFields.push('first_out_at');
       }
 
+      // ── Second In (return from break) — needs a First Out to follow ──
+      if (isBlank(rec.second_in_at) && secondInIso) {
+        if (!firstOut) {
+          skipped.push({ name: rec.employee_name, why: 'No First Out — the Second In cannot be recorded on its own' });
+          continue;
+        }
+        if (secondInIso <= firstOut) {
+          skipped.push({ name: rec.employee_name, why: 'Second In time is before the First Out' });
+          continue;
+        }
+        if (rec.final_out_at && secondInIso >= rec.final_out_at) {
+          skipped.push({ name: rec.employee_name, why: 'Second In time is after the Final Out' });
+          continue;
+        }
+        updates.second_in_at = secondInIso;
+        updates.second_in_by_user_id = userId;
+        changedFields.push('second_in_at');
+      }
+
+      if (!changedFields.length) continue;
+
+      const merged = { ...rec, ...updates };
       const shift = shifts.find((s: any) => s.id === rec.shift_id) || null;
-      const merged = { ...rec, second_in_at: secondInIso, second_in_by_user_id: userId };
       // Same centralised status calculation the punch engine uses, so the stored
       // status can never disagree with Time Entries.
       const status = calculateAttendanceStatus(merged, shift, settings, [], new Date());
 
       applied.push({
         record: rec,
+        changedFields,
         updates: {
-          second_in_at: secondInIso,
-          second_in_by_user_id: userId,
+          ...updates,
           duration_minutes: calculateDurationFromRecord(merged),
           calculated_status: status,
           attendance_status: rec.manual_status_override ? rec.manual_status_override : status,
@@ -126,12 +160,16 @@ Deno.serve(async (req) => {
       return Response.json({
         action: 'dry-run',
         attendanceDate,
+        firstOutIso,
         secondInIso,
         candidates: applied.length,
         skipped,
         sample: applied.slice(0, 10).map(a => ({
           name: a.record.employee_name,
-          firstOut: a.record.first_out_at,
+          fills: a.changedFields,
+          firstIn: a.record.first_in_at,
+          newFirstOut: a.updates.first_out_at || '(kept)',
+          newSecondIn: a.updates.second_in_at || '(kept)',
           newStatus: a.updates.attendance_status,
         })),
       });
@@ -141,17 +179,18 @@ Deno.serve(async (req) => {
       return Response.json({ action: 'nothing-to-do', attendanceDate, updated: 0, skipped });
     }
 
-    const corrections = applied.map(a => ({
+    // One audit entry per punch that was filled in.
+    const corrections = applied.flatMap(a => a.changedFields.map(field => ({
       attendance_id: a.record.id,
       personnel_id: a.record.personnel_id,
       employee_name: a.record.employee_name,
-      field_changed: 'second_in_at',
-      original_value: a.record.second_in_at || '',
-      new_value: secondInIso,
+      field_changed: field,
+      original_value: '',
+      new_value: field === 'first_out_at' ? firstOutIso : secondInIso,
       reason,
       changed_by: email,
       changed_by_name: name,
-    }));
+    })));
     const logs = applied.map(a => ({
       action: 'update',
       entity_name: 'AttendanceRecord',
@@ -159,13 +198,12 @@ Deno.serve(async (req) => {
       performed_by: email,
       record_name: a.record.employee_name,
       record_snapshot: {
-        second_in_at: secondInIso,
-        second_in_by_user_id: userId,
+        ...a.changedFields.reduce((acc, f) => ({ ...acc, [f]: a.updates[f] }), {}),
         attendance_status: a.updates.attendance_status,
-        backfilled_second_in: true,
+        backfilled_break_punch: true,
         reason,
       },
-      changed_fields: ['second_in_at', 'attendance_status'],
+      changed_fields: [...a.changedFields, 'attendance_status'],
     }));
 
     // Writes are batched: one update call, then both audit trails in bulk.
@@ -178,10 +216,15 @@ Deno.serve(async (req) => {
     return Response.json({
       action: 'backfilled',
       attendanceDate,
+      firstOutIso,
       secondInIso,
       updated: applied.length,
+      punchesWritten: corrections.length,
+      byFill: {
+        first_out: applied.filter(a => a.changedFields.includes('first_out_at')).length,
+        second_in: applied.filter(a => a.changedFields.includes('second_in_at')).length,
+      },
       skipped,
-      names: applied.map(a => a.record.employee_name),
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
