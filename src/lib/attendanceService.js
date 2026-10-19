@@ -241,6 +241,7 @@ export async function recordPunch({
     return processSplitPunch({
       personnelId, employeeName, company, shift, attDate: effectiveAttDate, timestamp,
       source, location, workLocation, currentUser, settings,
+      workLocationName: punchLocation?.location?.location_name || '',
       shiftId: shift.id, shiftName: shift.shift_name,
     });
   }
@@ -404,7 +405,7 @@ export async function recordPunch({
 // shift's attendance_date. Normal-shift behavior is untouched.
 async function processSplitPunch({
   personnelId, employeeName, company, shift, attDate, timestamp,
-  source, location, workLocation, currentUser, settings, shiftId, shiftName,
+  source, location, workLocation, workLocationName = '', currentUser, settings, shiftId, shiftName,
 }) {
   if (!personnelId) throw new Error('Employee is required.');
   if (!timestamp) throw new Error('Punch timestamp is required.');
@@ -500,7 +501,7 @@ async function processSplitPunch({
       check_in_at: tsIso, first_in_at: tsIso,
       check_out_at: '', first_out_at: '', second_in_at: '', final_out_at: '',
       duration_minutes: 0, overtime_minutes: 0,
-      work_location: punchLocation ? punchLocation.location.location_name : (workLocation || location || ''),
+      work_location: workLocationName || workLocation || location || '',
       checked_in_by: email, checked_in_by_name: name,
       first_in_by_user_id: userId,
       status: 'open', source, source_page: source,
