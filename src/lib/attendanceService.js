@@ -14,6 +14,7 @@ import {
   isSplitEffective, isSplitShiftEnabled, determineSplitExpectedPunch, resolvePunchWindow,
   punchDirection, punchSequence, calculateAttendanceState,
 } from './attendanceEngine';
+import { punchLocationFields, validatePunchLocation } from './workLocations';
 
 // ── Settings ──
 export async function getSettings() {
@@ -134,6 +135,7 @@ export async function autoCloseExpiredSessions(personnelId, settings, shifts, as
 export async function recordPunch({
   personnelId, employeeName, company, punchType, // 'IN' | 'OUT'
   timestamp, source = 'Admin Entry', location = '', workLocation = '',
+  workLocationId = '', coords = null,
   currentUser, shiftId = '', shiftName = '',
 }) {
   if (!personnelId) throw new Error('Employee is required.');
@@ -143,6 +145,17 @@ export async function recordPunch({
   const settings = await getSettings();
   const [shifts, assignments] = await Promise.all([getShifts(), getShiftAssignments()]);
   await autoCloseExpiredSessions(personnelId, settings, shifts, assignments, [], currentUser);
+
+  // ── Work location & geofence gate ──
+  // Runs before anything is written, so a refused punch leaves no trace. The
+  // employee's assignment is never changed by punching elsewhere: the punch is
+  // either an authorized location, or it is refused.
+  if (!workLocationId && settings?.require_location_on_punch === true) {
+    throw new Error('Select the work location before punching attendance.');
+  }
+  const punchLocation = workLocationId
+    ? await validatePunchLocation({ employeeId: personnelId, workLocationId, coords, settings })
+    : null;
 
   // Attendance date is always the Qatar calendar date — never the browser's
   // local date — so the punch window is built on the same day the shift runs.
@@ -264,6 +277,7 @@ export async function recordPunch({
     personnel_id: personnelId, employee_name: employeeName, company,
     attendance_date: attDate, punch_timestamp: tsIso, punch_type: punchType,
     punch_sequence: punchSeq, source, location,
+    ...punchLocationFields(punchLocation),
     created_by: email, created_by_user_id: userId, created_by_name: name,
   });
 
@@ -285,7 +299,7 @@ export async function recordPunch({
       check_in_at: tsIso, first_in_at: tsIso,
       check_out_at: '', first_out_at: '', second_in_at: '', final_out_at: '',
       duration_minutes: 0, overtime_minutes: 0,
-      work_location: workLocation || location || '',
+      work_location: punchLocation ? punchLocation.location.location_name : (workLocation || location || ''),
       checked_in_by: email, checked_in_by_name: name,
       first_in_by_user_id: userId,
       status: 'open', source, source_page: source,
@@ -486,7 +500,7 @@ async function processSplitPunch({
       check_in_at: tsIso, first_in_at: tsIso,
       check_out_at: '', first_out_at: '', second_in_at: '', final_out_at: '',
       duration_minutes: 0, overtime_minutes: 0,
-      work_location: workLocation || location || '',
+      work_location: punchLocation ? punchLocation.location.location_name : (workLocation || location || ''),
       checked_in_by: email, checked_in_by_name: name,
       first_in_by_user_id: userId,
       status: 'open', source, source_page: source,

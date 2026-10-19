@@ -9,10 +9,11 @@ import { useAuth } from '@/lib/AuthContext';
 import { useRbac } from '@/lib/useRbac';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2, X, Clock, Calendar, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Clock, Calendar, Settings as SettingsIcon, Sun, Moon, MapPin } from 'lucide-react';
 import ShiftAssignEmployees from './ShiftAssignEmployees';
 import { useAttendanceEmployees } from '@/hooks/useAttendanceEmployees';
 import PillTabsBar from '@/components/common/PillTabsBar';
+import WorkLocationSettings from './WorkLocationSettings';
 
 const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -22,6 +23,7 @@ const SETTINGS_TABS = [
   { key: 'shifts', label: 'Shifts', icon: Clock },
   { key: 'holidays', label: 'Holidays', icon: Sun },
   { key: 'rules', label: 'Late & Overtime Rules', icon: SettingsIcon },
+  { key: 'work-locations', label: 'Branch / Work Locations', icon: MapPin },
 ];
 
 export default function AttendanceSettings({ settings, shifts, assignments, holidays }) {
@@ -41,6 +43,7 @@ export default function AttendanceSettings({ settings, shifts, assignments, holi
       {activeTab === 'shifts' && <ShiftsSettings shifts={shifts} assignments={assignments} employees={employees} canEdit={canEdit} />}
       {activeTab === 'holidays' && <HolidaysSettings holidays={holidays} canEdit={canEdit} />}
       {activeTab === 'rules' && <RulesSettings settings={settings} canEdit={canEdit} />}
+      {activeTab === 'work-locations' && <WorkLocationSettings canEdit={canEdit} />}
     </div>
   );
 }

@@ -95,6 +95,9 @@ export default function WorkLocationAssignDialog({ location, onClose, onSaved })
 
       for (const emp of selectedEmployees) {
         const prior = byEmployee[emp.id];
+        // One primary location per employee: explicitly requested, or when the
+        // employee does not have a primary yet.
+        const wantPrimary = makePrimary || !hasPrimary[emp.id];
         const base = {
           employee_name: emp.name || '',
           employee_pid: emp.pid || '',
@@ -109,25 +112,21 @@ export default function WorkLocationAssignDialog({ location, onClose, onSaved })
           assigned_at: nowIso,
         };
         if (prior) {
-          if (prior.status === 'Active') continue; // never duplicate an existing assignment
-          toUpdate.push({ id: prior.id, ...base, status: 'Active', is_primary: makePrimary || !hasPrimary[emp.id] });
+          // An existing link to this location is never duplicated — it is
+          // reactivated, and only rewritten when something actually changes.
+          if (prior.status === 'Active' && prior.effective_date === effectiveDate && (!wantPrimary || prior.is_primary)) continue;
+          toUpdate.push({ id: prior.id, ...base, status: 'Active', is_primary: wantPrimary || prior.is_primary });
         } else {
-          toCreate.push({ employee_id: emp.id, location_id: location.id, status: 'Active', is_primary: makePrimary || !hasPrimary[emp.id], ...base });
+          toCreate.push({ employee_id: emp.id, location_id: location.id, status: 'Active', is_primary: wantPrimary, ...base });
         }
       }
 
-      const touched = [...toCreate.map((r) => r.employee_id), ...selectedEmployees
-        .filter((e) => byEmployee[e.id]?.status === 'Active')
-        .map((e) => e.id)];
-
-      // Primary is unique per employee.
-      const clearedIds = [];
-      if (makePrimary) {
-        for (const a of otherAssignments) {
-          if (a.location_id === location.id) continue;
-          if (touched.includes(a.employee_id) && a.is_primary) clearedIds.push(a.id);
-        }
-      }
+      // Primary is unique per employee within their assignments.
+      const clearedIds = makePrimary
+        ? otherAssignments
+            .filter((a) => a.location_id !== location.id && a.is_primary && selectedIds.includes(a.employee_id))
+            .map((a) => a.id)
+        : [];
 
       let created = 0;
       let reactivated = 0;

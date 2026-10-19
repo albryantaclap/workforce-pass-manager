@@ -14,8 +14,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
 import { useCurrentUser } from "@/lib/useCurrentUser";
 import { useRbac } from "@/lib/useRbac";
-import { recordPunch } from "@/lib/attendanceService";
-import { useQueryClient } from "@tanstack/react-query";
+import { getSettings, recordPunch } from "@/lib/attendanceService";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import PunchLocationPicker from "@/components/attendance/PunchLocationPicker";
+import { getActiveLocations } from "@/lib/workLocations";
 import { useAttendanceEmployees } from "@/hooks/useAttendanceEmployees";
 import { attendanceBlockReason } from "@/lib/attendanceEligibility";
 
@@ -45,6 +47,25 @@ export default function AttendanceClock({ onRecorded }) {
   const [successType, setSuccessType] = useState(null);
   const [successEmployee, setSuccessEmployee] = useState(null);
   const [scannerKey, setScannerKey] = useState(0);
+
+  // Branch / work location the operator is scanning at, plus the GPS reading when
+  // the branch is geofenced. The punch rules (assignment, active location,
+  // geofence) are enforced in recordPunch() — this only carries the selection.
+  const [workLocationId, setWorkLocationId] = useState("");
+  const [coords, setCoords] = useState(null);
+
+  const { data: punchSettings } = useQuery({
+    queryKey: ["attendance-settings"],
+    queryFn: getSettings,
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: workLocations = [] } = useQuery({
+    queryKey: ["work-locations", "active"],
+    queryFn: getActiveLocations,
+    staleTime: 5 * 60 * 1000,
+  });
+  const locationRequired = punchSettings?.require_location_on_punch === true;
+  const needsLocation = locationRequired && !workLocationId;
 
   const user = useCurrentUser();
   const { can } = useRbac();
@@ -139,6 +160,8 @@ export default function AttendanceClock({ onRecorded }) {
         source: "ID Card Scanner",
         location: emp.current_location || "",
         workLocation: emp.current_location || "",
+        workLocationId,
+        coords,
         currentUser: user,
       });
 
@@ -197,6 +220,15 @@ export default function AttendanceClock({ onRecorded }) {
         </p>
       </div>
 
+      <PunchLocationPicker
+        locations={workLocations}
+        settings={punchSettings}
+        value={workLocationId}
+        onChange={setWorkLocationId}
+        coords={coords}
+        onCoordsChange={setCoords}
+      />
+
       <Card className="rounded-2xl overflow-hidden min-h-[520px] flex flex-col">
         <AnimatePresence mode="wait">
           {step === STEP.STANDBY && (
@@ -222,6 +254,7 @@ export default function AttendanceClock({ onRecorded }) {
                 <Button
                   onClick={handleStart}
                   size="lg"
+                  disabled={needsLocation}
                   className="gap-2 w-full max-w-xs text-base h-12"
                 >
                   <CreditCard className="w-5 h-5" /> Start Scanning
