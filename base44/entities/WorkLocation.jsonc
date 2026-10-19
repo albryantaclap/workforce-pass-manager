@@ -1,0 +1,101 @@
+{
+  "name": "WorkLocation",
+  "type": "object",
+  "properties": {
+    "location_name": {
+      "type": "string",
+      "description": "Branch / work location name (e.g. COMO Camp Gate 2)"
+    },
+    "location_code": {
+      "type": "string",
+      "description": "Unique location code (e.g. BR-HQ-01). Stable identifier used by attendance punches."
+    },
+    "site_type": {
+      "type": "string",
+      "enum": [
+        "Head Office",
+        "Project Site",
+        "Camp",
+        "Warehouse",
+        "Yard",
+        "Workshop",
+        "Other"
+      ],
+      "default": "Project Site",
+      "description": "Branch / site type"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "Linked OrganizationProject record ID. Empty = not project specific."
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Project name (denormalized for display)"
+    },
+    "company": {
+      "type": "string",
+      "description": "Company the location belongs to. Empty = shared across companies."
+    },
+    "address": {
+      "type": "string",
+      "description": "Address / description of the location"
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Latitude used for geofence verification (-90 to 90)"
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Longitude used for geofence verification (-180 to 180)"
+    },
+    "radius_meters": {
+      "type": "number",
+      "default": 150,
+      "description": "Allowed attendance radius in meters around the coordinates"
+    },
+    "enforce_geofence": {
+      "type": "boolean",
+      "default": true,
+      "description": "When true (and GPS verification is enabled in Attendance Settings), a punch is only accepted inside the allowed radius"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Inactive"
+      ],
+      "default": "Active",
+      "description": "Inactive locations cannot be used for new attendance punches; historical records are never changed"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Additional remarks"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of the user who last updated this location"
+    }
+  },
+  "required": [
+    "location_name",
+    "location_code"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

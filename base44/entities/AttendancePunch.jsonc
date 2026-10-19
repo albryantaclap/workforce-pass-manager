@@ -59,6 +59,48 @@
       "type": "string",
       "description": "Device identifier for biometric/scanner punches"
     },
+    "work_location_id": {
+      "type": "string",
+      "description": "Linked WorkLocation record ID the punch was recorded at (empty when no branch was selected)"
+    },
+    "work_location_code": {
+      "type": "string",
+      "description": "Work location code captured at the time of the punch (denormalized, historical)"
+    },
+    "work_location_name": {
+      "type": "string",
+      "description": "Work location name captured at the time of the punch (denormalized, historical)"
+    },
+    "latitude": {
+      "type": "number",
+      "description": "GPS latitude captured with the punch (empty when no GPS was available)"
+    },
+    "longitude": {
+      "type": "number",
+      "description": "GPS longitude captured with the punch (empty when no GPS was available)"
+    },
+    "gps_accuracy_m": {
+      "type": "number",
+      "description": "Reported GPS accuracy in meters"
+    },
+    "distance_m": {
+      "type": "number",
+      "description": "Distance in meters between the punch GPS position and the work location coordinates"
+    },
+    "geofence_status": {
+      "type": "string",
+      "enum": [
+        "Within Geofence",
+        "Outside Geofence",
+        "No GPS",
+        "Not Enforced"
+      ],
+      "description": "Geofence result recorded with the punch"
+    },
+    "location_verified": {
+      "type": "boolean",
+      "description": "True when the punch was accepted with the work location verified against its geofence"
+    },
     "created_by": {
       "type": "string",
       "description": "Email of the user who created the punch"

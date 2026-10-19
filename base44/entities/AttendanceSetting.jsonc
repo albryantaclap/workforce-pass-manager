@@ -79,6 +79,16 @@
       "default": 180,
       "description": "Minutes before shift start during which the First Punch In is accepted"
     },
+    "gps_verification_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "When enabled, a punch recorded with GPS coordinates is validated against the selected work location's allowed radius"
+    },
+    "require_location_on_punch": {
+      "type": "boolean",
+      "default": false,
+      "description": "When enabled, a work location must be selected before a new attendance punch is accepted"
+    },
     "updated_by": {
       "type": "string",
       "description": "Email of user who last updated settings"

@@ -1,0 +1,105 @@
+{
+  "name": "WorkLocationAssignment",
+  "type": "object",
+  "properties": {
+    "employee_id": {
+      "type": "string",
+      "description": "Linked Employee record ID (Master List identity)"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Employee full name (denormalized for display only)"
+    },
+    "employee_pid": {
+      "type": "string",
+      "description": "Employee PID number (denormalized for display only)"
+    },
+    "employee_qid": {
+      "type": "string",
+      "description": "Employee QID number (denormalized for display only)"
+    },
+    "company": {
+      "type": "string",
+      "description": "Employee company (denormalized for display only)"
+    },
+    "department": {
+      "type": "string",
+      "description": "Employee department (denormalized for display only)"
+    },
+    "location_id": {
+      "type": "string",
+      "description": "Linked WorkLocation record ID the employee is authorized to punch at"
+    },
+    "location_name": {
+      "type": "string",
+      "description": "Location name (denormalized for display only)"
+    },
+    "location_code": {
+      "type": "string",
+      "description": "Location code (denormalized for display only)"
+    },
+    "is_primary": {
+      "type": "boolean",
+      "default": false,
+      "description": "Primary work location for this employee. Only one assignment per employee is primary."
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date from which the assignment is valid. Empty = immediately valid."
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date after which the assignment is no longer valid. Empty = open ended."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Inactive"
+      ],
+      "default": "Active",
+      "description": "Unassigning sets this to Inactive so the assignment history is retained"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Remarks for this assignment"
+    },
+    "assigned_by": {
+      "type": "string",
+      "description": "Email of the user who created the assignment"
+    },
+    "assigned_by_name": {
+      "type": "string",
+      "description": "Display name of the user who created the assignment"
+    },
+    "assigned_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the assignment"
+    }
+  },
+  "required": [
+    "employee_id",
+    "location_id"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
