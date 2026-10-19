@@ -73,13 +73,14 @@ export default function WorkLocationRulesCard({ canEdit }) {
           disabled={!canEdit || !settings || saving === 'require_location_on_punch'}
           onCheckedChange={(v) => {
             setLocationRequired(v);
-            save({ require_location_on_punch: v }, v ? 'Work location is now required.' : 'Work location is optional again.');
+            save({ require_location_on_punch: v }, v ? 'Work location is now required on the first punch.' : 'Work location is optional again.');
           }}
         />
         <span>
-          <span className="block text-sm font-medium text-foreground">Require a work location on every punch</span>
+          <span className="block text-sm font-medium text-foreground">Require a work location on the first punch of the day</span>
           <span className="block text-xs text-muted-foreground">
-            When on, the Attendance Clock must have a branch selected before a card can be scanned.
+            When on, a branch must be selected before an employee can clock in (first punch). First Out, Second In and
+            Final Out never require it, so a card can always be scanned to punch out.
           </span>
         </span>
       </label>

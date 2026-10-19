@@ -185,12 +185,12 @@ export async function recordPunch({
   await autoCloseExpiredSessions(personnelId, settings, shifts, assignments, [], currentUser);
 
   // ── Work location & geofence gate ──
-  // Runs before anything is written, so a refused punch leaves no trace. The
-  // employee's assignment is never changed by punching elsewhere: the punch is
-  // either an authorized location, or it is refused.
-  if (!workLocationId && settings?.require_location_on_punch === true) {
-    throw new Error('Select the work location before punching attendance.');
-  }
+  // The branch is required only for the FIRST punch of the day — the clock-in that
+  // opens the session. Break punches (First Out / Second In) and the Final Out never
+  // need it, so a card can always be scanned to punch out. When a branch IS carried
+  // it is always validated: the employee's assignment is never changed by punching
+  // elsewhere — the punch is either an authorized location, or it is refused.
+  const locationRequired = !workLocationId && settings?.require_location_on_punch === true;
   const punchLocation = workLocationId
     ? await validatePunchLocation({ employeeId: personnelId, workLocationId, coords, settings })
     : null;
@@ -279,6 +279,7 @@ export async function recordPunch({
       source, location, workLocation, currentUser, settings,
       workLocationName: punchLocation?.location?.location_name || '',
       shiftId: shift.id, shiftName: shift.shift_name,
+      locationRequired,
     });
   }
 
@@ -299,6 +300,13 @@ export async function recordPunch({
     else if (!session.second_in_at) punchSeq = 3;
     else if (!session.final_out_at) punchSeq = 4;
     else throw new Error('All 4 punches already recorded for this date. Edit the record instead.');
+  }
+
+  // The day's FIRST punch (the clock-in that opens the session) needs the branch
+  // when the rule is on; the break punches and the final out do not. Thrown before
+  // the raw punch is written, so a refused punch leaves no trace.
+  if (locationRequired && punchType === 'IN' && punchSeq === 1) {
+    throw new Error('Select the work location before clocking in. It is required for the first punch of the day.');
   }
 
   const tsIso = timestamp.toISOString();
@@ -449,6 +457,7 @@ export async function recordPunch({
 async function processSplitPunch({
   personnelId, employeeName, company, shift, attDate, timestamp,
   source, location, workLocation, workLocationName = '', currentUser, settings, shiftId, shiftName,
+  locationRequired = false,
 }) {
   if (!personnelId) throw new Error('Employee is required.');
   if (!timestamp) throw new Error('Punch timestamp is required.');
@@ -520,6 +529,12 @@ async function processSplitPunch({
         `${label} punch window has expired. Allowed time: ${_fmt(earliest)} – ${_fmt(latest)} on ${_date(earliest)}. Current time: ${_fmt(timestamp)}.`
       );
     }
+  }
+
+  // Only the FIRST punch of the day (clock-in) needs the branch when the rule is on.
+  // Thrown before anything is written, so a refused punch leaves no trace.
+  if (locationRequired && expectedKey === 'FIRST_IN') {
+    throw new Error('Select the work location before clocking in. It is required for the first punch of the day.');
   }
 
   const pType = punchDirection(expectedKey);

@@ -19,7 +19,9 @@ export default function PunchLocationPicker({ locations = [], settings, value, o
   const { toast } = useToast();
   const [locating, setLocating] = useState(false);
   const gpsEnabled = settings?.gps_verification_enabled === true;
-  const required = settings?.require_location_on_punch === true;
+  // The branch is required only for the first punch of the day (clock-in), so this
+  // picker never blocks a punch — the clock asks for the branch at that moment.
+  const firstPunchRequired = settings?.require_location_on_punch === true;
   const selected = locations.find((l) => l.id === value) || null;
   const preview = geofencePreview(selected, coords, gpsEnabled);
 
@@ -73,12 +75,13 @@ export default function PunchLocationPicker({ locations = [], settings, value, o
         locations={locations}
         value={value}
         onChange={onChange}
-        allowNone={!required}
+        allowNone
       />
 
-      {required && !value && (
+      {firstPunchRequired && !value && (
         <p className="text-xs text-amber-700 flex items-center gap-1.5">
-          <AlertTriangle className="w-3.5 h-3.5" /> Select the work location before punching attendance.
+          <AlertTriangle className="w-3.5 h-3.5" /> Required for the first punch of the day (clock-in). First Out, Second
+          In and Final Out do not need it.
         </p>
       )}
 

@@ -61,8 +61,11 @@ export default function AttendanceClock({ onRecorded }) {
   // geofence) are enforced in recordPunch() — this only carries the selection.
   const [workLocationId, setWorkLocationId] = useState("");
   const [coords, setCoords] = useState(null);
-  // The Work Location prompt is shown when scanning starts, never on standby.
+  // The Work Location prompt is shown when scanning starts, never on standby. It
+  // also opens for the employee being scanned when the day's first punch
+  // (clock-in) still needs a branch.
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const [pendingEmployee, setPendingEmployee] = useState(null);
 
   const { data: punchSettings } = useQuery({
     queryKey: ["attendance-settings"],
@@ -75,7 +78,6 @@ export default function AttendanceClock({ onRecorded }) {
     staleTime: 5 * 60 * 1000,
   });
   const locationRequired = punchSettings?.require_location_on_punch === true;
-  const needsLocation = locationRequired && !workLocationId;
   // Only prompt when there is actually something to choose on the prompt.
   const hasLocationStep =
     workLocations.length > 0 || punchSettings?.gps_verification_enabled === true;
@@ -165,6 +167,27 @@ export default function AttendanceClock({ onRecorded }) {
       );
       const punchType = hasOpen ? "OUT" : "IN";
 
+      // The branch is only required to open the day (the clock-in). Break punches
+      // and the final out are recorded without it, so a card never fails on the
+      // way out — the scanner asks for the branch only for a first punch.
+      if (punchType === "IN" && locationRequired && !workLocationId && hasLocationStep) {
+        setPendingEmployee(emp);
+        setShowLocationPrompt(true);
+        // The lock stays held: the scanner waits for the branch before recording.
+        return;
+      }
+
+      await recordScan(emp, punchType);
+    } catch (err) {
+      setFailReason(err.message || "Failed to record attendance.");
+      setStep(STEP.FAILED);
+      processingLockRef.current = false;
+    }
+  };
+
+  // Records the punch for one employee and shows the result (in / out).
+  const recordScan = async (emp, punchType) => {
+    try {
       const result = await recordPunch({
         personnelId: emp.id,
         employeeName: emp.name,
@@ -224,6 +247,30 @@ export default function AttendanceClock({ onRecorded }) {
     setShowLocationPrompt(false);
     setStep(STEP.SCANNING);
     setScannerKey((k) => k + 1);
+  };
+
+  // Confirming the prompt either records the waiting employee's first punch of the
+  // day or simply starts the scanner. A branch chosen here stays selected for the
+  // rest of the scanning session (later punches no longer need it).
+  const confirmLocation = () => {
+    setShowLocationPrompt(false);
+    const emp = pendingEmployee;
+    if (!emp) {
+      beginScan();
+      return;
+    }
+    setPendingEmployee(null);
+    recordScan(emp, "IN");
+  };
+
+  // Closing the prompt without a branch releases the waiting employee (nothing is
+  // recorded for them) and returns to continuous scanning.
+  const closeLocationPrompt = () => {
+    setShowLocationPrompt(false);
+    if (!pendingEmployee) return;
+    setPendingEmployee(null);
+    processingLockRef.current = false;
+    resumeForNextEmployee();
   };
 
   // Pressing Start Scanning opens the Work Location prompt when branches exist;
@@ -428,13 +475,15 @@ export default function AttendanceClock({ onRecorded }) {
 
       <Dialog
         open={showLocationPrompt}
-        onOpenChange={(open) => { if (!open) setShowLocationPrompt(false); }}
+        onOpenChange={(open) => { if (!open) closeLocationPrompt(); }}
       >
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Work Location</DialogTitle>
             <DialogDescription>
-              Select the branch you are scanning at. Each punch is recorded against it.
+              {pendingEmployee
+                ? `The work location is required for ${pendingEmployee.name}'s first punch of the day.`
+                : 'Select the branch you are scanning at. It is recorded with the first punch of the day — First Out, Second In and Final Out never need it.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -448,11 +497,11 @@ export default function AttendanceClock({ onRecorded }) {
           />
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowLocationPrompt(false)}>
-              Cancel
+            <Button variant="outline" onClick={closeLocationPrompt}>
+              {pendingEmployee ? "Skip this employee" : "Cancel"}
             </Button>
-            <Button onClick={beginScan} disabled={needsLocation} className="gap-2">
-              <CreditCard className="w-4 h-4" /> Start Scanning
+            <Button onClick={confirmLocation} className="gap-2">
+              <CreditCard className="w-4 h-4" /> {pendingEmployee ? "Record Punch" : "Start Scanning"}
             </Button>
           </div>
         </DialogContent>
