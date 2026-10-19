@@ -121,7 +121,7 @@ export default function TimeEntries({
 
   // Export the current page's attendance data to CSV.
   const exportCSV = () => {
-    const headers = ['Employee', 'Designation', 'QID', 'PID', 'Company', 'Dept', 'Branch', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'Work Location', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
+    const headers = ['Employee', 'Designation', 'QID', 'PID', 'Company', 'Dept', 'Branch', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'Site Location', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
     const csvRows = rows.map(({ emp, att }) => {
       const shift = resolveShift(emp, assignments, shifts, settings);
       let status;
@@ -245,7 +245,7 @@ export default function TimeEntries({
                 <th className="px-3 py-2 font-semibold">O.T.</th>
                 <th className="px-3 py-2 font-semibold">STATUS</th>
                 <th className="px-3 py-2 font-semibold">SCANNED BY</th>
-                <th className="px-3 py-2 font-semibold">WORK LOCATION</th>
+                <th className="px-3 py-2 font-semibold">SITE LOCATION</th>
                 {(canEditEntry || canDeleteEntry) && <th className="px-3 py-2 font-semibold text-right">ACTIONS</th>}
               </tr>
             </thead>

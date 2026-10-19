@@ -371,6 +371,10 @@ export async function recordPunch({
     updates.shift_name = shift.shift_name || '';
   }
 
+  // The branch the supervisor selected at this scan is stored on the record, so
+  // the Site Location column always shows where the punches were recorded.
+  if (punchLocation) updates.work_location = punchLocation.location.location_name;
+
   // Recalculate duration
   const merged = { ...session, ...updates };
   updates.duration_minutes = calculateDurationFromRecord(merged);
@@ -539,6 +543,10 @@ async function processSplitPunch({
     updates.final_out_by_user_id = userId;
     updates.status = 'completed';
   }
+
+  // The branch selected at this scan is stored on the record (also on a session
+  // continued from a previous date) so the Site Location column stays accurate.
+  if (workLocationName) updates.work_location = workLocationName;
 
   const merged = { ...session, ...updates };
   updates.duration_minutes = calculateDurationFromRecord(merged);

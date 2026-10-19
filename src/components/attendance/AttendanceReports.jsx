@@ -172,7 +172,7 @@ export default function AttendanceReports({
         exportAll: true,
       });
       const allRows = res.data?.rows || [];
-      const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'Work Location', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
+      const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'Site Location', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
       const rows = allRows.map(({ record: r, emp, calcStatus, scanned_by }) => [
         emp?.name || r.employee_name, emp?.company || r.company, emp?.department || '',
         r.attendance_date, formatTimeShort(getFirstIn(r)), formatTimeShort(r.first_out_at),
@@ -319,7 +319,7 @@ export default function AttendanceReports({
                 <th className="px-3 py-2 font-semibold">O.T.</th>
                 <th className="px-3 py-2 font-semibold">STATUS</th>
                 <th className="px-3 py-2 font-semibold">SCANNED BY</th>
-                <th className="px-3 py-2 font-semibold">WORK LOCATION</th>
+                <th className="px-3 py-2 font-semibold">SITE LOCATION</th>
               </tr>
             </thead>
             <tbody>
