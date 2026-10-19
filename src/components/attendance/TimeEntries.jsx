@@ -139,7 +139,7 @@ export default function TimeEntries({
         att?.second_in_at || '', att ? getFinalOut(att) : '',
         att?.duration_minutes || 0, att?.overtime_minutes || 0, status,
         att?.scanned_by?.label || '—',
-        att?.work_location || '',
+        att?.site_location || '',
         att?.scanned_by?.names?.first_in || '', att?.scanned_by?.names?.first_out || '',
         att?.scanned_by?.names?.second_in || '', att?.scanned_by?.names?.final_out || '',
       ];
@@ -319,8 +319,8 @@ export default function TimeEntries({
                     {/* WHO scanned/punched — one name, "Multiple" (hover for the
                         per-punch breakdown) or — when nothing was ever stored */}
                     <td className="px-3 py-2"><ScannedByCell scannedBy={att?.scanned_by} /></td>
-                    {/* WHERE the punches were recorded — the branch selected at the scanner */}
-                    <td className="px-3 py-2 text-muted-foreground">{att?.work_location || '—'}</td>
+                    {/* The branch the supervisor selected at the scanner (never the camp) */}
+                    <td className="px-3 py-2 text-muted-foreground">{att?.site_location || '—'}</td>
                     {(canEditEntry || canDeleteEntry) && (
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-end gap-1">

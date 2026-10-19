@@ -301,6 +301,8 @@ export async function recordPunch({
       check_out_at: '', first_out_at: '', second_in_at: '', final_out_at: '',
       duration_minutes: 0, overtime_minutes: 0,
       work_location: punchLocation ? punchLocation.location.location_name : (workLocation || location || ''),
+      // Site Location = the branch the supervisor selected at the scanner (branch only).
+      site_location: punchLocation ? punchLocation.location.location_name : '',
       checked_in_by: email, checked_in_by_name: name,
       first_in_by_user_id: userId,
       status: 'open', source, source_page: source,
@@ -371,9 +373,10 @@ export async function recordPunch({
     updates.shift_name = shift.shift_name || '';
   }
 
-  // The branch the supervisor selected at this scan is stored on the record, so
-  // the Site Location column always shows where the punches were recorded.
-  if (punchLocation) updates.work_location = punchLocation.location.location_name;
+  // Site Location = the branch selected at this scan — never the camp / current
+  // location fallback. Kept from the first scan of the day.
+  const punchBranch = punchLocation ? punchLocation.location.location_name : '';
+  if (punchBranch && !session.site_location) updates.site_location = punchBranch;
 
   // Recalculate duration
   const merged = { ...session, ...updates };
@@ -506,6 +509,8 @@ async function processSplitPunch({
       check_out_at: '', first_out_at: '', second_in_at: '', final_out_at: '',
       duration_minutes: 0, overtime_minutes: 0,
       work_location: workLocationName || workLocation || location || '',
+      // Site Location = the branch selected at the scanner (branch only).
+      site_location: workLocationName || '',
       checked_in_by: email, checked_in_by_name: name,
       first_in_by_user_id: userId,
       status: 'open', source, source_page: source,
@@ -544,9 +549,9 @@ async function processSplitPunch({
     updates.status = 'completed';
   }
 
-  // The branch selected at this scan is stored on the record (also on a session
-  // continued from a previous date) so the Site Location column stays accurate.
-  if (workLocationName) updates.work_location = workLocationName;
+  // Site Location = the branch selected at this scan (also when a session is
+  // continued from a previous date). Kept from the first scan of the day.
+  if (workLocationName && !session.site_location) updates.site_location = workLocationName;
 
   const merged = { ...session, ...updates };
   updates.duration_minutes = calculateDurationFromRecord(merged);

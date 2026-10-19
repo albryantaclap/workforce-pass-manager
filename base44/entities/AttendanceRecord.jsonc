@@ -79,6 +79,10 @@
       "type": "string",
       "description": "Work location / branch at the time of check-in (preserved historically)"
     },
+    "site_location": {
+      "type": "string",
+      "description": "The branch the supervisor selected at the scanner for this attendance day (branch name only). Empty when no branch was selected \u2014 this column never falls back to the camp or current location."
+    },
     "checked_in_by": {
       "type": "string",
       "description": "Email of the authenticated user who performed the first check-in"

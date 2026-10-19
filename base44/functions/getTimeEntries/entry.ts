@@ -148,7 +148,7 @@ export default async function (req: Request): Promise<Response> {
           overtime_minutes: att.overtime_minutes || 0,
           attendance_status: att.attendance_status || "",
           manual_status_override: att.manual_status_override || "",
-          work_location: att.work_location || "",
+          site_location: att.site_location || "",
           scanned_by: resolveScannedBy(att, userDir),
         } : null,
       })),

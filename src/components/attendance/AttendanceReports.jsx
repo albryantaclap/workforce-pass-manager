@@ -179,7 +179,7 @@ export default function AttendanceReports({
         formatTimeShort(r.second_in_at), formatTimeShort(getFinalOut(r)),
         r.duration_minutes || 0, r.overtime_minutes || 0, calcStatus || r.attendance_status || '',
         scanned_by?.label || '—',
-        r.work_location || '',
+        r.site_location || '',
         scanned_by?.names?.first_in || '', scanned_by?.names?.first_out || '',
         scanned_by?.names?.second_in || '', scanned_by?.names?.final_out || '',
       ]);
@@ -353,8 +353,8 @@ export default function AttendanceReports({
                       </span>
                     </td>
                     <td className="px-3 py-2"><ScannedByCell scannedBy={scanned_by} /></td>
-                    {/* WHERE the punches were recorded — the branch selected at the scanner */}
-                    <td className="px-3 py-2 text-muted-foreground">{r.work_location || '—'}</td>
+                    {/* The branch the supervisor selected at the scanner (never the camp) */}
+                    <td className="px-3 py-2 text-muted-foreground">{r.site_location || '—'}</td>
                   </tr>
                 );
               })}
