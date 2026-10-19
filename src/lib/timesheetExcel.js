@@ -15,25 +15,26 @@ const BORDER = {
 const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3A8A' } };
 const ALT_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F6FC' } };
 
-const empRow = (emp) => [
-  emp.name || '',
-  emp.company || '',
-  emp.pid || '',
-  emp.qid_no || '',
-  emp.approval_date || '',
-  emp.position_application || emp.designation_org_chart || '',
-  emp.department || '',
+const empRow = (ts) => [
+  ts.emp.name || '',
+  ts.emp.company || '',
+  ts.emp.pid || '',
+  ts.emp.qid_no || '',
+  ts.emp.approval_date || '',
+  ts.emp.position_application || ts.emp.designation_org_chart || '',
+  ts.emp.department || '',
+  ts.siteLocation || '',
 ];
 
 export async function exportTimesheetExcel(timesheets, periodLabel) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Workforce Pass Manager';
   const ws = wb.addWorksheet('Timesheet', {
-    views: [{ state: 'frozen', xSplit: 7, ySplit: 2 }],
+    views: [{ state: 'frozen', xSplit: 8, ySplit: 2 }],
     pageSetup: { orientation: 'landscape', fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
   });
 
-  const infoHeaders = ['Employee Name', 'Company Name', 'PID No.', 'QID No.', 'Joining Date', 'Designation', 'Department'];
+  const infoHeaders = ['Employee Name', 'Company Name', 'PID No.', 'QID No.', 'Joining Date', 'Designation', 'Department', 'Site Location'];
   const summaryHeaders = ['Present', 'Absent', 'Late', 'Leave', 'Total Hrs'];
   const days = timesheets[0]?.days || [];
 
@@ -63,7 +64,7 @@ export async function exportTimesheetExcel(timesheets, periodLabel) {
 
   // Data rows
   timesheets.forEach((ts, idx) => {
-    const row = empRow(ts.emp);
+    const row = empRow(ts);
     for (const d of ts.days) {
       row.push(d.punch);
       row.push(d.totalH);
@@ -74,7 +75,7 @@ export async function exportTimesheetExcel(timesheets, periodLabel) {
     const fill = idx % 2 === 1 ? ALT_FILL : undefined;
     r.eachCell((cell, ci) => {
       cell.border = BORDER;
-      cell.alignment = { vertical: 'middle', horizontal: ci < 7 ? 'left' : 'center' };
+      cell.alignment = { vertical: 'middle', horizontal: ci < 8 ? 'left' : 'center' };
       cell.font = { size: 9 };
       if (fill) cell.fill = fill;
     });
@@ -82,8 +83,8 @@ export async function exportTimesheetExcel(timesheets, periodLabel) {
 
   // Column widths
   ws.columns.forEach((col, i) => {
-    if (i < 7) col.width = 18;
-    else if (i < 7 + days.length * 2) col.width = 13;
+    if (i < 8) col.width = 18;
+    else if (i < 8 + days.length * 2) col.width = 13;
     else col.width = 9;
   });
 

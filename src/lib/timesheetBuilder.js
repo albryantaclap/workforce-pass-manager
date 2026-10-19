@@ -110,7 +110,13 @@ export const buildTimesheets = (employees, records, settings, shifts, assignment
   return employees.map((emp) => {
     const shift = resolveShift(emp, assignments, shifts, settings);
     const days = dates.map((dateStr) => buildDayCell(emp, dateStr, recMap.get(`${emp.id}|${dateStr}`), shift, settings, holidays));
-    return { emp, shift, days, summary: summarize(days) };
+    // Site Location = the branch recorded at the scanner for this employee's
+    // attendance in the range (never the camp or current location). A multi-day
+    // range spanning several branches lists them together.
+    const siteLocations = [...new Set(
+      dates.map((dateStr) => recMap.get(`${emp.id}|${dateStr}`)?.site_location).filter(Boolean)
+    )];
+    return { emp, shift, days, summary: summarize(days), siteLocation: siteLocations.join(' / ') };
   });
 };
 
