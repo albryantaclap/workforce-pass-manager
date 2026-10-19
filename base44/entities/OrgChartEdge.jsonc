@@ -1,0 +1,119 @@
+{
+  "name": "OrgChartEdge",
+  "type": "object",
+  "properties": {
+    "chart_id": {
+      "type": "string",
+      "description": "Linked OrgChart record ID this connector belongs to"
+    },
+    "source_id": {
+      "type": "string",
+      "description": "Linked OrgChartNode record ID the connector starts from (normally the manager / higher position)"
+    },
+    "target_id": {
+      "type": "string",
+      "description": "Linked OrgChartNode record ID the connector points to (normally the subordinate)"
+    },
+    "source_port": {
+      "type": "string",
+      "default": "auto",
+      "description": "Anchor on the source card: auto, top, right, bottom, left"
+    },
+    "target_port": {
+      "type": "string",
+      "default": "auto",
+      "description": "Anchor on the target card: auto, top, right, bottom, left"
+    },
+    "relationship_type": {
+      "type": "string",
+      "enum": [
+        "Direct Reporting",
+        "Functional Reporting",
+        "Matrix Reporting",
+        "Coordination",
+        "Custom Relationship"
+      ],
+      "default": "Direct Reporting",
+      "description": "Visual meaning of the connector. A connector is only a drawing until it is explicitly applied as an official reporting relationship."
+    },
+    "path_style": {
+      "type": "string",
+      "enum": [
+        "straight",
+        "orthogonal",
+        "curved"
+      ],
+      "default": "orthogonal",
+      "description": "Line routing style"
+    },
+    "line_style": {
+      "type": "string",
+      "enum": [
+        "solid",
+        "dashed",
+        "dotted"
+      ],
+      "default": "solid",
+      "description": "Line dash style"
+    },
+    "arrow": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the connector ends with an arrow head"
+    },
+    "label": {
+      "type": "string",
+      "description": "Connector label (e.g. functional, coordinates with)"
+    },
+    "color": {
+      "type": "string",
+      "description": "Connector colour. Empty = relationship-type default."
+    },
+    "thickness": {
+      "type": "number",
+      "default": 1.5,
+      "description": "Line thickness in px"
+    },
+    "bend_points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number",
+            "description": "Bend point X (world coordinates)"
+          },
+          "y": {
+            "type": "number",
+            "description": "Bend point Y (world coordinates)"
+          }
+        }
+      },
+      "description": "Manual routing points applied to the connector path (added and removed by the user)"
+    },
+    "is_official": {
+      "type": "boolean",
+      "default": false,
+      "description": "True once the connector has been explicitly applied as an official reporting relationship on the linked Master List employees"
+    },
+    "official_applied_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the connector was applied as an official reporting relationship"
+    },
+    "official_applied_by": {
+      "type": "string",
+      "description": "Email of the user who applied the official reporting relationship"
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete \u2014 removed connectors are hidden but retained for history"
+    }
+  },
+  "required": [
+    "chart_id",
+    "source_id",
+    "target_id"
+  ]
+}

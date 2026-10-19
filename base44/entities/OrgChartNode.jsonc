@@ -1,0 +1,263 @@
+{
+  "name": "OrgChartNode",
+  "type": "object",
+  "properties": {
+    "chart_id": {
+      "type": "string",
+      "description": "Linked OrgChart record ID this card belongs to"
+    },
+    "node_kind": {
+      "type": "string",
+      "enum": [
+        "employee",
+        "position",
+        "shape",
+        "text",
+        "note"
+      ],
+      "default": "employee",
+      "description": "Card type: employee card, position card, generic shape, free text or a note"
+    },
+    "shape": {
+      "type": "string",
+      "default": "rounded",
+      "description": "Shape key for generic shapes (rect, rounded, ellipse, diamond, hexagon, cylinder, parallelogram, circle, note)"
+    },
+    "x": {
+      "type": "number",
+      "default": 0,
+      "description": "Manual canvas X position (world coordinates, persisted exactly as placed)"
+    },
+    "y": {
+      "type": "number",
+      "default": 0,
+      "description": "Manual canvas Y position (world coordinates, persisted exactly as placed)"
+    },
+    "width": {
+      "type": "number",
+      "default": 260,
+      "description": "Card width"
+    },
+    "height": {
+      "type": "number",
+      "default": 118,
+      "description": "Card height"
+    },
+    "rotation": {
+      "type": "number",
+      "default": 0,
+      "description": "Rotation in degrees (used by generic shapes)"
+    },
+    "z_index": {
+      "type": "number",
+      "default": 1,
+      "description": "Stacking order (bring forward / send backward)"
+    },
+    "group_id": {
+      "type": "string",
+      "description": "Group key \u2014 cards sharing it move and select together. Empty = ungrouped."
+    },
+    "is_locked": {
+      "type": "boolean",
+      "default": false,
+      "description": "Locked cards cannot be moved, resized or deleted until unlocked"
+    },
+    "is_visible": {
+      "type": "boolean",
+      "default": true,
+      "description": "Hidden cards stay in the chart but are not drawn"
+    },
+    "is_deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete \u2014 removed cards are hidden but retained for history"
+    },
+    "display_style": {
+      "type": "string",
+      "enum": [
+        "photo",
+        "text",
+        "business"
+      ],
+      "description": "Card presentation: Photo Card, Text Only or Business Card. Empty = use the chart setting."
+    },
+    "density": {
+      "type": "string",
+      "enum": [
+        "minimal",
+        "standard",
+        "detailed"
+      ],
+      "description": "Detail density for this card. Empty = use the chart setting."
+    },
+    "name": {
+      "type": "string",
+      "description": "Full name / card title"
+    },
+    "designation": {
+      "type": "string",
+      "description": "Position / designation shown under the name"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department"
+    },
+    "company": {
+      "type": "string",
+      "description": "Company"
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Project"
+    },
+    "employee_code": {
+      "type": "string",
+      "description": "Employee ID"
+    },
+    "pid": {
+      "type": "string",
+      "description": "PID number"
+    },
+    "qid": {
+      "type": "string",
+      "description": "QID number (used when searching the Master List)"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Phone"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Profile photo URL"
+    },
+    "text_content": {
+      "type": "string",
+      "description": "Body text for text and note cards"
+    },
+    "footer_text": {
+      "type": "string",
+      "description": "Business card footer line"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Remarks"
+    },
+    "extra_fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Custom field label"
+          },
+          "value": {
+            "type": "string",
+            "description": "Custom field value"
+          }
+        }
+      },
+      "description": "Custom fields shown on the card when the Custom Fields field is visible"
+    },
+    "manager_name": {
+      "type": "string",
+      "description": "Reporting manager shown on the card"
+    },
+    "employment_status": {
+      "type": "string",
+      "description": "Employment status shown on the card (never changes the Master List)"
+    },
+    "planned_fill_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Planned fill date for proposed positions"
+    },
+    "position_grade": {
+      "type": "string",
+      "description": "Position grade"
+    },
+    "linked_employee_id": {
+      "type": "string",
+      "description": "Linked Employee (Master List) record ID. Empty for manual cards. The Master List record is never modified by the chart."
+    },
+    "link_source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "master_list",
+        "lookup_position",
+        "lookup_unit",
+        "template"
+      ],
+      "default": "manual",
+      "description": "How the card was created \u2014 manual entry, linked Master List employee, position/unit lookup or template"
+    },
+    "accent_color": {
+      "type": "string",
+      "description": "Accent colour override. Empty = use the chart accent."
+    },
+    "border_color": {
+      "type": "string",
+      "description": "Border colour override"
+    },
+    "background_color": {
+      "type": "string",
+      "description": "Background colour override"
+    },
+    "text_color": {
+      "type": "string",
+      "description": "Text colour override"
+    },
+    "border_width": {
+      "type": "number",
+      "description": "Border thickness override in px"
+    },
+    "corner_radius": {
+      "type": "number",
+      "description": "Corner radius override in px"
+    },
+    "font_size": {
+      "type": "number",
+      "description": "Font size override in px"
+    },
+    "font_weight": {
+      "type": "string",
+      "description": "Font weight override (400-800)"
+    },
+    "avatar_size": {
+      "type": "number",
+      "description": "Avatar size override in px"
+    },
+    "shadow": {
+      "type": "string",
+      "enum": [
+        "none",
+        "sm",
+        "md",
+        "lg"
+      ],
+      "description": "Shadow override"
+    },
+    "padding": {
+      "type": "number",
+      "description": "Inner padding override in px"
+    },
+    "align": {
+      "type": "string",
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ],
+      "description": "Text alignment override"
+    }
+  },
+  "required": [
+    "chart_id",
+    "node_kind"
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "name": "OrgChartVersion",
+  "type": "object",
+  "properties": {
+    "chart_id": {
+      "type": "string",
+      "description": "Linked OrgChart record ID"
+    },
+    "version_no": {
+      "type": "number",
+      "description": "Sequential version number within the chart"
+    },
+    "version_name": {
+      "type": "string",
+      "description": "Named version label (e.g. Issued for Review)"
+    },
+    "note": {
+      "type": "string",
+      "description": "What changed in this version"
+    },
+    "node_snapshot": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "description": "Full card state at the moment the version was saved"
+      },
+      "description": "Complete card layout captured by this version"
+    },
+    "edge_snapshot": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "description": "Full connector state at the moment the version was saved"
+      },
+      "description": "Complete connector set captured by this version"
+    },
+    "chart_snapshot": {
+      "type": "object",
+      "description": "Chart settings and display configuration captured by this version"
+    },
+    "created_by_email": {
+      "type": "string",
+      "description": "Email of the user who saved the version"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Name of the user who saved the version (denormalized)"
+    }
+  },
+  "required": [
+    "chart_id",
+    "version_no"
+  ]
+}

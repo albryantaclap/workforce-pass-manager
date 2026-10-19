@@ -1,0 +1,68 @@
+{
+  "name": "OrgChartTemplate",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Template name"
+    },
+    "category": {
+      "type": "string",
+      "description": "Template category (e.g. Oil & Gas, Department, Corporate)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Short description of what the template contains"
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "description": "Editable card definition (key, name, designation, position, size, style)"
+      },
+      "description": "Cards contained in the template. Editable, never a static image."
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Template key of the starting card"
+          },
+          "target": {
+            "type": "string",
+            "description": "Template key of the target card"
+          },
+          "relationship_type": {
+            "type": "string",
+            "description": "Relationship type of the connector"
+          }
+        }
+      },
+      "description": "Connectors between the template cards (referenced by template key)"
+    },
+    "is_shared": {
+      "type": "boolean",
+      "default": false,
+      "description": "Shared templates are available to every chart builder in the workspace"
+    },
+    "is_system": {
+      "type": "boolean",
+      "default": false,
+      "description": "Built-in template (cannot be edited, can be duplicated)"
+    },
+    "created_by_email": {
+      "type": "string",
+      "description": "Email of the user who saved the template"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Name of the user who saved the template (denormalized)"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

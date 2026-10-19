@@ -1,0 +1,210 @@
+{
+  "name": "OrgChart",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Chart name (e.g. Overall Organization)"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "Linked OrganizationProject record ID. Empty = corporate / cross-project chart."
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Project name (denormalized for display)"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this chart shows"
+    },
+    "template_key": {
+      "type": "string",
+      "description": "Template this chart was created from (empty = blank canvas)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published"
+      ],
+      "default": "draft",
+      "description": "Draft = still being built. Published = an approved revision was issued."
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the chart was last published"
+    },
+    "owner_email": {
+      "type": "string",
+      "description": "Email of the chart owner (full control of the chart and its sharing)"
+    },
+    "owner_name": {
+      "type": "string",
+      "description": "Name of the chart owner (denormalized)"
+    },
+    "shares": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "user_email": {
+            "type": "string",
+            "description": "App user email the chart is shared with"
+          },
+          "user_name": {
+            "type": "string",
+            "description": "App user name (denormalized)"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "administrator",
+              "editor",
+              "reviewer",
+              "viewer"
+            ],
+            "description": "Chart-level role granted to this user"
+          }
+        }
+      },
+      "description": "Chart-level shares. The owner is never listed here."
+    },
+    "view_settings": {
+      "type": "object",
+      "description": "Display settings for the chart (card style, density, accent, visible fields, grid, saved zoom and pan)",
+      "properties": {
+        "card_style": {
+          "type": "string",
+          "enum": [
+            "photo",
+            "text",
+            "business"
+          ],
+          "default": "business"
+        },
+        "density": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "standard",
+            "detailed"
+          ],
+          "default": "standard"
+        },
+        "accent_color": {
+          "type": "string",
+          "default": "#254dd0"
+        },
+        "visible_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "name",
+            "designation",
+            "department"
+          ]
+        },
+        "background_color": {
+          "type": "string",
+          "default": "#ffffff"
+        },
+        "show_grid": {
+          "type": "boolean",
+          "default": true
+        },
+        "snap_to_grid": {
+          "type": "boolean",
+          "default": true
+        },
+        "grid_size": {
+          "type": "number",
+          "default": 20
+        },
+        "show_guides": {
+          "type": "boolean",
+          "default": true
+        },
+        "zoom": {
+          "type": "number",
+          "default": 1
+        },
+        "pan_x": {
+          "type": "number",
+          "default": 80
+        },
+        "pan_y": {
+          "type": "number",
+          "default": 80
+        }
+      }
+    },
+    "card_presets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Preset name shown in the Styles panel"
+          },
+          "style": {
+            "type": "object",
+            "description": "Reusable card style overrides (colors, border, radius, font, avatar, shadow, padding, align)"
+          }
+        }
+      },
+      "description": "Custom reusable card styles saved for this chart"
+    },
+    "revision_no": {
+      "type": "number",
+      "default": 1,
+      "description": "Chart revision number, incremented on publish"
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Effective date printed on exports"
+    },
+    "prepared_by": {
+      "type": "string",
+      "description": "Prepared by (printed on exports)"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Approved by (printed on exports)"
+    },
+    "legend_notes": {
+      "type": "string",
+      "description": "Legend / notes printed on exports"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Internal remarks"
+    },
+    "is_archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "Archived charts are hidden from the active list but fully retained and restorable"
+    },
+    "last_edited_by": {
+      "type": "string",
+      "description": "Email of the last editor"
+    },
+    "last_edited_by_name": {
+      "type": "string",
+      "description": "Name of the last editor (denormalized)"
+    },
+    "last_edited_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the last saved edit"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
