@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import WorkLocationCombobox from '@/components/attendance/WorkLocationCombobox';
 import { useToast } from '@/components/ui/use-toast';
 import { MapPin, Crosshair, Loader2, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { GEOFENCE, geofencePreview, hasCoordinates, locationLabel } from '@/lib/workLocations';
+import { GEOFENCE, geofencePreview, hasCoordinates } from '@/lib/workLocations';
 
 /**
  * Branch selector + GPS capture for the attendance clock. Purely presentational:
@@ -48,22 +48,11 @@ export default function PunchLocationPicker({ locations = [], settings, value, o
 
   return (
     <Card className="p-3 space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <MapPin className="w-4 h-4" />
           Work Location
         </div>
-        <Select value={value || 'none'} onValueChange={(v) => onChange(v === 'none' ? '' : v)}>
-          <SelectTrigger className="w-full sm:w-[260px] h-9">
-            <SelectValue placeholder="Select branch" />
-          </SelectTrigger>
-          <SelectContent>
-            {!required && <SelectItem value="none">No location</SelectItem>}
-            {locations.map((l) => (
-              <SelectItem key={l.id} value={l.id}>{locationLabel(l)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
         {showGps && (
           <div className="flex items-center gap-1">
@@ -79,6 +68,13 @@ export default function PunchLocationPicker({ locations = [], settings, value, o
           </div>
         )}
       </div>
+
+      <WorkLocationCombobox
+        locations={locations}
+        value={value}
+        onChange={onChange}
+        allowNone={!required}
+      />
 
       {required && !value && (
         <p className="text-xs text-amber-700 flex items-center gap-1.5">

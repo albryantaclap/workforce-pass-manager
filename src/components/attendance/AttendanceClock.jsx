@@ -8,6 +8,7 @@ import {
   RefreshCw,
   XCircle,
   CreditCard,
+  MapPin,
 } from "lucide-react";
 import IdCardScanner from "@/components/attendance/IdCardScanner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,7 +18,14 @@ import { useRbac } from "@/lib/useRbac";
 import { getSettings, recordPunch } from "@/lib/attendanceService";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import PunchLocationPicker from "@/components/attendance/PunchLocationPicker";
-import { getActiveLocations } from "@/lib/workLocations";
+import { getActiveLocations, locationLabel } from "@/lib/workLocations";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAttendanceEmployees } from "@/hooks/useAttendanceEmployees";
 import { attendanceBlockReason } from "@/lib/attendanceEligibility";
 
@@ -53,6 +61,8 @@ export default function AttendanceClock({ onRecorded }) {
   // geofence) are enforced in recordPunch() — this only carries the selection.
   const [workLocationId, setWorkLocationId] = useState("");
   const [coords, setCoords] = useState(null);
+  // The Work Location prompt is shown when scanning starts, never on standby.
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
 
   const { data: punchSettings } = useQuery({
     queryKey: ["attendance-settings"],
@@ -66,6 +76,10 @@ export default function AttendanceClock({ onRecorded }) {
   });
   const locationRequired = punchSettings?.require_location_on_punch === true;
   const needsLocation = locationRequired && !workLocationId;
+  // Only prompt when there is actually something to choose on the prompt.
+  const hasLocationStep =
+    workLocations.length > 0 || punchSettings?.gps_verification_enabled === true;
+  const selectedLocation = workLocations.find((l) => l.id === workLocationId) || null;
 
   const user = useCurrentUser();
   const { can } = useRbac();
@@ -206,9 +220,20 @@ export default function AttendanceClock({ onRecorded }) {
     setSuccessEmployee(null);
   };
 
-  const handleStart = () => {
+  const beginScan = () => {
+    setShowLocationPrompt(false);
     setStep(STEP.SCANNING);
     setScannerKey((k) => k + 1);
+  };
+
+  // Pressing Start Scanning opens the Work Location prompt when branches exist;
+  // otherwise the scanner activates straight away.
+  const handleStart = () => {
+    if (hasLocationStep) {
+      setShowLocationPrompt(true);
+      return;
+    }
+    beginScan();
   };
 
   return (
@@ -219,15 +244,6 @@ export default function AttendanceClock({ onRecorded }) {
           Scan an ID card to clock in or out automatically
         </p>
       </div>
-
-      <PunchLocationPicker
-        locations={workLocations}
-        settings={punchSettings}
-        value={workLocationId}
-        onChange={setWorkLocationId}
-        coords={coords}
-        onCoordsChange={setCoords}
-      />
 
       <Card className="rounded-2xl overflow-hidden min-h-[520px] flex flex-col">
         <AnimatePresence mode="wait">
@@ -254,7 +270,6 @@ export default function AttendanceClock({ onRecorded }) {
                 <Button
                   onClick={handleStart}
                   size="lg"
-                  disabled={needsLocation}
                   className="gap-2 w-full max-w-xs text-base h-12"
                 >
                   <CreditCard className="w-5 h-5" /> Start Scanning
@@ -281,6 +296,12 @@ export default function AttendanceClock({ onRecorded }) {
                   <p className="text-xs text-muted-foreground">
                     Scanning continuously for employees
                   </p>
+                  {selectedLocation && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3" />
+                      {locationLabel(selectedLocation)}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -404,6 +425,38 @@ export default function AttendanceClock({ onRecorded }) {
           )}
         </AnimatePresence>
       </Card>
+
+      <Dialog
+        open={showLocationPrompt}
+        onOpenChange={(open) => { if (!open) setShowLocationPrompt(false); }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Work Location</DialogTitle>
+            <DialogDescription>
+              Select the branch you are scanning at. Each punch is recorded against it.
+            </DialogDescription>
+          </DialogHeader>
+
+          <PunchLocationPicker
+            locations={workLocations}
+            settings={punchSettings}
+            value={workLocationId}
+            onChange={setWorkLocationId}
+            coords={coords}
+            onCoordsChange={setCoords}
+          />
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowLocationPrompt(false)}>
+              Cancel
+            </Button>
+            <Button onClick={beginScan} disabled={needsLocation} className="gap-2">
+              <CreditCard className="w-4 h-4" /> Start Scanning
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
