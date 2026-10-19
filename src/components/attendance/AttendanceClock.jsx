@@ -430,7 +430,7 @@ export default function AttendanceClock({ onRecorded }) {
         open={showLocationPrompt}
         onOpenChange={(open) => { if (!open) setShowLocationPrompt(false); }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Work Location</DialogTitle>
             <DialogDescription>

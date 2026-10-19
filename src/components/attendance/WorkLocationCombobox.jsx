@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
 import { Check, ChevronsUpDown } from 'lucide-react';
@@ -9,6 +8,11 @@ import { locationLabel } from '@/lib/workLocations';
 /**
  * Type-to-search branch selector. Every active location is listed as
  * "CODE — NAME" and the list filters as the operator types a code or a name.
+ *
+ * The list expands in flow right under the field instead of floating in a portal:
+ * this picker lives inside a modal dialog, and while a modal is open the page
+ * scroll is locked (portalled panels are excluded from that lock), which is why
+ * a floating list cannot be dragged on a touch screen. An in-flow list scrolls.
  */
 export default function WorkLocationCombobox({ locations = [], value, onChange, allowNone = true }) {
   const [open, setOpen] = useState(false);
@@ -20,25 +24,25 @@ export default function WorkLocationCombobox({ locations = [], value, onChange, 
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between font-normal h-9"
-        >
-          <span className={cn('truncate', !selected && 'text-muted-foreground')}>
-            {selected ? locationLabel(selected) : 'Type or select a branch'}
-          </span>
-          <ChevronsUpDown className="w-4 h-4 opacity-50 shrink-0" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="p-0 w-[var(--radix-popover-trigger-width)]">
-        <Command>
-          <CommandInput placeholder="Search branch code or name..." />
-          <CommandList>
+    <div className="space-y-2">
+      <Button
+        type="button"
+        variant="outline"
+        role="combobox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="w-full justify-between font-normal h-9"
+      >
+        <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+          {selected ? locationLabel(selected) : 'Type or select a branch'}
+        </span>
+        <ChevronsUpDown className="w-4 h-4 opacity-50 shrink-0" />
+      </Button>
+
+      {open && (
+        <Command className="rounded-lg border shadow-sm">
+          <CommandInput placeholder="Search branch code or name..." autoFocus />
+          <CommandList className="max-h-[40vh] overscroll-contain">
             <CommandEmpty>No branch found.</CommandEmpty>
             {allowNone && (
               <CommandItem value="no-location" onSelect={() => pick('')}>
@@ -58,7 +62,7 @@ export default function WorkLocationCombobox({ locations = [], value, onChange, 
             ))}
           </CommandList>
         </Command>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   );
 }
