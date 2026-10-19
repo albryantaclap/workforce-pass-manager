@@ -42,8 +42,40 @@ export async function getShifts() {
   return await base44.entities.AttendanceShift.list('-created_date', 1000);
 }
 
+/** Full assignment table — for the shift settings / roster views that show every
+ * assignment. Never use this on the punch path (see getEmployeeShiftAssignments). */
 export async function getShiftAssignments() {
   return await base44.entities.AttendanceShiftAssignment.list('-created_date', 5000);
+}
+
+/**
+ * Shift assignments relevant to ONE employee.
+ *
+ * The punch path resolves a shift for a single person, so it must never read the
+ * whole assignment table (thousands of rows) on every scan — that per-scan read
+ * is what exhausted the app's read-volume limit during a clock-in rush.
+ *
+ * The lookup mirrors the four patterns resolveShift() matches (employee, branch,
+ * department, company), so narrowing the query never changes which shift an
+ * employee resolves to. Inactive assignments are returned and ignored by the
+ * engine exactly as before.
+ */
+export async function getEmployeeShiftAssignments(employee) {
+  if (!employee?.id) return [];
+  const conditions = [{ assignment_type: 'employee', personnel_id: employee.id }];
+  if (employee.current_location) {
+    conditions.push({ assignment_type: 'branch', branch_location: employee.current_location });
+  }
+  if (employee.department) {
+    conditions.push({ assignment_type: 'department', department: employee.department });
+  }
+  if (employee.company) {
+    conditions.push({ assignment_type: 'company', company: employee.company });
+  }
+  return await base44.entities.AttendanceShiftAssignment.filter(
+    { $or: conditions },
+    undefined, 200
+  );
 }
 
 export async function getHolidays() {
@@ -141,9 +173,15 @@ export async function recordPunch({
   if (!personnelId) throw new Error('Employee is required.');
   if (!timestamp) throw new Error('Punch timestamp is required.');
 
-  // Load settings/shifts to auto-close expired sessions
+  // The employee is read first: shift resolution needs the full record, and it
+  // lets the assignment lookup below be narrowed to this one person.
+  let emp = { id: personnelId, company };
+  try { emp = (await base44.entities.Employee.get(personnelId)) || emp; } catch {}
+
+  // Load settings/shifts to auto-close expired sessions, plus ONLY this
+  // employee's shift assignments — never the whole assignment table.
   const settings = await getSettings();
-  const [shifts, assignments] = await Promise.all([getShifts(), getShiftAssignments()]);
+  const [shifts, assignments] = await Promise.all([getShifts(), getEmployeeShiftAssignments(emp)]);
   await autoCloseExpiredSessions(personnelId, settings, shifts, assignments, [], currentUser);
 
   // ── Work location & geofence gate ──
@@ -161,8 +199,6 @@ export async function recordPunch({
   // local date — so the punch window is built on the same day the shift runs.
   const attDate = timestamp.toLocaleDateString('en-CA', { timeZone: 'Asia/Qatar' });
 
-  let emp = { id: personnelId, company };
-  try { emp = (await base44.entities.Employee.get(personnelId)) || emp; } catch {}
   const shift = resolveShift(emp, assignments, shifts, settings);
 
   // ── Cross-midnight split-shift: resolve the shift-start date ──
