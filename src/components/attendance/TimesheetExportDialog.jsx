@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { FileSpreadsheet, Loader2 } from 'lucide-react';
 import { buildTimesheets, filterEmployeesForReport } from '@/lib/timesheetBuilder';
 import { exportTimesheetExcel } from '@/lib/timesheetExcel';
+import { personnelAtBranch } from '@/lib/attendanceEngine';
+import { useAttendanceFilterOptions } from '@/hooks/useAttendanceFilterOptions';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -29,12 +31,14 @@ export default function TimesheetExportDialog({ open, onOpenChange, employees, r
   const [department, setDepartment] = useState(baseFilters?.department || '');
   const [branch, setBranch] = useState(baseFilters?.branch || '');
   const [busy, setBusy] = useState(false);
+  // Branch list = Branch / Work Locations defined in Attendance Settings.
+  const { options: branchOptions } = useAttendanceFilterOptions();
 
   const options = useMemo(() => ({
     companies: [...new Set(employees.map((e) => e.company).filter(Boolean))].sort(),
     departments: [...new Set(employees.map((e) => e.department).filter(Boolean))].sort(),
-    branches: [...new Set(employees.map((e) => e.current_location).filter(Boolean))].sort(),
-  }), [employees]);
+    branches: branchOptions.branches,
+  }), [employees, branchOptions]);
 
   const { range, periodLabel } = useMemo(() => {
     if (mode === 'month') {
@@ -54,7 +58,11 @@ export default function TimesheetExportDialog({ open, onOpenChange, employees, r
   const handleExport = async () => {
     setBusy(true);
     try {
-      const timesheets = buildTimesheets(filteredEmployees, records, settings, shifts, assignments, holidays, range.from, range.to);
+      // Branch / Location keeps the personnel with attendance recorded at that
+      // branch during the export period.
+      const allowed = personnelAtBranch(records, branch, range.from, range.to);
+      const targets = branch ? filteredEmployees.filter((e) => allowed.has(e.id)) : filteredEmployees;
+      const timesheets = buildTimesheets(targets, records, settings, shifts, assignments, holidays, range.from, range.to);
       await exportTimesheetExcel(timesheets, periodLabel);
       onOpenChange(false);
     } finally {

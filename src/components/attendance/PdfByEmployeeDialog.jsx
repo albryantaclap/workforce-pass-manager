@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { FileText, Loader2 } from 'lucide-react';
 import { buildTimesheets, filterEmployeesForReport } from '@/lib/timesheetBuilder';
 import { exportTimesheetPdf } from '@/lib/timesheetPdf';
+import { personnelAtBranch } from '@/lib/attendanceEngine';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -18,11 +19,6 @@ export default function PdfByEmployeeDialog({ open, onOpenChange, employees, rec
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const filteredEmployees = useMemo(
-    () => filterEmployeesForReport(employees, { ...baseFilters, search: search || baseFilters?.search || '' }),
-    [employees, baseFilters, search]
-  );
-
   const { range, periodLabel } = useMemo(() => {
     if (mode === 'month') {
       const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
@@ -32,6 +28,16 @@ export default function PdfByEmployeeDialog({ open, onOpenChange, employees, rec
     }
     return { range: { from: dateFrom, to: dateTo }, periodLabel: `${dateFrom} to ${dateTo}` };
   }, [mode, month, year, dateFrom, dateTo]);
+
+  const filteredEmployees = useMemo(() => {
+    const list = filterEmployeesForReport(employees, { ...baseFilters, search: search || baseFilters?.search || '' });
+    // Branch / Location keeps the personnel with attendance recorded at that branch
+    // during the period (Branch / Work Locations from Attendance Settings).
+    const branch = baseFilters?.branch;
+    if (!branch) return list;
+    const allowed = personnelAtBranch(records, branch, range.from, range.to);
+    return list.filter((e) => allowed.has(e.id));
+  }, [employees, baseFilters, search, records, range]);
 
   const selectedEmp = filteredEmployees.find((e) => e.id === employeeId) || null;
 

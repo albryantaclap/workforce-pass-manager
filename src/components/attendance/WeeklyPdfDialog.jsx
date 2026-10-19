@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { CalendarRange, Loader2, ChevronDown } from 'lucide-react';
 import { exportWeeklyPdf } from '@/lib/weeklyPdf';
+import { sameSiteLocation } from '@/lib/attendanceEngine';
+import { useAttendanceFilterOptions } from '@/hooks/useAttendanceFilterOptions';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTHS_UP = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
@@ -46,10 +48,9 @@ export default function WeeklyPdfDialog({ open, onOpenChange, employees, records
     () => [...new Set(employees.map((e) => e.department).filter(Boolean))].sort(),
     [employees]
   );
-  const branches = useMemo(
-    () => [...new Set(employees.map((e) => e.current_location).filter(Boolean))].sort(),
-    [employees]
-  );
+  // Branch list = Branch / Work Locations defined in Attendance Settings.
+  const { options: branchOptions } = useAttendanceFilterOptions();
+  const branches = branchOptions.branches;
   const companies = useMemo(
     () => [...new Set(employees.map((e) => e.company).filter(Boolean))].sort(),
     [employees]
@@ -82,12 +83,12 @@ export default function WeeklyPdfDialog({ open, onOpenChange, employees, records
     for (const r of inRange) {
       const emp = empMap.get(r.personnel_id) || { name: r.employee_name, company: r.company };
       if (department && emp.department !== department) continue;
-      if (branch && emp.current_location !== branch) continue;
+      if (branch && !sameSiteLocation(r.site_location, branch)) continue;
       if (company && emp.company !== company) continue;
       // honor base filters (manager/search) if provided
       if (baseFilters?.company && emp.company !== baseFilters.company) continue;
       if (baseFilters?.department && emp.department !== baseFilters.department) continue;
-      if (baseFilters?.branch && emp.current_location !== baseFilters.branch) continue;
+      if (baseFilters?.branch && !sameSiteLocation(r.site_location, baseFilters.branch)) continue;
       seenEmps.add(r.personnel_id);
       out.push({ record: r, emp });
     }

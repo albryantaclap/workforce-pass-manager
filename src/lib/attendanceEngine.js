@@ -626,3 +626,25 @@ export const calculateAttendanceState = (record, shift, settings, holidays = [],
     isLate, lateMinutes,
   };
 };
+
+// ── Branch / Location filter helpers ─────────────────────────────────────────
+// The branch list comes from Attendance Settings → Branch / Work Locations and is
+// matched against the site location recorded on the attendance record (the branch
+// the supervisor selected at the scanner), never the employee current_location.
+export const sameSiteLocation = (value, branch) => {
+  if (!branch) return true;
+  return String(value || '').trim().toLowerCase() === String(branch).trim().toLowerCase();
+};
+
+// Personnel ids with attendance recorded at the branch inside a period.
+export const personnelAtBranch = (records, branch, from, to) => {
+  const ids = new Set();
+  if (!branch) return ids;
+  for (const r of records || []) {
+    if (!r || r.is_deleted) continue;
+    if (from && r.attendance_date < from) continue;
+    if (to && r.attendance_date > to) continue;
+    if (sameSiteLocation(r.site_location, branch)) ids.add(r.personnel_id);
+  }
+  return ids;
+};

@@ -6,6 +6,7 @@ import {
   filterEmployees,
   resolveShift,
   calculateAttendanceStatus,
+  matchesBranch,
 } from "../../shared/attendanceCalc.ts";
 import { ATTENDANCE_ROSTER_QUERY } from "../../shared/attendanceRoster.ts";
 
@@ -96,8 +97,15 @@ export default async function (req: Request): Promise<Response> {
       attByPersonnel.get(r.personnel_id).push(r);
     }
 
+    // 6b. Branch / Location filter — employees with attendance recorded at the
+    //     selected branch during the period (Attendance Settings → Branch / Work
+    //     Locations).
+    const scopedEmps = filters.branch
+      ? filteredEmps.filter((e) => (attByPersonnel.get(e.id) || []).some((r) => matchesBranch(r, filters.branch)))
+      : filteredEmps;
+
     // 7. Build summary rows with aggregation (same logic as the frontend)
-    const summaryRows = filteredEmps.map((emp) => {
+    const summaryRows = scopedEmps.map((emp) => {
       const records = attByPersonnel.get(emp.id) || [];
       const shift = resolveShift(emp, assignments, shifts, settings);
       let present = 0,

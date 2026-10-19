@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
-import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus, getFinalOut } from "../../shared/attendanceCalc.ts";
+import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus, getFinalOut, matchesBranch } from "../../shared/attendanceCalc.ts";
 import { ATTENDANCE_ROSTER_QUERY } from "../../shared/attendanceRoster.ts";
 
 // Server-side aggregation for the Daily Attendance → Dashboard tab.
@@ -53,6 +53,12 @@ export default async function (req: Request): Promise<Response> {
       }
     }
 
+    // 3b. Branch / Location filter — the day's attendance recorded at the selected
+    //     branch (Attendance Settings → Branch / Work Locations).
+    const scopedEmps = filters.branch
+      ? filteredEmps.filter((e: any) => matchesBranch(attByPersonnel.get(e.id), filters.branch))
+      : filteredEmps;
+
     // 4. Calculate KPIs + derived data (same logic as frontend components)
     let present = 0, absent = 0, late = 0, checkedIn = 0, checkedOut = 0;
     let currentlyWorking = 0, missingCheckout = 0, onLeave = 0, restDay = 0;
@@ -61,7 +67,7 @@ export default async function (req: Request): Promise<Response> {
     const deptMap = new Map<string, { dept: string; total: number; present: number }>();
     const PRESENT_STATUSES = ["Present", "Late", "Half Day", "Missing Check-out", "Incomplete"];
 
-    for (const emp of filteredEmps) {
+    for (const emp of scopedEmps) {
       const att = attByPersonnel.get(emp.id);
       let status: string;
       if (att) {
@@ -104,7 +110,7 @@ export default async function (req: Request): Promise<Response> {
       if (PRESENT_STATUSES.includes(status)) entry.present++;
     }
 
-    const expected = filteredEmps.length - onLeave - restDay;
+    const expected = scopedEmps.length - onLeave - restDay;
     const rate = expected > 0 ? Math.round((present / expected) * 100) : 0;
 
     // 5. Sort clocked-in by check-in time (oldest first)
@@ -124,7 +130,7 @@ export default async function (req: Request): Promise<Response> {
 
     return Response.json({
       kpis: {
-        total: filteredEmps.length, present, absent, late,
+        total: scopedEmps.length, present, absent, late,
         checkedIn, checkedOut, currentlyWorking,
         missingCheckout, onLeave, restDay, rate, expected,
       },

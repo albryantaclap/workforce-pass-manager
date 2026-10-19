@@ -344,9 +344,22 @@ export function validatePunchSequence(
   return { blocked, warnings };
 }
 
-// Apply personnel filters (search, company, department, designation, manager,
-// branch, dirIndir) to an employee array. Manager filter uses assigned_manager_name
-// to match the dropdown values.
+// Branch / Location filter. The branch list comes from Attendance Settings →
+// Branch / Work Locations and is matched against the site location recorded on the
+// attendance record itself (the branch the supervisor selected at the scanner).
+// The legacy employee current_location (COMO CAMP / OUTSIDE / QATAR) never drives
+// this filter.
+const normalizeBranch = (v: any) => String(v || "").trim().toLowerCase();
+
+export function matchesBranch(record: any, branch?: string): boolean {
+  if (!branch) return true;
+  return normalizeBranch(record?.site_location) === normalizeBranch(branch);
+}
+
+// Apply personnel filters (search, company, department, designation, manager)
+// to an employee array. Manager filter uses assigned_manager_name to match the
+// dropdown values. Branch / Location is NOT applied here — an employee's branch is
+// the site they actually attended, so it is applied per record via matchesBranch().
 export function filterEmployees(employees: any[], filters: any): any[] {
   let result = employees;
   if (filters.search) {
@@ -360,7 +373,7 @@ export function filterEmployees(employees: any[], filters: any): any[] {
   if (filters.department) result = result.filter((e) => e.department === filters.department);
   if (filters.designation) result = result.filter((e) => e.position_application === filters.designation);
   if (filters.manager) result = result.filter((e) => e.assigned_manager_name === filters.manager);
-  if (filters.branch) result = result.filter((e) => e.current_location === filters.branch);
+  // (Branch / Location is applied per attendance record — see matchesBranch above.)
   if (filters.dirIndir) result = result.filter((e) => e.dir_indir === filters.dirIndir);
   return result;
 }

@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
-import { filterEmployees, resolveShift, calculateAttendanceStatus } from "../../shared/attendanceCalc.ts";
+import { filterEmployees, resolveShift, calculateAttendanceStatus, matchesBranch } from "../../shared/attendanceCalc.ts";
 import { ATTENDANCE_ROSTER_QUERY } from "../../shared/attendanceRoster.ts";
 import { loadUserDirectory, resolveScannedBy, needsUserDirectory } from "../../shared/attendanceUsers.ts";
 
@@ -89,7 +89,10 @@ export default async function (req: Request): Promise<Response> {
         // Status filter (uses calculated status)
         if (!status) return true;
         return calcStatus === status;
-      });
+      })
+      // Branch / Location filter — the branch recorded for that day's attendance
+      // (Attendance Settings → Branch / Work Locations).
+      .filter(({ record }) => matchesBranch(record, filters.branch));
 
     // 5. Sort by date descending, then by name
     reportRows.sort((a, b) => {

@@ -116,11 +116,12 @@ export const buildTimesheets = (employees, records, settings, shifts, assignment
     const siteLocations = [...new Set(
       dates.map((dateStr) => recMap.get(`${emp.id}|${dateStr}`)?.site_location).filter(Boolean)
     )];
-    return { emp, shift, days, summary: summarize(days), siteLocation: siteLocations.join(' / ') };
+    return { emp, shift, days, summary: summarize(days), siteLocations, siteLocation: siteLocations.join(' / ') };
   });
 };
 
-// Filter employees by the standard filter set (company/department/branch/manager/status/search).
+// Filter employees by the standard personnel filter set (company/department/manager/search).
+// Branch / Location is applied against the attendance records, not the employee.
 export const filterEmployeesForReport = (employees, f = {}) => {
   const s = (f.search || '').toLowerCase();
   return employees.filter((e) => {
@@ -129,7 +130,8 @@ export const filterEmployeesForReport = (employees, f = {}) => {
     }
     if (f.company && e.company !== f.company) return false;
     if (f.department && e.department !== f.department) return false;
-    if (f.branch && e.current_location !== f.branch) return false;
+    // Branch / Location is matched against the branch recorded on the attendance
+    // records (see personnelAtBranch / sameSiteLocation in attendanceEngine).
     if (f.manager && e.assigned_manager_name !== f.manager) return false;
     // Note: attendance-status filtering is applied per-day from records, not here.
     if (s) {

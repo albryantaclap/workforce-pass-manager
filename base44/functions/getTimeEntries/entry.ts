@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
-import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus, getFinalOut } from "../../shared/attendanceCalc.ts";
+import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus, getFinalOut, matchesBranch } from "../../shared/attendanceCalc.ts";
 import { ATTENDANCE_ROSTER_QUERY } from "../../shared/attendanceRoster.ts";
 import { loadUserDirectory, resolveScannedBy, needsUserDirectory } from "../../shared/attendanceUsers.ts";
 
@@ -77,6 +77,13 @@ export default async function (req: Request): Promise<Response> {
       }
       return { emp, att, simpleStatus };
     });
+
+    // 4b. Branch / Location filter — keeps the rows whose attendance for the day is
+    //     recorded at the selected branch (Attendance Settings → Branch / Work
+    //     Locations).
+    if (filters.branch) {
+      rows = rows.filter((r: any) => matchesBranch(r.att, filters.branch));
+    }
 
     // 5. Apply showAbsent filter
     if (!showAbsent) {
