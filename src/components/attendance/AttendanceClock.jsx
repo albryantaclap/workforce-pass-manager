@@ -61,9 +61,9 @@ export default function AttendanceClock({ onRecorded }) {
   // geofence) are enforced in recordPunch() — this only carries the selection.
   const [workLocationId, setWorkLocationId] = useState("");
   const [coords, setCoords] = useState(null);
-  // The Work Location prompt is shown when scanning starts, never on standby. It
-  // also opens for the employee being scanned when the day's first punch
-  // (clock-in) still needs a branch.
+  // The Work Location prompt opens ONLY when a branch is actually needed — for the
+  // employee being scanned at the day's first punch (clock-in) — or when the
+  // supervisor taps the branch in the scanning header to set or change it.
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [pendingEmployee, setPendingEmployee] = useState(null);
 
@@ -273,15 +273,10 @@ export default function AttendanceClock({ onRecorded }) {
     resumeForNextEmployee();
   };
 
-  // Pressing Start Scanning opens the Work Location prompt when branches exist;
-  // otherwise the scanner activates straight away.
-  const handleStart = () => {
-    if (hasLocationStep) {
-      setShowLocationPrompt(true);
-      return;
-    }
-    beginScan();
-  };
+  // Start Scanning activates the scanner straight away. Scanning is never
+  // interrupted by the branch prompt: the branch is only asked for on the first
+  // punch of the day, at the moment that punch is scanned.
+  const handleStart = () => beginScan();
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
@@ -343,12 +338,16 @@ export default function AttendanceClock({ onRecorded }) {
                   <p className="text-xs text-muted-foreground">
                     Scanning continuously for employees
                   </p>
-                  {selectedLocation && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3" />
-                      {locationLabel(selectedLocation)}
-                    </p>
-                  )}
+                  {/* The branch can be set or changed at any time without stopping
+                      the scanner — it is only required on the first punch of the day. */}
+                  <button
+                    type="button"
+                    onClick={() => setShowLocationPrompt(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mt-0.5"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    {selectedLocation ? locationLabel(selectedLocation) : "Set work location"}
+                  </button>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -501,7 +500,7 @@ export default function AttendanceClock({ onRecorded }) {
               {pendingEmployee ? "Skip this employee" : "Cancel"}
             </Button>
             <Button onClick={confirmLocation} className="gap-2">
-              <CreditCard className="w-4 h-4" /> {pendingEmployee ? "Record Punch" : "Start Scanning"}
+              <MapPin className="w-4 h-4" /> {pendingEmployee ? "Record Punch" : "Save Branch"}
             </Button>
           </div>
         </DialogContent>
