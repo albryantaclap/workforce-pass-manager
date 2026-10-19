@@ -8,6 +8,7 @@ const ORG_SUBMENU = [
   { label: 'Departments', icon: Building2, path: '/organization/units', gradient: 'from-emerald-400 to-green-600' },
   { label: 'Positions', icon: GitBranch, path: '/organization/positions', gradient: 'from-orange-400 to-orange-500' },
   { label: 'Divisional Chart', icon: Network, path: '/organization/divisional-chart', gradient: 'from-blue-500 to-indigo-600' },
+  { label: 'Visual Chart Builder', icon: Network, path: '/organization/charts', gradient: 'from-amber-400 to-orange-500' },
 ];
 
 export default function OrganizationSubmenuNav() {

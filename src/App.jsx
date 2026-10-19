@@ -45,6 +45,8 @@ import OrganizationProjects from './pages/organization/OrganizationProjects';
 import OrganizationUnits from './pages/organization/OrganizationUnits';
 import OrganizationPositions from './pages/organization/OrganizationPositions';
 import DivisionalOrgChart from './pages/organization/DivisionalOrgChart';
+import OrgCharts from './pages/organization/OrgCharts';
+import OrgChartBuilder from './pages/organization/OrgChartBuilder';
 
 
 const AuthenticatedApp = () => {
@@ -122,7 +124,9 @@ const AuthenticatedApp = () => {
         <Route path="/organization/units" element={<OrganizationUnits />} />
         <Route path="/organization/positions" element={<OrganizationPositions />} />
         <Route path="/organization/divisional-chart" element={<DivisionalOrgChart />} />
+        <Route path="/organization/charts" element={<OrgCharts />} />
       </Route>
+      <Route path="/organization/chart-builder" element={<OrgChartBuilder />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

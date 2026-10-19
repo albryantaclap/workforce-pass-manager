@@ -1,4 +1,6 @@
-// Geometry, routing and automatic layout for the Visual Org Chart Builder.
+// Geometry, routing and layout helpers for the Organization Management charts:
+// the reporting-tree layout used by the Divisional Org Chart and the manual
+// canvas geometry used by the Visual Org Chart Builder.
 
 export const DEFAULT_W = 260;
 export const DEFAULT_H = 118;
@@ -281,4 +283,55 @@ export function autoLayout(mode, nodes, edges) {
     });
   });
   return patches;
+}
+
+// ---------------------------------------------------------------------------
+// Reporting-tree layout used by the Divisional Organization Chart.
+// Returns card centres (x), tops (y), the connector list and the canvas size.
+// ---------------------------------------------------------------------------
+export const LAYOUT = { nodeWidth: 200, nodeHeight: 86, hGap: 26, vGap: 74 };
+
+export function computeLayout(tree, collapsedSet = new Set()) {
+  const { nodeWidth, nodeHeight, hGap, vGap } = LAYOUT;
+  const positions = new Map();
+  const edges = [];
+  let cursor = 0;
+  let maxDepth = 0;
+
+  const walk = (node, depth) => {
+    maxDepth = Math.max(maxDepth, depth);
+    const allChildren = node.children || [];
+    const visibleChildren = collapsedSet.has(node.id) ? [] : allChildren;
+    let x;
+    if (visibleChildren.length) {
+      const childXs = visibleChildren.map(child => walk(child, depth + 1));
+      x = (childXs[0] + childXs[childXs.length - 1]) / 2;
+    } else {
+      x = cursor + nodeWidth / 2;
+      cursor += nodeWidth + hGap;
+    }
+    positions.set(node.id, {
+      x,
+      y: depth * (nodeHeight + vGap),
+      depth,
+      childCount: allChildren.length,
+      collapsed: collapsedSet.has(node.id),
+    });
+    visibleChildren.forEach(child => edges.push({ from: node.id, to: child.id }));
+    return x;
+  };
+
+  (tree || []).forEach(root => {
+    walk(root, 0);
+    cursor += hGap;
+  });
+
+  return {
+    positions,
+    edges,
+    width: Math.max(cursor, nodeWidth + hGap),
+    height: (maxDepth + 1) * (nodeHeight + vGap),
+    nodeWidth,
+    nodeHeight,
+  };
 }
