@@ -92,6 +92,11 @@ export async function waitForExportSurface(getElement, { timeout = 5000 } = {}) 
   }
   if (!element) throw new Error('The export could not be prepared. Please try again.');
   if (document.fonts?.ready) await document.fonts.ready;
+  // The connectors are painted onto their own canvas; wait until that paint is done.
+  const canvas = element.querySelector('canvas[data-export-ready]');
+  while (canvas && canvas.dataset.exportReady !== '1' && Date.now() - startedAt < timeout) {
+    await new Promise(resolve => setTimeout(resolve, 30));
+  }
   await Promise.all([...element.querySelectorAll('img')].map(img => (
     img.complete && img.naturalWidth
       ? null

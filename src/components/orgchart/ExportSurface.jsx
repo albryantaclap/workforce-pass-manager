@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import NodeCard from '@/components/orgchart/NodeCard';
-import ConnectorLayer from '@/components/orgchart/ConnectorLayer';
+import ExportConnectorCanvas from '@/components/orgchart/ExportConnectorCanvas';
 import { nodeSize } from '@/lib/orgChartLayout';
 
 const noop = () => {};
@@ -53,15 +53,7 @@ export default forwardRef(function ExportSurface({ rect, nodes, edges, settings,
       }}
     >
       <div style={{ position: 'absolute', left: -rect.x, top: -rect.y }}>
-        <ConnectorLayer
-          nodes={visible}
-          edges={edges}
-          selectedEdgeId={null}
-          canEdit={false}
-          onSelectEdge={noop}
-          onReconnectStart={noop}
-          onBendStart={noop}
-        />
+        <ExportConnectorCanvas rect={rect} nodes={visible} edges={edges} />
         {visible.map(node => (
           <NodeCard
             key={node.id}
