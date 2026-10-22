@@ -14,6 +14,7 @@ import NodeDialog from '@/components/orgchart/NodeDialog';
 import ShareDialog from '@/components/orgchart/ShareDialog';
 import VersionsDialog from '@/components/orgchart/VersionsDialog';
 import ExportDialog from '@/components/orgchart/ExportDialog';
+import ExportSurface, { exportBounds } from '@/components/orgchart/ExportSurface';
 import AutoLayoutDialog from '@/components/orgchart/AutoLayoutDialog';
 import HelpDialog from '@/components/orgchart/HelpDialog';
 import { Button } from '@/components/ui/button';
@@ -22,10 +23,10 @@ import { alignNodes, autoLayout, distributeNodes, nodeBounds, nodeSize } from '@
 import { EDGE_PERSIST_FIELDS, NODE_PERSIST_FIELDS, defaultNode, uid } from '@/lib/orgChartConstants';
 import {
   captureElement, downloadBlob, exportExcel, exportImage, exportJson, exportPdf, exportSvgFile, safeName,
+  waitForExportSurface,
 } from '@/lib/orgChartExport';
 
 const pick = (obj, fields) => fields.reduce((acc, k) => { if (obj && obj[k] !== undefined) acc[k] = obj[k]; return acc; }, {});
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const TEMPLATE_NODE_FIELDS = [
   'node_kind', 'shape', 'x', 'y', 'width', 'height', 'rotation', 'z_index', 'display_style', 'density',
   'name', 'designation', 'department', 'company', 'project_name', 'employee_code', 'pid', 'email', 'phone',
@@ -49,6 +50,8 @@ export default function OrgChartBuilder() {
   const [dialog, setDialog] = useState(null);
   const [notice, setNotice] = useState('');
   const [exportError, setExportError] = useState('');
+  const [exportRect, setExportRect] = useState(null);
+  const exportSurfaceRef = useRef(null);
   const [showMinimap, setShowMinimap] = useState(false);
   const [projects, setProjects] = useState([]);
   const [projectCharts, setProjectCharts] = useState([]);
@@ -531,38 +534,55 @@ export default function OrgChartBuilder() {
         });
         return;
       }
-      const previousView = view;
-      const previousSelection = editor.selection;
+      // Raster formats are captured from an off-screen copy of the chart drawn at
+      // 1:1 world scale, so the result never depends on the current zoom / pan and
+      // connectors keep the exact geometry they have on the canvas.
+      const visible = nodes.filter(n => n.is_visible !== false);
       const target = options.area === 'selection'
         ? nodes.filter(n => editor.selection.includes(n.id))
-        : nodes.filter(n => n.is_visible !== false);
-      editor.setSelection([]);
-      if (options.area !== 'visible') fitBounds(target, 70);
-      await sleep(options.area === 'visible' ? 60 : 280);
-      const canvas = await captureElement(containerRef.current, {
-        scale: options.resolution || 2,
-        transparent: options.transparent,
-        background: viewSettings.background_color || '#ffffff',
-      });
-      if (options.format === 'PDF') {
-        await exportPdf(canvas, {
-          pageSize: options.pageSize,
-          orientation: options.orientation,
-          fitToPage: options.fitToPage,
-          multiPage: options.multiPage,
-          header: options.header,
-          filename,
-        });
+        : visible;
+      if (!target.length) throw new Error('Select at least one card to export the selected area.');
+      let rect;
+      if (options.area === 'visible') {
+        const el = containerRef.current;
+        const zoom = view.zoom || 1;
+        rect = {
+          x: Math.round(-view.x / zoom),
+          y: Math.round(-view.y / zoom),
+          w: Math.max(1, Math.round((el?.clientWidth || 1200) / zoom)),
+          h: Math.max(1, Math.round((el?.clientHeight || 800) / zoom)),
+        };
       } else {
-        await exportImage(canvas, { format: options.format, transparent: options.transparent, filename });
+        rect = exportBounds(target, edges);
       }
-      setView(previousView);
-      editor.setSelection(previousSelection);
+      setExportRect({ ...rect, transparent: options.transparent });
+      try {
+        const surface = await waitForExportSurface(() => exportSurfaceRef.current);
+        const canvas = await captureElement(surface, {
+          scale: options.resolution || 2,
+          transparent: options.transparent,
+          background: viewSettings.background_color || '#ffffff',
+        });
+        if (options.format === 'PDF') {
+          await exportPdf(canvas, {
+            pageSize: options.pageSize,
+            orientation: options.orientation,
+            fitToPage: options.fitToPage,
+            multiPage: options.multiPage,
+            header: options.header,
+            filename,
+          });
+        } else {
+          await exportImage(canvas, { format: options.format, transparent: options.transparent, filename });
+        }
+      } finally {
+        setExportRect(null);
+      }
     } catch (err) {
       setExportError(err.message || 'The export could not be produced.');
       setNotice(err.message || 'The export could not be produced.');
     }
-  }, [chart, nodes, edges, view, viewSettings, editor, fitBounds]);
+  }, [chart, nodes, edges, view, viewSettings, editor, containerRef]);
 
   // ---------------------------------------------------------------- shortcuts
   useEffect(() => {
@@ -854,6 +874,15 @@ export default function OrgChartBuilder() {
       />
 
       <HelpDialog open={dialog?.type === 'help'} onClose={() => setDialog(null)} />
+
+      <ExportSurface
+        ref={exportSurfaceRef}
+        rect={exportRect}
+        nodes={nodes}
+        edges={edges}
+        settings={viewSettings}
+        background={viewSettings.background_color || '#ffffff'}
+      />
     </div>
   );
 }

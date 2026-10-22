@@ -89,6 +89,7 @@ export default function ExportDialog({ open, chart, onClose, onExport, error }) 
                   <option value={1}>Standard (1×)</option>
                   <option value={2}>High (2×)</option>
                   <option value={3}>Print (3×)</option>
+                  <option value={4}>Ultra (4×)</option>
                 </select>
               </label>
             </div>

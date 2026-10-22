@@ -35,22 +35,27 @@ export function downloadBlob(blob, filename) {
 
 export const safeName = (value) => String(value || 'org-chart').replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase();
 
-// Captured images paint single-line card text without its ellipsis, so anything
-// too long for its box was clipped mid-word. Shrink it to fit, and only wrap
-// when it still does not fit at the smallest readable size.
+// Captured images paint card text without its ellipsis, so anything too long for
+// its box was clipped mid-word. Shrink it to fit, and only wrap when it still
+// does not fit at the smallest readable size.
+const HTML_NS = 'http://www.w3.org/1999/xhtml';
+const MIN_FONT_PX = 9;
+
 function fitClippedText(doc) {
   const view = doc.defaultView;
-  doc.querySelectorAll('.truncate').forEach((el) => {
+  doc.querySelectorAll('[data-node-id] *').forEach((el) => {
+    if (el.namespaceURI !== HTML_NS) return;                  // skip icon / shape SVGs
+    if (el.children.length || !el.textContent?.trim()) return; // text leaves only
     const available = el.clientWidth;
-    if (!available) return;
+    if (!available || el.scrollWidth <= available + 1) return;
     let size = parseFloat(view.getComputedStyle(el).fontSize) || 13;
     let guard = 0;
-    while (el.scrollWidth > available - 1 && size > 9 && guard < 20) {
+    while (el.scrollWidth > available + 1 && size > MIN_FONT_PX && guard < 24) {
       size = Math.round((size - 0.5) * 10) / 10;
       el.style.fontSize = `${size}px`;
       guard += 1;
     }
-    if (el.scrollWidth > available - 1) {
+    if (el.scrollWidth > available + 1) {
       el.style.whiteSpace = 'normal';
       el.style.overflowWrap = 'anywhere';
       el.style.wordBreak = 'break-word';
@@ -58,7 +63,15 @@ function fitClippedText(doc) {
   });
 }
 
+const MAX_EXPORT_PIXELS = 260_000_000;
+
 export async function captureElement(element, { scale = 2, transparent = false, background = '#ffffff' } = {}) {
+  if (!element) throw new Error('There is nothing to export yet');
+  const width = Math.round(element.offsetWidth * scale);
+  const height = Math.round(element.offsetHeight * scale);
+  if (width * height > MAX_EXPORT_PIXELS) {
+    throw new Error(`This export would be ${width}×${height} px, which is too large for the browser. Choose a lower resolution or export as SVG.`);
+  }
   return html2canvas(element, {
     backgroundColor: transparent ? null : background,
     scale,
@@ -66,6 +79,29 @@ export async function captureElement(element, { scale = 2, transparent = false, 
     logging: false,
     onclone: (doc) => fitClippedText(doc),
   });
+}
+
+// Waits for the off-screen export surface to mount, then for its fonts and
+// photos to finish loading, so nothing renders blank or at a fallback font.
+export async function waitForExportSurface(getElement, { timeout = 5000 } = {}) {
+  const startedAt = Date.now();
+  let element = getElement();
+  while (!element && Date.now() - startedAt < timeout) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    element = getElement();
+  }
+  if (!element) throw new Error('The export could not be prepared. Please try again.');
+  if (document.fonts?.ready) await document.fonts.ready;
+  await Promise.all([...element.querySelectorAll('img')].map(img => (
+    img.complete && img.naturalWidth
+      ? null
+      : new Promise((resolve) => {
+        img.addEventListener('load', resolve, { once: true });
+        img.addEventListener('error', resolve, { once: true });
+      })
+  )).filter(Boolean));
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  return element;
 }
 
 const canvasToBlob = (canvas, format) => new Promise(resolve => {
