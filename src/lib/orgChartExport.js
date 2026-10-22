@@ -41,18 +41,29 @@ export const safeName = (value) => String(value || 'org-chart').replace(/[^a-z0-
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 const MIN_FONT_PX = 9;
 
+//
+// The capture also clips every text run to its own box, which sliced the top of
+// each line in half whenever the box was shorter than its line box. The export
+// copy therefore never clips text: no ellipsis, no shrinking box, and an
+// explicit line height so the glyphs always fit the space they are drawn in.
 function fitClippedText(doc) {
   const view = doc.defaultView;
   doc.querySelectorAll('[data-node-id] *').forEach((el) => {
     if (el.namespaceURI !== HTML_NS) return;                  // skip icon / shape SVGs
     if (el.children.length || !el.textContent?.trim()) return; // text leaves only
+    let size = parseFloat(view.getComputedStyle(el).fontSize) || 13;
+    const lineHeight = () => `${Math.round(size * 1.4)}px`;
+    el.style.overflow = 'visible';
+    el.style.textOverflow = 'clip';
+    el.style.flexShrink = '0';
+    el.style.lineHeight = lineHeight();
     const available = el.clientWidth;
     if (!available || el.scrollWidth <= available + 1) return;
-    let size = parseFloat(view.getComputedStyle(el).fontSize) || 13;
     let guard = 0;
     while (el.scrollWidth > available + 1 && size > MIN_FONT_PX && guard < 24) {
       size = Math.round((size - 0.5) * 10) / 10;
       el.style.fontSize = `${size}px`;
+      el.style.lineHeight = lineHeight();
       guard += 1;
     }
     if (el.scrollWidth > available + 1) {
