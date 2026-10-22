@@ -64,13 +64,14 @@ function fitClippedText(doc) {
 }
 
 const MAX_EXPORT_PIXELS = 260_000_000;
+const MAX_EXPORT_DIMENSION = 16384;
 
 export async function captureElement(element, { scale = 2, transparent = false, background = '#ffffff' } = {}) {
   if (!element) throw new Error('There is nothing to export yet');
   const width = Math.round(element.offsetWidth * scale);
   const height = Math.round(element.offsetHeight * scale);
-  if (width * height > MAX_EXPORT_PIXELS) {
-    throw new Error(`This export would be ${width}×${height} px, which is too large for the browser. Choose a lower resolution or export as SVG.`);
+  if (width * height > MAX_EXPORT_PIXELS || Math.max(width, height) > MAX_EXPORT_DIMENSION) {
+    throw new Error(`This export would be ${width}×${height} px, which is too large for the browser. Choose a lower resolution, a smaller export area, or export as SVG.`);
   }
   return html2canvas(element, {
     backgroundColor: transparent ? null : background,
@@ -94,8 +95,11 @@ export async function waitForExportSurface(getElement, { timeout = 5000 } = {}) 
   if (document.fonts?.ready) await document.fonts.ready;
   // The connectors are painted onto their own canvas; wait until that paint is done.
   const canvas = element.querySelector('canvas[data-export-ready]');
-  while (canvas && canvas.dataset.exportReady !== '1' && Date.now() - startedAt < timeout) {
+  while (canvas && canvas.dataset.exportReady === '0' && Date.now() - startedAt < timeout) {
     await new Promise(resolve => setTimeout(resolve, 30));
+  }
+  if (canvas && canvas.dataset.exportReady !== '1') {
+    throw new Error('The chart connectors could not be prepared. Choose a lower resolution or a smaller export area.');
   }
   await Promise.all([...element.querySelectorAll('img')].map(img => (
     img.complete && img.naturalWidth

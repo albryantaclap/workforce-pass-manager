@@ -555,7 +555,7 @@ export default function OrgChartBuilder() {
       } else {
         rect = exportBounds(target, edges);
       }
-      setExportRect({ ...rect, transparent: options.transparent });
+      setExportRect({ ...rect, transparent: options.transparent, resolution: options.resolution || 2 });
       try {
         const surface = await waitForExportSurface(() => exportSurfaceRef.current);
         const canvas = await captureElement(surface, {

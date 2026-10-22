@@ -52,8 +52,8 @@ export default forwardRef(function ExportSurface({ rect, nodes, edges, settings,
         zIndex: -1,
       }}
     >
+      <ExportConnectorCanvas rect={rect} nodes={visible} edges={edges} />
       <div style={{ position: 'absolute', left: -rect.x, top: -rect.y }}>
-        <ExportConnectorCanvas rect={rect} nodes={visible} edges={edges} />
         {visible.map(node => (
           <NodeCard
             key={node.id}

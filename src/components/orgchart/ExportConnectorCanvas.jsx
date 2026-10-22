@@ -45,21 +45,19 @@ function pathTail(ctx, start, end, sPort, tPort, style, bends) {
   return { x: mid, y: end.y };
 }
 
-function arrowhead(ctx, tail, end, color) {
-  const dx = end.x - tail.x;
-  const dy = end.y - tail.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len;
-  const uy = dy / len;
-  const baseX = end.x - ux * 9;
-  const baseY = end.y - uy * 9;
-  const nx = -uy;
-  const ny = ux;
+function arrowhead(ctx, tail, end, color, thickness) {
+  const angle = Math.atan2(end.y - tail.y, end.x - tail.x);
+  // Match the live SVG marker: 7 stroke units, viewBox 0 0 10 10, ref 9 5.
+  const unit = thickness * 0.7;
+  ctx.save();
+  ctx.translate(end.x, end.y);
+  ctx.rotate(angle);
   ctx.beginPath();
-  ctx.moveTo(end.x, end.y);
-  ctx.lineTo(baseX + nx * 3.6, baseY + ny * 3.6);
-  ctx.lineTo(baseX - nx * 3.6, baseY - ny * 3.6);
+  ctx.moveTo(unit, 0);
+  ctx.lineTo(-9 * unit, 5 * unit);
+  ctx.lineTo(-9 * unit, -5 * unit);
   ctx.closePath();
+  ctx.restore();
   ctx.fillStyle = color;
   ctx.fill();
 }
@@ -72,14 +70,20 @@ export default function ExportConnectorCanvas({ rect, nodes, edges }) {
     if (!canvas) return;
     const w = Math.max(1, Math.ceil(rect.w));
     const h = Math.max(1, Math.ceil(rect.h));
-    canvas.width = Math.round(w * RATIO);
-    canvas.height = Math.round(h * RATIO);
+    // Limit both bitmap area and dimensions without changing CSS/world geometry.
+    const ratio = Math.min(rect.resolution || RATIO, Math.sqrt(32_000_000 / (w * h)), 16384 / w, 16384 / h);
+    canvas.width = Math.max(1, Math.floor(w * ratio));
+    canvas.height = Math.max(1, Math.floor(h * ratio));
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
-    canvas.dataset.exportReady = '';
+    canvas.dataset.exportReady = '0';
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(RATIO, 0, 0, RATIO, 0, 0);
+    if (!ctx) {
+      canvas.dataset.exportReady = 'error';
+      return;
+    }
+    // Use the allocated size on each axis so bitmap rounding cannot shift anchors.
+    ctx.setTransform(canvas.width / w, 0, 0, canvas.height / h, 0, 0);
     ctx.clearRect(0, 0, w, h);
     ctx.translate(-rect.x, -rect.y);
 
@@ -100,7 +104,7 @@ export default function ExportConnectorCanvas({ rect, nodes, edges }) {
       const tail = pathTail(ctx, start, end, sPort, tPort, edge.path_style || 'orthogonal', edge.bend_points);
       ctx.stroke();
       ctx.restore();
-      if (edge.arrow !== false) arrowhead(ctx, tail, end, color);
+      if (edge.arrow !== false) arrowhead(ctx, tail, end, color, edge.thickness || 1.5);
       if (edge.label) {
         const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
         const boxW = Math.max(56, edge.label.length * 7.2);
@@ -119,13 +123,13 @@ export default function ExportConnectorCanvas({ rect, nodes, edges }) {
         ctx.fillStyle = '#334155';
         ctx.font = '10px Inter, Arial, sans-serif';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(edge.label, mid.x, mid.y + 1);
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(edge.label, mid.x, mid.y + 3);
         ctx.restore();
       }
     });
     canvas.dataset.exportReady = '1';
   }, [rect, nodes, edges]);
 
-  return <canvas ref={canvasRef} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }} />;
+  return <canvas ref={canvasRef} data-export-ready="0" style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }} />;
 }
