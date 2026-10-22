@@ -35,12 +35,36 @@ export function downloadBlob(blob, filename) {
 
 export const safeName = (value) => String(value || 'org-chart').replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase();
 
+// Captured images paint single-line card text without its ellipsis, so anything
+// too long for its box was clipped mid-word. Shrink it to fit, and only wrap
+// when it still does not fit at the smallest readable size.
+function fitClippedText(doc) {
+  const view = doc.defaultView;
+  doc.querySelectorAll('.truncate').forEach((el) => {
+    const available = el.clientWidth;
+    if (!available) return;
+    let size = parseFloat(view.getComputedStyle(el).fontSize) || 13;
+    let guard = 0;
+    while (el.scrollWidth > available - 1 && size > 9 && guard < 20) {
+      size = Math.round((size - 0.5) * 10) / 10;
+      el.style.fontSize = `${size}px`;
+      guard += 1;
+    }
+    if (el.scrollWidth > available - 1) {
+      el.style.whiteSpace = 'normal';
+      el.style.overflowWrap = 'anywhere';
+      el.style.wordBreak = 'break-word';
+    }
+  });
+}
+
 export async function captureElement(element, { scale = 2, transparent = false, background = '#ffffff' } = {}) {
   return html2canvas(element, {
     backgroundColor: transparent ? null : background,
     scale,
     useCORS: true,
     logging: false,
+    onclone: (doc) => fitClippedText(doc),
   });
 }
 
@@ -125,6 +149,11 @@ export function exportSvg(nodes, edges, { background = '#ffffff', transparent = 
   const height = maxY - minY + pad * 2;
   const byId = new Map(visible.map(n => [n.id, n]));
   const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const arrowColors = [...new Set(edges.filter(e => e.arrow !== false).map(e => e.color || '#254dd0'))];
+  const markerFor = (color) => (arrowColors.includes(color) ? ` marker-end="url(#oc-export-arrow-${arrowColors.indexOf(color)})"` : '');
+  const defs = arrowColors.length
+    ? `<defs>${arrowColors.map((color, i) => `<marker id="oc-export-arrow-${i}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="${esc(color)}" /></marker>`).join('')}</defs>`
+    : '';
   const edgeMarkup = edges.map(e => {
     const s = byId.get(e.source_id);
     const t = byId.get(e.target_id);
@@ -132,7 +161,8 @@ export function exportSvg(nodes, edges, { background = '#ffffff', transparent = 
     const { start, end, sPort, tPort } = edgeAnchors(s, t, e.source_port, e.target_port);
     const d = buildEdgePath(start, end, sPort, tPort, e.path_style || 'orthogonal', e.bend_points);
     const dash = e.line_style === 'dashed' ? ' stroke-dasharray="8 6"' : e.line_style === 'dotted' ? ' stroke-dasharray="2 5"' : '';
-    return `<path d="${d}" fill="none" stroke="${esc(e.color || '#254dd0')}" stroke-width="${e.thickness || 1.5}"${dash} />`;
+    const color = e.color || '#254dd0';
+    return `<path d="${d}" fill="none" stroke="${esc(color)}" stroke-width="${e.thickness || 1.5}"${dash}${markerFor(color)} />`;
   }).join('');
   const nodeMarkup = visible.map(n => {
     const { w, h } = nodeSize(n);
@@ -144,6 +174,7 @@ export function exportSvg(nodes, edges, { background = '#ffffff', transparent = 
   }).join('');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(width)}" height="${Math.round(height)}" viewBox="0 0 ${Math.round(width)} ${Math.round(height)}">
 <title>${esc(title)}</title>
+${defs}
 <rect x="0" y="0" width="${Math.round(width)}" height="${Math.round(height)}" fill="${transparent ? 'none' : esc(background)}" />
 <g transform="translate(${pad - minX} ${pad - minY})">${edgeMarkup}${nodeMarkup}</g>
 </svg>`;

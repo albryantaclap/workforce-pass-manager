@@ -1,6 +1,10 @@
 import React, { useMemo } from 'react';
-import { buildEdgePath, edgeAnchors } from '@/lib/orgChartLayout';
+import { buildEdgePath, edgeAnchors, nodeSize } from '@/lib/orgChartLayout';
 import { connectorColor } from '@/lib/orgChartConstants';
+
+// The connector layer must occupy the real chart area (not a 1x1 wrapper), so it
+// is captured correctly in PNG / JPEG / PDF exports.
+const FRAME_PAD = 80;
 
 export default function ConnectorLayer({
   nodes, edges, selectedEdgeId, onSelectEdge, onReconnectStart, onBendStart, canEdit,
@@ -11,8 +15,43 @@ export default function ConnectorLayer({
     [edges]
   );
 
+  const frame = useMemo(() => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    const include = (x, y) => {
+      if (typeof x !== 'number' || typeof y !== 'number') return;
+      minX = Math.min(minX, x); minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+    };
+    nodes.forEach(n => {
+      const { w, h } = nodeSize(n);
+      include(n.x, n.y);
+      include(n.x + w, n.y + h);
+    });
+    edges.forEach(e => (e.bend_points || []).forEach(p => include(p.x, p.y)));
+    if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 1, h: 1 };
+    return {
+      x: minX - FRAME_PAD,
+      y: minY - FRAME_PAD,
+      w: maxX - minX + FRAME_PAD * 2,
+      h: maxY - minY + FRAME_PAD * 2,
+    };
+  }, [nodes, edges]);
+
   return (
-    <svg className="absolute left-0 top-0" style={{ width: 1, height: 1, overflow: 'visible', pointerEvents: 'none' }}>
+    <svg
+      className="absolute"
+      width={Math.round(frame.w)}
+      height={Math.round(frame.h)}
+      viewBox={`${frame.x} ${frame.y} ${frame.w} ${frame.h}`}
+      style={{
+        left: frame.x,
+        top: frame.y,
+        width: frame.w,
+        height: frame.h,
+        overflow: 'visible',
+        pointerEvents: 'none',
+      }}
+    >
       <defs>
         {arrows.map(a => (
           <marker
