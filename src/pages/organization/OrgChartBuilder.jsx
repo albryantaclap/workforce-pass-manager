@@ -17,6 +17,9 @@ import ExportDialog from '@/components/orgchart/ExportDialog';
 import ExportSurface, { exportBounds } from '@/components/orgchart/ExportSurface';
 import AutoLayoutDialog from '@/components/orgchart/AutoLayoutDialog';
 import HelpDialog from '@/components/orgchart/HelpDialog';
+import InsertChartDialog from '@/components/orgchart/InsertChartDialog';
+import ConnectGroupDialog from '@/components/orgchart/ConnectGroupDialog';
+import useChartImports from '@/hooks/useChartImports';
 import { Button } from '@/components/ui/button';
 import { Loader2, X, Network } from 'lucide-react';
 import { alignNodes, autoLayout, distributeNodes, nodeBounds, nodeSize } from '@/lib/orgChartLayout';
@@ -54,6 +57,7 @@ export default function OrgChartBuilder() {
   const exportSurfaceRef = useRef(null);
   const [showMinimap, setShowMinimap] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [allCharts, setAllCharts] = useState([]);
   const [projectCharts, setProjectCharts] = useState([]);
   const [customTemplates, setCustomTemplates] = useState([]);
   const [versions, setVersions] = useState([]);
@@ -81,6 +85,18 @@ export default function OrgChartBuilder() {
     fitBounds(visibleNodes, 90);
   }, [nodes, fitBounds]);
 
+  const fitGroupsToScreen = useCallback((list) => fitBounds(list, 140), [fitBounds]);
+  const openInsertChart = useCallback(() => setDialog({ type: 'insertChart' }), []);
+
+  const chartImports = useChartImports({
+    editor,
+    chart,
+    allCharts,
+    onNotice: setNotice,
+    fitGroup: fitGroupsToScreen,
+    onInsertRequest: openInsertChart,
+  });
+
   useEffect(() => {
     if (!chart?.id || initializedRef.current) return;
     initializedRef.current = true;
@@ -96,6 +112,9 @@ export default function OrgChartBuilder() {
     base44.entities.OrgChartTemplate.filter({}, { sort: '-created_date', limit: 200 })
       .then(res => setCustomTemplates(res.items || []))
       .catch(() => setCustomTemplates([]));
+    base44.entities.OrgChart.filter({}, { sort: '-updated_date', limit: 300 })
+      .then(res => setAllCharts(res.items || []))
+      .catch(() => setAllCharts([]));
   }, []);
 
   useEffect(() => {
@@ -646,6 +665,7 @@ export default function OrgChartBuilder() {
         { label: 'Add shape', disabled: !canEdit, onClick: () => addCard('shape') },
         { label: 'Add text', disabled: !canEdit, onClick: () => addCard('text') },
         { label: 'Add note', disabled: !canEdit, onClick: () => addCard('note') },
+        { label: 'Insert existing chart…', disabled: !canEdit, onClick: () => setDialog({ type: 'insertChart' }) },
         { separator: true },
         { label: 'Paste', disabled: !canEdit, onClick: () => editor.pasteNodes() },
         { label: 'Select all', onClick: () => editor.setSelection(nodes.map(n => n.id)) },
@@ -668,6 +688,7 @@ export default function OrgChartBuilder() {
     setCardPresets: editor.setCardPresets, addCard, addEmployeeCard, focusNode, onProjectChange,
     applyTemplate, saveAsTemplate, duplicateTemplate, deleteTemplate, exportTemplateJson, importTemplateJson,
     exportChartJson, updateChartField, openChart, newChart, renameChart, duplicateChart, archiveChart, deleteChart,
+    groups: chartImports.groups, insertChart: () => setDialog({ type: 'insertChart' }),
     applyDisplayToSelection: () => editor.updateNodes(editor.selection.map(id => ({
       id, display_style: viewSettings.card_style, density: viewSettings.density,
     }))),
@@ -803,6 +824,7 @@ export default function OrgChartBuilder() {
             tool={tool}
             setTool={setTool}
             onAdd={(kind) => addCard(kind)}
+            onInsert={() => setDialog({ type: 'insertChart' })}
             onGroup={handleGroup}
             onUndo={editor.undo}
             onRedo={editor.redo}
@@ -874,6 +896,27 @@ export default function OrgChartBuilder() {
       />
 
       <HelpDialog open={dialog?.type === 'help'} onClose={() => setDialog(null)} />
+
+      <InsertChartDialog
+        open={dialog?.type === 'insertChart'}
+        charts={allCharts}
+        destination={chart}
+        destNodes={nodes}
+        selection={editor.selection}
+        anchorPoint={viewportCenter()}
+        canEdit={canEdit}
+        onInsert={chartImports.commitInsertion}
+        onClose={() => setDialog(null)}
+      />
+
+      <ConnectGroupDialog
+        open={!!chartImports.connectTarget}
+        group={chartImports.connectTarget}
+        groupNodes={chartImports.connectTarget ? chartImports.groupNodesOf(chartImports.connectTarget) : []}
+        candidates={nodes.filter(n => n.group_id !== chartImports.connectTarget?.group_id)}
+        onConnect={chartImports.connectGroup}
+        onClose={() => chartImports.setConnectTarget(null)}
+      />
 
       <ExportSurface
         ref={exportSurfaceRef}

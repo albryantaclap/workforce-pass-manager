@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  MousePointer2, Hand, UserPlus, Briefcase, Link2, Shapes, Type, StickyNote, Undo2, Redo2,
+  MousePointer2, Hand, UserPlus, Briefcase, Link2, Shapes, Type, StickyNote, Undo2, Redo2, Layers,
 } from 'lucide-react';
 
 const TOOLS = [
@@ -15,7 +15,7 @@ const TOOLS = [
 ];
 
 export default function BottomToolbar({
-  tool, setTool, onAdd, onGroup, onUndo, onRedo, canUndo, canRedo, canEdit, selectionCount,
+  tool, setTool, onAdd, onInsert, onGroup, onUndo, onRedo, canUndo, canRedo, canEdit, selectionCount,
 }) {
   const btn = 'flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-colors disabled:opacity-40';
   return (
@@ -37,6 +37,17 @@ export default function BottomToolbar({
           </button>
         );
       })}
+      <div className="w-px h-8 bg-border mx-1" />
+      <button
+        type="button"
+        title="Insert existing chart"
+        disabled={!canEdit}
+        onClick={onInsert}
+        className={`${btn} hover:bg-muted text-foreground disabled:opacity-40`}
+      >
+        <Layers className="w-4 h-4" />
+        <span className="whitespace-nowrap">Insert Chart</span>
+      </button>
       <div className="w-px h-8 bg-border mx-1" />
       <button type="button" title="Group selected cards" disabled={!canEdit || selectionCount < 2} onClick={() => onGroup(true)} className={`${btn} hover:bg-muted disabled:opacity-40`}>
         <span className="text-xs font-semibold">Group</span>

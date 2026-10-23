@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Archive, RotateCcw, Trash2, Copy } from 'lucide-react';
+import { Plus, Archive, RotateCcw, Trash2, Copy, Layers } from 'lucide-react';
+import ImportedGroupsPanel from '@/components/orgchart/panels/ImportedGroupsPanel';
 
 const toggle = 'flex items-center justify-between gap-2 text-[11px] py-1';
 
@@ -71,9 +72,14 @@ export default function ChartSettingsPanel({ ctx }) {
       <div className="border-t pt-3">
         <div className="flex items-center justify-between mb-1.5">
           <p className="text-[11px] font-semibold text-muted-foreground">Charts in this project ({charts.length})</p>
-          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={ctx.newChart}>
-            <Plus className="w-3 h-3 mr-1" /> New
-          </Button>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" disabled={!ctx.canEdit} onClick={ctx.insertChart}>
+              <Layers className="w-3 h-3 mr-1" /> Insert
+            </Button>
+            <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={ctx.newChart}>
+              <Plus className="w-3 h-3" /> New
+            </Button>
+          </div>
         </div>
         <div className="space-y-1">
           {charts.map(item => (
@@ -107,6 +113,8 @@ export default function ChartSettingsPanel({ ctx }) {
           {!charts.length && <p className="text-[11px] text-muted-foreground">No other charts in this project.</p>}
         </div>
       </div>
+
+      <ImportedGroupsPanel ctx={ctx} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   DEFAULT_VIEW_SETTINGS, EDGE_PERSIST_FIELDS, NODE_PERSIST_FIELDS,
   connectorDefaults, defaultNode, uid,
 } from '@/lib/orgChartConstants';
+import { buildGroupInsertion } from '@/lib/orgChartMerge';
 
 const SAVE_DEBOUNCE = 900;
 const HISTORY_LIMIT = 60;
@@ -324,6 +325,148 @@ export default function useOrgChartEditor(chartId) {
     return created;
   }, [chartId, pushHistory]);
 
+  // ------------------------------------------------------- merging saved charts
+  // Writes prepared cards/connectors in one batch. The whole insertion is a
+  // single undo step because the history snapshot is taken once, before any
+  // record is created; a failure leaves nothing half-inserted.
+  const applyInsertion = useCallback(async ({ nodes: nodeRecords = [], edges: edgeRecords = [], groups = [] }, options = {}) => {
+    if (!chartId || !nodeRecords.length) return null;
+    if (!options.skipHistory) pushHistory();
+    const created = await bulkCreateAll(
+      base44.entities.OrgChartNode,
+      nodeRecords.map(r => ({ ...pick(r, NODE_PERSIST_FIELDS), chart_id: chartId }))
+    );
+    const idMap = new Map(nodeRecords.map((r, i) => [r.__key, created[i]?.id]));
+    let createdEdges = [];
+    let savedImports = [];
+    try {
+      const edgePayload = edgeRecords
+        .map(e => ({
+          ...pick(e, EDGE_PERSIST_FIELDS),
+          chart_id: chartId,
+          source_id: idMap.get(e.fromKey),
+          target_id: idMap.get(e.toKey),
+        }))
+        .filter(e => e.source_id && e.target_id);
+      createdEdges = edgePayload.length ? await bulkCreateAll(base44.entities.OrgChartEdge, edgePayload) : [];
+      if (options.createImports !== false && groups.length) {
+        savedImports = await bulkCreateAll(base44.entities.OrgChartImport, groups.map(g => ({
+          ...pick(g, ['group_id', 'name', 'color', 'source_chart_id', 'source_chart_name', 'source_project_name',
+            'source_status', 'source_revision', 'source_updated_at', 'import_mode', 'offset_x', 'offset_y',
+            'node_count', 'edge_count', 'imported_at', 'imported_by', 'imported_by_name']),
+          chart_id: chartId,
+          node_map: (g.node_map || []).map(m => ({ src_id: m.src_id, dest_id: idMap.get(m.key) })).filter(m => m.dest_id),
+        })));
+      }
+    } catch (err) {
+      // Roll the partial insertion back so the chart never keeps orphaned cards.
+      if (createdEdges.length) await base44.entities.OrgChartEdge.bulkUpdate(createdEdges.map(e => ({ id: e.id, is_deleted: true })));
+      await base44.entities.OrgChartNode.bulkUpdate(created.map(n => ({ id: n.id, is_deleted: true })));
+      throw err;
+    }
+    created.forEach(r => loadedIds.current.nodes.push(r.id));
+    createdEdges.forEach(r => loadedIds.current.edges.push(r.id));
+    setNodes(prev => [...prev, ...created]);
+    setEdges(prev => [...prev, ...createdEdges]);
+    setSelection(created.map(c => c.id));
+    return { nodes: created, edges: createdEdges, imports: savedImports, idMap };
+  }, [chartId, pushHistory]);
+
+  // Replaces a linked group's cards with the current content of its source,
+  // re-attaching the connectors that joined the group to the rest of the chart.
+  const updateLinkedGroup = useCallback(async (group, bundle) => {
+    if (!chartId || !bundle?.nodes?.length) return null;
+    pushHistory();
+    const groupIds = new Set(stateRef.current.nodes.filter(n => n.group_id === group.group_id).map(n => n.id));
+    const incoming = stateRef.current.edges.filter(e => !groupIds.has(e.source_id) && groupIds.has(e.target_id));
+    const outgoing = stateRef.current.edges.filter(e => groupIds.has(e.source_id) && !groupIds.has(e.target_id));
+    setNodes(prev => prev.filter(n => !groupIds.has(n.id)));
+    setEdges(prev => prev.filter(e => !groupIds.has(e.source_id) && !groupIds.has(e.target_id)));
+
+    const insertion = buildGroupInsertion(bundle, {
+      mode: group.import_mode === 'snapshot' ? 'snapshot' : 'linked',
+      offset: { x: group.offset_x || 0, y: group.offset_y || 0 },
+      groupId: group.group_id,
+      name: group.name,
+      meta: { email: me?.email, name: me?.full_name },
+    });
+    const created = await applyInsertion(insertion, { skipHistory: true, createImports: false });
+    const rootId = created?.idMap.get(insertion.rootKey);
+    const reattached = [];
+    for (const edge of [...incoming, ...outgoing]) {
+      if (!rootId) break;
+      const payload = { ...pick(edge, EDGE_PERSIST_FIELDS), chart_id: chartId };
+      if (incoming.includes(edge)) payload.target_id = rootId;
+      else payload.source_id = rootId;
+      if (!payload.source_id || !payload.target_id) continue;
+      reattached.push(await base44.entities.OrgChartEdge.create(payload));
+    }
+    reattached.forEach(r => loadedIds.current.edges.push(r.id));
+    if (reattached.length) setEdges(prev => [...prev, ...reattached]);
+
+    const patch = {
+      node_map: (insertion.groups[0]?.node_map || [])
+        .map(m => ({ src_id: m.src_id, dest_id: created?.idMap.get(m.key) }))
+        .filter(m => m.dest_id),
+      source_updated_at: bundle.chart?.last_edited_at || bundle.chart?.updated_date || '',
+      source_revision: bundle.chart?.revision_no || 1,
+      node_count: insertion.nodes.length,
+      edge_count: insertion.edges.length,
+      is_detached: false,
+    };
+    const updated = await base44.entities.OrgChartImport.update(group.id, patch);
+    return updated || { ...group, ...patch };
+  }, [chartId, pushHistory, applyInsertion, me]);
+
+  const duplicateGroup = useCallback(async (group) => {
+    const list = stateRef.current.nodes.filter(n => n.group_id === group.group_id);
+    if (!list.length) return null;
+    pushHistory();
+    const newGroupId = uid();
+    const created = await bulkCreateAll(
+      base44.entities.OrgChartNode,
+      list.map(n => ({ ...pick(n, NODE_PERSIST_FIELDS), chart_id: chartId, group_id: newGroupId, x: n.x + 60, y: n.y + 60 }))
+    );
+    created.forEach(r => loadedIds.current.nodes.push(r.id));
+    const idMap = new Map(list.map((n, i) => [n.id, created[i]?.id]));
+    const ids = new Set(list.map(n => n.id));
+    const inner = stateRef.current.edges.filter(e => ids.has(e.source_id) && ids.has(e.target_id));
+    const createdEdges = inner.length
+      ? await bulkCreateAll(base44.entities.OrgChartEdge, inner.map(e => ({
+        ...pick(e, EDGE_PERSIST_FIELDS),
+        chart_id: chartId,
+        source_id: idMap.get(e.source_id),
+        target_id: idMap.get(e.target_id),
+        bend_points: (e.bend_points || []).map(p => ({ x: p.x + 60, y: p.y + 60 })),
+      })))
+      : [];
+    createdEdges.forEach(r => loadedIds.current.edges.push(r.id));
+    setNodes(prev => [...prev, ...created]);
+    setEdges(prev => [...prev, ...createdEdges]);
+    setSelection(created.map(c => c.id));
+    return base44.entities.OrgChartImport.create({
+      ...pick(group, ['color', 'source_chart_id', 'source_chart_name', 'source_project_name', 'source_status',
+        'source_revision', 'source_updated_at', 'import_mode']),
+      chart_id: chartId,
+      group_id: newGroupId,
+      name: `${group.name} copy`,
+      offset_x: (group.offset_x || 0) + 60,
+      offset_y: (group.offset_y || 0) + 60,
+      node_count: created.length,
+      edge_count: createdEdges.length,
+      node_map: list.map((n, i) => ({ src_id: n.id, dest_id: created[i]?.id })).filter(m => m.dest_id),
+      imported_at: new Date().toISOString(),
+      imported_by: me?.email || '',
+      imported_by_name: me?.full_name || '',
+    });
+  }, [chartId, pushHistory, me]);
+
+  const removeGroup = useCallback((groupId) => {
+    const list = stateRef.current.nodes.filter(n => n.group_id === groupId);
+    if (!list.length) return;
+    removeNodes(list.map(n => n.id));
+  }, [removeNodes]);
+
   // --------------------------------------------------------------- settings
   const viewSettings = useMemo(() => ({ ...DEFAULT_VIEW_SETTINGS, ...(chart?.view_settings || {}) }), [chart]);
 
@@ -410,6 +553,7 @@ export default function useOrgChartEditor(chartId) {
     selection, setSelection, selectedEdgeId, setSelectedEdgeId,
     addNode, updateNodes, removeNodes, addEdge, updateEdge, removeEdges,
     duplicateNodes, copyNodes, pasteNodes,
+    applyInsertion, updateLinkedGroup, duplicateGroup, removeGroup,
     undo, redo, canUndo: undoDepth > 0, canRedo: redoDepth > 0,
     viewSettings, updateViewSettings, updateChart, setCardPresets,
     createVersion, restoreVersion, saveNow: sync,

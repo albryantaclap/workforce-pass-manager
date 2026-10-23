@@ -1,0 +1,122 @@
+{
+  "name": "OrgChartImport",
+  "type": "object",
+  "properties": {
+    "chart_id": {
+      "type": "string",
+      "description": "Destination chart the group was inserted into"
+    },
+    "group_id": {
+      "type": "string",
+      "description": "Group id shared by every card inserted from this source chart. Moving the group moves the whole department."
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name of the inserted department group"
+    },
+    "color": {
+      "type": "string",
+      "description": "Optional accent colour applied to every card in the group"
+    },
+    "source_chart_id": {
+      "type": "string",
+      "description": "Original saved chart the group was inserted from. The source chart is never modified by an insertion."
+    },
+    "source_chart_name": {
+      "type": "string",
+      "description": "Source chart name (denormalized for display)"
+    },
+    "source_project_name": {
+      "type": "string",
+      "description": "Project of the source chart (denormalized for display)"
+    },
+    "source_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published"
+      ],
+      "description": "Status of the source chart at the moment it was inserted"
+    },
+    "source_revision": {
+      "type": "number",
+      "description": "Revision number of the source chart at the moment it was inserted"
+    },
+    "source_updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last edit timestamp of the source chart when this group was inserted or last refreshed. Used to detect when an updated version is available."
+    },
+    "import_mode": {
+      "type": "string",
+      "enum": [
+        "copy",
+        "linked",
+        "snapshot"
+      ],
+      "default": "copy",
+      "description": "copy = independent editable cards, linked = tracks the source and offers updates, snapshot = frozen read-only copy"
+    },
+    "offset_x": {
+      "type": "number",
+      "description": "Translation applied to the source coordinates when inserting (destination position minus source bounding box origin)"
+    },
+    "offset_y": {
+      "type": "number",
+      "description": "Vertical translation applied to the source coordinates when inserting"
+    },
+    "node_count": {
+      "type": "number",
+      "description": "Cards inserted from this source (at the last insert or refresh)"
+    },
+    "edge_count": {
+      "type": "number",
+      "description": "Connectors inserted from this source (at the last insert or refresh)"
+    },
+    "node_map": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "src_id": {
+            "type": "string",
+            "description": "Card id in the source chart"
+          },
+          "dest_id": {
+            "type": "string",
+            "description": "Card id created in the destination chart"
+          }
+        }
+      },
+      "description": "Source to destination card id mapping, kept as provenance so a linked group can be refreshed"
+    },
+    "is_collapsed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Collapsed groups hide every card except the department root"
+    },
+    "is_detached": {
+      "type": "boolean",
+      "default": false,
+      "description": "True once a linked group was detached from its source chart"
+    },
+    "imported_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the group was inserted"
+    },
+    "imported_by": {
+      "type": "string",
+      "description": "Email of the user who inserted the group"
+    },
+    "imported_by_name": {
+      "type": "string",
+      "description": "Display name of the user who inserted the group"
+    }
+  },
+  "required": [
+    "chart_id",
+    "group_id",
+    "source_chart_id"
+  ]
+}
