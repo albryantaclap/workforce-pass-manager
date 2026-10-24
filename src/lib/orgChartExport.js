@@ -6,6 +6,7 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import ExcelJS from 'exceljs';
 import { buildEdgePath, edgeAnchors, nodeSize } from '@/lib/orgChartLayout';
+import { borderStyleOf, isBackgroundNode, isFillNone, opacityOf, sortByLayer } from '@/lib/orgChartLayers';
 
 export const PAGE_SIZES = {
   A4: [210, 297],
@@ -220,19 +221,32 @@ export function exportSvg(nodes, edges, { background = '#ffffff', transparent = 
     const color = e.color || '#254dd0';
     return `<path d="${d}" fill="none" stroke="${esc(color)}" stroke-width="${e.thickness || 1.5}"${dash}${markerFor(color)} />`;
   }).join('');
-  const nodeMarkup = visible.map(n => {
+  // Same layering as the canvas: cards at z <= 0 sit behind the connectors,
+  // everything else in front of them. Transparent shapes keep fill="none".
+  const nodeMarkupFor = (n) => {
     const { w, h } = nodeSize(n);
     const accent = n.accent_color || '#254dd0';
-    const bg = n.background_color || '#ffffff';
+    const fillNone = isFillNone(n);
+    const fill = fillNone ? 'none' : esc(n.background_color || '#ffffff');
+    const borderWidth = n.border_width ?? 1;
+    const strokeStyle = borderStyleOf(n);
+    const dash = strokeStyle === 'dashed' ? ' stroke-dasharray="7 5"' : strokeStyle === 'dotted' ? ' stroke-dasharray="2 3"' : '';
+    const stroke = borderWidth > 0
+      ? ` stroke="${esc(n.border_color || accent)}" stroke-width="${borderWidth}"${dash}`
+      : ' stroke="none"';
+    const opacity = opacityOf(n);
     const lines = [n.name, n.designation, n.department].filter(Boolean);
     const text = lines.map((line, i) => `<text x="${n.x + w / 2}" y="${n.y + 28 + i * 16}" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="${i === 0 ? 14 : 11}" font-weight="${i === 0 ? 700 : 400}" fill="${esc(n.text_color || '#0e1425')}">${esc(line)}</text>`).join('');
-    return `<g><rect x="${n.x}" y="${n.y}" width="${w}" height="${h}" rx="${n.corner_radius ?? 12}" fill="${esc(bg)}" stroke="${esc(n.border_color || accent)}" stroke-width="${n.border_width ?? 1}" />${text}</g>`;
-  }).join('');
+    return `<g${opacity < 1 ? ` opacity="${opacity}"` : ''}><rect x="${n.x}" y="${n.y}" width="${w}" height="${h}" rx="${n.corner_radius ?? 12}" fill="${fill}"${stroke} />${text}</g>`;
+  };
+  const layered = sortByLayer(visible);
+  const backMarkup = layered.filter(isBackgroundNode).map(nodeMarkupFor).join('');
+  const frontMarkup = layered.filter(n => !isBackgroundNode(n)).map(nodeMarkupFor).join('');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(width)}" height="${Math.round(height)}" viewBox="0 0 ${Math.round(width)} ${Math.round(height)}">
 <title>${esc(title)}</title>
 ${defs}
 <rect x="0" y="0" width="${Math.round(width)}" height="${Math.round(height)}" fill="${transparent ? 'none' : esc(background)}" />
-<g transform="translate(${pad - minX} ${pad - minY})">${edgeMarkup}${nodeMarkup}</g>
+<g transform="translate(${pad - minX} ${pad - minY})">${backMarkup}${edgeMarkup}${frontMarkup}</g>
 </svg>`;
   return svg;
 }

@@ -269,8 +269,16 @@ export default function ChartCanvas({
         setMarquee(null);
       }
       if (resize) {
-        if (resize.center) onUpdateNodes([{ id: resize.id, rotation: resize.rotation || 0 }]);
-        else onUpdateNodes([{ id: resize.id, width: resize.w, height: resize.h }]);
+        // Only record the resize / rotate when the gesture actually changed anything.
+        const current = nodeById(resize.id);
+        const size = current ? nodeSize(current) : null;
+        if (resize.center) {
+          if (current && (resize.rotation || 0) !== (current.rotation || 0)) {
+            onUpdateNodes([{ id: resize.id, rotation: resize.rotation || 0 }]);
+          }
+        } else if (current && size && (resize.w !== size.w || resize.h !== size.h)) {
+          onUpdateNodes([{ id: resize.id, width: resize.w, height: resize.h }]);
+        }
         setResize(null);
       }
       if (drag) {

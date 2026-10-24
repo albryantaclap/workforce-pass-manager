@@ -53,15 +53,26 @@ export function reorderNodes(nodes, ids, mode) {
 
   const background = new Set(order.filter(isBackgroundNode).map(n => n.id));
   const block = order.filter(n => selected.has(n.id));
+  // The background band is the contiguous run of z <= 0 objects at the bottom,
+  // so its position in the order is the band boundary.
+  const bgCount = order.filter(isBackgroundNode).length;
+  const position = new Map(next.map((n, i) => [n.id, i]));
+  if (mode === 'front') block.forEach(n => background.delete(n.id));
   if (mode === 'back') block.forEach(n => background.add(n.id));
-  if (mode === 'backward' && next[0] && selected.has(next[0].id)) block.forEach(n => background.add(n.id));
+  if (mode === 'forward' && Math.max(...block.map(n => position.get(n.id))) >= bgCount) {
+    block.forEach(n => background.delete(n.id));
+  }
+  if (mode === 'backward' && Math.min(...block.map(n => position.get(n.id))) < bgCount) {
+    block.forEach(n => background.add(n.id));
+  }
 
   const back = next.filter(n => background.has(n.id));
   const front = next.filter(n => !background.has(n.id));
+  const before = new Map(nodes.map(n => [n.id, zOf(n)]));
   return [
     ...back.map((n, i) => ({ id: n.id, z_index: i - back.length })),
     ...front.map((n, i) => ({ id: n.id, z_index: i + 1 })),
-  ];
+  ].filter(patch => before.get(patch.id) !== patch.z_index);
 }
 
 // Shape/card transparency + border helpers shared by the canvas and exports.

@@ -58,11 +58,11 @@ export default function BottomToolbar({
         <span>Ungroup</span>
       </button>
       <div className="w-px h-8 bg-border mx-1" />
-      <button type="button" title="Undo" disabled={!canUndo || !canEdit} onClick={onUndo} className={`${btn} hover:bg-muted`}>
+      <button type="button" title="Undo (Ctrl+Z)" disabled={!canUndo || !canEdit} onClick={onUndo} className={`${btn} hover:bg-muted`}>
         <Undo2 className="w-4 h-4" />
         <span>Undo</span>
       </button>
-      <button type="button" title="Redo" disabled={!canRedo || !canEdit} onClick={onRedo} className={`${btn} hover:bg-muted`}>
+      <button type="button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)" disabled={!canRedo || !canEdit} onClick={onRedo} className={`${btn} hover:bg-muted`}>
         <Redo2 className="w-4 h-4" />
         <span>Redo</span>
       </button>

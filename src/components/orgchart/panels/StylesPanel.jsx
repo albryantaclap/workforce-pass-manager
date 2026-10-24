@@ -266,7 +266,7 @@ export default function StylesPanel({ ctx }) {
             disabled={!presetName.trim()}
             onClick={() => {
               const style = {};
-              ['accent_color', 'background_color', 'border_color', 'text_color', 'border_width', 'corner_radius', 'font_size', 'font_weight', 'avatar_size', 'shadow', 'padding', 'align'].forEach(key => {
+              ['accent_color', 'background_color', 'border_color', 'text_color', 'border_width', 'corner_radius', 'font_size', 'font_weight', 'avatar_size', 'shadow', 'padding', 'align', 'fill_mode', 'border_style', 'opacity'].forEach(key => {
                 if (first && first[key] !== undefined && first[key] !== null && first[key] !== '') style[key] = first[key];
               });
               ctx.setCardPresets([...presets, { name: presetName.trim(), style }]);

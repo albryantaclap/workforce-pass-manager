@@ -310,7 +310,7 @@ export default function OrgChartBuilder() {
   }, [dialog, editor]);
 
   const applyAutoLayout = (mode) => {
-    editor.pushHistory();
+    // updateNodes records the single undo step for the whole relayout.
     editor.updateNodes(autoLayout(mode, nodes, edges));
     setTimeout(() => fitToScreen(true), 120);
   };
@@ -605,8 +605,10 @@ export default function OrgChartBuilder() {
   // ---------------------------------------------------------------- shortcuts
   useEffect(() => {
     const onKey = (e) => {
-      const tag = document.activeElement?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      const active = document.activeElement;
+      const tag = active?.tagName;
+      // Never intercept editor shortcuts while the user is typing in a field.
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active?.isContentEditable) return;
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       if (mod && key === 'z' && !e.shiftKey) { e.preventDefault(); editor.undo(); return; }

@@ -519,9 +519,10 @@ export default function useOrgChartEditor(chartId) {
   const viewSettings = useMemo(() => ({ ...DEFAULT_VIEW_SETTINGS, ...(chart?.view_settings || {}) }), [chart]);
 
   const updateViewSettings = useCallback((patch) => {
+    pushHistory();
     chartDirty.current = true;
     setChart(prev => (prev ? { ...prev, view_settings: { ...DEFAULT_VIEW_SETTINGS, ...(prev.view_settings || {}), ...patch } } : prev));
-  }, []);
+  }, [pushHistory]);
 
   const updateChart = useCallback((patch, persist = true) => {
     if (persist) chartDirty.current = true;
