@@ -184,7 +184,7 @@ export function legendGeometry(node) {
   const fontSize = Number(node?.font_size) || 13;
   const titleSize = Number(node?.font_size) || 13;
   const pad = node?.padding ?? 14;
-  const swatch = cfg.swatch_shape === 'square' ? cfg.swatch_size : cfg.swatch_size;
+  const swatch = Math.max(4, Number(cfg.swatch_size) || 12);
   const gap = cfg.layout === 'compact' ? Math.max(2, cfg.row_spacing / 2) : cfg.row_spacing;
   const rowH = Math.max(cfg.swatch_size, Math.round(fontSize * 1.4));
   const headerH = cfg.show_header ? Math.round(titleSize * 1.35) + 16 : 0;
@@ -233,12 +233,17 @@ export function defaultLegendNode(x, y, { entries = [], scope = DEFAULT_SCOPE } 
 // Picks an insertion spot that does not sit on top of an existing object, and
 // keeps the legend inside the area the user is currently looking at.
 export function legendInsertionPoint(nodes = [], size, visibleWorld) {
-  const objects = nodes.filter((n) => n.is_visible !== false && n.node_kind !== 'legend');
-  const overlaps = (x, y) => objects.some((n) => {
-    const w = n.width || 260;
-    const h = n.height || 118;
-    return !(n.x + w + 20 < x || n.x > x + size.width + 20 || n.y + h + 20 < y || n.y > y + size.height + 20);
-  });
+  const objects = nodes
+    .filter((n) => n.is_visible !== false && n.node_kind !== 'legend')
+    .map((n) => ({
+      x: Number(n.x) || 0,
+      y: Number(n.y) || 0,
+      w: Number(n.width) || 260,
+      h: Number(n.height) || 118,
+    }));
+  const overlaps = (x, y) => objects.some((n) => (
+    !(n.x + n.w + 20 < x || n.x > x + size.width + 20 || n.y + n.h + 20 < y || n.y > y + size.height + 20)
+  ));
   const fallback = visibleWorld
     ? { x: Math.round(visibleWorld.x + 40), y: Math.round(visibleWorld.y + 40) }
     : { x: 240, y: 200 };
@@ -246,8 +251,8 @@ export function legendInsertionPoint(nodes = [], size, visibleWorld) {
 
   const minX = Math.min(...objects.map((n) => n.x));
   const minY = Math.min(...objects.map((n) => n.y));
-  const maxX = Math.max(...objects.map((n) => n.x + (n.width || 260)));
-  const maxY = Math.max(...objects.map((n) => n.y + (n.height || 118)));
+  const maxX = Math.max(...objects.map((n) => n.x + n.w));
+  const maxY = Math.max(...objects.map((n) => n.y + n.h));
   const candidates = [
     { x: Math.round(maxX + 60), y: Math.round(minY) },
     { x: Math.round(minX), y: Math.round(maxY + 60) },

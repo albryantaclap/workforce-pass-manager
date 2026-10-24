@@ -107,10 +107,15 @@ export default function OrgChartBuilder() {
     const entries = cfg.entries || [];
     const merged = mergeDetected(entries, detectedColors, cfg.excluded || []);
     if (merged.length === entries.length) return;
-    editor.updateNodes([{ id: legendNode.id, legend_config: { ...cfg, entries: merged } }], { history: false });
+    const needed = legendDefaultSize(merged.length, cfg).height;
+    editor.updateNodes([{
+      id: legendNode.id,
+      legend_config: { ...cfg, entries: merged },
+      ...(needed > (Number(legendNode.height) || 0) ? { height: needed } : {}),
+    }], { history: false });
   }, [detectedColors, legendNode, editor]);
 
-  const insertLegend = useCallback(() => {
+  const insertLegend = useCallback(async () => {
     if (!canEdit) return;
     const existing = legendNodes[0];
     if (existing) {
@@ -129,7 +134,7 @@ export default function OrgChartBuilder() {
       h: el.clientHeight / view.zoom,
     } : null;
     const point = legendInsertionPoint(nodes, size, visibleWorld);
-    editor.addNode(defaultLegendNode(point.x, point.y, { entries }));
+    await editor.addNode(defaultLegendNode(point.x, point.y, { entries }));
     setDialog({ type: 'legend', tab: 'items' });
     setNotice(`Color legend added with ${entries.length} detected color${entries.length === 1 ? '' : 's'}.`);
   }, [canEdit, legendNodes, nodes, edges, viewSettings, view, editor]);
@@ -141,7 +146,15 @@ export default function OrgChartBuilder() {
 
   const patchLegendConfig = useCallback((patch) => {
     if (!legendNode) return;
-    editor.updateNodes([{ id: legendNode.id, legend_config: { ...legendConfig(legendNode), ...patch } }]);
+    const nextConfig = { ...legendConfig(legendNode), ...patch };
+    const changes = { id: legendNode.id, legend_config: nextConfig };
+    // Adding rows grows the panel so nothing is ever drawn outside it, but a
+    // size the user chose by hand is never shrunk.
+    if (Array.isArray(patch.entries)) {
+      const needed = legendDefaultSize(nextConfig.entries.length, nextConfig).height;
+      if (needed > (Number(legendNode.height) || 0)) changes.height = needed;
+    }
+    editor.updateNodes([changes]);
   }, [editor, legendNode]);
 
   const refreshLegendColors = useCallback(() => {
@@ -763,6 +776,7 @@ export default function OrgChartBuilder() {
         { label: 'Edit color legend…', onClick: () => setDialog({ type: 'legend', tab: 'items' }) },
         { label: 'Legend settings…', onClick: () => setDialog({ type: 'legend', tab: 'settings' }) },
         { label: 'Refresh detected colors', onClick: refreshLegendColors },
+        { label: 'Copy legend', onClick: () => editor.copyNodes([legendTarget.id]) },
         { label: 'Duplicate legend', onClick: () => editor.duplicateNodes([legendTarget.id]) },
         { label: legendTarget.is_locked ? 'Unlock legend' : 'Lock legend', onClick: () => editor.updateNodes([{ id: legendTarget.id, is_locked: !legendTarget.is_locked }]) },
         { separator: true },

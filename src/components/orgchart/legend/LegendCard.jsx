@@ -21,7 +21,7 @@ export default function LegendCard({
   const radius = Number(node.corner_radius ?? 8);
   const fontSize = Number(node.font_size) || 13;
   const pad = Number(node.padding ?? 14);
-  const swatch = Number(cfg.swatch_size) || 12;
+  const swatch = Math.max(4, Number(cfg.swatch_size) || 12);
   const gap = cfg.layout === 'compact' ? Math.max(2, (Number(cfg.row_spacing) || 8) / 2) : (Number(cfg.row_spacing) || 8);
   const opacity = node.opacity === undefined || node.opacity === null || node.opacity === ''
     ? 1
