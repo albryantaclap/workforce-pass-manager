@@ -13,10 +13,11 @@
         "position",
         "shape",
         "text",
-        "note"
+        "note",
+        "legend"
       ],
       "default": "employee",
-      "description": "Card type: employee card, position card, generic shape, free text or a note"
+      "description": "Card type: employee card, position card, generic shape, free text, a note, or the chart's color legend"
     },
     "shape": {
       "type": "string",
@@ -92,7 +93,7 @@
     },
     "name": {
       "type": "string",
-      "description": "Full name / card title"
+      "description": "Full name / card title (the legend title when node_kind is legend)"
     },
     "designation": {
       "type": "string",
@@ -277,6 +278,105 @@
         "right"
       ],
       "description": "Text alignment override"
+    },
+    "legend_config": {
+      "type": "object",
+      "description": "Smart Color Legend settings \u2014 only used when node_kind is 'legend'. Legend labels and swatches are chart documentation: editing them never changes cards, shapes, connectors or personnel data.",
+      "properties": {
+        "layout": {
+          "type": "string",
+          "enum": [
+            "vertical",
+            "horizontal",
+            "two_column",
+            "compact"
+          ],
+          "default": "vertical",
+          "description": "How the legend rows are arranged"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "cards_bg",
+              "cards_border",
+              "shapes",
+              "connectors"
+            ]
+          },
+          "description": "Which chart objects colors are detected from"
+        },
+        "swatch_shape": {
+          "type": "string",
+          "enum": [
+            "circle",
+            "square"
+          ],
+          "default": "circle",
+          "description": "Swatch shape used for every legend row"
+        },
+        "swatch_size": {
+          "type": "number",
+          "default": 12,
+          "description": "Swatch size in px"
+        },
+        "row_spacing": {
+          "type": "number",
+          "default": 8,
+          "description": "Vertical gap between legend rows in px"
+        },
+        "show_header": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the legend header band with the title is drawn"
+        },
+        "header_color": {
+          "type": "string",
+          "default": "#6b7280",
+          "description": "Legend header band color"
+        },
+        "header_text_color": {
+          "type": "string",
+          "default": "#ffffff",
+          "description": "Legend header text color"
+        },
+        "auto_add": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically add newly detected colors as entries. Existing labels are always preserved and no duplicates are created."
+        },
+        "font_family": {
+          "type": "string",
+          "description": "Legend font family. Empty = inherit the app font."
+        },
+        "entries": {
+          "type": "array",
+          "description": "Legend rows in display order. Each row is one color and the meaning the user gave it.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Stable legend item id"
+              },
+              "color": {
+                "type": "string",
+                "description": "Swatch color (#rrggbb)"
+              },
+              "label": {
+                "type": "string",
+                "description": "User-defined meaning of this color. Documentation only \u2014 it never changes chart objects."
+              },
+              "visible": {
+                "type": "boolean",
+                "default": true,
+                "description": "Hidden rows stay in the legend definition but are not drawn"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "required": [
