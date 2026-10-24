@@ -19,11 +19,16 @@ import AutoLayoutDialog from '@/components/orgchart/AutoLayoutDialog';
 import HelpDialog from '@/components/orgchart/HelpDialog';
 import InsertChartDialog from '@/components/orgchart/InsertChartDialog';
 import ConnectGroupDialog from '@/components/orgchart/ConnectGroupDialog';
+import LegendDialog from '@/components/orgchart/legend/LegendDialog';
 import useChartImports from '@/hooks/useChartImports';
 import { Button } from '@/components/ui/button';
 import { Loader2, X, Network } from 'lucide-react';
 import { alignNodes, autoLayout, distributeNodes, nodeBounds, nodeSize } from '@/lib/orgChartLayout';
 import { reorderNodes } from '@/lib/orgChartLayers';
+import {
+  DEFAULT_LEGEND_CONFIG, DEFAULT_SCOPE, defaultLegendNode, detectColors, legendConfig, legendDefaultSize,
+  legendInsertionPoint, makeEntry, mergeDetected, nodeHasColor, normalizeColor,
+} from '@/lib/orgChartLegend';
 import { EDGE_PERSIST_FIELDS, NODE_PERSIST_FIELDS, defaultNode, uid } from '@/lib/orgChartConstants';
 import {
   captureElement, downloadBlob, exportExcel, exportImage, exportJson, exportPdf, exportSvgFile, safeName,
@@ -63,6 +68,109 @@ export default function OrgChartBuilder() {
   const [customTemplates, setCustomTemplates] = useState([]);
   const [versions, setVersions] = useState([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
+
+  // -------------------------------------------------------------- color legend
+  const legendNodes = useMemo(() => nodes.filter(n => n.node_kind === 'legend'), [nodes]);
+  const legendNode = useMemo(
+    () => legendNodes.find(n => editor.selection.includes(n.id)) || legendNodes[0] || null,
+    [legendNodes, editor.selection]
+  );
+  const legendScopeKey = (legendConfig(legendNode).scope || []).join(',');
+  const legendScopeLabel = useMemo(() => {
+    const keys = legendConfig(legendNode).scope || [];
+    if (!keys.length) return 'no objects selected';
+    if (keys.length === 4) return 'all supported objects';
+    return keys
+      .map(k => ({ cards_bg: 'card backgrounds', cards_border: 'card borders', shapes: 'shapes', connectors: 'connectors' }[k] || k))
+      .join(', ');
+  }, [legendScopeKey]);
+  const [detectedColors, setDetectedColors] = useState([]);
+  const [highlight, setHighlight] = useState(null);
+
+  // Detection is debounced and reads only the chart held in memory — it never
+  // reloads personnel records and never runs on pointer movement.
+  useEffect(() => {
+    const scope = legendConfig(legendNode).scope || DEFAULT_SCOPE;
+    const timer = setTimeout(() => {
+      setDetectedColors(detectColors({ nodes, edges, settings: viewSettings, scope }));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [nodes, edges, viewSettings, legendScopeKey]);
+
+  // Automatic mode: newly detected colors join the legend on their own while
+  // every existing label stays untouched. Background bookkeeping is not a user
+  // edit, so it never adds an undo step.
+  useEffect(() => {
+    if (!legendNode || !detectedColors.length) return;
+    const cfg = legendConfig(legendNode);
+    if (cfg.auto_add === false) return;
+    const entries = cfg.entries || [];
+    const merged = mergeDetected(entries, detectedColors, cfg.excluded || []);
+    if (merged.length === entries.length) return;
+    editor.updateNodes([{ id: legendNode.id, legend_config: { ...cfg, entries: merged } }], { history: false });
+  }, [detectedColors, legendNode, editor]);
+
+  const insertLegend = useCallback(() => {
+    if (!canEdit) return;
+    const existing = legendNodes[0];
+    if (existing) {
+      editor.setSelection([existing.id]);
+      setDialog({ type: 'legend', tab: 'items' });
+      setNotice('This chart already has a color legend — editing it instead of adding another.');
+      return;
+    }
+    const entries = detectColors({ nodes, edges, settings: viewSettings, scope: DEFAULT_SCOPE }).map(d => makeEntry(d.color));
+    const size = legendDefaultSize(entries.length, DEFAULT_LEGEND_CONFIG);
+    const el = containerRef.current;
+    const visibleWorld = el ? {
+      x: -view.x / view.zoom,
+      y: -view.y / view.zoom,
+      w: el.clientWidth / view.zoom,
+      h: el.clientHeight / view.zoom,
+    } : null;
+    const point = legendInsertionPoint(nodes, size, visibleWorld);
+    editor.addNode(defaultLegendNode(point.x, point.y, { entries }));
+    setDialog({ type: 'legend', tab: 'items' });
+    setNotice(`Color legend added with ${entries.length} detected color${entries.length === 1 ? '' : 's'}.`);
+  }, [canEdit, legendNodes, nodes, edges, viewSettings, view, editor]);
+
+  const patchLegendNode = useCallback((patch) => {
+    if (!legendNode) return;
+    editor.updateNodes([{ id: legendNode.id, ...patch }]);
+  }, [editor, legendNode]);
+
+  const patchLegendConfig = useCallback((patch) => {
+    if (!legendNode) return;
+    editor.updateNodes([{ id: legendNode.id, legend_config: { ...legendConfig(legendNode), ...patch } }]);
+  }, [editor, legendNode]);
+
+  const refreshLegendColors = useCallback(() => {
+    const cfg = legendNode ? legendConfig(legendNode) : { scope: DEFAULT_SCOPE, entries: [], excluded: [] };
+    const found = detectColors({ nodes, edges, settings: viewSettings, scope: cfg.scope || DEFAULT_SCOPE });
+    setDetectedColors(found);
+    if (!legendNode) {
+      setNotice(`${found.length} color${found.length === 1 ? '' : 's'} detected. Insert a color legend to document them.`);
+      return;
+    }
+    const entries = cfg.entries || [];
+    const merged = mergeDetected(entries, found, cfg.excluded || []);
+    const added = merged.length - entries.length;
+    if (added) editor.updateNodes([{ id: legendNode.id, legend_config: { ...cfg, entries: merged } }]);
+    setNotice(`Refreshed — ${found.length} color${found.length === 1 ? '' : 's'} detected${added ? `, ${added} added` : ', nothing new'}.`);
+  }, [legendNode, nodes, edges, viewSettings, editor]);
+
+  const duplicateLegend = useCallback(() => {
+    if (!legendNode) return;
+    editor.duplicateNodes([legendNode.id]);
+  }, [editor, legendNode]);
+
+  const toggleLegendHighlight = useCallback((entry) => {
+    const color = normalizeColor(entry?.color);
+    setHighlight(prev => (!color || prev?.color === color ? null : { color }));
+  }, []);
+
+  const openLegend = useCallback((tabKey = 'items') => setDialog({ type: 'legend', tab: tabKey }), []);
+  const highlightedCount = highlight ? nodes.filter(n => nodeHasColor(n, highlight.color)).length : 0;
 
   // ------------------------------------------------------------- sizing & view
   const fitBounds = useCallback((list, padding = 90) => {
@@ -647,10 +755,24 @@ export default function OrgChartBuilder() {
   const openContextMenu = useCallback((e, nodeId) => {
     e.preventDefault();
     const target = nodeId ? nodes.find(n => n.id === nodeId) : null;
+    const legendTarget = target && target.node_kind === 'legend' ? target : null;
     setMenu({
       x: e.clientX,
       y: e.clientY,
-      items: target ? [
+      items: legendTarget ? [
+        { label: 'Edit color legend…', onClick: () => setDialog({ type: 'legend', tab: 'items' }) },
+        { label: 'Legend settings…', onClick: () => setDialog({ type: 'legend', tab: 'settings' }) },
+        { label: 'Refresh detected colors', onClick: refreshLegendColors },
+        { label: 'Duplicate legend', onClick: () => editor.duplicateNodes([legendTarget.id]) },
+        { label: legendTarget.is_locked ? 'Unlock legend' : 'Lock legend', onClick: () => editor.updateNodes([{ id: legendTarget.id, is_locked: !legendTarget.is_locked }]) },
+        { separator: true },
+        { label: 'Bring to Front', onClick: () => handleOrder('front', [legendTarget.id]) },
+        { label: 'Bring Forward', onClick: () => handleOrder('forward', [legendTarget.id]) },
+        { label: 'Send Backward', onClick: () => handleOrder('backward', [legendTarget.id]) },
+        { label: 'Send to Back', onClick: () => handleOrder('back', [legendTarget.id]) },
+        { separator: true },
+        { label: 'Delete legend', danger: true, disabled: !canEdit || legendTarget.is_locked, onClick: () => editor.removeNodes([legendTarget.id]) },
+      ] : target ? [
         { label: 'Edit card', onClick: () => handleAction('edit', target) },
         { label: 'Duplicate', onClick: () => editor.duplicateNodes([target.id]) },
         { label: 'Add subordinate', onClick: () => handleQuickAdd(target) },
@@ -673,6 +795,10 @@ export default function OrgChartBuilder() {
         { label: 'Add note', disabled: !canEdit, onClick: () => addCard('note') },
         { label: 'Insert existing chart…', disabled: !canEdit, onClick: () => setDialog({ type: 'insertChart' }) },
         { separator: true },
+        { label: 'Insert color legend', disabled: !canEdit || !!legendNode, onClick: insertLegend },
+        { label: 'Edit color legend…', disabled: !legendNode, onClick: () => setDialog({ type: 'legend', tab: 'items' }) },
+        { label: 'Refresh detected colors', disabled: !nodes.length, onClick: refreshLegendColors },
+        { separator: true },
         { label: 'Paste', disabled: !canEdit, onClick: () => editor.pasteNodes() },
         { label: 'Select all', onClick: () => editor.setSelection(nodes.map(n => n.id)) },
         { separator: true },
@@ -684,7 +810,8 @@ export default function OrgChartBuilder() {
         { label: 'Redo', disabled: !editor.canRedo, onClick: editor.redo },
       ],
     });
-  }, [nodes, editor, addCard, canEdit, fitToScreen, handleAction, handleQuickAdd, handleOrder, layerIdsFor]);
+  }, [nodes, editor, addCard, canEdit, fitToScreen, handleAction, handleQuickAdd, handleOrder, layerIdsFor,
+    legendNode, insertLegend, refreshLegendColors]);
 
   const ctx = {
     chart, nodes, edges, settings: viewSettings, selection: editor.selection, selectedEdgeId: editor.selectedEdgeId,
@@ -703,6 +830,7 @@ export default function OrgChartBuilder() {
       editor.updateViewSettings({ accent_color: preset.style?.accent_color || viewSettings.accent_color });
       editor.setCardPresets([...(chart?.card_presets || []), preset]);
     },
+    legendNode, legendScopeLabel, insertLegend, refreshLegendColors, openLegend,
   };
 
   if (!chartId || editor.missing) {
@@ -772,16 +900,32 @@ export default function OrgChartBuilder() {
             onBeginGesture={editor.beginGesture}
             onEndGesture={editor.endGesture}
             onAddAt={(position) => setDialog({ type: 'node', mode: 'create', position })}
-            onOpenNode={(node) => setDialog({ type: 'node', mode: 'edit', node })}
+            onOpenNode={(node) => (node.node_kind === 'legend'
+              ? setDialog({ type: 'legend', tab: 'items' })
+              : setDialog({ type: 'node', mode: 'edit', node }))}
             onContextMenu={openContextMenu}
             onQuickAdd={handleQuickAdd}
             onAction={handleAction}
+            highlight={highlight}
+            onLegendEntryClick={toggleLegendHighlight}
           />
 
           {notice && (
             <div className="absolute top-3 left-3 z-40 max-w-sm rounded-lg border bg-card px-3 py-2 shadow-lg flex items-start gap-2">
               <p className="text-[11px] flex-1">{notice}</p>
               <button type="button" onClick={() => setNotice('')}><X className="w-3 h-3" /></button>
+            </div>
+          )}
+
+          {highlight && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 shadow-lg">
+              <span className="w-3 h-3 rounded-full border" style={{ background: highlight.color }} />
+              <span className="text-[11px]">
+                Highlighting {highlightedCount} object{highlightedCount === 1 ? '' : 's'} using {highlight.color}
+              </span>
+              <button type="button" className="text-[11px] font-medium text-primary hover:underline" onClick={() => setHighlight(null)}>
+                Clear
+              </button>
             </div>
           )}
 
@@ -834,6 +978,7 @@ export default function OrgChartBuilder() {
             setTool={setTool}
             onAdd={(kind) => addCard(kind)}
             onInsert={() => setDialog({ type: 'insertChart' })}
+            onLegend={() => openLegend('items')}
             onGroup={handleGroup}
             onUndo={editor.undo}
             onRedo={editor.redo}
@@ -916,6 +1061,21 @@ export default function OrgChartBuilder() {
         canEdit={canEdit}
         onInsert={chartImports.commitInsertion}
         onClose={() => setDialog(null)}
+      />
+
+      <LegendDialog
+        open={dialog?.type === 'legend'}
+        tab={dialog?.tab}
+        legend={legendNode}
+        detected={detectedColors}
+        canEdit={canEdit}
+        onClose={() => setDialog(null)}
+        onInsert={insertLegend}
+        onRefresh={refreshLegendColors}
+        onPatchNode={patchLegendNode}
+        onPatchConfig={patchLegendConfig}
+        onDuplicate={duplicateLegend}
+        onDelete={() => { if (legendNode) editor.removeNodes([legendNode.id]); }}
       />
 
       <ConnectGroupDialog

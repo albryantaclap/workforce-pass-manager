@@ -128,6 +128,7 @@ export const DEFAULT_LEGEND_CONFIG = {
   header_text_color: '#ffffff',
   auto_add: true,
   font_family: '',
+  excluded: [],
   entries: [],
 };
 
@@ -145,10 +146,14 @@ export const makeEntry = (color, label = '') => ({
 });
 
 // Adds colors that are not in the legend yet. Every existing entry — with its
-// label, order and visibility — is preserved, and nothing is ever duplicated.
-export function mergeDetected(entries = [], detected = []) {
+// label, order and visibility — is preserved, nothing is ever duplicated, and a
+// color the user deliberately removed stays out.
+export function mergeDetected(entries = [], detected = [], excluded = []) {
+  const blocked = new Set(excluded.map((c) => normalizeColor(c)).filter(Boolean));
   const known = new Set(entries.map((e) => normalizeColor(e.color)).filter(Boolean));
-  const additions = detected.filter((d) => !known.has(d.color)).map((d) => makeEntry(d.color));
+  const additions = detected
+    .filter((d) => !known.has(d.color) && !blocked.has(d.color))
+    .map((d) => makeEntry(d.color));
   return additions.length ? [...entries, ...additions] : entries;
 }
 

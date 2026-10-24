@@ -127,7 +127,7 @@ export const NODE_PERSIST_FIELDS = [
   'link_source', 'accent_color', 'border_color', 'background_color', 'fill_mode',
   'border_style', 'opacity', 'text_color',
   'border_width', 'corner_radius', 'font_size', 'font_weight', 'avatar_size', 'shadow',
-  'padding', 'align',
+  'padding', 'align', 'legend_config',
 ];
 
 export const EDGE_PERSIST_FIELDS = [

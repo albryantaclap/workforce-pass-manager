@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import NodeCard from '@/components/orgchart/NodeCard';
 import ConnectorLayer from '@/components/orgchart/ConnectorLayer';
+import LegendCard from '@/components/orgchart/legend/LegendCard';
 import { nodeSize } from '@/lib/orgChartLayout';
+import { nodeHasColor } from '@/lib/orgChartLegend';
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2.5;
@@ -14,7 +16,7 @@ export default function ChartCanvas({
   selection, setSelection, selectedEdgeId, setSelectedEdgeId,
   onUpdateNodes, onUpdateEdge, onCreateEdge, onReconnectEdge,
   onAddAt, onOpenNode, onContextMenu, onQuickAdd, onAction, containerRef,
-  onBeginGesture, onEndGesture,
+  onBeginGesture, onEndGesture, highlight, onLegendEntryClick,
 }) {
   const [drag, setDrag] = useState(null);
   const [resize, setResize] = useState(null);
@@ -362,7 +364,19 @@ export default function ChartCanvas({
           onBendStart={startBend}
         />
 
-        {displayNodes.map(node => (
+        {displayNodes.map(node => (node.node_kind === 'legend' ? (
+          <LegendCard
+            key={node.id}
+            node={node}
+            selected={selection.includes(node.id)}
+            canEdit={canEdit}
+            highlightedColor={highlight?.color}
+            onEntryClick={onLegendEntryClick}
+            onPointerDown={handleNodePointerDown}
+            onDoubleClick={onOpenNode}
+            onContextMenu={onContextMenu}
+          />
+        ) : (
           <NodeCard
             key={node.id}
             node={node}
@@ -371,6 +385,7 @@ export default function ChartCanvas({
             multiSelected={selection.length > 1}
             canEdit={canEdit}
             hovered={hoverId === node.id}
+            dimmed={!!highlight && !nodeHasColor(node, highlight.color)}
             onPointerDown={handleNodePointerDown}
             onDoubleClick={onOpenNode}
             onPortStart={startConnect}
@@ -382,7 +397,7 @@ export default function ChartCanvas({
               else onAction(action, target);
             }}
           />
-        ))}
+        )))}
 
         {connect && connectStart && (
           <svg className="absolute left-0 top-0" style={{ width: 1, height: 1, overflow: 'visible', pointerEvents: 'none' }}>

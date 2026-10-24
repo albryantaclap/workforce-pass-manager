@@ -43,6 +43,29 @@ export default function ChartSettingsPanel({ ctx }) {
       </div>
 
       <div className="border-t pt-3 space-y-1.5">
+        <p className="text-[11px] font-semibold text-muted-foreground">Smart color legend</p>
+        <p className="text-[10px] text-muted-foreground">
+          {ctx.legendNode
+            ? `${(ctx.legendNode.legend_config?.entries || []).length} legend item(s) · ${ctx.legendScopeLabel}`
+            : 'No color legend on this chart yet.'}
+        </p>
+        <div className="grid grid-cols-2 gap-1">
+          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" disabled={!ctx.canEdit} onClick={ctx.insertLegend}>
+            Insert
+          </Button>
+          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" disabled={!ctx.legendNode} onClick={() => ctx.openLegend('items')}>
+            Edit
+          </Button>
+          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" disabled={!ctx.canEdit} onClick={ctx.refreshLegendColors}>
+            Refresh
+          </Button>
+          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" disabled={!ctx.legendNode} onClick={() => ctx.openLegend('settings')}>
+            Settings
+          </Button>
+        </div>
+      </div>
+
+      <div className="border-t pt-3 space-y-1.5">
         <p className="text-[11px] font-semibold text-muted-foreground">Chart details (used on exports)</p>
         {[
           ['revision_no', 'Revision no.', 'number'],

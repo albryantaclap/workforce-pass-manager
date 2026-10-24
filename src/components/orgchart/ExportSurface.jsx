@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import NodeCard from '@/components/orgchart/NodeCard';
+import LegendCard from '@/components/orgchart/legend/LegendCard';
 import ExportConnectorCanvas from '@/components/orgchart/ExportConnectorCanvas';
 import { nodeSize } from '@/lib/orgChartLayout';
 
@@ -54,7 +55,9 @@ export default forwardRef(function ExportSurface({ rect, nodes, edges, settings,
     >
       <ExportConnectorCanvas rect={rect} nodes={visible} edges={edges} />
       <div style={{ position: 'absolute', left: -rect.x, top: -rect.y }}>
-        {visible.map(node => (
+        {visible.map(node => (node.node_kind === 'legend' ? (
+          <LegendCard key={node.id} node={node} selected={false} interactive={false} />
+        ) : (
           <NodeCard
             key={node.id}
             node={node}
@@ -70,7 +73,7 @@ export default forwardRef(function ExportSurface({ rect, nodes, edges, settings,
             onAction={noop}
             onContextMenu={noop}
           />
-        ))}
+        )))}
       </div>
     </div>
   );

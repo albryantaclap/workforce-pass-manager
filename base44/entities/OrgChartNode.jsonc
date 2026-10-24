@@ -350,6 +350,13 @@
           "type": "string",
           "description": "Legend font family. Empty = inherit the app font."
         },
+        "excluded": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Colors the user explicitly kept out of this legend (#rrggbb). Automatic detection never adds them back."
+        },
         "entries": {
           "type": "array",
           "description": "Legend rows in display order. Each row is one color and the meaning the user gave it.",

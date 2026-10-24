@@ -7,6 +7,7 @@ import { jsPDF } from 'jspdf';
 import ExcelJS from 'exceljs';
 import { buildEdgePath, edgeAnchors, nodeSize } from '@/lib/orgChartLayout';
 import { borderStyleOf, isBackgroundNode, isFillNone, opacityOf, sortByLayer } from '@/lib/orgChartLayers';
+import { legendSvgMarkup } from '@/lib/orgChartLegend';
 
 export const PAGE_SIZES = {
   A4: [210, 297],
@@ -224,6 +225,7 @@ export function exportSvg(nodes, edges, { background = '#ffffff', transparent = 
   // Same layering as the canvas: cards at z <= 0 sit behind the connectors,
   // everything else in front of them. Transparent shapes keep fill="none".
   const nodeMarkupFor = (n) => {
+    if (n.node_kind === 'legend') return legendSvgMarkup(n);
     const { w, h } = nodeSize(n);
     const accent = n.accent_color || '#254dd0';
     const fillNone = isFillNone(n);

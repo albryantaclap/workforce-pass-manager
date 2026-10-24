@@ -97,7 +97,7 @@ function QuickActions({ node, onAction }) {
 }
 
 export default function NodeCard({
-  node, settings, selected, multiSelected, canEdit, hovered,
+  node, settings, selected, multiSelected, canEdit, hovered, dimmed,
   onPointerDown, onDoubleClick, onPortStart, onQuickAdd, onAction, onContextMenu,
 }) {
   const styleKey = node.display_style || settings.card_style || 'business';
@@ -142,7 +142,7 @@ export default function NodeCard({
     height: node.height || 118,
     zIndex: Number.isFinite(Number(node.z_index)) ? Number(node.z_index) : 1,
     transform: node.rotation ? `rotate(${node.rotation}deg)` : undefined,
-    opacity: node.is_visible === false ? 0.25 : opacityValue,
+    opacity: dimmed ? 0.18 : (node.is_visible === false ? 0.25 : opacityValue),
     pointerEvents: passThrough ? 'none' : undefined,
   };
 
