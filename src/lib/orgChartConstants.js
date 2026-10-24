@@ -124,7 +124,8 @@ export const NODE_PERSIST_FIELDS = [
   'department', 'company', 'project_name', 'employee_code', 'pid', 'qid', 'email', 'phone',
   'photo_url', 'text_content', 'footer_text', 'remarks', 'extra_fields', 'manager_name',
   'employment_status', 'planned_fill_date', 'position_grade', 'linked_employee_id',
-  'link_source', 'accent_color', 'border_color', 'background_color', 'text_color',
+  'link_source', 'accent_color', 'border_color', 'background_color', 'fill_mode',
+  'border_style', 'opacity', 'text_color',
   'border_width', 'corner_radius', 'font_size', 'font_weight', 'avatar_size', 'shadow',
   'padding', 'align',
 ];
@@ -141,6 +142,7 @@ export function defaultNode(kind = 'employee', x = 0, y = 0) {
     is_locked: false, is_visible: true, display_style: 'business', density: 'standard',
     shadow: 'sm', padding: 14, align: 'center', border_width: 1, corner_radius: 12,
     font_size: 13, font_weight: '600', avatar_size: 44, link_source: 'manual', extra_fields: [],
+    fill_mode: 'solid', border_style: 'solid', opacity: 100,
   };
   if (kind === 'shape') return { ...base, shape: 'rounded', width: 180, height: 92, name: 'Shape', display_style: 'text', font_weight: '600' };
   if (kind === 'text') return { ...base, width: 260, height: 56, name: 'Text', text_content: 'Text', shadow: 'none', display_style: 'text', font_size: 16, font_weight: '700' };

@@ -50,6 +50,9 @@ export default function ConnectorLayer({
         height: frame.h,
         overflow: 'visible',
         pointerEvents: 'none',
+        // Connectors sit between the background band (cards at z <= 0) and the
+        // normal cards, so a shape sent to the back never hides reporting lines.
+        zIndex: 0,
       }}
     >
       <defs>

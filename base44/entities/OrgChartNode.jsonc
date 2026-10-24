@@ -51,7 +51,7 @@
     "z_index": {
       "type": "number",
       "default": 1,
-      "description": "Stacking order (bring forward / send backward)"
+      "description": "Stacking order (bring forward / send backward). Values 0 and below place the object behind the connector layer."
     },
     "group_id": {
       "type": "string",
@@ -207,6 +207,29 @@
     "background_color": {
       "type": "string",
       "description": "Background colour override"
+    },
+    "fill_mode": {
+      "type": "string",
+      "enum": [
+        "solid",
+        "none"
+      ],
+      "description": "Background fill: solid colour or transparent / no fill (true transparency, so cards and connectors behind the shape stay visible). Empty = solid, which keeps existing shapes unchanged."
+    },
+    "border_style": {
+      "type": "string",
+      "enum": [
+        "solid",
+        "dashed",
+        "dotted"
+      ],
+      "default": "solid",
+      "description": "Border line style. Border thickness 0 = no border."
+    },
+    "opacity": {
+      "type": "number",
+      "default": 100,
+      "description": "Object opacity in percent (0-100). Empty = 100."
     },
     "text_color": {
       "type": "string",

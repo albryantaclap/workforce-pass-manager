@@ -23,6 +23,7 @@ import useChartImports from '@/hooks/useChartImports';
 import { Button } from '@/components/ui/button';
 import { Loader2, X, Network } from 'lucide-react';
 import { alignNodes, autoLayout, distributeNodes, nodeBounds, nodeSize } from '@/lib/orgChartLayout';
+import { reorderNodes } from '@/lib/orgChartLayers';
 import { EDGE_PERSIST_FIELDS, NODE_PERSIST_FIELDS, defaultNode, uid } from '@/lib/orgChartConstants';
 import {
   captureElement, downloadBlob, exportExcel, exportImage, exportJson, exportPdf, exportSvgFile, safeName,
@@ -35,7 +36,7 @@ const TEMPLATE_NODE_FIELDS = [
   'name', 'designation', 'department', 'company', 'project_name', 'employee_code', 'pid', 'email', 'phone',
   'photo_url', 'text_content', 'footer_text', 'remarks', 'extra_fields', 'accent_color', 'background_color',
   'border_color', 'text_color', 'border_width', 'corner_radius', 'font_size', 'font_weight', 'avatar_size',
-  'shadow', 'padding', 'align',
+  'shadow', 'padding', 'align', 'fill_mode', 'border_style', 'opacity',
 ];
 
 export default function OrgChartBuilder() {
@@ -270,20 +271,18 @@ export default function OrgChartBuilder() {
   const handleAlign = (mode) => editor.updateNodes(alignNodes(nodes, editor.selection, mode));
   const handleDistribute = (axis) => editor.updateNodes(distributeNodes(nodes, editor.selection, axis));
 
-  const handleOrder = (mode) => {
-    const selected = nodes.filter(n => editor.selection.includes(n.id));
-    if (!selected.length) return;
-    const zs = nodes.map(n => n.z_index || 1);
-    if (mode === 'front') {
-      editor.updateNodes(selected.map(n => ({ id: n.id, z_index: Math.max(...zs) + 1 })));
-      return;
-    }
-    if (mode === 'back') {
-      editor.updateNodes(selected.map(n => ({ id: n.id, z_index: Math.max(0, Math.min(...zs) - 1) })));
-      return;
-    }
-    editor.updateNodes(selected.map(n => ({ id: n.id, z_index: Math.max(0, (n.z_index || 1) + (mode === 'forward' ? 1 : -1)) })));
-  };
+  // Layering goes through one shared reordering routine, so a whole selection
+  // (or a whole group) moves as one undoable step and positions never change.
+  const handleOrder = useCallback((mode, ids) => {
+    const targetIds = ids && ids.length ? ids : editor.selection;
+    if (!targetIds.length) return;
+    const patches = reorderNodes(nodes, targetIds, mode);
+    if (patches.length) editor.updateNodes(patches);
+  }, [nodes, editor]);
+
+  const layerIdsFor = useCallback((node) => (
+    node?.group_id ? nodes.filter(n => n.group_id === node.group_id).map(n => n.id) : [node.id]
+  ), [nodes]);
 
   const handleGroup = (group) => {
     if (!editor.selection.length) return;
@@ -658,6 +657,11 @@ export default function OrgChartBuilder() {
         { label: 'Copy', onClick: () => editor.copyNodes([target.id]) },
         { label: target.is_locked ? 'Unlock card' : 'Lock card', onClick: () => handleAction('lock', target) },
         { separator: true },
+        { label: 'Bring to Front', onClick: () => handleOrder('front', layerIdsFor(target)) },
+        { label: 'Bring Forward', onClick: () => handleOrder('forward', layerIdsFor(target)) },
+        { label: 'Send Backward', onClick: () => handleOrder('backward', layerIdsFor(target)) },
+        { label: 'Send to Back', onClick: () => handleOrder('back', layerIdsFor(target)) },
+        { separator: true },
         { label: 'Delete card', danger: true, onClick: () => editor.removeNodes([target.id]) },
       ] : [
         { label: 'Add employee card', disabled: !canEdit, onClick: () => addCard('employee') },
@@ -678,12 +682,13 @@ export default function OrgChartBuilder() {
         { label: 'Redo', disabled: !editor.canRedo, onClick: editor.redo },
       ],
     });
-  }, [nodes, editor, addCard, canEdit, fitToScreen, handleAction, handleQuickAdd]);
+  }, [nodes, editor, addCard, canEdit, fitToScreen, handleAction, handleQuickAdd, handleOrder, layerIdsFor]);
 
   const ctx = {
     chart, nodes, edges, settings: viewSettings, selection: editor.selection, selectedEdgeId: editor.selectedEdgeId,
     canEdit, projects, projectCharts, customTemplates,
     updateNodes: editor.updateNodes, removeNodes: editor.removeNodes, setSelection: editor.setSelection,
+    orderSelection: handleOrder,
     setSelectedEdgeId: editor.setSelectedEdgeId, updateViewSettings: editor.updateViewSettings,
     setCardPresets: editor.setCardPresets, addCard, addEmployeeCard, focusNode, onProjectChange,
     applyTemplate, saveAsTemplate, duplicateTemplate, deleteTemplate, exportTemplateJson, importTemplateJson,
@@ -761,7 +766,9 @@ export default function OrgChartBuilder() {
             onUpdateNodes={editor.updateNodes}
             onUpdateEdge={editor.updateEdge}
             onCreateEdge={editor.addEdge}
-            onReconnectEdge={(edgeId, end, nodeId) => editor.updateEdge(edgeId, end === 'source' ? { source_id: nodeId } : { target_id: nodeId })}
+            onReconnectEdge={(edgeId, end, nodeId) => editor.updateEdge(edgeId, end === 'source' ? { source_id: nodeId } : { target_id: nodeId }, { history: true })}
+            onBeginGesture={editor.beginGesture}
+            onEndGesture={editor.endGesture}
             onAddAt={(position) => setDialog({ type: 'node', mode: 'create', position })}
             onOpenNode={(node) => setDialog({ type: 'node', mode: 'edit', node })}
             onContextMenu={openContextMenu}
@@ -799,7 +806,7 @@ export default function OrgChartBuilder() {
             <ConnectorBar
               edge={selectedEdge}
               canApplyOfficial={['owner', 'administrator'].includes(myRole)}
-              onUpdate={(patch) => editor.updateEdge(selectedEdge.id, patch)}
+              onUpdate={(patch) => editor.updateEdge(selectedEdge.id, patch, { history: true })}
               onDelete={() => editor.removeEdges([selectedEdge.id])}
               onAddBend={() => {
                 const source = nodes.find(n => n.id === selectedEdge.source_id);
@@ -813,9 +820,9 @@ export default function OrgChartBuilder() {
                     x: Math.round((source.x + sourceSize.w / 2 + target.x + targetSize.w / 2) / 2),
                     y: Math.round((source.y + sourceSize.h / 2 + target.y + targetSize.h / 2) / 2),
                   }],
-                });
+                }, { history: true });
               }}
-              onClearBends={() => editor.updateEdge(selectedEdge.id, { bend_points: [] })}
+              onClearBends={() => editor.updateEdge(selectedEdge.id, { bend_points: [] }, { history: true })}
               onApplyOfficial={applyOfficial}
             />
           )}

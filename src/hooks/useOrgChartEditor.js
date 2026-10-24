@@ -53,6 +53,8 @@ export default function useOrgChartEditor(chartId) {
   const chartDirty = useRef(false);
   const loadedIds = useRef({ nodes: [], edges: [] });
   const history = useRef({ past: [], future: [] });
+  const gesture = useRef(null);
+  const seq = useRef(0);
   const clipboard = useRef(null);
   const savingRef = useRef(false);
   const pendingRef = useRef(false);
@@ -104,6 +106,12 @@ export default function useOrgChartEditor(chartId) {
     if (savingRef.current) { pendingRef.current = true; return; }
     savingRef.current = true;
     setSaveState('saving');
+    // Snapshot what this save carries. Anything edited while it is in flight
+    // stays dirty, so a slower/older write can never swallow a newer change.
+    const startSeq = seq.current;
+    const sentNodeIds = new Set(dirtyNodes.current);
+    const sentEdgeIds = new Set(dirtyEdges.current);
+    const sentChartDirty = chartDirty.current;
     try {
       const presentNodeIds = new Set(current.nodes.filter(n => n.id).map(n => n.id));
       const presentEdgeIds = new Set(current.edges.filter(e => e.id).map(e => e.id));
@@ -111,20 +119,23 @@ export default function useOrgChartEditor(chartId) {
       const removedEdges = loadedIds.current.edges.filter(id => !presentEdgeIds.has(id));
       const nodeUpdates = [
         ...current.nodes
-          .filter(n => n.id && dirtyNodes.current.has(n.id))
+          .filter(n => n.id && sentNodeIds.has(n.id))
           .map(n => ({ ...pick(n, NODE_PERSIST_FIELDS), id: n.id, chart_id: current.chart.id, is_deleted: false })),
         ...removedNodes.map(id => ({ id, is_deleted: true })),
       ];
       const edgeUpdates = [
         ...current.edges
-          .filter(e => e.id && dirtyEdges.current.has(e.id))
+          .filter(e => e.id && sentEdgeIds.has(e.id))
           .map(e => ({ ...pick(e, EDGE_PERSIST_FIELDS), id: e.id, chart_id: current.chart.id, is_deleted: false })),
         ...removedEdges.map(id => ({ id, is_deleted: true })),
       ];
       if (nodeUpdates.length) await bulkUpdateAll(base44.entities.OrgChartNode, nodeUpdates);
       if (edgeUpdates.length) await bulkUpdateAll(base44.entities.OrgChartEdge, edgeUpdates);
-      if (chartDirty.current || extraChartFields) {
+      if (sentChartDirty || extraChartFields) {
         await base44.entities.OrgChart.update(current.chart.id, {
+          ...(sentChartDirty
+            ? { view_settings: current.chart.view_settings || {}, card_presets: current.chart.card_presets || [] }
+            : {}),
           ...(extraChartFields || {}),
           last_edited_by: me?.email,
           last_edited_by_name: me?.full_name,
@@ -132,9 +143,11 @@ export default function useOrgChartEditor(chartId) {
         });
       }
       loadedIds.current = { nodes: [...presentNodeIds], edges: [...presentEdgeIds] };
-      dirtyNodes.current.clear();
-      dirtyEdges.current.clear();
-      chartDirty.current = false;
+      if (seq.current === startSeq) {
+        sentNodeIds.forEach(id => dirtyNodes.current.delete(id));
+        sentEdgeIds.forEach(id => dirtyEdges.current.delete(id));
+        if (sentChartDirty) chartDirty.current = false;
+      }
       setLastSavedAt(new Date());
       setSaveState('saved');
     } catch (err) {
@@ -157,18 +170,45 @@ export default function useOrgChartEditor(chartId) {
   }, [nodes, edges, chart, loading, sync]);
 
   // ------------------------------------------------------------------ history
-  const pushHistory = useCallback(() => {
+  const pushHistory = useCallback((snapshot) => {
     const current = stateRef.current;
-    history.current.past.push({ nodes: clone(current.nodes), edges: clone(current.edges) });
+    history.current.past.push(snapshot || {
+      nodes: clone(current.nodes), edges: clone(current.edges), chart: clone(current.chart),
+    });
     if (history.current.past.length > HISTORY_LIMIT) history.current.past.shift();
     history.current.future = [];
     setUndoDepth(history.current.past.length);
     setRedoDepth(0);
   }, []);
 
+  // Captures state before a gesture (drag, resize, bend point drag) so the whole
+  // gesture becomes exactly one undo step, and only when it actually moved.
+  const beginGesture = useCallback(() => {
+    const current = stateRef.current;
+    gesture.current = { nodes: clone(current.nodes), edges: clone(current.edges), chart: clone(current.chart) };
+  }, []);
+
+  const endGesture = useCallback((changed = true) => {
+    const snapshot = gesture.current;
+    gesture.current = null;
+    if (!snapshot || !changed) return;
+    pushHistory(snapshot);
+  }, [pushHistory]);
+
   const applySnapshot = useCallback((snap) => {
+    seq.current += 1;
+    stateRef.current = {
+      ...stateRef.current,
+      nodes: snap.nodes,
+      edges: snap.edges,
+      chart: snap.chart || stateRef.current.chart,
+    };
     setNodes(snap.nodes);
     setEdges(snap.edges);
+    if (snap.chart) {
+      chartDirty.current = true;
+      setChart(snap.chart);
+    }
     dirtyNodes.current = new Set(snap.nodes.filter(n => n.id).map(n => n.id));
     dirtyEdges.current = new Set(snap.edges.filter(e => e.id).map(e => e.id));
     setSelection([]);
@@ -207,12 +247,16 @@ export default function useOrgChartEditor(chartId) {
     return created;
   }, [chartId, pushHistory]);
 
-  const updateNodes = useCallback((patches) => {
+  // Every discrete edit (move, resize, style, layer order, align, lock…) is one
+  // undo step. Pass { history: false } only when the caller already pushed one.
+  const updateNodes = useCallback((patches, options = {}) => {
     if (!patches?.length) return;
+    if (options.history !== false) pushHistory();
+    seq.current += 1;
     patches.forEach(p => dirtyNodes.current.add(p.id));
     const map = new Map(patches.map(p => [p.id, p]));
     setNodes(prev => prev.map(n => (map.has(n.id) ? { ...n, ...map.get(n.id) } : n)));
-  }, []);
+  }, [pushHistory]);
 
   const removeNodes = useCallback((ids) => {
     if (!ids?.length) return;
@@ -252,11 +296,15 @@ export default function useOrgChartEditor(chartId) {
     return created;
   }, [chartId, pushHistory]);
 
-  const updateEdge = useCallback((edgeId, patch) => {
+  // Connector edits opt into history explicitly: bend points are rewritten on
+  // every pointer move, while the gesture itself is one undo step.
+  const updateEdge = useCallback((edgeId, patch, options = {}) => {
     if (!edgeId || !patch) return;
+    if (options.history) pushHistory();
+    seq.current += 1;
     dirtyEdges.current.add(edgeId);
     setEdges(prev => prev.map(e => (e.id === edgeId ? { ...e, ...patch } : e)));
-  }, []);
+  }, [pushHistory]);
 
   const removeEdges = useCallback((ids) => {
     if (!ids?.length) return;
@@ -555,6 +603,7 @@ export default function useOrgChartEditor(chartId) {
     duplicateNodes, copyNodes, pasteNodes,
     applyInsertion, updateLinkedGroup, duplicateGroup, removeGroup,
     undo, redo, canUndo: undoDepth > 0, canRedo: redoDepth > 0,
+    beginGesture, endGesture,
     viewSettings, updateViewSettings, updateChart, setCardPresets,
     createVersion, restoreVersion, saveNow: sync,
     myRole, canEdit, pushHistory, defaultNode,

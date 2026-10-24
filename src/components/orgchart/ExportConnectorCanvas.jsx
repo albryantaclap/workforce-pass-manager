@@ -131,5 +131,5 @@ export default function ExportConnectorCanvas({ rect, nodes, edges }) {
     canvas.dataset.exportReady = '1';
   }, [rect, nodes, edges]);
 
-  return <canvas ref={canvasRef} data-export-ready="0" style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }} />;
+  return <canvas ref={canvasRef} data-export-ready="0" style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none', zIndex: 0 }} />;
 }

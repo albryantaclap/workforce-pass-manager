@@ -14,6 +14,7 @@ export default function ChartCanvas({
   selection, setSelection, selectedEdgeId, setSelectedEdgeId,
   onUpdateNodes, onUpdateEdge, onCreateEdge, onReconnectEdge,
   onAddAt, onOpenNode, onContextMenu, onQuickAdd, onAction, containerRef,
+  onBeginGesture, onEndGesture,
 }) {
   const [drag, setDrag] = useState(null);
   const [resize, setResize] = useState(null);
@@ -137,6 +138,8 @@ export default function ChartCanvas({
   const startBend = (edgeId, index, e) => {
     e.stopPropagation();
     setResize(null);
+    // One undo step for the whole bend drag, captured before the first move.
+    onBeginGesture?.();
     setDrag({ bend: { edgeId, index }, ids: [], startWorld: toWorld(e.clientX, e.clientY), delta: { x: 0, y: 0 } });
   };
 
@@ -272,6 +275,7 @@ export default function ChartCanvas({
       }
       if (drag) {
         if (drag.bend) {
+          onEndGesture?.(true);
           setDrag(null);
           setGuides([]);
           return;
@@ -297,7 +301,7 @@ export default function ChartCanvas({
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
     };
-  }, [pan, drag, resize, marquee, connect, nodes, edges, view, grid, settings, toWorld, setView, setSelection, onUpdateNodes, onUpdateEdge, onCreateEdge, onReconnectEdge, nodeById, containerRef]);
+  }, [pan, drag, resize, marquee, connect, nodes, edges, view, grid, settings, toWorld, setView, setSelection, onUpdateNodes, onUpdateEdge, onCreateEdge, onReconnectEdge, nodeById, containerRef, onBeginGesture, onEndGesture]);
 
   const single = selection.length === 1 ? displayNodes.find(n => n.id === selection[0]) : null;
   const singleSize = single ? nodeSize(single) : null;

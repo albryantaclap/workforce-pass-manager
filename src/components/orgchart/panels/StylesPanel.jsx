@@ -117,6 +117,79 @@ export default function StylesPanel({ ctx }) {
       </div>
 
       <div className="space-y-1.5">
+        <p className={label}>Fill & border</p>
+        <div className="flex gap-1">
+          {[
+            { key: 'solid', text: 'Solid colour' },
+            { key: 'none', text: 'Transparent' },
+          ].map(option => {
+            const active = (current('fill_mode', 'solid') || 'solid') === option.key;
+            return (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => patchSelection({ fill_mode: option.key })}
+                className={`flex-1 rounded-md border px-1.5 py-1 text-[10px] ${active ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'}`}
+              >
+                {option.text}
+              </button>
+            );
+          })}
+        </div>
+        <div className={row}>
+          <span className={label}>Border style</span>
+          <select
+            value={current('border_style', 'solid') || 'solid'}
+            onChange={(e) => patchSelection({ border_style: e.target.value })}
+            className="w-20 h-7 rounded-md border bg-background px-1 text-[11px]"
+          >
+            {['solid', 'dashed', 'dotted'].map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className={row}>
+          <span className={label}>Opacity %</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={current('opacity', 100) ?? 100}
+            onChange={(e) => patchSelection({ opacity: Number(e.target.value) })}
+            className="w-24"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => patchSelection({ border_width: 0 })}
+          className="w-full rounded-md border px-1.5 py-1 text-[10px] hover:bg-muted"
+        >
+          No border
+        </button>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className={label}>Layer</p>
+        <div className="grid grid-cols-2 gap-1">
+          {[
+            { key: 'front', text: 'Bring to Front' },
+            { key: 'forward', text: 'Bring Forward' },
+            { key: 'backward', text: 'Send Backward' },
+            { key: 'back', text: 'Send to Back' },
+          ].map(action => (
+            <button
+              key={action.key}
+              type="button"
+              onClick={() => ctx.orderSelection(action.key)}
+              title={action.key === 'back' ? 'Place behind the connectors' : action.text}
+              className="rounded-md border px-1.5 py-1 text-[10px] hover:bg-muted"
+            >
+              {action.text}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
         <p className={label}>Geometry</p>
         <NumberField title="Border thickness" value={first?.border_width} fallback={1} min={0} max={8} onChange={(v) => patchSelection({ border_width: v })} />
         <NumberField title="Corner radius" value={first?.corner_radius} fallback={12} min={0} max={40} onChange={(v) => patchSelection({ corner_radius: v })} />

@@ -4,6 +4,7 @@ import {
   Pencil, Copy, Trash2, UserPlus, Users, Link2, Palette, Lock, Unlock,
   ExternalLink, Plus, ChevronUp, Move,
 } from 'lucide-react';
+import { opacityOf } from '@/lib/orgChartLayers';
 
 const SHADOWS = {
   none: 'none',
@@ -71,6 +72,7 @@ function QuickActions({ node, onAction }) {
   return (
     <div
       className="absolute -top-9 left-1/2 -translate-x-1/2 flex items-center gap-0.5 rounded-lg bg-slate-900 px-1 py-1 shadow-lg"
+      style={{ pointerEvents: 'auto' }}
       onPointerDown={(e) => e.stopPropagation()}
     >
       {buttons.map(({ key, icon: Icon, title, danger, href }) =>
@@ -102,7 +104,12 @@ export default function NodeCard({
   const density = node.density || settings.density || 'standard';
   const accent = node.accent_color || settings.accent_color || '#254dd0';
   const borderColor = node.border_color || accent;
-  const bg = node.background_color || '#ffffff';
+  const fillNone = node.fill_mode === 'none';
+  const bg = fillNone ? 'none' : (node.background_color || '#ffffff');
+  const bgCss = fillNone ? 'transparent' : bg;
+  const borderStyle = node.border_style || 'solid';
+  const strokeDash = borderStyle === 'dashed' ? '7 5' : borderStyle === 'dotted' ? '2 3' : undefined;
+  const opacityValue = opacityOf(node);
   const textColor = node.text_color || '#0e1425';
   const radius = node.corner_radius ?? 12;
   const borderWidth = node.border_width ?? 1;
@@ -116,6 +123,9 @@ export default function NodeCard({
   const isShape = node.node_kind === 'shape';
   const isText = node.node_kind === 'text';
   const isNote = node.node_kind === 'note';
+  // A transparent shape must not swallow clicks: only its outline stays grabbable.
+  const passThrough = isShape && fillNone;
+  const rectRadiusUnits = Math.max(0, Math.min(50, (radius / Math.max(1, node.width || 260)) * 100));
 
   const showName = visibleFields.includes('name');
   const infoFields = visibleFields.filter(f => f !== 'name');
@@ -130,14 +140,15 @@ export default function NodeCard({
     top: node.y,
     width: node.width || 260,
     height: node.height || 118,
-    zIndex: node.z_index || 1,
+    zIndex: Number.isFinite(Number(node.z_index)) ? Number(node.z_index) : 1,
     transform: node.rotation ? `rotate(${node.rotation}deg)` : undefined,
-    opacity: node.is_visible === false ? 0.25 : 1,
+    opacity: node.is_visible === false ? 0.25 : opacityValue,
+    pointerEvents: passThrough ? 'none' : undefined,
   };
 
   const boxStyle = {
-    background: isNote ? '#fef9c3' : bg,
-    border: `${isShape ? 0 : borderWidth}px solid ${borderColor}`,
+    background: isNote && !fillNone ? '#fef9c3' : bgCss,
+    border: `${isShape || !borderWidth ? 0 : borderWidth}px ${borderStyle} ${borderColor}`,
     borderRadius: radius,
     boxShadow: shadow,
     color: textColor,
@@ -166,19 +177,46 @@ export default function NodeCard({
       {isShape ? (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
           {SHAPE_POINTS[node.shape] ? (
-            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: 'block', filter: shadow !== 'none' ? 'drop-shadow(0 1px 2px rgba(15,23,42,0.15))' : undefined }}>
-              <polygon points={SHAPE_POINTS[node.shape]} fill={bg} stroke={borderColor} strokeWidth={borderWidth} vectorEffect="non-scaling-stroke" />
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: 'block', filter: !fillNone && shadow !== 'none' ? 'drop-shadow(0 1px 2px rgba(15,23,42,0.15))' : undefined }}>
+              <polygon
+                points={SHAPE_POINTS[node.shape]}
+                fill={bg}
+                stroke={borderColor}
+                strokeWidth={borderWidth}
+                strokeDasharray={strokeDash}
+                vectorEffect="non-scaling-stroke"
+                pointerEvents={passThrough ? 'stroke' : undefined}
+                style={passThrough ? { cursor: 'move' } : undefined}
+              />
+            </svg>
+          ) : fillNone ? (
+            // True transparency: fill="none" with pointer events on the outline only,
+            // so cards and connectors behind the shape stay visible and clickable.
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: 'block', overflow: 'visible' }}>
+              {node.shape === 'ellipse' || node.shape === 'circle' ? (
+                <ellipse
+                  cx="50" cy="50" rx="49.5" ry="49.5" fill="none"
+                  stroke={borderColor} strokeWidth={borderWidth} strokeDasharray={strokeDash}
+                  vectorEffect="non-scaling-stroke" pointerEvents="stroke" style={{ cursor: 'move' }}
+                />
+              ) : (
+                <rect
+                  x="0.5" y="0.5" width="99" height="99" rx={rectRadiusUnits} fill="none"
+                  stroke={borderColor} strokeWidth={borderWidth} strokeDasharray={strokeDash}
+                  vectorEffect="non-scaling-stroke" pointerEvents="stroke" style={{ cursor: 'move' }}
+                />
+              )}
             </svg>
           ) : (
             <div
               style={{
-                width: '100%', height: '100%', background: bg, border: `${borderWidth}px solid ${borderColor}`,
+                width: '100%', height: '100%', background: bgCss, border: `${borderWidth}px ${borderStyle} ${borderColor}`,
                 borderRadius: node.shape === 'ellipse' || node.shape === 'circle' ? '50%' : node.shape === 'cylinder' ? '50% / 16%' : radius,
                 boxShadow: shadow,
               }}
             />
           )}
-          <div className="absolute inset-0 flex flex-col items-center justify-center px-3" style={{ color: textColor, fontSize, fontWeight }}>
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-3" style={{ color: textColor, fontSize, fontWeight, pointerEvents: passThrough ? 'none' : undefined }}>
             <div className="text-center leading-tight">{showName && node.name}</div>
             {node.designation && <div className="text-[11px] font-normal opacity-80 text-center">{node.designation}</div>}
           </div>
@@ -228,7 +266,7 @@ export default function NodeCard({
               key={port}
               type="button"
               title={`Connect from ${port}`}
-              style={{ position: 'absolute', ...PORT_POS[port], width: 10, height: 10, borderRadius: 9999, background: '#fff', border: `2px solid ${accent}`, cursor: 'crosshair' }}
+              style={{ position: 'absolute', ...PORT_POS[port], width: 10, height: 10, borderRadius: 9999, background: '#fff', border: `2px solid ${accent}`, cursor: 'crosshair', pointerEvents: 'auto' }}
               onPointerDown={(e) => { e.stopPropagation(); onPortStart(node, port, e); }}
             />
           ))}
@@ -240,7 +278,7 @@ export default function NodeCard({
           title="Add subordinate card"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => onQuickAdd(node)}
-          style={{ position: 'absolute', left: '50%', bottom: -30, transform: 'translateX(-50%)', width: 20, height: 20, borderRadius: 9999, background: accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'absolute', left: '50%', bottom: -30, transform: 'translateX(-50%)', width: 20, height: 20, borderRadius: 9999, background: accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto' }}
         >
           <Plus className="w-3 h-3" />
         </button>
