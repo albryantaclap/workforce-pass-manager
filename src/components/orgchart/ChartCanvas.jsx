@@ -2,14 +2,35 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import NodeCard from '@/components/orgchart/NodeCard';
 import ConnectorLayer from '@/components/orgchart/ConnectorLayer';
 import LegendCard from '@/components/orgchart/legend/LegendCard';
+import ResizeHandles from '@/components/orgchart/ResizeHandles';
 import { nodeSize } from '@/lib/orgChartLayout';
 import { nodeHasColor } from '@/lib/orgChartLegend';
+import { computeResize } from '@/lib/orgChartResize';
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2.5;
 const GUIDE_TOLERANCE = 6;
 
 const unique = (list) => [...new Set(list)];
+
+// Visual-only alignment guides while resizing (no snapping — grid snap owns
+// that, so the two can never fight each other).
+const resizeGuides = (draft, nodes, selfId) => {
+  const out = [];
+  const xs = [draft.x, draft.x + draft.width / 2, draft.x + draft.width];
+  const ys = [draft.y, draft.y + draft.height / 2, draft.y + draft.height];
+  nodes.forEach(other => {
+    if (other.id === selfId || other.is_visible === false) return;
+    const os = nodeSize(other);
+    [other.x, other.x + os.w / 2, other.x + os.w].forEach(theirs => {
+      if (xs.some(mine => Math.abs(mine - theirs) <= GUIDE_TOLERANCE)) out.push({ axis: 'v', value: theirs });
+    });
+    [other.y, other.y + os.h / 2, other.y + os.h].forEach(theirs => {
+      if (ys.some(mine => Math.abs(mine - theirs) <= GUIDE_TOLERANCE)) out.push({ axis: 'h', value: theirs });
+    });
+  });
+  return out.slice(0, 8);
+};
 
 export default function ChartCanvas({
   nodes, edges, view, setView, settings, tool, canEdit,
@@ -26,6 +47,9 @@ export default function ChartCanvas({
   const [guides, setGuides] = useState([]);
   const [hoverId, setHoverId] = useState(null);
   const spaceRef = useRef(false);
+  // Authoritative copy of the live gesture, so pointerup / pointercancel /
+  // Escape can never read a stale render and double-commit a resize.
+  const resizeRef = useRef(null);
 
   const grid = settings.grid_size || 20;
 
@@ -70,7 +94,9 @@ export default function ChartCanvas({
     .filter(n => n.is_visible !== false)
     .map(n => {
       if (drag && drag.ids.includes(n.id)) return { ...n, x: n.x + drag.delta.x, y: n.y + drag.delta.y };
-      if (resize && resize.id === n.id) return { ...n, width: resize.w, height: resize.h };
+      if (resize && resize.kind === 'resize' && resize.draft && resize.id === n.id) {
+        return { ...n, x: resize.draft.x, y: resize.draft.y, width: resize.draft.width, height: resize.draft.height };
+      }
       return n;
     }), [nodes, drag, resize]);
 
@@ -112,17 +138,43 @@ export default function ChartCanvas({
     }
   };
 
-  const startResize = (node, e) => {
+  // Captures the box the gesture started from. Nothing is written to the chart
+  // until the pointer is released, so dragging stays smooth and one gesture is
+  // exactly one undo step.
+  const startResize = (node, handle, e) => {
     e.stopPropagation();
+    e.preventDefault?.();
+    if (!canEdit || node.is_locked) return;
     const size = nodeSize(node);
-    setResize({ id: node.id, w: size.w, h: size.h, startWorld: toWorld(e.clientX, e.clientY) });
+    const start = { x: node.x, y: node.y, width: size.w, height: size.h };
+    const gesture = {
+      kind: 'resize',
+      id: node.id,
+      handle,
+      start,
+      rotation: Number(node.rotation) || 0,
+      startWorld: toWorld(e.clientX, e.clientY),
+      draft: start,
+    };
+    resizeRef.current = gesture;
+    setResize(gesture);
   };
 
   const startRotate = (node, e) => {
     e.stopPropagation();
+    e.preventDefault?.();
+    if (!canEdit || node.is_locked) return;
     const size = nodeSize(node);
     const center = { x: node.x + size.w / 2, y: node.y + size.h / 2 };
-    setResize({ id: node.id, w: size.w, h: size.h, center, startWorld: toWorld(e.clientX, e.clientY), rotate: node.rotation || 0 });
+    const gesture = {
+      kind: 'rotate',
+      id: node.id,
+      center,
+      rotation: Number(node.rotation) || 0,
+      startWorld: toWorld(e.clientX, e.clientY),
+    };
+    resizeRef.current = gesture;
+    setResize(gesture);
   };
 
   const startConnect = (node, port, e) => {
@@ -139,6 +191,7 @@ export default function ChartCanvas({
 
   const startBend = (edgeId, index, e) => {
     e.stopPropagation();
+    resizeRef.current = null;
     setResize(null);
     // One undo step for the whole bend drag, captured before the first move.
     onBeginGesture?.();
@@ -147,6 +200,38 @@ export default function ChartCanvas({
 
   useEffect(() => {
     if (!pan && !drag && !resize && !marquee && !connect) return undefined;
+
+    // Ends the current resize / rotate. `commit` false (Escape, pointercancel)
+    // restores the original geometry and records no history entry.
+    const finishResize = (commit) => {
+      const gesture = resizeRef.current;
+      resizeRef.current = null;
+      setResize(null);
+      setGuides([]);
+      if (!gesture) return;
+      const current = nodeById(gesture.id);
+      if (!current) return;
+      if (gesture.kind === 'rotate') {
+        const angle = Number(gesture.rotation) || 0;
+        if (commit && angle !== (Number(current.rotation) || 0)) {
+          onUpdateNodes([{ id: gesture.id, rotation: angle }]);
+        }
+        return;
+      }
+      const draft = gesture.draft;
+      const start = gesture.start;
+      if (!commit || !draft) return;
+      if (draft.x === start.x && draft.y === start.y
+        && draft.width === start.width && draft.height === start.height) return;
+      // One completed gesture = one saved geometry = one undo step.
+      onUpdateNodes([{
+        id: gesture.id,
+        x: draft.x,
+        y: draft.y,
+        width: draft.width,
+        height: draft.height,
+      }]);
+    };
 
     const move = (e) => {
       if (pan) {
@@ -216,16 +301,31 @@ export default function ChartCanvas({
       }
       if (resize) {
         const world = toWorld(e.clientX, e.clientY);
-        if (resize.center) {
+        if (resize.kind === 'rotate') {
           const angle = Math.atan2(world.y - resize.center.y, world.x - resize.center.x) * (180 / Math.PI) + 90;
-          setResize(r => ({ ...r, rotation: Math.round(angle) }));
+          const next = { ...resize, rotation: Math.round(angle) };
+          resizeRef.current = next;
+          setResize(next);
           return;
         }
-        setResize(r => ({
-          ...r,
-          w: Math.max(80, Math.round(r.w + (world.x - r.startWorld.x))),
-          h: Math.max(50, Math.round(r.h + (world.y - r.startWorld.y))),
-        }));
+        // Always measured from the box captured at pointerdown — the delta is
+        // applied once, never added to the live size (that double-counting is
+        // what made the handle run away from the cursor).
+        const draft = computeResize({
+          start: resize.start,
+          handle: resize.handle,
+          dx: world.x - resize.startWorld.x,
+          dy: world.y - resize.startWorld.y,
+          rotation: resize.rotation,
+          aspect: e.shiftKey,
+          fromCenter: e.altKey,
+          snap: !!settings.snap_to_grid,
+          grid,
+        });
+        const next = { ...resize, draft };
+        resizeRef.current = next;
+        setResize(next);
+        setGuides(settings.show_guides && !resize.rotation ? resizeGuides(draft, nodes, resize.id) : []);
       }
     };
 
@@ -270,19 +370,7 @@ export default function ChartCanvas({
         }
         setMarquee(null);
       }
-      if (resize) {
-        // Only record the resize / rotate when the gesture actually changed anything.
-        const current = nodeById(resize.id);
-        const size = current ? nodeSize(current) : null;
-        if (resize.center) {
-          if (current && (resize.rotation || 0) !== (current.rotation || 0)) {
-            onUpdateNodes([{ id: resize.id, rotation: resize.rotation || 0 }]);
-          }
-        } else if (current && size && (resize.w !== size.w || resize.h !== size.h)) {
-          onUpdateNodes([{ id: resize.id, width: resize.w, height: resize.h }]);
-        }
-        setResize(null);
-      }
+      if (resize) finishResize(true);
       if (drag) {
         if (drag.bend) {
           onEndGesture?.(true);
@@ -307,9 +395,25 @@ export default function ChartCanvas({
 
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+    // A cancelled or captured-lost pointer must not leave the object stuck at a
+    // preview size: the gesture is restored (cancel) or finished safely.
+    const onPointerCancel = () => finishResize(false);
+    const onLostCapture = () => { if (resizeRef.current) finishResize(true); };
+    const onKeyDown = (e) => {
+      if (e.key !== 'Escape' || !resizeRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      finishResize(false);
+    };
+    window.addEventListener('pointercancel', onPointerCancel);
+    window.addEventListener('lostpointercapture', onLostCapture, true);
+    if (resize) window.addEventListener('keydown', onKeyDown, true);
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', onPointerCancel);
+      window.removeEventListener('lostpointercapture', onLostCapture, true);
+      window.removeEventListener('keydown', onKeyDown, true);
     };
   }, [pan, drag, resize, marquee, connect, nodes, edges, view, grid, settings, toWorld, setView, setSelection, onUpdateNodes, onUpdateEdge, onCreateEdge, onReconnectEdge, nodeById, containerRef, onBeginGesture, onEndGesture]);
 
@@ -412,28 +516,18 @@ export default function ChartCanvas({
         )}
 
         {canEdit && single && !single.is_locked && singleSize && (
-          <>
-            <div
-              onPointerDown={(e) => startResize(single, e)}
-              style={{
-                position: 'absolute', left: single.x + singleSize.w - 6, top: single.y + singleSize.h - 6,
-                width: 12, height: 12, background: '#ffffff', border: '2px solid #254dd0',
-                borderRadius: 3, cursor: 'nwse-resize', zIndex: 9999,
-              }}
-              title="Resize"
-            />
-            {single.node_kind === 'shape' && (
-              <div
-                onPointerDown={(e) => startRotate(single, e)}
-                style={{
-                  position: 'absolute', left: single.x + singleSize.w / 2 - 6, top: single.y - 26,
-                  width: 12, height: 12, background: '#ffffff', border: '2px solid #0f766e',
-                  borderRadius: 9999, cursor: 'grab', zIndex: 9999,
-                }}
-                title="Rotate"
-              />
-            )}
-          </>
+          <ResizeHandles
+            x={single.x}
+            y={single.y}
+            width={singleSize.w}
+            height={singleSize.h}
+            rotation={Number(single.rotation) || 0}
+            zoom={view.zoom}
+            handles={single.node_kind === 'shape' ? undefined : ['se']}
+            showRotate={single.node_kind === 'shape'}
+            onHandleDown={(handle, e) => startResize(single, handle, e)}
+            onRotateDown={(e) => startRotate(single, e)}
+          />
         )}
       </div>
 
