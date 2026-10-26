@@ -222,6 +222,7 @@ function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
                 <th key={label} className={`border border-slate-300 px-2 py-1.5 font-semibold ${align}`} style={COL_HDR}>{label}</th>
               ))}
               <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={PID_HDR}>Project ID Status</th>
+              <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={PID_HDR}>PID Issued</th>
               <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>Remarks</th>
               <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>No. Days Since Med Approved</th>
               <th className="border border-slate-300 px-2 py-1.5 font-semibold text-center" style={COL_HDR}>No. Days Since Gatepass Received</th>
@@ -232,7 +233,7 @@ function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
           <tbody>
             {employees.length === 0 ? (
               <tr>
-                <td colSpan={20} className="text-center py-4 text-slate-400 bg-white border">No employees in this department</td>
+                <td colSpan={21} className="text-center py-4 text-slate-400 bg-white border">No employees in this department</td>
               </tr>
             ) : (
               paginated.map((emp, idx) => {
@@ -306,6 +307,10 @@ function DeptTable({ dept, employees, resetKey, editMode, onSave }) {
                       {editMode
                         ? <InlineEditCell value={emp.pid_status} field="pid_status" empId={emp.id} type="select" options={PID_OPTIONS} onSave={onSave} editMode={editMode} />
                         : <BadgeSpan colorKey={pid.color} label={pid.label} />}
+                    </td>
+                    {/* PID Issued (Project ID Issue Date) — editable */}
+                    <td className="border border-slate-200 px-2 py-1 text-center text-slate-600" style={PID_CELL}>
+                      <InlineEditCell value={emp.pid_issue_date} field="pid_issue_date" empId={emp.id} type="date" onSave={onSave} editMode={editMode} />
                     </td>
                     {/* Remarks — editable */}
                     <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[11px]" style={{ background: '#FAFAFA' }}>
@@ -562,6 +567,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         const trDatePrint = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const gpRecPrint = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const gpSubPrint = emp.gate_pass_issue_date ? formatDate(emp.gate_pass_issue_date) : '—';
+        const pidIssuedPrint = formatDate(emp.pid_issue_date);
         const procDaysPrint = calcProcessingDays(emp.gate_pass_issue_date, emp.gate_pass_received_date);
         const procPrint = procDaysPrint === null ? '—' : `${procDaysPrint} days`;
         const trainStartPrint = emp.training_date_start ? format(parseISO(emp.training_date_start.substring(0, 10)), 'dd-MMM-yyyy') : '—';
@@ -590,6 +596,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
           <td class="center"><span class="badge ${trClass}">${tr.label}</span></td>
           <td class="center">${trainStartPrint}</td>
           <td class="center pid-cell"><span class="badge ${pidClass}">${pid.label}</span></td>
+          <td class="center pid-cell">${pidIssuedPrint}</td>
           <td class="remarks-cell">${emp.remarks || ''}</td>
           <td class="center">${pidValidPrint ? completedBadge : daysSpan(dm)}</td>
           <td class="center">${pidValidPrint ? completedBadge : daysSpan(dg)}</td>
@@ -604,7 +611,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
             <th>#</th><th style="text-align:left">Full Name</th><th>QID Number</th><th>PID No.</th>
             <th>Mobile Number</th><th>Company</th><th>Designation / Position</th>
             <th>Medical</th><th>TR Date Approved</th><th>Gate Pass Status</th><th>Gate Pass Submitted</th><th>Gatepass Received Date</th><th>Processing Days</th><th>Training Status</th><th>Training Date Started</th>
-            <th class="pid-col">Project ID Status</th><th>Remarks</th>
+            <th class="pid-col">Project ID Status</th><th class="pid-col">PID Issued</th><th>Remarks</th>
             <th>Days Since Med Approved</th><th>Days Since GP Received</th><th>Days Since Training Started</th><th>Days Waiting for PID</th>
           </tr></thead>
           <tbody>${rows}</tbody>
@@ -651,6 +658,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       { key: 'training', width: 14 },
       { key: 'train_date_start', width: 14 },
       { key: 'pid',      width: 14 },
+      { key: 'pid_issued', width: 14 },
       { key: 'remarks',  width: 30 },
       { key: 'days_med', width: 18 },
       { key: 'days_gp',  width: 20 },
@@ -658,7 +666,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       { key: 'days_pid', width: 18 },
     ];
 
-    const TOTAL_COLS = 21;
+    const TOTAL_COLS = 22;
 
     // Color palette
     const C = {
@@ -725,7 +733,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
     const COL_HEADERS = [
       '#', 'Full Name', 'QID Number', 'PID No.', 'Mobile Number', 'Company', 'Designation / Position',
       'Medical', 'TR Date Approved', 'Gate Pass Status', 'Gate Pass Submitted', 'Gatepass Received Date', 'Processing Days', 'Training Status', 'Training Date Started',
-      'Project ID Status', 'Remarks', 'No. Days Since Med Approved', 'No. Days Since Gatepass Received', 'No. Days Since Training Started', 'No. Days Waiting for PID',
+      'Project ID Status', 'PID Issued', 'Remarks', 'No. Days Since Med Approved', 'No. Days Since Gatepass Received', 'No. Days Since Training Started', 'No. Days Waiting for PID',
     ];
 
     let currentRow = 1;
@@ -750,7 +758,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
       COL_HEADERS.forEach((h, i) => {
         const cell = hdrRow.getCell(i + 1);
         cell.value = h;
-        const isPid = i === 15;
+        const isPid = i === 15 || i === 16;
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + (isPid ? C.pidHdrBg : C.colHdrBg) } };
         cell.font = { color: { argb: 'FF' + (isPid ? C.pidHdrFg : C.colHdrFg) }, bold: true, size: 9 };
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -771,6 +779,7 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         const trDateFmt = emp.ftw_approved_date ? format(parseISO(emp.ftw_approved_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const gpDateFmt = emp.gate_pass_received_date ? format(parseISO(emp.gate_pass_received_date.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const gpSubFmt = emp.gate_pass_issue_date ? formatDate(emp.gate_pass_issue_date) : '—';
+        const pidIssuedFmt = formatDate(emp.pid_issue_date);
         const procDaysVal = calcProcessingDays(emp.gate_pass_issue_date, emp.gate_pass_received_date);
         const trainStartFmt = emp.training_date_start ? format(parseISO(emp.training_date_start.substring(0, 10)), 'dd-MMM-yyyy') : '—';
         const pidEffective = (computePassStatus(emp.pid_expiry, 'pid', emp.pid_status) || '').toUpperCase();
@@ -848,8 +857,18 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         applyBadgeCell(pidCell, pid.color, pid.label);
         applyBorder(pidCell);
 
+        // PID Issued (green-tinted cell, same styling as Project ID Status)
+        const pidIssuedCell = row.getCell(17);
+        pidIssuedCell.value = pidIssuedFmt;
+        pidIssuedCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.pidCellBg } };
+        pidIssuedCell.font = pidIssuedFmt === '—'
+          ? { color: { argb: 'FF94A3B8' }, size: 9 }
+          : { size: 9 };
+        pidIssuedCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        applyBorder(pidIssuedCell);
+
         // Remarks
-        const remCell = row.getCell(17);
+        const remCell = row.getCell(18);
         remCell.value = emp.remarks || '';
         remCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.remarksBg } };
         remCell.font = { size: 9 };
@@ -857,25 +876,25 @@ export default function OnboardingMonitoring({ employees = [], assignments = [] 
         applyBorder(remCell);
 
         // Days cells
-        const daysCell18 = row.getCell(18);
-        daysCell18.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell18, daysMed, pidValid);
-        applyBorder(daysCell18);
-
         const daysCell19 = row.getCell(19);
         daysCell19.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell19, daysGP, pidValid);
+        applyDaysCell(daysCell19, daysMed, pidValid);
         applyBorder(daysCell19);
 
         const daysCell20 = row.getCell(20);
         daysCell20.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell20, daysTrain, pidValid);
+        applyDaysCell(daysCell20, daysGP, pidValid);
         applyBorder(daysCell20);
 
         const daysCell21 = row.getCell(21);
         daysCell21.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
-        applyDaysCell(daysCell21, daysPID, pidValid);
+        applyDaysCell(daysCell21, daysTrain, pidValid);
         applyBorder(daysCell21);
+
+        const daysCell22 = row.getCell(22);
+        daysCell22.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rowBg } };
+        applyDaysCell(daysCell22, daysPID, pidValid);
+        applyBorder(daysCell22);
 
         currentRow++;
       });
