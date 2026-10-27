@@ -48,17 +48,18 @@ const cell = (doc, x, y, w, h, text, { fill, align = 'left', bold = false, size 
 };
 
 const COLS = [
-  { key: 'employee', label: 'EMPLOYEE', w: 48 },
-  { key: 'company', label: 'COMPANY', w: 30 },
+  { key: 'employee', label: 'EMPLOYEE', w: 44 },
+  { key: 'company', label: 'COMPANY', w: 26 },
   { key: 'dept', label: 'DEPT', w: 25 },
+  { key: 'pid', label: 'PID NO.', w: 22 },
   { key: 'date', label: 'DATE', w: 20 },
   { key: 'firstIn', label: 'FIRST IN', w: 18 },
   { key: 'firstOut', label: 'FIRST OUT', w: 18 },
   { key: 'secondIn', label: 'SECOND IN', w: 18 },
   { key: 'finalOut', label: 'FINAL OUT', w: 18 },
   { key: 'duration', label: 'DURATION', w: 16, align: 'center' },
-  { key: 'status', label: 'STATUS', w: 28 },
-  { key: 'source', label: 'SOURCE', w: 22 },
+  { key: 'status', label: 'STATUS', w: 26 },
+  { key: 'source', label: 'SOURCE', w: 20 },
 ];
 
 // Status always comes from the centralized calculation — never the stored
@@ -75,6 +76,7 @@ const rowToCells = (r, emp, config) => ({
   employee: emp?.name || r.employee_name || '—',
   company: emp?.company || r.company || '—',
   dept: emp?.department || '—',
+  pid: emp?.pid || '—',
   date: fmtDate(r.attendance_date),
   firstIn: formatTimeShort(getFirstIn(r)),
   firstOut: formatTimeShort(r.first_out_at),

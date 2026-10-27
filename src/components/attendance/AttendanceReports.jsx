@@ -172,9 +172,10 @@ export default function AttendanceReports({
         exportAll: true,
       });
       const allRows = res.data?.rows || [];
-      const headers = ['Employee', 'Company', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'Site Location', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
+      const headers = ['Employee', 'Company', 'Department', 'PID No.', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'Site Location', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
       const rows = allRows.map(({ record: r, emp, calcStatus, scanned_by }) => [
         emp?.name || r.employee_name, emp?.company || r.company, emp?.department || '',
+        emp?.pid || '',
         r.attendance_date, formatTimeShort(getFirstIn(r)), formatTimeShort(r.first_out_at),
         formatTimeShort(r.second_in_at), formatTimeShort(getFinalOut(r)),
         r.duration_minutes || 0, r.overtime_minutes || 0, calcStatus || r.attendance_status || '',
@@ -310,6 +311,7 @@ export default function AttendanceReports({
                 <th className="px-3 py-2 font-semibold">EMPLOYEE</th>
                 <th className="px-3 py-2 font-semibold">COMPANY</th>
                 <th className="px-3 py-2 font-semibold">DEPT</th>
+                <th className="px-3 py-2 font-semibold">PID NO.</th>
                 <th className="px-3 py-2 font-semibold">DATE</th>
                 <th className="px-3 py-2 font-semibold">FIRST IN</th>
                 <th className="px-3 py-2 font-semibold">FIRST OUT</th>
@@ -324,9 +326,9 @@ export default function AttendanceReports({
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={13} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
+                <tr><td colSpan={14} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
               ) : reportRows.length === 0 ? (
-                <tr><td colSpan={13} className="text-center py-8 text-muted-foreground">No records for the selected report and filters.</td></tr>
+                <tr><td colSpan={14} className="text-center py-8 text-muted-foreground">No records for the selected report and filters.</td></tr>
               ) : reportRows.map(({ record: r, emp, calcStatus, scanned_by }) => {
                 const status = calcStatus || r.attendance_status || '—';
                 const colors = STATUS_COLORS[status] || STATUS_COLORS['Absent'];
@@ -340,6 +342,7 @@ export default function AttendanceReports({
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{emp?.company || r.company || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{emp?.department || '—'}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{emp?.pid || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatDateShort(r.attendance_date)}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(getFirstIn(r))}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatTimeShort(r.first_out_at)}</td>
