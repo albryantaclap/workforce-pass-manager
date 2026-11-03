@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import PillTabsBar from '@/components/common/PillTabsBar';
 import MasterListFilters from '@/components/masterlist/MasterListFilters';
-import { Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, UserX, HardHat, UserPlus } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, Upload, X, PencilLine, UserX, HardHat, UserPlus, Download } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import StatusChangeModal from '../components/common/StatusChangeModal';
 import PersonnelAvatar from '../components/common/PersonnelAvatar';
@@ -21,13 +21,13 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { formatDate } from '@/utils/constants';
+import { formatDate, exportData } from '@/utils/constants';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import { useMasterListFilterOptions } from '@/hooks/useMasterListFilterOptions';
 import { useLatestCampStays } from '@/hooks/useLatestCampStays';
 import { formatDuration, formatDateTimeCompact } from '@/lib/attendanceUtils';
 
-import ExportButton from '../components/common/ExportButton';
+import MasterListExportDialog from '@/components/masterlist/MasterListExportDialog';
 import InlineEditCell from '../components/common/InlineEditCell';
 import DirIndirToggle from '../components/common/DirIndirToggle';
 import BulkEditBar from '../components/common/BulkEditBar';
@@ -44,7 +44,9 @@ import {
   buildMasterListFilterQuery,
   countMasterListTabs,
   filterMasterRows,
+  matchesMasterListFilters,
   matchesTabDataset,
+  fetchAllMasterListRows,
   TAB_TOTAL_LABEL,
   MASTER_LIST_PAGE_SIZE,
 } from '@/lib/masterListFilters';
@@ -55,6 +57,7 @@ export default function MasterList() {
   // Managers only — which managers are selected lives in the shared filter state.
   const { managers } = useManagerFilter();
   const [editMode, setEditMode] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   // 'all' = Active on Site + Onboarding (the active roster). The Inactive tab
   // lists non-active personnel and restores itself after returning from Edit.
   const [activeTab, setActiveTab] = useState(() => readReturnContext()?.tab === 'inactive' ? 'inactive' : 'all');
@@ -114,9 +117,16 @@ export default function MasterList() {
     () => buildMasterListFilterQuery(filters, managers),
     [filters, managers]
   );
+  // The dataset is read page by page with the server cursor until the backend
+  // says it has no more records. A single query is capped (5,000 records), so the
+  // Master List, its tab counts and every export used to silently miss everyone
+  // beyond that cap.
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['employees-active', 'master', masterQuery],
-    queryFn: () => base44.entities.Employee.filter(masterQuery, '-created_date', 100000),
+    queryFn: async () => {
+      const { rows: allRows } = await fetchAllMasterListRows(masterQuery);
+      return allRows;
+    },
   });
 
   // One set of filter options for all four tabs.
@@ -248,7 +258,10 @@ export default function MasterList() {
   }, [totalPages, page, activeTab]);
   const pagedRows = useMemo(() => tabData.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [tabData, page]);
 
-  const getExportData = () => tabData.map(e => {
+  // ── Export ──────────────────────────────────────────────────────────────────
+  // ONE row mapping for every format (CSV, Excel, IQY), so the files always carry
+  // the same personnel and the same columns as the Master List itself.
+  const buildExportRows = useCallback((list) => (list || []).map(e => {
     const att = latestAttByPersonnel.get(e.id);
     const ci = att?.check_in_at ? new Date(att.check_in_at) : null;
     const co = att?.check_out_at ? new Date(att.check_out_at) : null;
@@ -277,7 +290,56 @@ export default function MasterList() {
       Training_Date_Scheduled: formatDate(e.training_date_scheduled), Training_Date_Start: formatDate(e.training_date_start), Training_Date_End: formatDate(e.training_date_end), Training_Status: e.training_status,
       Assigned_Manager: e.assigned_manager_name || 'Unassigned',
     };
-  });
+  }), [latestAttByPersonnel]);
+
+  const exportColumns = useMemo(() => Object.keys(buildExportRows([{}])[0] || {}), [buildExportRows]);
+
+  const exportScopes = useMemo(() => ([
+    { key: 'filtered', label: 'All Matching Records', description: 'Everything matching the current search and filters, across every page.' },
+    { key: 'tab', label: 'All Records in Tab', description: `Every ${TAB_TOTAL_LABEL[activeTab] || 'selected'} record, ignoring the search and filters.` },
+    { key: 'page', label: 'Current Page', description: 'Only the rows currently displayed on screen.' },
+  ]), [activeTab]);
+
+  /**
+   * Builds the file from the COMPLETE backend dataset of the chosen scope.
+   * The number of personnel the database reports is compared with the number
+   * actually retrieved; on any shortfall nothing is written and an error is shown
+   * instead of a file that silently misses people.
+   */
+  const runExport = useCallback(async (scope, columns, format) => {
+    let employees;
+
+    if (scope === 'page') {
+      employees = pagedRows;
+    } else {
+      // 'tab' exports the whole tab (no search/filters); 'filtered' applies them.
+      const query = scope === 'tab' ? {} : masterQuery;
+      const expected = await base44.entities.Employee.count(query);
+      const { rows: fetched, complete } = await fetchAllMasterListRows(query);
+      if (!complete) {
+        throw new Error('The full personnel dataset could not be retrieved. Nothing was exported — please try again.');
+      }
+      const unique = new Map(fetched.map(e => [e.id, e]));
+      if (expected && unique.size < expected) {
+        throw new Error(`Retrieved ${unique.size.toLocaleString()} of ${expected.toLocaleString()} personnel. Nothing was exported — please try again.`);
+      }
+      employees = [...unique.values()]
+        .filter(e => matchesTabDataset(e, activeTab))
+        .filter(e => scope === 'tab' || matchesMasterListFilters(e, filters, { latestByPersonnel: latestAttByPersonnel, managers }));
+    }
+
+    const rows = buildExportRows(employees).map(row => {
+      const out = {};
+      columns.forEach(col => { out[col] = row[col] ?? ''; });
+      return out;
+    });
+
+    if (!rows.length) throw new Error('No personnel match this export scope.');
+
+    exportData(rows, 'master_list.csv', format);
+
+    return { matched: employees.length, exported: rows.length };
+  }, [pagedRows, masterQuery, activeTab, filters, latestAttByPersonnel, managers, buildExportRows]);
 
   return (
     <div className="space-y-5">
@@ -293,7 +355,9 @@ export default function MasterList() {
               {editMode ? <><X className="w-4 h-4 mr-2" /> Exit Edit Mode</> : <><PencilLine className="w-4 h-4 mr-2" /> Edit in Grid</>}
             </Button>
           )}
-          <ExportButton getData={getExportData} filename="master_list.csv" />
+          <Button variant="outline" onClick={() => setExportOpen(true)}>
+            <Download className="w-4 h-4 mr-2" /> Export
+          </Button>
           {canEdit && (
             <Link to="/master-list/import">
               <Button variant="outline"><Upload className="w-4 h-4 mr-2" /> Import</Button>
@@ -573,6 +637,16 @@ export default function MasterList() {
         </div>
       </Card>
       )}
+
+      <MasterListExportDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        columns={exportColumns}
+        scopes={exportScopes}
+        initialScope={hasActiveFilters ? 'filtered' : 'tab'}
+        filename="master_list.csv"
+        onExport={runExport}
+      />
 
       <StatusChangeModal
         open={statusModal.open}

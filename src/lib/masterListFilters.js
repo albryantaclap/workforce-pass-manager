@@ -22,6 +22,7 @@
  *                              derived from dates and camp stays (RLIC / gate
  *                              pass, PID, camp) which no query can express.
  */
+import { base44 } from '@/api/base44Client';
 import { ACTIVE_ON_SITE, ONBOARDING, INACTIVE, resolvePersonnelStatus } from '@/lib/personnelStatus';
 import { CAMP_STATUS, resolveCampStatus } from '@/lib/campStatus';
 import { computePassStatus, MEDICAL_RESULTS, PID_STATUSES } from '@/utils/constants';
@@ -291,6 +292,51 @@ export function buildMasterListQuery(filters, tab, managers = []) {
     ...(TAB_DATASET_QUERY[tab] || TAB_DATASET_QUERY.all),
     ...buildMasterListFilterQuery(filters, managers),
   };
+}
+
+// ── Complete dataset retrieval ───────────────────────────────────────────────
+/** Rows requested per page while walking the dataset with a cursor. */
+export const MASTER_LIST_BATCH_SIZE = 1000;
+
+/**
+ * Retrieves EVERY personnel record matching a query, page by page, using the
+ * server cursor until it reports no more records.
+ *
+ * A single filter() call is capped by the backend (5,000 records), so a large
+ * Master List used to arrive silently truncated — records beyond the cap were
+ * invisible in the list and absent from every export. Walking the cursor
+ * returns the whole dataset, and `complete` is false if the walk ever stops
+ * before the backend says it is finished, so callers can refuse to export a
+ * partial file.
+ */
+export async function fetchAllMasterListRows(query, { onProgress, batchSize = MASTER_LIST_BATCH_SIZE } = {}) {
+  const byId = new Map();
+  let cursor;
+  let complete = false;
+
+  for (;;) {
+    const page = await base44.entities.Employee.filter(query, {
+      sort: '-created_date',
+      limit: batchSize,
+      ...(cursor ? { cursor } : {}),
+    });
+    // An array means the backend returned everything it had in one response.
+    if (Array.isArray(page)) {
+      page.forEach(emp => { if (emp?.id) byId.set(emp.id, emp); });
+      complete = true;
+      break;
+    }
+
+    const items = page?.items || [];
+    items.forEach(emp => { if (emp?.id) byId.set(emp.id, emp); });
+    if (onProgress) onProgress(byId.size);
+
+    if (!page?.has_more) { complete = true; break; }
+    if (!page.next_cursor || page.next_cursor === cursor) break;
+    cursor = page.next_cursor;
+  }
+
+  return { rows: [...byId.values()], complete };
 }
 
 // ── Exact rule (browser side) ────────────────────────────────────────────────
