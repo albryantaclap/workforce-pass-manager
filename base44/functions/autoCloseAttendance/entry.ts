@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.38";
 import { getFinalOut } from "../../shared/attendanceCalc.ts";
+import { fetchEmployeesByIds } from "../../shared/attendanceRecords.ts";
 
 // Auto-close expired open attendance sessions (Day Reset Logic).
 //
@@ -157,18 +158,12 @@ Deno.serve(async (req) => {
     let closedCount = 0;
     const closedDetails: any[] = [];
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-    const empCache = new Map<string, any>();
-    const getEmp = async (id: string) => {
-      if (empCache.has(id)) return empCache.get(id);
-      try {
-        const emp = await base44.entities.Employee.get(id);
-        empCache.set(id, emp);
-        return emp;
-      } catch {
-        empCache.set(id, null);
-        return null;
-      }
-    };
+
+    // ONE batched personnel read for the whole run. Reading each employee with its
+    // own query (one per open session) is what pushed the app over its entity read
+    // rate limit and made attendance reports fail with "no records".
+    const empCache = await fetchEmployeesByIds(base44, openRecords.map((r: any) => r.personnel_id));
+    const getEmp = async (id: string) => empCache.get(id) || null;
 
     for (const rec of openRecords) {
       const emp = await getEmp(rec.personnel_id);

@@ -70,8 +70,8 @@ export async function fetchEmployeesByIds(base44: any, ids: string[]) {
   let index = 0;
   for (;;) {
     if (unique.length === index) break;
-    const chunk = unique.slice(index, index + 150);
-    index = index + 150;
+    const chunk = unique.slice(index, index + 500);
+    index = index + 500;
     const result = await paginate(base44.entities.Employee, { id: { $in: chunk } }, "name");
     for (const emp of result.items) map.set(emp.id, emp);
   }

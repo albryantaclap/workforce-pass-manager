@@ -1,6 +1,7 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.49";
 import { filterEmployees, isWorkingDay, isHoliday, resolveShift, calculateAttendanceStatus, getFinalOut, matchesBranch } from "../../shared/attendanceCalc.ts";
 import { ATTENDANCE_ROSTER_QUERY } from "../../shared/attendanceRoster.ts";
+import { fetchAttendanceRecordsInRange } from "../../shared/attendanceRecords.ts";
 
 // Server-side aggregation for the Daily Attendance → Dashboard tab.
 // Returns KPIs, currently clocked-in list, check-ins by hour, and department
@@ -34,21 +35,18 @@ export default async function (req: Request): Promise<Response> {
     );
     const filteredEmps = filterEmployees(employees, filters);
 
-    // 3. Fetch attendance records for the selected date (chunked $in query)
-    const empIds = filteredEmps.map((e: any) => e.id);
+    // 3. Attendance records for the selected date — ONE read.
+    //
+    //    This used to walk the roster in 200-person chunks (16+ queries for a
+    //    3,000-person roster), which alone pushed the app past its entity read
+    //    rate limit and made every attendance report fail. A single day holds a
+    //    few hundred records, so it is read once and joined by personnel id.
     const attByPersonnel = new Map<string, any>();
-    if (empIds.length > 0 && date) {
-      const CHUNK = 200;
-      for (let i = 0; i < empIds.length; i += CHUNK) {
-        const chunk = empIds.slice(i, i + CHUNK);
-        const records = await base44.entities.AttendanceRecord.filter(
-          { personnel_id: { $in: chunk }, is_deleted: { $ne: true }, attendance_date: date },
-          undefined, 100000
-        );
-        for (const r of records) {
-          if (!attByPersonnel.has(r.personnel_id)) {
-            attByPersonnel.set(r.personnel_id, r);
-          }
+    if (date) {
+      const dayRecords = await fetchAttendanceRecordsInRange(base44, date, date);
+      for (const r of dayRecords.records) {
+        if (!attByPersonnel.has(r.personnel_id)) {
+          attByPersonnel.set(r.personnel_id, r);
         }
       }
     }

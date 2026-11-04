@@ -21,6 +21,7 @@ import {
   getFirstIn, getFinalOut,
 } from '@/lib/attendanceEngine';
 import { useDebounce } from '@/hooks/useDebounce';
+import { buildReportRowsLocally } from '@/lib/attendanceReportFallback';
 
 const REPORT_TYPES = [
   { key: 'daily', label: 'Daily Attendance' },
@@ -102,7 +103,7 @@ export default function AttendanceReports({
   ]);
 
   // Server-side paginated report data for the table
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['attendance-report', {
       search: debouncedSearch, company: filters.company, department: filters.department,
       designation: filters.designation, manager: filters.manager, branch: filters.branch,
@@ -134,6 +135,41 @@ export default function AttendanceReports({
   const total = result.total || 0;
   const totalPages = result.totalPages || 1;
   const integrity = result.integrity;
+
+  // Filters that are actually narrowing the report — shown in the empty state so
+  // an empty table is never mistaken for "this date has no attendance".
+  const activeFilters = [
+    filters.search && `search "${filters.search}"`,
+    filters.company, filters.department, filters.designation,
+    filters.manager, filters.branch, filters.dirIndir, filters.status,
+  ].filter(Boolean);
+  // The backend's own message (e.g. a rate limit) instead of a silent empty table.
+  const errorText = error?.response?.data?.error || error?.message || '';
+
+  // Every backend function on this app shares one entity read budget. When that
+  // budget is exhausted the request fails and the table used to look empty, even
+  // though the attendance was there. In that case the exact same report is built
+  // here from the records themselves, so the data is never hidden.
+  const serverBusy = isError && /rate limit/i.test(errorText);
+  const { data: localRows, isLoading: localLoading, refetch: refetchLocal } = useQuery({
+    queryKey: ['attendance-report-local', dateFrom, dateTo, reportType, filters.status || '', JSON.stringify(filters)],
+    queryFn: () => buildReportRowsLocally({
+      dateFrom, dateTo, reportType, status: filters.status || '', filters,
+      settings, shifts, assignments, holidays,
+    }),
+    enabled: serverBusy,
+    staleTime: 60 * 1000,
+  });
+
+  const pagedRows = serverBusy
+    ? (localRows || []).slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+    : reportRows;
+  const rowTotal = serverBusy ? (localRows || []).length : total;
+  const rowTotalPages = serverBusy
+    ? Math.max(1, Math.ceil(rowTotal / rowsPerPage))
+    : totalPages;
+  const showLoading = serverBusy ? localLoading : isLoading;
+  const showError = isError && !serverBusy;
 
   // All attendance records — loaded lazily only when a PDF dialog is open
   const pdfDialogOpen = showTimesheet || showPdf || showWeekly || showPwr;
@@ -335,8 +371,13 @@ export default function AttendanceReports({
       <Card className="overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border bg-muted/30 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-sm font-semibold text-foreground">
-            {REPORT_TYPES.find(r => r.key === reportType)?.label} · {total} records
+            {REPORT_TYPES.find(r => r.key === reportType)?.label} · {rowTotal} records
           </span>
+          {serverBusy && (
+            <span className="text-[11px] font-medium text-amber-600">
+              Server read limit reached — this view was built from the records directly
+            </span>
+          )}
           {/* Data check — anything unusual in the range is stated here instead of
               being left out of the numbers silently. */}
           {integrity?.read_complete === false && (
@@ -382,11 +423,26 @@ export default function AttendanceReports({
               </tr>
             </thead>
             <tbody>
-              {isLoading ? (
+              {showLoading ? (
                 <tr><td colSpan={15} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
-              ) : reportRows.length === 0 ? (
-                <tr><td colSpan={15} className="text-center py-8 text-muted-foreground">No records for the selected report and filters.</td></tr>
-              ) : reportRows.map(({ record: r, emp, calcStatus, scanned_by }) => {
+              ) : showError ? (
+                <tr><td colSpan={15} className="text-center py-8">
+                  <p className="font-semibold text-red-600">The report could not be loaded</p>
+                  <p className="text-muted-foreground mt-1">{errorText || 'The request failed.'}</p>
+                  <Button size="sm" variant="outline" className="mt-2 h-7" onClick={() => { refetch(); refetchLocal(); }}>Try again</Button>
+                </td></tr>
+              ) : pagedRows.length === 0 ? (
+                <tr><td colSpan={15} className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    No attendance records for {dateFrom === dateTo ? formatDateShort(dateFrom) : `${formatDateShort(dateFrom)} – ${formatDateShort(dateTo)}`}.
+                  </p>
+                  {activeFilters.length > 0 && (
+                    <p className="text-[11px] text-amber-600 mt-1">
+                      Active filters also apply: {activeFilters.join(' · ')} — clear them to see every record.
+                    </p>
+                  )}
+                </td></tr>
+              ) : pagedRows.map(({ record: r, emp, calcStatus, scanned_by }) => {
                 const status = calcStatus || r.attendance_status || '—';
                 const colors = STATUS_COLORS[status] || STATUS_COLORS['Absent'];
                 return (
@@ -424,8 +480,8 @@ export default function AttendanceReports({
         </div>
         <Pagination
           page={page}
-          totalPages={totalPages}
-          totalRecords={total}
+          totalPages={rowTotalPages}
+          totalRecords={rowTotal}
           rowsPerPage={rowsPerPage}
           onPageChange={setPage}
           onRowsPerPageChange={setRowsPerPage}
