@@ -156,7 +156,10 @@ export default function AttendanceClock({ onRecorded }) {
     setStep(STEP.PROCESSING);
 
     try {
-      const today = new Date().toLocaleDateString("en-CA");
+      // The Qatar date, exactly as recordPunch() resolves it: the direction is
+      // decided from the same day the punch will be filed under, even when the
+      // scanner device itself is set to another timezone.
+      const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Qatar" });
       const existing = await base44.entities.AttendanceRecord.filter(
         { personnel_id: emp.id, attendance_date: today, is_deleted: { $ne: true } },
         undefined,

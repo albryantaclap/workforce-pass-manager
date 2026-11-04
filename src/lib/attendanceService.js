@@ -15,31 +15,39 @@ import {
   punchDirection, punchSequence, calculateAttendanceState,
 } from './attendanceEngine';
 import { punchLocationFields, validatePunchLocation } from './workLocations';
+import { cachedRef } from './refCache';
 
 // ── Settings ──
+// Reference data is cached for a minute so a queue of employees at the scanner
+// does not spend its read budget re-reading the same settings row on every scan
+// (an admin change applies within that minute).
 export async function getSettings() {
-  const rows = await base44.entities.AttendanceSetting.filter({ setting_key: 'global' }, undefined, 10);
-  if (rows.length > 0) return rows[0];
-  // Create default settings if none exist
-  return await base44.entities.AttendanceSetting.create({
-    setting_key: 'global',
-    working_days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu'],
-    default_shift_start: '07:00',
-    default_shift_end: '17:00',
-    break_minutes: 60,
-    late_grace_minutes: 10,
-    half_day_threshold_hours: 4,
-    overtime_start_hours: 8,
-    max_working_hours: 12,
-    auto_close_open_sessions: true,
-    auto_close_buffer_minutes: 120,
-    first_punch_window_minutes: 180,
+  return cachedRef('attendance:settings', async () => {
+    const rows = await base44.entities.AttendanceSetting.filter({ setting_key: 'global' }, undefined, 10);
+    if (rows.length > 0) return rows[0];
+    // Create default settings if none exist
+    return await base44.entities.AttendanceSetting.create({
+      setting_key: 'global',
+      working_days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu'],
+      default_shift_start: '07:00',
+      default_shift_end: '17:00',
+      break_minutes: 60,
+      late_grace_minutes: 10,
+      half_day_threshold_hours: 4,
+      overtime_start_hours: 8,
+      max_working_hours: 12,
+      auto_close_open_sessions: true,
+      auto_close_buffer_minutes: 120,
+      first_punch_window_minutes: 180,
+    });
   });
 }
 
 // ── Shifts & assignments ──
 export async function getShifts() {
-  return await base44.entities.AttendanceShift.list('-created_date', 1000);
+  return cachedRef('attendance:shifts', () =>
+    base44.entities.AttendanceShift.list('-created_date', 1000)
+  );
 }
 
 /** Full assignment table — for the shift settings / roster views that show every
@@ -107,15 +115,19 @@ async function logActivity(action, entityId, recordName, snapshot, changedFields
 //   1. Lazily — before any punch operation (clockIn/clockOut/recordPunch)
 //   2. Lazily — when fetching daily attendance (getDailyAttendance)
 //   3. Via a scheduled workflow (see base44/workflows/)
-export async function autoCloseExpiredSessions(personnelId, settings, shifts, assignments, holidays, currentUser) {
+export async function autoCloseExpiredSessions(personnelId, settings, shifts, assignments, holidays, currentUser, preloadedEmployee = null) {
   if (!personnelId || !settings?.auto_close_open_sessions) return [];
   const buffer = settings.auto_close_buffer_minutes ?? 120;
 
   // Fetch the full employee record for correct shift resolution (by department,
   // branch, etc.). Without this, cross-midnight shifts assigned by department or
   // branch would fall back to the default shift and be incorrectly auto-closed.
-  let emp = { id: personnelId };
-  try { emp = (await base44.entities.Employee.get(personnelId)) || emp; } catch {}
+  // The punch path already holds that record and passes it in, so a punch never
+  // reads the same employee twice.
+  let emp = preloadedEmployee || { id: personnelId };
+  if (!preloadedEmployee) {
+    try { emp = (await base44.entities.Employee.get(personnelId)) || emp; } catch {}
+  }
 
   // Find all open sessions for this employee
   const openRecords = await base44.entities.AttendanceRecord.filter(
@@ -182,7 +194,7 @@ export async function recordPunch({
   // employee's shift assignments — never the whole assignment table.
   const settings = await getSettings();
   const [shifts, assignments] = await Promise.all([getShifts(), getEmployeeShiftAssignments(emp)]);
-  await autoCloseExpiredSessions(personnelId, settings, shifts, assignments, [], currentUser);
+  await autoCloseExpiredSessions(personnelId, settings, shifts, assignments, [], currentUser, emp);
 
   // ── Work location & geofence gate ──
   // The branch is required only for the FIRST punch of the day — the clock-in that
