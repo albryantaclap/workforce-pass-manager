@@ -102,39 +102,40 @@ export default function AttendanceReports({
     dateFrom, dateTo, reportType,
   ]);
 
-  // Server-side paginated report data for the table
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['attendance-report', {
-      search: debouncedSearch, company: filters.company, department: filters.department,
-      designation: filters.designation, manager: filters.manager, branch: filters.branch,
-      dirIndir: filters.dirIndir, status: filters.status,
-      dateFrom, dateTo, reportType, page, rowsPerPage,
-    }],
-    queryFn: () => base44.functions.invoke('getAttendanceReport', {
-      filters: {
-        search: debouncedSearch || '',
-        company: filters.company || '',
-        department: filters.department || '',
-        designation: filters.designation || '',
-        manager: filters.manager || '',
-        branch: filters.branch || '',
-        dirIndir: filters.dirIndir || '',
-      },
-      dateFrom,
-      dateTo,
-      reportType,
-      status: filters.status || '',
-      page: page + 1, // backend is 1-based
-      pageSize: rowsPerPage,
-    }),
-    enabled: !!dateFrom && !!dateTo,
-  });
+  // The search box is debounced: the report is rebuilt for the settled text only,
+  // not on every keystroke.
+  const effectiveFilters = useMemo(
+    () => ({ ...filters, search: debouncedSearch || '' }),
+    [filters, debouncedSearch]
+  );
 
-  const result = data?.data || {};
-  const reportRows = result.rows || [];
-  const total = result.total || 0;
-  const totalPages = result.totalPages || 1;
-  const integrity = result.integrity;
+  // ── Report data ──
+  //
+  // The report is built in the browser from the attendance records themselves.
+  // It used to call a backend function, but every function on this app shares ONE
+  // entity-read budget with the ID-card scanner: during a punch rush that budget
+  // is spent, the call is refused, and the table showed "0 records" for a date
+  // that really holds hundreds. Reading the records here uses the signed-in
+  // user's own budget, so the day's attendance is always shown.
+  const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
+    queryKey: [
+      'attendance-report-rows', dateFrom, dateTo, reportType,
+      filters.status || '', JSON.stringify(effectiveFilters), settings ? 'ready' : 'pending',
+    ],
+    queryFn: () => buildReportRowsLocally({
+      dateFrom, dateTo, reportType, status: filters.status || '', filters: effectiveFilters,
+      settings, shifts, assignments, holidays,
+    }),
+    // Never block the table on reference data: the report shows its records with
+    // the rules it has, and recomputes the moment settings/shifts arrive (they are
+    // part of the query key above).
+    enabled: !!dateFrom && !!dateTo,
+    staleTime: 60 * 1000,
+    // A punch rush can exhaust the read budget for a few seconds — wait it out
+    // instead of showing an empty table.
+    retry: 2,
+    retryDelay: 5000,
+  });
 
   // Filters that are actually narrowing the report — shown in the empty state so
   // an empty table is never mistaken for "this date has no attendance".
@@ -143,33 +144,13 @@ export default function AttendanceReports({
     filters.company, filters.department, filters.designation,
     filters.manager, filters.branch, filters.dirIndir, filters.status,
   ].filter(Boolean);
-  // The backend's own message (e.g. a rate limit) instead of a silent empty table.
   const errorText = error?.response?.data?.error || error?.message || '';
 
-  // Every backend function on this app shares one entity read budget. When that
-  // budget is exhausted the request fails and the table used to look empty, even
-  // though the attendance was there. In that case the exact same report is built
-  // here from the records themselves, so the data is never hidden.
-  const serverBusy = isError && /rate limit/i.test(errorText);
-  const { data: localRows, isLoading: localLoading, refetch: refetchLocal } = useQuery({
-    queryKey: ['attendance-report-local', dateFrom, dateTo, reportType, filters.status || '', JSON.stringify(filters)],
-    queryFn: () => buildReportRowsLocally({
-      dateFrom, dateTo, reportType, status: filters.status || '', filters,
-      settings, shifts, assignments, holidays,
-    }),
-    enabled: serverBusy,
-    staleTime: 60 * 1000,
-  });
-
-  const pagedRows = serverBusy
-    ? (localRows || []).slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-    : reportRows;
-  const rowTotal = serverBusy ? (localRows || []).length : total;
-  const rowTotalPages = serverBusy
-    ? Math.max(1, Math.ceil(rowTotal / rowsPerPage))
-    : totalPages;
-  const showLoading = serverBusy ? localLoading : isLoading;
-  const showError = isError && !serverBusy;
+  const rowTotal = rows.length;
+  const rowTotalPages = Math.max(1, Math.ceil(rowTotal / rowsPerPage));
+  // Stay on a real page after a filter narrows the list.
+  const safePage = Math.min(page, rowTotalPages - 1);
+  const pagedRows = rows.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage);
 
   // All attendance records — loaded lazily only when a PDF dialog is open
   const pdfDialogOpen = showTimesheet || showPdf || showWeekly || showPwr;
@@ -219,29 +200,13 @@ export default function AttendanceReports({
     [allEmployees, formerEmployees]
   );
 
-  // CSV export — fetches ALL matching records from the backend (not just the current page)
-  const exportCSV = async () => {
+  // CSV export — every record matching the filters, not just the current page.
+  // `rows` already holds the complete filtered set (the table pages it on screen).
+  const exportCSV = () => {
     setExporting(true);
     try {
-      const res = await base44.functions.invoke('getAttendanceReport', {
-        filters: {
-          search: filters.search || '',
-          company: filters.company || '',
-          department: filters.department || '',
-          designation: filters.designation || '',
-          manager: filters.manager || '',
-          branch: filters.branch || '',
-          dirIndir: filters.dirIndir || '',
-        },
-        dateFrom,
-        dateTo,
-        reportType,
-        status: filters.status || '',
-        exportAll: true,
-      });
-      const allRows = res.data?.rows || [];
       const headers = ['Employee', 'Designation', 'Company', 'Department', 'PID No.', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'Site Location', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
-      const rows = allRows.map(({ record: r, emp, calcStatus, scanned_by }) => [
+      const csvRows = rows.map(({ record: r, emp, calcStatus, scanned_by }) => [
         emp?.name || r.employee_name,
         emp?.position_application || emp?.designation_org_chart || '',
         emp?.company || r.company, emp?.department || '',
@@ -251,10 +216,9 @@ export default function AttendanceReports({
         r.duration_minutes || 0, r.overtime_minutes || 0, calcStatus || r.attendance_status || '',
         scanned_by?.label || '—',
         r.site_location || '',
-        scanned_by?.names?.first_in || '', scanned_by?.names?.first_out || '',
-        scanned_by?.names?.second_in || '', scanned_by?.names?.final_out || '',
+        '', '', '', '',
       ]);
-      const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
+      const csv = [headers, ...csvRows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -373,33 +337,6 @@ export default function AttendanceReports({
           <span className="text-sm font-semibold text-foreground">
             {REPORT_TYPES.find(r => r.key === reportType)?.label} · {rowTotal} records
           </span>
-          {serverBusy && (
-            <span className="text-[11px] font-medium text-amber-600">
-              Server read limit reached — this view was built from the records directly
-            </span>
-          )}
-          {/* Data check — anything unusual in the range is stated here instead of
-              being left out of the numbers silently. */}
-          {integrity?.read_complete === false && (
-            <span className="text-[11px] font-semibold text-red-600">
-              Read incomplete — reload before relying on these numbers
-            </span>
-          )}
-          {integrity?.not_on_active_roster > 0 && (
-            <span className="text-[11px] text-muted-foreground">
-              {integrity.not_on_active_roster} record(s) of personnel no longer on the active roster (included)
-            </span>
-          )}
-          {integrity?.duplicate_day_rows > 0 && (
-            <span className="text-[11px] font-medium text-amber-600">
-              {integrity.duplicate_day_rows} duplicate day record(s) kept — both counted
-            </span>
-          )}
-          {integrity?.unresolved_personnel > 0 && (
-            <span className="text-[11px] font-medium text-amber-600">
-              {integrity.unresolved_personnel} record(s) with no personnel record (shown with stored name)
-            </span>
-          )}
         </div>
         <div className="overflow-x-auto table-scroll-x">
           <table className="w-full text-xs table-list-view">
@@ -423,13 +360,13 @@ export default function AttendanceReports({
               </tr>
             </thead>
             <tbody>
-              {showLoading ? (
+              {isLoading ? (
                 <tr><td colSpan={15} className="text-center py-8 text-muted-foreground">Loading...</td></tr>
-              ) : showError ? (
+              ) : isError ? (
                 <tr><td colSpan={15} className="text-center py-8">
-                  <p className="font-semibold text-red-600">The report could not be loaded</p>
+                  <p className="font-semibold text-red-600">Attendance could not be read right now</p>
                   <p className="text-muted-foreground mt-1">{errorText || 'The request failed.'}</p>
-                  <Button size="sm" variant="outline" className="mt-2 h-7" onClick={() => { refetch(); refetchLocal(); }}>Try again</Button>
+                  <Button size="sm" variant="outline" className="mt-2 h-7" onClick={() => refetch()}>Try again</Button>
                 </td></tr>
               ) : pagedRows.length === 0 ? (
                 <tr><td colSpan={15} className="text-center py-8">
@@ -479,7 +416,7 @@ export default function AttendanceReports({
           </table>
         </div>
         <Pagination
-          page={page}
+          page={safePage}
           totalPages={rowTotalPages}
           totalRecords={rowTotal}
           rowsPerPage={rowsPerPage}
