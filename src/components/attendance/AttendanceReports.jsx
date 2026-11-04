@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { useRbac } from '@/lib/useRbac';
@@ -133,6 +133,7 @@ export default function AttendanceReports({
   const reportRows = result.rows || [];
   const total = result.total || 0;
   const totalPages = result.totalPages || 1;
+  const integrity = result.integrity;
 
   // All attendance records — loaded lazily only when a PDF dialog is open
   const pdfDialogOpen = showTimesheet || showPdf || showWeekly || showPwr;
@@ -150,6 +151,37 @@ export default function AttendanceReports({
   // Lazy-load all employees only when a PDF dialog is open (not on page load).
   // Cached for 2 minutes so opening multiple PDFs doesn't re-fetch.
   const { data: allEmployees = [] } = useAttendanceEmployees(pdfDialogOpen);
+
+  // Personnel who attended but are no longer on the active roster (they left the
+  // project). Their records are part of the history, so the PDF / Timesheet
+  // documents must resolve them too instead of silently leaving them out.
+  const missingEmployeeIds = useMemo(() => {
+    const known = new Set(allEmployees.map(e => e.id));
+    const ids = new Set();
+    allRecords.forEach(r => { if (r.personnel_id && !known.has(r.personnel_id)) ids.add(r.personnel_id); });
+    return [...ids].sort();
+  }, [allEmployees, allRecords]);
+
+  const { data: formerEmployees = [] } = useQuery({
+    queryKey: ['attendance-report-former-personnel', missingEmployeeIds.join(',')],
+    queryFn: async () => {
+      const out = [];
+      for (let i = 0; i < missingEmployeeIds.length; i += 150) {
+        const chunk = missingEmployeeIds.slice(i, i + 150);
+        const rows = await base44.entities.Employee.filter({ id: { $in: chunk } }, 'name', 100000);
+        out.push(...(Array.isArray(rows) ? rows : (rows.items || [])));
+      }
+      return out;
+    },
+    enabled: pdfDialogOpen && missingEmployeeIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Everything the documents need: the active roster plus former personnel.
+  const exportEmployees = useMemo(
+    () => [...allEmployees, ...formerEmployees],
+    [allEmployees, formerEmployees]
+  );
 
   // CSV export — fetches ALL matching records from the backend (not just the current page)
   const exportCSV = async () => {
@@ -281,30 +313,52 @@ export default function AttendanceReports({
 
       <TimesheetExportDialog
         open={showTimesheet} onOpenChange={setShowTimesheet}
-        employees={allEmployees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
+        employees={exportEmployees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
         baseFilters={filters}
       />
       <PdfByEmployeeDialog
         open={showPdf} onOpenChange={setShowPdf}
-        employees={allEmployees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
+        employees={exportEmployees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
         baseFilters={filters}
       />
       <WeeklyPdfDialog
         open={showWeekly} onOpenChange={setShowWeekly}
-        employees={allEmployees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
+        employees={exportEmployees} records={allRecords} settings={settings} shifts={shifts} assignments={assignments} holidays={holidays}
         baseFilters={filters}
       />
       <PersonalWorkingRecordDialog
         open={showPwr} onOpenChange={setShowPwr}
-        employees={allEmployees} records={allRecords}
+        employees={exportEmployees} records={allRecords}
       />
 
       {/* Report table */}
       <Card className="overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-border bg-muted/30">
+        <div className="px-4 py-2.5 border-b border-border bg-muted/30 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-sm font-semibold text-foreground">
             {REPORT_TYPES.find(r => r.key === reportType)?.label} · {total} records
           </span>
+          {/* Data check — anything unusual in the range is stated here instead of
+              being left out of the numbers silently. */}
+          {integrity?.read_complete === false && (
+            <span className="text-[11px] font-semibold text-red-600">
+              Read incomplete — reload before relying on these numbers
+            </span>
+          )}
+          {integrity?.not_on_active_roster > 0 && (
+            <span className="text-[11px] text-muted-foreground">
+              {integrity.not_on_active_roster} record(s) of personnel no longer on the active roster (included)
+            </span>
+          )}
+          {integrity?.duplicate_day_rows > 0 && (
+            <span className="text-[11px] font-medium text-amber-600">
+              {integrity.duplicate_day_rows} duplicate day record(s) kept — both counted
+            </span>
+          )}
+          {integrity?.unresolved_personnel > 0 && (
+            <span className="text-[11px] font-medium text-amber-600">
+              {integrity.unresolved_personnel} record(s) with no personnel record (shown with stored name)
+            </span>
+          )}
         </div>
         <div className="overflow-x-auto table-scroll-x">
           <table className="w-full text-xs table-list-view">
