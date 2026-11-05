@@ -660,6 +660,7 @@ export async function saveManualEntry({
   reason, remarks, workLocation, currentUser,
   shiftId = '', shiftName = '', shift = null,
   manualStatusOverride = '', manualStatusReason = '',
+  siteLocation = '',
 }) {
   if (!personnelId) throw new Error('Employee is required.');
   if (!attendanceDate) throw new Error('Attendance date is required.');
@@ -683,6 +684,7 @@ export async function saveManualEntry({
       reason: (reason || '').trim(),
       remarks: remarks || '',
       workLocation: workLocation || '',
+      siteLocation: siteLocation || '',
       shiftId, shiftName,
       manualStatusOverride: manualStatusOverride || '',
       manualStatusReason: (manualStatusReason || reason || '').trim(),
@@ -690,6 +692,41 @@ export async function saveManualEntry({
     return res.data;
   } catch (error) {
     const msg = error?.response?.data?.error || error?.message || 'Manual entry failed';
+    throw new Error(msg);
+  }
+}
+
+/**
+ * Manual attendance for MANY employees in one operation.
+ *
+ * One shared form (attendance date, site location, reason, remarks) is applied to
+ * every entry, and the backend calculates each employee's own shift, punches,
+ * duration, overtime and status. Existing attendance is skipped unless the entry
+ * explicitly asks to update it, so a retried request can never duplicate records.
+ *
+ * entries: [{ personnelId, employeeName, company, mode: 'create'|'update'|'skip',
+ *             firstInIso, firstOutIso, secondInIso, finalOutIso }]
+ */
+export async function saveManualEntryBulk({
+  entries, attendanceDate, siteLocation, reason, remarks,
+  manualStatusOverride = '', manualStatusReason = '',
+}) {
+  if (!attendanceDate) throw new Error('Attendance date is required.');
+  if (!entries?.length) throw new Error('Select at least one employee.');
+  const requestId = `mab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  try {
+    const res = await base44.functions.invoke('attendanceManualEntry', {
+      entries, attendanceDate,
+      siteLocation: siteLocation || '',
+      reason: (reason || '').trim(),
+      remarks: remarks || '',
+      manualStatusOverride: manualStatusOverride || '',
+      manualStatusReason: (manualStatusReason || reason || '').trim(),
+      requestId,
+    });
+    return res.data;
+  } catch (error) {
+    const msg = error?.response?.data?.error || error?.message || 'Manual attendance could not be saved';
     throw new Error(msg);
   }
 }

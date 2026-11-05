@@ -399,10 +399,10 @@ export default function TimeEntries({
           selectedDate={selectedDate}
           editRecord={editRecord}
           onSaved={() => {
-            // Invalidate only the affected attendance queries
+            // Refresh the table; the dialog decides when to close (a bulk save
+            // shows its own per-employee result first).
             qc.invalidateQueries({ queryKey: ['time-entries'] });
             qc.invalidateQueries({ queryKey: ['attendance-dashboard'] });
-            setManualOpen(false); setEditRecord(null);
           }}
         />
       )}

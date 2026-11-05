@@ -79,7 +79,13 @@ export function resolveScannedBy(record: any, dir: UserDirectory): ScannedBy {
     .map(({ stage, name }) => ({ stage, name: name || "" }));
 
   const distinct = Array.from(new Set(detail.map((d) => d.name).filter(Boolean)));
-  const label = distinct.length > 1 ? "Multiple" : distinct[0] || "—";
+  // A manually entered record is never attributed to a scanning device: the
+  // administrator responsible is shown, marked as a manual entry.
+  const isManual = record?.is_manual === true || record?.source === "Manual";
+  const base = distinct.length > 1 ? "Multiple" : distinct[0] || "";
+  const label = base
+    ? (isManual ? `${base} (Manual)` : base)
+    : (isManual ? "Manual" : "—");
 
   return {
     label,
