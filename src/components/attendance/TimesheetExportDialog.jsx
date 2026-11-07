@@ -6,6 +6,7 @@ import { buildTimesheets, filterEmployeesForReport } from '@/lib/timesheetBuilde
 import { exportTimesheetExcel } from '@/lib/timesheetExcel';
 import { personnelAtBranch } from '@/lib/attendanceEngine';
 import { useAttendanceFilterOptions } from '@/hooks/useAttendanceFilterOptions';
+import { useToast } from '@/components/ui/use-toast';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -31,6 +32,7 @@ export default function TimesheetExportDialog({ open, onOpenChange, employees, r
   const [department, setDepartment] = useState(baseFilters?.department || '');
   const [branch, setBranch] = useState(baseFilters?.branch || '');
   const [busy, setBusy] = useState(false);
+  const { toast } = useToast();
   // Branch list = Branch / Work Locations defined in Attendance Settings.
   const { options: branchOptions } = useAttendanceFilterOptions();
 
@@ -64,6 +66,37 @@ export default function TimesheetExportDialog({ open, onOpenChange, employees, r
       const targets = branch ? filteredEmployees.filter((e) => allowed.has(e.id)) : filteredEmployees;
       const timesheets = buildTimesheets(targets, records, settings, shifts, assignments, holidays, range.from, range.to);
       await exportTimesheetExcel(timesheets, periodLabel);
+
+      // Completeness check — kept OUTSIDE the workbook so the approved layout is
+      // untouched. Every attendance record in the period for the exported
+      // employees must be represented by one employee-day row; a second record on
+      // the same employee-day would collapse into the same cell.
+      const targetIds = new Set(targets.map((e) => e.id));
+      const perDay = new Map();
+      for (const r of records) {
+        if (r.is_deleted || !targetIds.has(r.personnel_id)) continue;
+        const d = r.attendance_date || '';
+        if (!d || d < range.from || d > range.to) continue;
+        const key = `${r.personnel_id}|${d}`;
+        perDay.set(key, [...(perDay.get(key) || []), r]);
+      }
+      const collapsed = [...perDay.values()].filter((list) => list.length > 1);
+      if (collapsed.length > 0) {
+        console.warn(
+          '[Timesheet Export] Attendance records consolidated onto one employee-day',
+          collapsed.map((list) => list.map((r) => ({
+            id: r.id,
+            employee: r.employee_name,
+            personnel_id: r.personnel_id,
+            date: r.attendance_date,
+          })))
+        );
+        toast({
+          title: 'Timesheet exported with consolidated days',
+          description: `${collapsed.length} employee-day(s) had more than one attendance record and appear as one row. Details are in the browser console.`,
+          variant: 'destructive',
+        });
+      }
       onOpenChange(false);
     } finally {
       setBusy(false);

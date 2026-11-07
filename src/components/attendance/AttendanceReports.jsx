@@ -22,6 +22,7 @@ import {
 } from '@/lib/attendanceEngine';
 import { useDebounce } from '@/hooks/useDebounce';
 import { buildReportRowsLocally } from '@/lib/attendanceReportFallback';
+import { readAllAttendanceRecords } from '@/lib/attendanceFullRead';
 
 const REPORT_TYPES = [
   { key: 'daily', label: 'Daily Attendance' },
@@ -159,9 +160,11 @@ export default function AttendanceReports({
   // by the range used to re-read the entire attendance table on every date change.
   const { data: allRecords = [] } = useQuery({
     queryKey: ['attendance', 'report-all'],
-    queryFn: () => base44.entities.AttendanceRecord.filter(
-      { is_deleted: { $ne: true } }, '-attendance_date', 100000
-    ),
+    // The COMPLETE history, paged with the server cursor. A single query is
+    // capped at one server page (5,000 rows) and, sorted newest-first, held only
+    // the most recent weeks — which is why older months (September) were visible
+    // in Time Entries but absent from the Timesheet export.
+    queryFn: () => readAllAttendanceRecords(),
     enabled: pdfDialogOpen,
     staleTime: 5 * 60 * 1000,
   });

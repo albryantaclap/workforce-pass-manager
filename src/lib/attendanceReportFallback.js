@@ -2,6 +2,10 @@ import { base44 } from '@/api/base44Client';
 import {
   resolveShift, calculateDailyStatus, getFinalOut, sameSiteLocation,
 } from '@/lib/attendanceEngine';
+import { readAllAttendanceRecords, readWithRetry } from '@/lib/attendanceFullRead';
+
+// (paging, retry and full-range reading now live in @/lib/attendanceFullRead —
+//  the single place that retrieves a complete attendance dataset.)
 
 /**
  * Browser-side builder for the Attendance Reports table.
@@ -16,55 +20,7 @@ import {
 
 const CHUNK = 500;
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// A read refused because the app's shared read budget was momentarily spent
-// (usually a punch rush at the scanner). Waiting briefly and asking again
-// returns the records instead of an empty report.
-const isRateLimit = (err) => /rate limit|too many requests|\b429\b/i.test(
-  String(err?.message || err?.error || err || '')
-);
-
-async function readWithRetry(run, attempts = 3, delayMs = 4000) {
-  let last = null;
-  for (let i = 0; i < attempts; i += 1) {
-    try {
-      return await run();
-    } catch (err) {
-      last = err;
-      if (!isRateLimit(err) || i === attempts - 1) throw err;
-      await sleep(delayMs * (i + 1));
-    }
-  }
-  throw last;
-}
-
-async function readRange(dateFrom, dateTo) {
-  const query = { is_deleted: { $ne: true } };
-  if (dateFrom || dateTo) {
-    const range = {};
-    if (dateFrom) range.$gte = dateFrom;
-    if (dateTo) range.$lte = dateTo;
-    query.attendance_date = range;
-  }
-
-  const out = [];
-  const seen = new Set();
-  let cursor = '';
-  for (;;) {
-    const options = { sort: '-attendance_date', limit: 1000 };
-    if (cursor) options.cursor = cursor;
-    const res = await readWithRetry(() => base44.entities.AttendanceRecord.filter(query, options));
-    if (Array.isArray(res)) {
-      res.forEach((r) => { if (!seen.has(r.id)) { seen.add(r.id); out.push(r); } });
-      break;
-    }
-    (res.items || []).forEach((r) => { if (!seen.has(r.id)) { seen.add(r.id); out.push(r); } });
-    if (!res.has_more || !res.next_cursor || res.next_cursor === cursor) break;
-    cursor = res.next_cursor;
-  }
-  return out;
-}
+const readRange = (dateFrom, dateTo) => readAllAttendanceRecords({ from: dateFrom, to: dateTo });
 
 async function readEmployees(ids) {
   const map = new Map();

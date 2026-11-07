@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
 import { ATTENDANCE_ROSTER_QUERY } from '@/lib/attendanceEligibility';
+import { readAllEmployees } from '@/lib/attendanceFullRead';
 
 /**
  * Lazy-load all active employees. Only fetches when `enabled` is true.
@@ -20,7 +20,9 @@ export function useAttendanceEmployees(enabled = true, staleTime = 2 * 60 * 1000
     queryKey: ['employees', 'active-attendance'],
     // Roster = the Master List read with the shared eligibility rule
     // (@/lib/attendanceEligibility) — no separate attendance employee table.
-    queryFn: () => base44.entities.Employee.filter(ATTENDANCE_ROSTER_QUERY, 'name', 100000),
+    // Read through the paged reader: the roster is larger than one server page,
+    // and a truncated roster silently drops people from every export that uses it.
+    queryFn: () => readAllEmployees(ATTENDANCE_ROSTER_QUERY),
     enabled,
     // The caller may hold this roster much longer: the ID Card Scanner treats the
     // cached copy as a fast path only and resolves any card it cannot match here
