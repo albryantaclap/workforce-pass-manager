@@ -31,6 +31,12 @@ const FIELD = Object.fromEntries(PUNCH_FIELDS.map(f => [f.key, f]));
 
 const PAGE_SIZES = [20, 50, 100, 200];
 
+// Scanned By shows WHO performed the punch — the "Manual" marker is not shown here.
+const scannedLabel = (scannedBy) => {
+  const label = String(scannedBy?.label || '').replace(/\s*\(manual\)/i, '').trim();
+  return label || '—';
+};
+
 export default function TimeEntries({
   settings, shifts, assignments, holidays,
   selectedDate, setSelectedDate, filters, setFilters,
@@ -246,7 +252,7 @@ export default function TimeEntries({
         att?.first_in_at || att?.check_in_at || '', att?.first_out_at || '',
         att?.second_in_at || '', att ? getFinalOut(att) : '',
         att?.duration_minutes || 0, att?.overtime_minutes || 0, status,
-        att?.scanned_by?.label || '—',
+        scannedLabel(att?.scanned_by),
         att?.site_location || '',
         att?.scanned_by?.names?.first_in || '', att?.scanned_by?.names?.first_out || '',
         att?.scanned_by?.names?.second_in || '', att?.scanned_by?.names?.final_out || '',
@@ -520,7 +526,9 @@ export default function TimeEntries({
                     </td>
                     {/* WHO scanned/punched — one name, "Multiple" (hover for the
                         per-punch breakdown) or — when nothing was ever stored */}
-                    <td className="px-3 py-2"><ScannedByCell scannedBy={att?.scanned_by} /></td>
+                    <td className="px-3 py-2">
+                      <ScannedByCell scannedBy={att?.scanned_by ? { ...att.scanned_by, label: scannedLabel(att.scanned_by) } : null} />
+                    </td>
                     {/* The branch the supervisor selected at the scanner (never the camp) */}
                     <td className="px-3 py-2 text-muted-foreground">{att?.site_location || '—'}</td>
                     {(canEditEntry || canDeleteEntry) && (
