@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
-import { toDateStr, toTimeStr, buildDateTime } from '@/lib/attendanceUtils';
+import { toTimeStr } from '@/lib/attendanceUtils';
+import { resolvePunchPlan, resolvedDayLabel } from '@/lib/punchSequence';
 import { saveManualEntry, saveManualEntryBulk } from '@/lib/attendanceService';
 import EmployeeMultiPicker from './EmployeeMultiPicker';
 import SiteLocationSelect from './SiteLocationSelect';
@@ -33,13 +34,10 @@ export default function ManualEntryDialog({
   const [siteLocation, setSiteLocation] = useState(EMPTY_LOCATION);
 
   const [date, setDate] = useState(selectedDate || '');
-  const [firstInDate, setFirstInDate] = useState('');
+  // Clock times only — each punch's calendar day is calculated automatically.
   const [firstInTime, setFirstInTime] = useState('');
-  const [firstOutDate, setFirstOutDate] = useState('');
   const [firstOutTime, setFirstOutTime] = useState('');
-  const [secondInDate, setSecondInDate] = useState('');
   const [secondInTime, setSecondInTime] = useState('');
-  const [finalOutDate, setFinalOutDate] = useState('');
   const [finalOutTime, setFinalOutTime] = useState('');
   const [reason, setReason] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -70,10 +68,10 @@ export default function ManualEntryDialog({
       setEditEmp(null);
       setDate(selectedDate || '');
       setSiteLocation(EMPTY_LOCATION);
-      setFirstInDate(''); setFirstInTime('');
-      setFirstOutDate(''); setFirstOutTime('');
-      setSecondInDate(''); setSecondInTime('');
-      setFinalOutDate(''); setFinalOutTime('');
+      setFirstInTime('');
+      setFirstOutTime('');
+      setSecondInTime('');
+      setFinalOutTime('');
       setReason(''); setRemarks('');
       setStatusOverride('');
       setStoredPunches(null);
@@ -107,10 +105,10 @@ export default function ManualEntryDialog({
       setSiteLocation({ id: '', name: rec.site_location || '', code: '' });
       const firstIn = getFirstIn(rec);
       const finalOut = getFinalOut(rec);
-      setFirstInDate(toDateStr(firstIn)); setFirstInTime(toTimeStr(firstIn));
-      setFirstOutDate(toDateStr(rec.first_out_at)); setFirstOutTime(toTimeStr(rec.first_out_at));
-      setSecondInDate(toDateStr(rec.second_in_at)); setSecondInTime(toTimeStr(rec.second_in_at));
-      setFinalOutDate(toDateStr(finalOut)); setFinalOutTime(toTimeStr(finalOut));
+      setFirstInTime(toTimeStr(firstIn));
+      setFirstOutTime(toTimeStr(rec.first_out_at));
+      setSecondInTime(toTimeStr(rec.second_in_at));
+      setFinalOutTime(toTimeStr(finalOut));
       setStoredPunches({
         first_in: firstIn || '', first_out: rec.first_out_at || '',
         second_in: rec.second_in_at || '', final_out: finalOut || '',
@@ -133,33 +131,41 @@ export default function ManualEntryDialog({
     [calcEmp, assignments, shifts, settings]
   );
 
+  // The four clock times entered by the Admin.
+  const times = useMemo(() => ({
+    first_in: firstInTime, first_out: firstOutTime,
+    second_in: secondInTime, final_out: finalOutTime,
+  }), [firstInTime, firstOutTime, secondInTime, finalOutTime]);
+
+  // Dates are calculated, not typed: a punch whose time is earlier than the one
+  // before it belongs to the next day (cross-midnight shift).
+  const plan = useMemo(() => resolvePunchPlan(date, times), [date, times]);
+
   const liveState = useMemo(() => {
     if (!shift || !date || !calcEmp) return null;
-    const toIso = (d, t) => { const dt = buildDateTime(d, t); return dt ? dt.toISOString() : ''; };
     const rec = {
       attendance_date: date,
-      check_in_at: toIso(firstInDate, firstInTime), check_out_at: toIso(finalOutDate, finalOutTime),
-      first_in_at: toIso(firstInDate, firstInTime), first_out_at: toIso(firstOutDate, firstOutTime),
-      second_in_at: toIso(secondInDate, secondInTime), final_out_at: toIso(finalOutDate, finalOutTime),
+      check_in_at: plan.iso.first_in, check_out_at: plan.iso.final_out,
+      first_in_at: plan.iso.first_in, first_out_at: plan.iso.first_out,
+      second_in_at: plan.iso.second_in, final_out_at: plan.iso.final_out,
       manual_status_override: statusOverride || '',
     };
     return calculateAttendanceState(rec, shift, settings, [], new Date());
-  }, [shift, date, calcEmp, firstInDate, firstInTime, firstOutDate, firstOutTime, secondInDate, secondInTime, finalOutDate, finalOutTime, statusOverride, settings]);
+  }, [shift, date, calcEmp, plan, statusOverride, settings]);
 
   // Punch order FIRST IN → FIRST OUT → SECOND IN → FINAL OUT, compared as full
   // datetimes so a cross-midnight sequence stays valid.
   const sequenceCheck = useMemo(() => {
-    const toIso = (d, t) => { const dt = buildDateTime(d, t); return dt ? dt.toISOString() : ''; };
     const rec = {
       attendance_date: date,
-      first_in_at: toIso(firstInDate, firstInTime), first_out_at: toIso(firstOutDate, firstOutTime),
-      second_in_at: toIso(secondInDate, secondInTime), final_out_at: toIso(finalOutDate, finalOutTime),
+      first_in_at: plan.iso.first_in, first_out_at: plan.iso.first_out,
+      second_in_at: plan.iso.second_in, final_out_at: plan.iso.final_out,
     };
     return validatePunchSequence(rec, shift, settings, { enforceWindows: true });
-  }, [shift, settings, date, firstInDate, firstInTime, firstOutDate, firstOutTime, secondInDate, secondInTime, finalOutDate, finalOutTime]);
+  }, [shift, settings, date, plan]);
 
   useEffect(() => { setConfirmUnusual(false); },
-    [firstInDate, firstInTime, firstOutDate, firstOutTime, secondInDate, secondInTime, finalOutDate, finalOutTime]);
+    [firstInTime, firstOutTime, secondInTime, finalOutTime]);
 
   const splitRules = isSplitEffective(shift, date);
   const shiftLabel = shift
@@ -169,15 +175,16 @@ export default function ManualEntryDialog({
   const commonTimes = {
     firstIn: firstInTime, firstOut: firstOutTime, secondIn: secondInTime, finalOut: finalOutTime,
   };
-  const punchIso = (d, t) => { const dt = buildDateTime(d, t); return dt ? dt.toISOString() : ''; };
   const isoForRow = (row) => {
     const o = overrides[row.id] || {};
     const t = (k, fallback) => (o[k] === undefined ? fallback : o[k]);
+    const { iso } = resolvePunchPlan(date, {
+      first_in: t('firstIn', firstInTime), first_out: t('firstOut', firstOutTime),
+      second_in: t('secondIn', secondInTime), final_out: t('finalOut', finalOutTime),
+    });
     return {
-      firstInIso: punchIso(firstInDate, t('firstIn', firstInTime)),
-      firstOutIso: punchIso(firstOutDate, t('firstOut', firstOutTime)),
-      secondInIso: punchIso(secondInDate, t('secondIn', secondInTime)),
-      finalOutIso: punchIso(finalOutDate, t('finalOut', finalOutTime)),
+      firstInIso: iso.first_in, firstOutIso: iso.first_out,
+      secondInIso: iso.second_in, finalOutIso: iso.final_out,
     };
   };
 
@@ -301,12 +308,7 @@ export default function ManualEntryDialog({
     if (!editEmp) { toast({ title: 'Please select an employee.', variant: 'destructive' }); return; }
     if (!date) { toast({ title: 'Please select an attendance date.', variant: 'destructive' }); return; }
 
-    const enteredIso = {
-      first_in: buildDateTime(firstInDate, firstInTime)?.toISOString() || '',
-      first_out: buildDateTime(firstOutDate, firstOutTime)?.toISOString() || '',
-      second_in: buildDateTime(secondInDate, secondInTime)?.toISOString() || '',
-      final_out: buildDateTime(finalOutDate, finalOutTime)?.toISOString() || '',
-    };
+    const enteredIso = plan.iso;
     // Only the punches the Admin actually changed are applied — every other punch
     // keeps the value already stored on the record.
     const sameStamp = (a, b) => (a ? new Date(a).getTime() : 0) === (b ? new Date(b).getTime() : 0);
@@ -444,15 +446,18 @@ export default function ManualEntryDialog({
 
               {/* PUNCH TIMES — entered once for everyone selected */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <PunchInput label="First Clock In" date={firstInDate} time={firstInTime}
-                  onDate={setFirstInDate} onTime={setFirstInTime} />
-                <PunchInput label="First Clock Out" date={firstOutDate} time={firstOutTime}
-                  onDate={setFirstOutDate} onTime={setFirstOutTime} />
-                <PunchInput label="Second Clock In" date={secondInDate} time={secondInTime}
-                  onDate={setSecondInDate} onTime={setSecondInTime} />
-                <PunchInput label="Final Clock Out" date={finalOutDate} time={finalOutTime}
-                  onDate={setFinalOutDate} onTime={setFinalOutTime} />
+                <PunchInput label="First Clock In" time={firstInTime} onTime={setFirstInTime}
+                  date={date} dayOffset={plan.offsets.first_in} />
+                <PunchInput label="First Clock Out" time={firstOutTime} onTime={setFirstOutTime}
+                  date={date} dayOffset={plan.offsets.first_out} />
+                <PunchInput label="Second Clock In" time={secondInTime} onTime={setSecondInTime}
+                  date={date} dayOffset={plan.offsets.second_in} />
+                <PunchInput label="Final Clock Out" time={finalOutTime} onTime={setFinalOutTime}
+                  date={date} dayOffset={plan.offsets.final_out} />
               </div>
+              <p className="text-[10px] text-muted-foreground">
+                Dates are calculated automatically — a time earlier than the punch before it rolls to the next day.
+              </p>
 
               {/* STATUS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -546,13 +551,26 @@ function ReadOnlyField({ label, value }) {
   );
 }
 
-function PunchInput({ label, date, time, onDate, onTime }) {
+function PunchInput({ label, date, time, onTime, dayOffset }) {
+  const rolled = dayOffset !== null && dayOffset !== undefined && dayOffset > 0;
   return (
     <div className="space-y-1">
       <label className="text-xs font-semibold text-muted-foreground uppercase">{label}</label>
-      <div className="flex gap-1.5 min-w-0">
-        <Input type="date" value={date} onChange={(e) => onDate(e.target.value)} className="min-w-0 flex-1" style={{ width: 'auto' }} />
-        <Input type="time" value={time} onChange={(e) => onTime(e.target.value)} className="flex-shrink-0" style={{ width: '5rem' }} />
+      <div className="flex gap-1.5 min-w-0 items-center">
+        <Input type="time" value={time} onChange={(e) => onTime(e.target.value)} className="flex-shrink-0" style={{ width: '5.5rem' }} />
+        <span
+          className={`text-[10px] font-medium px-2 py-1 rounded border whitespace-nowrap ${
+            !time
+              ? 'text-muted-foreground border-border bg-muted/30'
+              : rolled
+                ? 'text-amber-700 border-amber-200 bg-amber-50'
+                : 'text-emerald-700 border-emerald-200 bg-emerald-50'
+          }`}
+        >
+          {!time
+            ? '—'
+            : `${resolvedDayLabel(date, dayOffset || 0)}${rolled ? ` (+${dayOffset} day)` : ''}`}
+        </span>
       </div>
     </div>
   );

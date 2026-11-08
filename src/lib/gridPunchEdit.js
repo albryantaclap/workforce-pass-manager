@@ -1,8 +1,8 @@
 // Inline grid editing helpers for the Time Entries table.
 // They convert a stored ISO punch into the value shown by <input type="time">
 // and rebuild an ISO timestamp on the row's attendance date. A punch that falls
-// before the previous punch of the day rolls over to the next day (night shift),
-// while a punch that already exists keeps its original calendar day.
+// before the previous punch of the day rolls over to the next calendar day
+// automatically (night shift), so cross-midnight entries are never rejected.
 
 export const PUNCH_FIELDS = [
   { key: 'first_in', recordKey: 'first_in_at', label: 'FIRST IN' },
@@ -29,37 +29,37 @@ export const isoToTimeInput = (iso) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-// "HH:mm" → ISO on the row date (or the punch's original date when it has one).
-export const timeInputToIso = (rowDate, time, baseIso, previousIso) => {
-  if (!time || !rowDate) return '';
-  const [y, m, d] = rowDate.split('-').map(Number);
-  const [hh, mm] = String(time).split(':').map(Number);
-  if (!y || Number.isNaN(hh) || Number.isNaN(mm)) return '';
-
-  let base = baseIso ? new Date(baseIso) : null;
-  if (!base || Number.isNaN(base.getTime())) base = new Date(y, m - 1, d);
-
-  const out = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hh, mm, 0, 0);
-  if (!baseIso && previousIso) {
-    const prev = new Date(previousIso);
-    if (!Number.isNaN(prev.getTime()) && out.getTime() < prev.getTime()) {
-      out.setDate(out.getDate() + 1);
-    }
-  }
-  return out.toISOString();
-};
-
 // Every punch of a row as ISO, using the draft where the user edited a cell.
+// Cross-midnight is resolved automatically: a punch that would land before the
+// punch preceding it moves to the next calendar day instead of being rejected.
 export const buildPunchIsos = (rowDate, draft = {}, att = null) => {
   const values = {};
-  let previous = '';
+  const [y, m, d] = String(rowDate || '').split('-').map(Number);
+  const anchor = y && m && d ? new Date(y, m - 1, d) : null;
+  let previous = null;
+
   PUNCH_FIELDS.forEach((field) => {
     const stored = storedPunch(att, field);
     const time = draft[field.key] !== undefined ? draft[field.key] : isoToTimeInput(stored);
-    const iso = timeInputToIso(rowDate, time, stored, previous);
+    const [hh, mm] = String(time || '').split(':').map(Number);
+    let iso = '';
+
+    if (time && !Number.isNaN(hh) && !Number.isNaN(mm)) {
+      const storedDate = stored ? new Date(stored) : null;
+      const base = storedDate && !Number.isNaN(storedDate.getTime()) ? storedDate : anchor;
+      if (base) {
+        let dt = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hh, mm, 0, 0);
+        while (previous && dt.getTime() < previous.getTime()) {
+          dt = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + 1, hh, mm, 0, 0);
+        }
+        iso = dt.toISOString();
+      }
+    }
+
     values[field.key] = iso;
-    if (iso) previous = iso;
+    if (iso) previous = new Date(iso);
   });
+
   return values;
 };
 
