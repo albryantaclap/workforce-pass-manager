@@ -18,6 +18,8 @@ export default async function (req: Request): Promise<Response> {
     const body = await req.json();
     const {
       date = "",
+      dateFrom = "",
+      dateTo = "",
       filters = {},
       showAbsent = true,
       status = "",
@@ -43,40 +45,95 @@ export default async function (req: Request): Promise<Response> {
       "name", 100000
     );
     const filteredEmps = filterEmployees(employees, filters);
+    const empById = new Map<string, any>(filteredEmps.map((e: any) => [e.id, e]));
 
-    // 3. Fetch attendance records for the selected date (chunked $in query)
-    const empIds = filteredEmps.map((e: any) => e.id);
-    const attByPersonnel = new Map<string, any>();
-    if (empIds.length > 0 && date) {
-      const CHUNK = 200;
-      for (let i = 0; i < empIds.length; i += CHUNK) {
-        const chunk = empIds.slice(i, i + CHUNK);
-        const records = await base44.entities.AttendanceRecord.filter(
-          { personnel_id: { $in: chunk }, is_deleted: { $ne: true }, attendance_date: date },
-          undefined, 100000
-        );
-        for (const r of records) {
-          if (!attByPersonnel.has(r.personnel_id)) {
-            attByPersonnel.set(r.personnel_id, r);
+    // Two shapes of query:
+    //  · single day  (dateFrom === dateTo) → every filtered employee, with or
+    //    without a record, so Absent / Rest Day rows still appear.
+    //  · date range  (dateFrom !== dateTo) → one row per recorded employee-day.
+    //    Synthetic absent rows are never generated across a range: that would
+    //    multiply the roster by the number of days.
+    const rangeStart = dateFrom || date;
+    const rangeEnd = dateTo || date;
+    const isRange = Boolean(rangeStart && rangeEnd && rangeEnd !== rangeStart);
+
+    let rows: any[] = [];
+
+    if (!isRange) {
+      // 3. Fetch attendance records for the selected date (chunked $in query)
+      const empIds = filteredEmps.map((e: any) => e.id);
+      const attByPersonnel = new Map<string, any>();
+      if (empIds.length > 0 && date) {
+        const CHUNK = 200;
+        for (let i = 0; i < empIds.length; i += CHUNK) {
+          const chunk = empIds.slice(i, i + CHUNK);
+          const records = await base44.entities.AttendanceRecord.filter(
+            { personnel_id: { $in: chunk }, is_deleted: { $ne: true }, attendance_date: date },
+            undefined, 100000
+          );
+          for (const r of records) {
+            if (!attByPersonnel.has(r.personnel_id)) {
+              attByPersonnel.set(r.personnel_id, r);
+            }
           }
         }
       }
-    }
 
-    // 4. Build rows with calculated status for filtering
-    //    Uses the centralized calculateAttendanceStatus (same as frontend display)
-    //    so KPIs and filtering match the Status column exactly.
-    let rows = filteredEmps.map((emp: any) => {
-      const att = attByPersonnel.get(emp.id) || null;
-      let simpleStatus: string;
-      if (att) {
-        const shift = resolveShift(emp, assignments, shifts, settings);
-        simpleStatus = calculateAttendanceStatus(att, shift, settings, holidays, now);
-      } else {
-        simpleStatus = holiday ? "Holiday" : (workingDay ? "Absent" : "Rest Day");
+      // 4. Build rows with calculated status for filtering
+      //    Uses the centralized calculateAttendanceStatus (same as frontend display)
+      //    so KPIs and filtering match the Status column exactly.
+      rows = filteredEmps.map((emp: any) => {
+        const att = attByPersonnel.get(emp.id) || null;
+        let simpleStatus: string;
+        if (att) {
+          const shift = resolveShift(emp, assignments, shifts, settings);
+          simpleStatus = calculateAttendanceStatus(att, shift, settings, holidays, now);
+        } else {
+          simpleStatus = holiday ? "Holiday" : (workingDay ? "Absent" : "Rest Day");
+        }
+        return { emp, att, simpleStatus, date: att?.attendance_date || date };
+      });
+    } else {
+      // 3b. Multi-day range — read one day at a time so no single query can be
+      //     truncated by the backend row cap, then keep the recorded employee-days.
+      const days: string[] = [];
+      const cursorDay = new Date(`${rangeStart}T00:00:00Z`);
+      const lastDay = new Date(`${rangeEnd}T00:00:00Z`);
+      while (cursorDay <= lastDay) {
+        days.push(cursorDay.toISOString().slice(0, 10));
+        cursorDay.setUTCDate(cursorDay.getUTCDate() + 1);
       }
-      return { emp, att, simpleStatus };
-    });
+      if (days.length > 92) {
+        return Response.json(
+          { error: "Date range is limited to 92 days. Please choose a shorter range." },
+          { status: 400 }
+        );
+      }
+
+      for (const day of days) {
+        const records = await base44.entities.AttendanceRecord.filter(
+          { attendance_date: day, is_deleted: { $ne: true } },
+          undefined, 100000
+        );
+        for (const r of records) {
+          const emp = empById.get(r.personnel_id);
+          if (!emp) continue;
+          const shift = resolveShift(emp, assignments, shifts, settings);
+          rows.push({
+            emp,
+            att: r,
+            simpleStatus: calculateAttendanceStatus(r, shift, settings, holidays, now),
+            date: r.attendance_date || day,
+          });
+        }
+      }
+
+      // Newest day first, then employee name — the same reading order as the table.
+      rows.sort((a: any, b: any) =>
+        String(b.date || "").localeCompare(String(a.date || "")) ||
+        String(a.emp.name || "").localeCompare(String(b.emp.name || ""))
+      );
+    }
 
     // 4b. Branch / Location filter — keeps the rows whose attendance for the day is
     //     recorded at the selected branch (Attendance Settings → Branch / Work
@@ -135,7 +192,8 @@ export default async function (req: Request): Promise<Response> {
 
     // 10. Return rows (with employee + attendance data) + KPIs
     return Response.json({
-      rows: pageRows.map(({ emp, att }: any) => ({
+      rows: pageRows.map(({ emp, att, date: rowDate }: any) => ({
+        date: att?.attendance_date || rowDate || date,
         emp: {
           id: emp.id, name: emp.name, photo_url: emp.photo_url || "",
           position_application: emp.position_application || "",
@@ -145,6 +203,7 @@ export default async function (req: Request): Promise<Response> {
         },
         att: att ? {
           id: att.id,
+          attendance_date: att.attendance_date || rowDate || date,
           first_in_at: att.first_in_at || att.check_in_at || "",
           first_out_at: att.first_out_at || "",
           second_in_at: att.second_in_at || "",

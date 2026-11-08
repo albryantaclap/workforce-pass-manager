@@ -37,6 +37,12 @@ export default function TimeEntries({
   const canDeleteEntry = can('attendance.entries.delete');
   const canExportEntry = can('attendance.entries.export');
   const [showAbsent, setShowAbsent] = useState(true);
+  // Optional date range. When both ends are set and differ, the tab lists one
+  // row per recorded employee-day instead of a single day's roster.
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const rangeActive = Boolean(dateFrom && dateTo && dateTo !== dateFrom);
+  const rangeIncomplete = Boolean((dateFrom && !dateTo) || (!dateFrom && dateTo));
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [manualOpen, setManualOpen] = useState(false);
@@ -53,6 +59,8 @@ export default function TimeEntries({
   const { data, isLoading, error } = useQuery({
     queryKey: ['time-entries', {
       date: selectedDate,
+      dateFrom: rangeActive ? dateFrom : '',
+      dateTo: rangeActive ? dateTo : '',
       search: debouncedSearch,
       company: filters.company, department: filters.department,
       designation: filters.designation, manager: filters.manager,
@@ -61,7 +69,9 @@ export default function TimeEntries({
       page, pageSize,
     }],
     queryFn: () => base44.functions.invoke('getTimeEntries', {
-      date: selectedDate,
+      date: rangeActive ? dateFrom : selectedDate,
+      dateFrom: rangeActive ? dateFrom : '',
+      dateTo: rangeActive ? dateTo : '',
       filters: {
         search: debouncedSearch || '',
         company: filters.company || '',
@@ -88,8 +98,9 @@ export default function TimeEntries({
   // Lazy-load all employees only when the Manual Entry dialog is open
   const { data: allEmployees = [] } = useAttendanceEmployees(manualOpen);
 
-  // Quick date filters
+  // Quick date filters — a quick pick is always a single day, so any range is cleared
   const quickDate = (type) => {
+    setDateFrom(''); setDateTo(''); setPage(0);
     const today = new Date();
     if (type === 'today') setSelectedDate(today.toLocaleDateString('en-CA'));
     else if (type === 'yesterday') {
@@ -122,7 +133,7 @@ export default function TimeEntries({
   // Export the current page's attendance data to CSV.
   const exportCSV = () => {
     const headers = ['Employee', 'Designation', 'QID', 'PID', 'Company', 'Dept', 'Branch', 'Date', 'First In', 'First Out', 'Second In', 'Final Out', 'Duration (min)', 'Overtime (min)', 'Status', 'Scanned By', 'Site Location', 'First In By', 'First Out By', 'Second In By', 'Final Out By'];
-    const csvRows = rows.map(({ emp, att }) => {
+    const csvRows = rows.map(({ emp, att, date }) => {
       const shift = resolveShift(emp, assignments, shifts, settings);
       let status;
       if (att) {
@@ -134,7 +145,7 @@ export default function TimeEntries({
       return [
         emp.name || '', emp.position_application || '', emp.qid_no || '', emp.pid || '',
         emp.company || '', emp.department || '', emp.current_location || '',
-        selectedDate,
+        date || att?.attendance_date || selectedDate,
         att?.first_in_at || att?.check_in_at || '', att?.first_out_at || '',
         att?.second_in_at || '', att ? getFinalOut(att) : '',
         att?.duration_minutes || 0, att?.overtime_minutes || 0, status,
@@ -148,7 +159,7 @@ export default function TimeEntries({
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `time-entries-${selectedDate}.csv`;
+    a.href = url; a.download = `time-entries-${rangeActive ? `${dateFrom}_to_${dateTo}` : selectedDate}.csv`;
     a.click(); URL.revokeObjectURL(url);
   };
 
@@ -185,14 +196,45 @@ export default function TimeEntries({
               <Input
                 type="date"
                 value={selectedDate}
-                onChange={e => { setSelectedDate(e.target.value); setPage(0); }}
+                onChange={e => { setSelectedDate(e.target.value); setDateFrom(''); setDateTo(''); setPage(0); }}
                 className="w-36"
               />
             </div>
+            <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-border">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Date Range</span>
+              <Input
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={e => { setDateFrom(e.target.value); setPage(0); }}
+                className="w-36"
+              />
+              <span className="text-xs text-muted-foreground">to</span>
+              <Input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={e => { setDateTo(e.target.value); setPage(0); }}
+                className="w-36"
+              />
+              {rangeIncomplete && !rangeActive && (
+                <span className="text-[10px] font-medium text-amber-600">Pick both dates</span>
+              )}
+              {rangeActive && (
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                  onClick={() => { setDateFrom(''); setDateTo(''); setPage(0); }}>
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-              <input type="checkbox" checked={showAbsent} onChange={e => { setShowAbsent(e.target.checked); setPage(0); }}
+            <label
+              className={cn('flex items-center gap-1.5 text-xs', rangeActive ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer')}
+              title={rangeActive ? 'Absent rows are generated for a single day only' : undefined}
+            >
+              <input type="checkbox" checked={showAbsent} disabled={rangeActive}
+                onChange={e => { setShowAbsent(e.target.checked); setPage(0); }}
                 className="rounded" />
               Show Absent Employees
             </label>
@@ -215,6 +257,11 @@ export default function TimeEntries({
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between bg-muted/30">
           <span className="text-sm font-semibold text-foreground">
             Time Entries <span className="text-muted-foreground font-normal">· {total} records</span>
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {rangeActive
+                ? `${formatDateShort(dateFrom)} – ${formatDateShort(dateTo)}`
+                : formatDateShort(selectedDate)}
+            </span>
           </span>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>Rows per page</span>
@@ -258,9 +305,10 @@ export default function TimeEntries({
                 </td></tr>
               ) : rows.length === 0 ? (
                 <tr><td colSpan={(canEditEntry || canDeleteEntry) ? 18 : 17} className="px-3 py-8 text-center text-muted-foreground">
-                  No attendance records for the selected date and filters.
+                  No attendance records for the selected {rangeActive ? 'date range' : 'date'} and filters.
                 </td></tr>
-              ) : rows.map(({ emp, att }) => {
+              ) : rows.map(({ emp, att, date }) => {
+                const rowDate = date || att?.attendance_date || selectedDate;
                 const shift = resolveShift(emp, assignments, shifts, settings);
                 let status;
                 if (att) {
@@ -269,7 +317,7 @@ export default function TimeEntries({
                 } else {
                   status = 'Absent';
                 }
-                const splitEffective = isSplitEffective(shift, selectedDate);
+                const splitEffective = isSplitEffective(shift, rowDate);
                 const splitStatuses = splitEffective ? getSplitPunchStatuses(att, shift, new Date()) : null;
                 // Flags a stored record whose punches break the sequence for the shift
                 // that applies (e.g. a FINAL OUT with FIRST OUT / SECOND IN missing).
@@ -277,7 +325,7 @@ export default function TimeEntries({
                 const sequenceIssue = att ? getRecordSequenceIssue(att, shift) : null;
                 const colors = STATUS_COLORS[status] || STATUS_COLORS['Absent'];
                 return (
-                  <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/30">
+                  <tr key={att?.id || emp.id} className="border-b border-border/50 hover:bg-muted/30">
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size="sm" />
@@ -293,7 +341,7 @@ export default function TimeEntries({
                     <td className="px-3 py-2 text-muted-foreground">{emp.company || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{emp.department || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{emp.current_location || '—'}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{formatDateShort(selectedDate)}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{formatDateShort(rowDate)}</td>
                     <td className="px-3 py-2">{renderPunch(getFirstIn(att), 'FIRST_IN', splitEffective, splitStatuses)}</td>
                     <td className="px-3 py-2">{renderPunch(att?.first_out_at, 'FIRST_OUT', splitEffective, splitStatuses)}</td>
                     <td className="px-3 py-2">{renderPunch(att?.second_in_at, 'SECOND_IN', splitEffective, splitStatuses)}</td>
@@ -335,7 +383,7 @@ export default function TimeEntries({
                                     personnel_id: emp.id,
                                     employee_name: emp.name,
                                     company: emp.company,
-                                    attendance_date: att.attendance_date || selectedDate,
+                                    attendance_date: att.attendance_date || rowDate,
                                   });
                                   setManualOpen(true);
                                 }}
@@ -396,7 +444,7 @@ export default function TimeEntries({
           settings={settings}
           shifts={shifts}
           assignments={assignments}
-          selectedDate={selectedDate}
+          selectedDate={rangeActive ? dateTo : selectedDate}
           editRecord={editRecord}
           onSaved={() => {
             // Refresh the table; the dialog decides when to close (a bulk save
