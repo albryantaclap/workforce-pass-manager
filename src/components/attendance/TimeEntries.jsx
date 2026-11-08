@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Edit2, Trash2, Download, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Edit2, Trash2, Download, AlertTriangle, Grid3x3 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
@@ -21,7 +21,13 @@ import {
   STATUS_COLORS, isSplitEffective, getSplitPunchStatuses, calculateAttendanceState,
   getFirstIn, getFinalOut, resolveShift, getRecordSequenceIssue,
 } from '@/lib/attendanceEngine';
-import { softDeleteAttendance } from '@/lib/attendanceService';
+import { softDeleteAttendance, saveManualEntry } from '@/lib/attendanceService';
+import GridPunchCell from './GridPunchCell';
+import {
+  PUNCH_FIELDS, storedPunch, isoToTimeInput, buildPunchIsos, changedPunchKeys, gridRowKey,
+} from '@/lib/gridPunchEdit';
+
+const FIELD = Object.fromEntries(PUNCH_FIELDS.map(f => [f.key, f]));
 
 const PAGE_SIZES = [20, 50, 100, 200];
 
@@ -48,6 +54,13 @@ export default function TimeEntries({
   const [manualOpen, setManualOpen] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  // ── Grid editing: edit the punch times straight in the table ──
+  // drafts[<row key>] = { first_in: 'HH:mm', ... } — staged until Save.
+  const [gridMode, setGridMode] = useState(false);
+  const [drafts, setDrafts] = useState({});
+  const [gridReason, setGridReason] = useState('');
+  const [savingGrid, setSavingGrid] = useState(false);
+  const gridEdit = gridMode && canEditEntry;
 
   // Debounce search to avoid a backend request on every keystroke
   const debouncedSearch = useDebounce(filters.search, 350);
@@ -114,6 +127,90 @@ export default function TimeEntries({
     } else if (type === 'month') {
       setSelectedDate(new Date(today.getFullYear(), today.getMonth(), 1).toLocaleDateString('en-CA'));
     }
+  };
+
+  // ── Grid editing handlers ──
+  // Rows with at least one punch whose cell value differs from the stored one.
+  const dirtyRows = rows.reduce((acc, { emp, att, date }) => {
+    const rowDate = date || att?.attendance_date || selectedDate;
+    const draft = drafts[gridRowKey(emp, att, rowDate)] || {};
+    const keys = changedPunchKeys(draft, att);
+    if (keys.length) acc.push({ emp, att, rowDate, draft, keys });
+    return acc;
+  }, []);
+  const dirtyCount = dirtyRows.length;
+
+  const setCell = (rowKey, punchKey, value) => {
+    setDrafts(prev => ({ ...prev, [rowKey]: { ...(prev[rowKey] || {}), [punchKey]: value } }));
+  };
+
+  const toggleGrid = () => {
+    if (gridEdit && dirtyCount) {
+      toast({ title: 'Save or discard your changes first', variant: 'destructive' });
+      return;
+    }
+    setGridMode(m => !m);
+    setDrafts({});
+    setGridReason('');
+  };
+
+  // Save every changed row through the same backend path as Manual Entry, so
+  // permissions, sequence validation, audit and corrections all still apply.
+  const saveGrid = async () => {
+    if (!dirtyRows.length) return;
+    const needsReason = dirtyRows.some(r => !r.att);
+    if (needsReason && !gridReason.trim()) {
+      toast({ title: 'A reason is required', description: 'New attendance records need a reason.', variant: 'destructive' });
+      return;
+    }
+    setSavingGrid(true);
+    const failures = [];
+    for (const row of dirtyRows) {
+      const iso = buildPunchIsos(row.rowDate, row.draft, row.att);
+      try {
+        await saveManualEntry({
+          personnelId: row.emp.id,
+          employeeName: row.emp.name,
+          company: row.emp.company,
+          attendanceDate: row.rowDate,
+          attendanceRecordId: row.att?.id || '',
+          firstInAt: iso.first_in,
+          firstOutAt: iso.first_out,
+          secondInAt: iso.second_in,
+          finalOutAt: iso.final_out,
+          changedPunchKeys: row.keys,
+          reason: gridReason.trim(),
+        });
+      } catch (e) {
+        failures.push(`${row.emp.name}: ${e.message}`);
+      }
+    }
+    setSavingGrid(false);
+    const saved = dirtyRows.length - failures.length;
+    if (failures.length) {
+      toast({
+        title: `${saved} of ${dirtyRows.length} rows saved`,
+        description: failures.slice(0, 3).join(' · '),
+        variant: 'destructive',
+      });
+    } else {
+      toast({ title: `${saved} row${saved === 1 ? '' : 's'} updated` });
+    }
+    // Keep the rows that failed so the user can correct them.
+    if (failures.length) {
+      const failedNames = new Set(failures.map(f => f.split(':')[0]));
+      setDrafts(prev => Object.fromEntries(
+        Object.entries(prev).filter(([key]) => {
+          const row = dirtyRows.find(r => gridRowKey(r.emp, r.att, r.rowDate) === key);
+          return row && failedNames.has(row.emp.name);
+        })
+      ));
+    } else {
+      setDrafts({});
+      setGridReason('');
+    }
+    qc.invalidateQueries({ queryKey: ['time-entries'] });
+    qc.invalidateQueries({ queryKey: ['attendance-dashboard'] });
   };
 
   const handleDelete = async () => {
@@ -238,6 +335,11 @@ export default function TimeEntries({
                 className="rounded" />
               Show Absent Employees
             </label>
+            {canEditEntry && (
+              <Button size="sm" variant={gridEdit ? 'default' : 'outline'} onClick={toggleGrid} className="h-8">
+                <Grid3x3 className="w-3.5 h-3.5" /> {gridEdit ? 'Exit Grid Edit' : 'Grid Edit'}
+              </Button>
+            )}
             {canExportEntry && (
               <Button size="sm" variant="outline" onClick={exportCSV} className="h-8">
                 <Download className="w-3.5 h-3.5" /> Export
@@ -271,6 +373,33 @@ export default function TimeEntries({
             </select>
           </div>
         </div>
+
+        {/* Grid edit bar — staged punch edits are saved together */}
+        {gridEdit && (
+          <div className="px-4 py-2 border-b border-border bg-amber-50/70 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-xs text-amber-900">
+              <span className="font-semibold">Grid editing</span>
+              <span className="text-amber-800">Type the four punch times directly in the table.</span>
+              <span className="font-semibold">{dirtyCount} changed</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={gridReason}
+                onChange={e => setGridReason(e.target.value)}
+                placeholder="Reason (required for new records)"
+                className="h-7 w-64 text-xs"
+              />
+              <Button size="sm" variant="ghost" className="h-7 text-xs"
+                onClick={() => setDrafts({})} disabled={!dirtyCount || savingGrid}>
+                Discard
+              </Button>
+              <Button size="sm" className="h-7 text-xs"
+                onClick={saveGrid} disabled={!dirtyCount || savingGrid}>
+                {savingGrid ? 'Saving…' : 'Save changes'}
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto table-scroll-x">
           <table className="w-full text-xs table-list-view">
@@ -324,8 +453,25 @@ export default function TimeEntries({
                 // Nothing is rewritten — the Admin repairs it through Edit Attendance.
                 const sequenceIssue = att ? getRecordSequenceIssue(att, shift) : null;
                 const colors = STATUS_COLORS[status] || STATUS_COLORS['Absent'];
+                // Grid edit state for THIS row
+                const rowKey = gridRowKey(emp, att, rowDate);
+                const draft = drafts[rowKey] || {};
+                const rowChanged = changedPunchKeys(draft, att);
+                const punchCell = (fieldKey) => {
+                  const field = FIELD[fieldKey];
+                  const value = draft[fieldKey] !== undefined
+                    ? draft[fieldKey]
+                    : isoToTimeInput(storedPunch(att, field));
+                  return (
+                    <GridPunchCell
+                      value={value}
+                      dirty={rowChanged.includes(fieldKey)}
+                      onChange={(v) => setCell(rowKey, fieldKey, v)}
+                    />
+                  );
+                };
                 return (
-                  <tr key={att?.id || emp.id} className="border-b border-border/50 hover:bg-muted/30">
+                  <tr key={rowKey} className={cn('border-b border-border/50 hover:bg-muted/30', rowChanged.length > 0 && 'bg-amber-50/60')}>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size="sm" />
@@ -342,10 +488,18 @@ export default function TimeEntries({
                     <td className="px-3 py-2 text-muted-foreground">{emp.department || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{emp.current_location || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatDateShort(rowDate)}</td>
-                    <td className="px-3 py-2">{renderPunch(getFirstIn(att), 'FIRST_IN', splitEffective, splitStatuses)}</td>
-                    <td className="px-3 py-2">{renderPunch(att?.first_out_at, 'FIRST_OUT', splitEffective, splitStatuses)}</td>
-                    <td className="px-3 py-2">{renderPunch(att?.second_in_at, 'SECOND_IN', splitEffective, splitStatuses)}</td>
-                    <td className="px-3 py-2">{renderPunch(getFinalOut(att), 'FINAL_OUT', splitEffective, splitStatuses)}</td>
+                    <td className={cn('px-3 py-2', gridEdit && 'px-1 py-1')}>
+                      {gridEdit ? punchCell('first_in') : renderPunch(getFirstIn(att), 'FIRST_IN', splitEffective, splitStatuses)}
+                    </td>
+                    <td className={cn('px-3 py-2', gridEdit && 'px-1 py-1')}>
+                      {gridEdit ? punchCell('first_out') : renderPunch(att?.first_out_at, 'FIRST_OUT', splitEffective, splitStatuses)}
+                    </td>
+                    <td className={cn('px-3 py-2', gridEdit && 'px-1 py-1')}>
+                      {gridEdit ? punchCell('second_in') : renderPunch(att?.second_in_at, 'SECOND_IN', splitEffective, splitStatuses)}
+                    </td>
+                    <td className={cn('px-3 py-2', gridEdit && 'px-1 py-1')}>
+                      {gridEdit ? punchCell('final_out') : renderPunch(getFinalOut(att), 'FINAL_OUT', splitEffective, splitStatuses)}
+                    </td>
                     <td className={cn('px-3 py-2 font-medium', getDurationColor(att?.duration_minutes))}>
                       {formatMinutes(att?.duration_minutes)}
                     </td>
