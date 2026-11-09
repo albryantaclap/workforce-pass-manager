@@ -13,7 +13,8 @@ import { exportTransactionHistoryExcel } from '@/lib/inventoryExcelExport';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { fetchInactiveEmployeeIds } from '@/lib/inventoryEmployees';
 import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import DocumentDetailsDialog from '@/components/inventory/DocumentDetailsDialog';
@@ -32,6 +33,7 @@ export default function TransactionHistory() {
   const [typeFilter, setTypeFilter] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [employeeStatus, setEmployeeStatus] = useState('');
   const [selected, setSelected] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -40,6 +42,15 @@ export default function TransactionHistory() {
   const { can } = useRbac();
 
   const refresh = () => queryClient.invalidateQueries(['inventory-transactions']);
+
+  // Who among the Master List is Inactive — lets issued vouchers be filtered
+  // and marked by employee status without loading the whole workforce.
+  const { data: inactiveIds } = useQuery({
+    queryKey: ['inventory-inactive-employee-ids'],
+    queryFn: fetchInactiveEmployeeIds,
+    staleTime: 300000,
+  });
+  const isInactiveDoc = (g) => g.lines.some(l => l.employee_id && inactiveIds?.has(l.employee_id));
 
   // One row per document (D/N or I/V) with all of its item lines. Records that
   // hold a single item — including every existing historical record — simply
@@ -51,6 +62,11 @@ export default function TransactionHistory() {
       if (typeFilter && g.type !== typeFilter) return false;
       if (fromDate && (g.date || '') < fromDate) return false;
       if (toDate && (g.date || '') > toDate) return false;
+      if (employeeStatus && inactiveIds) {
+        if (!g.lines.some(l => l.employee_id)) return false;
+        const inactive = g.lines.some(l => l.employee_id && inactiveIds.has(l.employee_id));
+        if (employeeStatus === 'inactive' ? !inactive : inactive) return false;
+      }
       if (!q) return true;
       return (
         (g.documentNo || '').toLowerCase().includes(q) ||
@@ -62,13 +78,13 @@ export default function TransactionHistory() {
         )
       );
     });
-  }, [transactions, search, typeFilter, fromDate, toDate]);
+  }, [transactions, search, typeFilter, fromDate, toDate, employeeStatus, inactiveIds]);
 
-  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, typeFilter, fromDate, toDate]);
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, typeFilter, fromDate, toDate, employeeStatus]);
   const totalPages = Math.max(1, Math.ceil(documents.length / rowsPerPage));
   const currentPage = Math.min(page, totalPages - 1);
   const pageData = documents.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
-  const isFiltered = !!(search || typeFilter || fromDate || toDate);
+  const isFiltered = !!(search || typeFilter || fromDate || toDate || employeeStatus);
 
   const handleView = (group) => {
     setSelected(group);
@@ -126,6 +142,14 @@ export default function TransactionHistory() {
             <SelectItem value="ADJUSTMENT">Adjustment</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={employeeStatus || 'all'} onValueChange={v => setEmployeeStatus(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Employees</SelectItem>
+            <SelectItem value="active">Active Employees</SelectItem>
+            <SelectItem value="inactive">Inactive Employees</SelectItem>
+          </SelectContent>
+        </Select>
         <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-auto" />
         <span className="text-xs text-muted-foreground">to</span>
         <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-auto" />
@@ -160,6 +184,9 @@ export default function TransactionHistory() {
                   <TableCell>
                     {g.type === 'STOCK_OUT' ? (g.employeeName || '—') : (g.supplier || '—')}
                     {g.type === 'STOCK_OUT' && g.pid ? <span className="ml-1 text-[10px] text-muted-foreground font-mono">({g.pid})</span> : null}
+                    {g.type === 'STOCK_OUT' && isInactiveDoc(g) ? (
+                      <span className="ml-1 rounded border border-slate-300 bg-slate-100 px-1 text-[9px] font-semibold uppercase text-slate-600">Inactive</span>
+                    ) : null}
                   </TableCell>
                   <TableCell>{g.type === 'STOCK_OUT' ? (g.site || '—') : (g.store || '—')}</TableCell>
                   <TableCell className="text-right font-semibold">{g.lineCount} {g.lineCount === 1 ? 'Item' : 'Items'}</TableCell>

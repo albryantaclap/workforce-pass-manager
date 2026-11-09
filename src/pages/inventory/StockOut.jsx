@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Search, Download, AlertTriangle } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
 import { exportStockOutExcel } from '@/lib/inventoryExcelExport';
-import { fetchAllEmployees } from '@/lib/inventoryEmployees';
+import { fetchAllEmployees, employeeStatus } from '@/lib/inventoryEmployees';
+import EmployeeStatusBadge from '@/components/inventory/EmployeeStatusBadge';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useRbac } from '@/lib/useRbac';
 import StockOutFormModal from '@/components/inventory/StockOutFormModal';
@@ -25,6 +26,7 @@ import { usePagination } from '@/hooks/usePagination';
 import MultiSelect from '@/components/common/MultiSelect';
 import SearchableSelect from '@/components/common/SearchableSelect';
 import { InventoryFilterPanel, FilterField, FilterNumberRange, FilterDateRange } from '@/components/inventory/InventoryFilterPanel';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function StockOut() {
   const { items, transactions, warranties, getLookupOptions, isLoading } = useInventoryData();
@@ -58,11 +60,13 @@ export default function StockOut() {
   const [qtyMax, setQtyMax] = useState('');
   const [issuedByFilter, setIssuedByFilter] = useState('');
   const [remarksSearch, setRemarksSearch] = useState('');
+  const [employeeStatusFilter, setEmployeeStatusFilter] = useState('');
 
-  // Load all employees from Workforce Master List for live join
+  // Every Master List record — including Inactive personnel, so stock can be
+  // issued to and reviewed for people who have since left the project.
   const { data: employees = [] } = useQuery({
     queryKey: ['workforce-employees-all'],
-    queryFn: fetchAllEmployees,
+    queryFn: () => fetchAllEmployees({ includeInactive: true }),
     staleTime: 30000,
   });
 
@@ -231,6 +235,16 @@ export default function StockOut() {
       });
     }
 
+    // Employee status (Active / Inactive) — resolved from the live Master List
+    if (employeeStatusFilter) {
+      result = result.filter(t => {
+        const emp = t.employee_id ? employeeMap.get(t.employee_id) : null;
+        if (!emp) return false;
+        const inactive = employeeStatus(emp).inactive;
+        return employeeStatusFilter === 'inactive' ? inactive : !inactive;
+      });
+    }
+
     // Quantity range
     if (qtyMin !== '' || qtyMax !== '') {
       result = result.filter(t => {
@@ -253,9 +267,9 @@ export default function StockOut() {
     }
 
     return result.sort((a, b) => (b.transaction_date || '').localeCompare(a.transaction_date || ''));
-  }, [transactions, search, dateFrom, dateTo, categoryFilter, unitFilter, ivNoSearch, siteFilter, storeFilter, pidSearch, empNameSearch, qidSearch, companyFilter, departmentFilter, designationFilter, qtyMin, qtyMax, issuedByFilter, remarksSearch, employeeMap, itemMap]);
+  }, [transactions, search, dateFrom, dateTo, categoryFilter, unitFilter, ivNoSearch, siteFilter, storeFilter, pidSearch, empNameSearch, qidSearch, companyFilter, departmentFilter, designationFilter, employeeStatusFilter, qtyMin, qtyMax, issuedByFilter, remarksSearch, employeeMap, itemMap]);
 
-  const allFilterDeps = [search, dateFrom, dateTo, categoryFilter, unitFilter, ivNoSearch, siteFilter, storeFilter, pidSearch, empNameSearch, qidSearch, companyFilter, departmentFilter, designationFilter, qtyMin, qtyMax, issuedByFilter, remarksSearch];
+  const allFilterDeps = [search, dateFrom, dateTo, categoryFilter, unitFilter, ivNoSearch, siteFilter, storeFilter, pidSearch, empNameSearch, qidSearch, companyFilter, departmentFilter, designationFilter, employeeStatusFilter, qtyMin, qtyMax, issuedByFilter, remarksSearch];
   const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, allFilterDeps);
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const currentPage = Math.min(page, totalPages - 1);
@@ -274,6 +288,7 @@ export default function StockOut() {
     companyFilter.length > 0,
     departmentFilter.length > 0,
     designationFilter.length > 0,
+    employeeStatusFilter !== '',
     qtyMin !== '' || qtyMax !== '',
     issuedByFilter !== '',
     remarksSearch !== '',
@@ -288,6 +303,7 @@ export default function StockOut() {
     setSiteFilter([]); setStoreFilter([]);
     setPidSearch(''); setEmpNameSearch(''); setQidSearch('');
     setCompanyFilter([]); setDepartmentFilter([]); setDesignationFilter([]);
+    setEmployeeStatusFilter('');
     setQtyMin(''); setQtyMax('');
     setIssuedByFilter('');
     setRemarksSearch('');
@@ -364,6 +380,16 @@ export default function StockOut() {
           <FilterField label="Designation / Position">
             <MultiSelect options={designationOptions} value={designationFilter} onChange={setDesignationFilter} placeholder="All Designations" />
           </FilterField>
+          <FilterField label="Employee Status">
+            <Select value={employeeStatusFilter || 'all'} onValueChange={v => setEmployeeStatusFilter(v === 'all' ? '' : v)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Employees</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
           <FilterField label="Quantity">
             <FilterNumberRange min={qtyMin} max={qtyMax} onMin={setQtyMin} onMax={setQtyMax} />
           </FilterField>
@@ -413,6 +439,7 @@ export default function StockOut() {
                     <TableCell className="font-mono">{livePid || '—'}</TableCell>
                     <TableCell>
                       {liveName || '—'}
+                      {emp && employeeStatus(emp).inactive && <EmployeeStatusBadge employee={emp} className="ml-1 align-middle" />}
                       {unmatched && (
                         <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] text-amber-600 font-semibold">
                           <AlertTriangle className="w-3 h-3" /> Match Required

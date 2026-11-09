@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, UserRound, X } from 'lucide-react';
 import AnchoredDropdown from '@/components/common/AnchoredDropdown';
+import EmployeeStatusBadge from '@/components/inventory/EmployeeStatusBadge';
+import { employeeStatus } from '@/lib/inventoryEmployees';
 
 /**
  * The employee one issue line is handed to — searched against the Workforce
@@ -87,6 +89,7 @@ export default function LineEmployeePicker({ employees = [], value, onSelect, on
             >
               <UserRound className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate flex-1">{emp.name}</span>
+              {employeeStatus(emp).inactive && <EmployeeStatusBadge employee={emp} />}
               <span className="shrink-0 text-[10px] text-muted-foreground">
                 PID: {emp.pid || emp.staff_no || '—'}{emp.company ? ` • ${emp.company}` : ''}
               </span>

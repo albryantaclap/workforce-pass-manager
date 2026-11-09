@@ -78,6 +78,15 @@ export async function searchIssuanceEmployees({
 }
 
 /**
+ * IDs of every Master List record whose status is Inactive. Used by the
+ * inventory employee-status filters without loading the whole workforce.
+ */
+export async function fetchInactiveEmployeeIds() {
+  const result = await EMP.filter({ personnel_status: 'Inactive' }, { limit: 100000 });
+  return new Set((result.items || []).map(e => e.id));
+}
+
+/**
  * Build a map of employee_id → { itemCount, totalQty } from stock-out transactions.
  * Used by Employee Issuance to show issuance stats per employee without N+1 queries.
  */
