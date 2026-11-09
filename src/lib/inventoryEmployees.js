@@ -17,9 +17,29 @@ const EMP = base44.entities.Employee;
  */
 export async function fetchAllEmployees(options) {
   const includeInactive = options?.includeInactive === true;
-  const all = await EMP.list('-created_date', 100000);
+  const all = await fetchEveryEmployee();
   if (includeInactive) return all;
   return all.filter(e => e.is_active !== false && e.personnel_status !== 'Demobilized');
+}
+
+const EMPLOYEE_PAGE = 1000;
+
+/**
+ * Every Master List record, read page by page. A single read stops at the
+ * backend row cap (5,000), which silently dropped the oldest personnel — the
+ * inactive ones a stock-out or audit most often needs. Cursor paging reads the
+ * whole roster instead.
+ */
+async function fetchEveryEmployee() {
+  const all = [];
+  let cursor;
+  for (let guard = 0; guard < 40; guard += 1) {
+    const page = await EMP.filter({}, { sort: '-created_date', limit: EMPLOYEE_PAGE, ...(cursor ? { cursor } : {}) });
+    all.push(...(page.items || []));
+    if (!page.has_more || !page.next_cursor) break;
+    cursor = page.next_cursor;
+  }
+  return all;
 }
 
 /** Inactive = the Master List status is Inactive (is_active is kept in sync). */
