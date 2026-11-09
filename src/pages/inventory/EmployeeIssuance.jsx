@@ -8,13 +8,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Search, Eye, PackageX } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
-import { fetchAllEmployees, buildIssuanceStatsMap } from '@/lib/inventoryEmployees';
+import { searchIssuanceEmployees, buildIssuanceStatsMap } from '@/lib/inventoryEmployees';
 import { useRbac } from '@/lib/useRbac';
 import { useQuery } from '@tanstack/react-query';
 import EmployeeIssuanceDetailsDialog from '@/components/inventory/EmployeeIssuanceDetailsDialog';
+import EmployeeStatusBadge from '@/components/inventory/EmployeeStatusBadge';
 import PersonnelAvatar from '@/components/common/PersonnelAvatar';
 import Pagination from '@/components/inventory/Pagination';
 import { usePagination } from '@/hooks/usePagination';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useMasterListFilterOptions } from '@/hooks/useMasterListFilterOptions';
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All Employees' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
 
 export default function EmployeeIssuance() {
   const { transactions, warranties, isLoading: txnsLoading } = useInventoryData();
@@ -22,70 +31,46 @@ export default function EmployeeIssuance() {
   const [companyFilter, setCompanyFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [desigFilter, setDesigFilter] = useState('');
-  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [search, companyFilter, deptFilter, desigFilter]);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const debouncedSearch = useDebounce(search, 350);
+  const { page, setPage, rowsPerPage, setRowsPerPage } = usePagination(50, [
+    debouncedSearch, companyFilter, deptFilter, desigFilter, statusFilter,
+  ]);
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { can } = useRbac();
+  const canEditEntry = can('inventory.stock_out.edit');
 
-  // Load all employees from centralized Workforce Master List
-  const { data: employees = [], isLoading: empsLoading } = useQuery({
-    queryKey: ['workforce-employees-all'],
-    queryFn: fetchAllEmployees,
+  // One page of Master List employees — searched and filtered on the server so
+  // historical (Inactive) personnel stay reachable without loading the whole list.
+  const { data: empResult, isLoading: empsLoading } = useQuery({
+    queryKey: ['issuance-employees', debouncedSearch, companyFilter, deptFilter, desigFilter, statusFilter, page, rowsPerPage],
+    queryFn: () => searchIssuanceEmployees({
+      search: debouncedSearch,
+      company: companyFilter,
+      department: deptFilter,
+      designation: desigFilter,
+      status: statusFilter,
+      page,
+      rowsPerPage,
+    }),
     staleTime: 30000,
+    placeholderData: (previous) => previous,
   });
+
+  const employees = empResult?.items || [];
+  const totalEmployees = empResult?.total || 0;
+
+  // Filter option lists come from the lookups and the whole workforce, never
+  // from the current page of results.
+  const { companyOptions, departmentOptions, positionOptions } = useMasterListFilterOptions();
 
   // Build issuance stats map from transactions (single pass, no N+1)
   const issuanceStats = useMemo(() => buildIssuanceStatsMap(transactions), [transactions]);
 
-  // Extract filter options from employees
-  const companies = useMemo(() => {
-    const set = new Set();
-    employees.forEach(e => { if (e.company) set.add(e.company); });
-    return Array.from(set).sort();
-  }, [employees]);
-
-  const departments = useMemo(() => {
-    const set = new Set();
-    employees.forEach(e => { if (e.department) set.add(e.department); });
-    return Array.from(set).sort();
-  }, [employees]);
-
-  const designations = useMemo(() => {
-    const set = new Set();
-    employees.forEach(e => {
-      const d = e.position_application || e.designation_org_chart;
-      if (d) set.add(d);
-    });
-    return Array.from(set).sort();
-  }, [employees]);
-
-  // Filter employees
-  const filtered = useMemo(() => {
-    let result = employees;
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(e =>
-        (e.name || '').toLowerCase().includes(q) ||
-        String(e.pid || '').toLowerCase().includes(q) ||
-        String(e.qid_no || '').toLowerCase().includes(q) ||
-        (e.company || '').toLowerCase().includes(q)
-      );
-    }
-    if (companyFilter) result = result.filter(e => e.company === companyFilter);
-    if (deptFilter) result = result.filter(e => e.department === deptFilter);
-    if (desigFilter) {
-      result = result.filter(e =>
-        (e.position_application || e.designation_org_chart) === desigFilter
-      );
-    }
-    return result.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }, [employees, search, companyFilter, deptFilter, desigFilter]);
-
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const totalPages = Math.max(1, Math.ceil(totalEmployees / rowsPerPage));
   const currentPage = Math.min(page, totalPages - 1);
-  const pageData = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
-  const isFiltered = !!(search || companyFilter || deptFilter || desigFilter);
+  const isFiltered = !!(debouncedSearch || companyFilter || deptFilter || desigFilter || statusFilter !== 'all');
 
   const handleView = (emp) => {
     setSelectedEmp(emp);
@@ -98,7 +83,9 @@ export default function EmployeeIssuance() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Employee Issuance</h1>
-          <p className="text-sm text-muted-foreground mt-1">View all inventory/materials issued to individual personnel</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            View all inventory/materials issued to individual personnel — active and inactive
+          </p>
         </div>
         <PrintPageButton title="Employee Issuance" />
       </div>
@@ -110,36 +97,42 @@ export default function EmployeeIssuance() {
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search by Name, PID, QID, or Company..."
+            placeholder="Search by Name, QID, PID, Staff No., Company..."
             className="pl-9"
           />
         </div>
-        <Select value={companyFilter} onValueChange={v => setCompanyFilter(v === 'all' ? '' : v)}>
+        <Select value={companyFilter || 'all'} onValueChange={v => setCompanyFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Companies" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Companies</SelectItem>
-            {companies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {companyOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={deptFilter} onValueChange={v => setDeptFilter(v === 'all' ? '' : v)}>
+        <Select value={deptFilter || 'all'} onValueChange={v => setDeptFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Departments" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Departments</SelectItem>
-            {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+            {departmentOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={desigFilter} onValueChange={v => setDesigFilter(v === 'all' ? '' : v)}>
+        <Select value={desigFilter || 'all'} onValueChange={v => setDesigFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Designations" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Designations</SelectItem>
-            {designations.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+            {positionOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Employees" /></SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
 
       {/* Summary */}
       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <span><strong className="text-foreground">{filtered.length}</strong> employees</span>
+        <span><strong className="text-foreground">{totalEmployees}</strong> employees</span>
         <span>•</span>
         <span><strong className="text-foreground">{Array.from(issuanceStats.values()).filter(s => s.totalQty > 0).length}</strong> with issued items</span>
       </div>
@@ -163,14 +156,19 @@ export default function EmployeeIssuance() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pageData.map(emp => {
+              {employees.map(emp => {
                 const stats = issuanceStats.get(emp.id) || { itemCount: 0, totalQty: 0 };
                 return (
                   <TableRow key={emp.id}>
                     <TableCell className="p-2 text-center">
                       <PersonnelAvatar name={emp.name} photoUrl={emp.photo_url} size={8} />
                     </TableCell>
-                    <TableCell className="font-medium">{emp.name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">{emp.name}</span>
+                        <EmployeeStatusBadge employee={emp} />
+                      </div>
+                    </TableCell>
                     <TableCell className="font-mono">{emp.qid_no || '—'}</TableCell>
                     <TableCell className="font-mono">{emp.pid || '—'}</TableCell>
                     <TableCell>{emp.company || '—'}</TableCell>
@@ -203,7 +201,7 @@ export default function EmployeeIssuance() {
                   </TableRow>
                 );
               })}
-              {pageData.length === 0 && (
+              {employees.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                     {empsLoading || txnsLoading ? (
@@ -227,7 +225,7 @@ export default function EmployeeIssuance() {
         <Pagination
           page={currentPage}
           totalPages={totalPages}
-          totalRecords={filtered.length}
+          totalRecords={totalEmployees}
           rowsPerPage={rowsPerPage}
           onPageChange={setPage}
           onRowsPerPageChange={setRowsPerPage}
@@ -239,8 +237,8 @@ export default function EmployeeIssuance() {
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         employee={selectedEmp}
-        transactions={transactions}
         warranties={warranties}
+        canEdit={canEditEntry}
       />
     </div>
   );

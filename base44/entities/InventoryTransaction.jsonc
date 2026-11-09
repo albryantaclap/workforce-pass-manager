@@ -40,11 +40,16 @@
     },
     "quantity": {
       "type": "number",
-      "description": "Signed quantity: positive for STOCK_IN/RETURN, negative for STOCK_OUT, 0 for TRANSFER. Current stock = SUM(quantity) for an item."
+      "description": "Signed quantity: positive for STOCK_IN/RETURN, negative for STOCK_OUT, 0 for TRANSFER. Current stock = SUM(quantity) for an item. Historical issuance/return entries are always 0 so they never change available stock."
     },
     "quantity_abs": {
       "type": "number",
-      "description": "Absolute quantity value (always positive, for display)"
+      "description": "Absolute quantity value (always positive, for display). This is the quantity a historical entry documents."
+    },
+    "is_historical": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when the record documents an issue or return that happened before it was entered (historical data entry). Historical records carry quantity 0, so available stock is never changed by them; the documented quantity lives in quantity_abs."
     },
     "dn_no": {
       "type": "string",
@@ -159,7 +164,7 @@
     },
     "deleted_by": {
       "type": "string",
-      "description": "Email of user who soft-deleted this transaction"
+      "description": "Email of the user who soft-deleted this transaction"
     },
     "deletion_reason": {
       "type": "string",
@@ -206,6 +211,26 @@
           "reason": {
             "type": "string",
             "description": "Reason given for the correction"
+          },
+          "change_type": {
+            "type": "string",
+            "description": "What kind of change this entry records: Historical Entry, Historical Correction, Historical Return or Recorded Issue Correction"
+          },
+          "personnel_id": {
+            "type": "string",
+            "description": "Employee (Master List) record ID the entry belongs to \u2014 the stable key, never the mutable QID/PID"
+          },
+          "employee_name_snapshot": {
+            "type": "string",
+            "description": "Employee name at the moment of the change (audit snapshot)"
+          },
+          "item_id": {
+            "type": "string",
+            "description": "Inventory item record ID the entry belongs to"
+          },
+          "related_transaction_id": {
+            "type": "string",
+            "description": "Voucher / transaction this change relates to (the corrected line or the returned issue)"
           },
           "changes": {
             "type": "array",

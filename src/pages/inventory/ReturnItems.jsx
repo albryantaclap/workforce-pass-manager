@@ -22,7 +22,9 @@ export default function ReturnItems() {
 
   const stockOuts = useMemo(() => {
     return transactions
-      .filter(function (t) { return t.transaction_type === 'STOCK_OUT' && !t.is_deleted; })
+      // Historical lines never moved stock, so they are returned from Employee
+      // Issuance (where the return is documented, not counted) — never here.
+      .filter(function (t) { return t.transaction_type === 'STOCK_OUT' && !t.is_deleted && t.is_historical !== true; })
       .filter(function (t) {
         if (!search) return true;
         var q = search.toLowerCase();

@@ -8,7 +8,7 @@ import { searchItems } from '@/lib/inventoryService';
  * Searches by Item S.N. or Item Name (debounced, server-fetched).
  * Includes a "+ Create New Inventory Item" option at the top.
  */
-export default function ExistingItemSearch({ selectedItem, onSelectItem, onCreateNew }) {
+export default function ExistingItemSearch({ selectedItem, onSelectItem, onCreateNew, showCreateNew = true }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
@@ -101,14 +101,16 @@ export default function ExistingItemSearch({ selectedItem, onSelectItem, onCreat
           </div>
           <div className="max-h-60 overflow-y-auto p-1">
             {/* Create New option */}
-            <button
-              type="button"
-              onClick={handleCreateNew}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 outline-none border-b mb-1"
-            >
-              <Plus className="h-4 w-4 shrink-0" />
-              <span>Create New Inventory Item</span>
-            </button>
+            {showCreateNew && (
+              <button
+                type="button"
+                onClick={handleCreateNew}
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 outline-none border-b mb-1"
+              >
+                <Plus className="h-4 w-4 shrink-0" />
+                <span>Create New Inventory Item</span>
+              </button>
+            )}
 
             {/* Results */}
             {results.length === 0 && !loading ? (

@@ -152,7 +152,9 @@ export function calculateStockIn(transactions, itemId) {
  */
 export function calculateStockOut(transactions, itemId) {
   return transactions
-    .filter(t => t.item_id === itemId && !t.is_deleted && t.transaction_type === 'STOCK_OUT')
+    // Historical issuance entries document an issue that never moved stock —
+    // they are not part of the item's issued-from-store total.
+    .filter(t => t.item_id === itemId && !t.is_deleted && t.transaction_type === 'STOCK_OUT' && t.is_historical !== true)
     .reduce((sum, t) => sum + (t.quantity_abs || 0), 0);
 }
 
