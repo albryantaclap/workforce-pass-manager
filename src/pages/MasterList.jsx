@@ -21,7 +21,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { formatDate, exportData } from '@/utils/constants';
+import { formatDate, exportData, computePassStatus } from '@/utils/constants';
 import { useLookupOptions } from '@/hooks/useLookupOptions';
 import { useMasterListFilterOptions } from '@/hooks/useMasterListFilterOptions';
 import { useLatestCampStays } from '@/hooks/useLatestCampStays';
@@ -284,7 +284,9 @@ export default function MasterList() {
       FTW_Approved_Date: formatDate(e.ftw_approved_date), Medical_Result: e.ftw_result,
       Doctor: e.ftw_doctor, Doctor_Mobile: e.ftw_mobile,
       Gate_Pass_Submitted_Date: formatDate(e.gate_pass_issue_date), Gate_Pass_Received: formatDate(e.gate_pass_received_date),
-      Gate_Pass_Expiry: formatDate(e.gate_pass_expiry), Staff_No: e.staff_no, RLIC_Status: e.rlic_status,
+      Gate_Pass_Expiry: formatDate(e.gate_pass_expiry),
+      Gate_Pass_Status: computePassStatus(e.gate_pass_expiry, 'rlic', e.rlic_status),
+      Staff_No: e.staff_no, RLIC_Status: e.rlic_status,
       PID_No: e.pid, PID_Issue_Date: formatDate(e.pid_issue_date), PID_Expiry: formatDate(e.pid_expiry),
       PID_Projected_Date: formatDate(e.pid_projected_date), PID_Status: e.pid_status,
       Training_Date_Scheduled: formatDate(e.training_date_scheduled), Training_Date_Start: formatDate(e.training_date_start), Training_Date_End: formatDate(e.training_date_end), Training_Status: e.training_status,
