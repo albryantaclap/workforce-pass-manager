@@ -71,12 +71,17 @@ export default async function (req: Request): Promise<Response> {
         const unresolved = !resolved;
         return { record: r, emp, calcStatus, unresolved };
       })
-      // Personnel filters apply to resolvable employees only; an unresolved row
-      // is always kept so attendance can never disappear because a personnel
-      // record was deleted.
+      // Personnel filters apply to every row. When the personnel record is gone,
+      // the values stored on the attendance record itself (name, company) are
+      // matched instead of keeping the row unconditionally — that used to make a
+      // deleted person's attendance appear under any search term.
       .filter(({ record, unresolved }) => {
-        if (!allowedIds || unresolved) return true;
-        return allowedIds.has(record.personnel_id);
+        if (!allowedIds) return true;
+        if (!unresolved) return allowedIds.has(record.personnel_id);
+        return filterEmployees(
+          [{ id: record.personnel_id, name: record.employee_name, company: record.company }],
+          filters
+        ).length > 0;
       })
       .filter(({ record, calcStatus }) => {
         // Report type filter (uses calculated status)

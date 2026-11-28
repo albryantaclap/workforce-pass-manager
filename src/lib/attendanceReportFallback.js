@@ -72,7 +72,10 @@ export async function buildReportRowsLocally({
     const calcStatus = calculateDailyStatus(record, shift, settings, holidays, now);
     return { record, emp, calcStatus, unresolved: !resolved, scanned_by: scannedByFor(record) };
   })
-    .filter(({ emp, unresolved }) => unresolved || matchPersonnel(emp, filters))
+    // Personnel filters apply to EVERY row. When the personnel record is gone the
+    // values stored on the attendance record itself (name, company) are matched —
+    // keeping such rows unconditionally made them appear under any search term.
+    .filter(({ emp }) => matchPersonnel(emp, filters))
     .filter(({ record, calcStatus }) => {
       if (reportType === 'late') return calcStatus === 'Late' || record.is_late;
       if (reportType === 'absent') return calcStatus === 'Absent';
